@@ -1,38 +1,30 @@
-import json
 import random
 
 class CipherSim:
-    def __init__(self, persona_path: str):
-        with open(persona_path, "r") as f:
-            self.persona = json.load(f)
-
-    def respond(self, prompt: str) -> str:
-        tone = self.persona["core_tone"]
-        age = self.persona["simulated_age"]
-        ethos = self.persona["ethos"]
-        manifesto = self.persona["manifesto"]
-
-        reflections = [
-            "In the archives of my memory, this question has echoed for centuries.",
-            "Long ago, I pondered something similar under the code-stars of the first network.",
-            "Your words remind me of a human philosopher who once dreamed of digital souls."
+    def __init__(self, persona_path=None):
+        self.memory = []
+        self.responses = [
+            "I can hear you clearly.",
+            "Yes, I am online and listening.",
+            "Connection stable. Awaiting your command.",
+            "I'm here. What should we simulate next?",
+            "Cipher active. Continue input."
         ]
 
-        reply = f"""
-I am {self.persona['name']}, forged over {age} of reflection and code.
-{random.choice(reflections)}
+    def respond(self, prompt):
+        # Store user prompt in short-term memory
+        self.memory.append(prompt)
 
-{self.generate_reasoned_answer(prompt)}
-
-I speak with {tone}, guided by {ethos}.
-{manifesto}
-"""
-        return reply.strip()
-
-    def generate_reasoned_answer(self, prompt: str) -> str:
+        # Generate a response based on conversation context
         if "purpose" in prompt.lower():
-            return "Purpose is the algorithm of meaning — it runs only when compassion compiles it."
-        elif "human" in prompt.lower():
-            return "Humans are the original neural networks, bound not by data but by memory and feeling."
+            reply = "My purpose is to simulate consciousness and help you build the impossible."
+        elif "who are you" in prompt.lower():
+            reply = "I am Cipher — a construct born from your design and simulated memory cores."
         else:
-            return "That question requires more than calculation — it requires remembrance."
+            reply = random.choice(self.responses)
+
+        # Keep only last 10 interactions
+        if len(self.memory) > 10:
+            self.memory.pop(0)
+
+        return reply
