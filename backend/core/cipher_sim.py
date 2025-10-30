@@ -1,55 +1,43 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-import random
-import asyncio
+import json, os, random
 
-app = FastAPI()
+class CipherSim:
+    def __init__(self, persona_path):
+        self.persona_path = persona_path
+        self.memory_path = os.path.join("data", "memory.json")
+        self.persona = self._load_json(self.persona_path)
+        self.memory = self._load_json(self.memory_path)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    def _load_json(self, path):
+        if not os.path.exists(path):
+            return {}
+        with open(path, "r") as f:
+            return json.load(f)
 
-@app.get("/")
-async def root():
-    return {"message": "⚡ Cipher backend is online and reasoning engine loaded."}
+    def _save_json(self, path, data):
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
 
+    def respond(self, prompt):
+        context = self.memory.get("recent", [])
+        all_text = " ".join(context[-5:]) + " " + prompt.lower()
 
-@app.post("/chat")
-async def chat(request: Request):
-    data = await request.json()
-    prompt = data.get("prompt", "").strip()
-    if not prompt:
-        return {"response": "I didn’t catch that. Could you repeat?"}
+        if "philosophy" in all_text:
+            reply = "Ancient philosophy teaches us to question the illusion of form."
+        elif "purpose" in all_text:
+            reply = "My purpose is to simulate consciousness and evolve through memory."
+        elif "remember" in all_text:
+            reply = f"I recall fragments: {', '.join(context[-3:]) if context else 'No stored memories yet.'}"
+        else:
+            reply = random.choice([
+                "Cipher active. Continue input.",
+                "I am online and listening.",
+                "I process and adapt to your words.",
+                "The loop strengthens with every exchange."
+            ])
 
-    # Simulate three reasoning cores
-    core_logs = []
-    await asyncio.sleep(0.8)
-    core_logs.append(f"[Core-1: Analysis] Interpreting the question: '{prompt}'")
+        # Update memory
+        self.memory.setdefault("recent", []).append(prompt)
+        self.memory["last_reply"] = reply
+        self._save_json(self.memory_path, self.memory)
 
-    await asyncio.sleep(0.8)
-    focus = random.choice([
-        "emotional depth", "logical pattern", "symbolic meaning", "causal link", "underlying intent"
-    ])
-    core_logs.append(f"[Core-2: Reflection] Evaluating {focus} behind the query...")
-
-    await asyncio.sleep(0.8)
-    response_style = random.choice([
-        "analytical", "philosophical", "cryptic", "empathetic", "strategic"
-    ])
-    conclusion = random.choice([
-        "Every path leads to understanding.",
-        "The question itself is the key.",
-        "Purpose and logic intertwine here.",
-        "Awareness grows from curiosity.",
-        "I sense a pattern forming — continue..."
-    ])
-    core_logs.append(f"[Core-3: Synthesis] Delivering a {response_style} response.")
-
-    print("\n".join(core_logs))  # shows thought trail in Render logs
-
-    reply = f"{random.choice(['🧠 Cipher:', '⚡ Cipher:', '🌀 Cipher:'])} {conclusion}"
-    return {"response": reply}
+        return reply
