@@ -49,10 +49,7 @@ async def chat(request: Request):
     ])
     core_logs.append(f"[Core-3: Synthesis] Delivering a {response_style} response.")
 
-    # Construct the visible reply
+    print("\n".join(core_logs))  # shows thought trail in Render logs
+
     reply = f"{random.choice(['🧠 Cipher:', '⚡ Cipher:', '🌀 Cipher:'])} {conclusion}"
-
-    # Print reasoning trail to Render logs
-    print("\n".join(core_logs))
-
     return {"response": reply}
