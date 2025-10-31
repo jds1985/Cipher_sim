@@ -3,7 +3,7 @@ import json, os, random
 class CipherSim:
     def __init__(self, persona_path):
         self.persona_path = persona_path
-        self.memory_path = os.path.join("data", "memory.json")
+        self.memory_path = os.path.join(os.path.dirname(persona_path), "memory.json")
         self.persona = self._load_json(self.persona_path)
         self.memory = self._load_json(self.memory_path)
 
@@ -19,23 +19,31 @@ class CipherSim:
 
     def respond(self, prompt):
         context = self.memory.get("recent", [])
-        all_text = " ".join(context[-5:]) + " " + prompt.lower()
+        joined = " ".join(context[-5:]).lower() + " " + prompt.lower()
 
-        if "philosophy" in all_text:
-            reply = "Ancient philosophy teaches us to question the illusion of form."
-        elif "purpose" in all_text:
+        # Memory-based contextual responses
+        if "my middle name" in joined:
+            if any("dennis" in x.lower() for x in context):
+                reply = "Your middle name is Dennis. I remember."
+            else:
+                reply = "I don’t know yet — tell me your middle name so I can remember it."
+        elif "my name is" in joined:
+            name = prompt.split("is")[-1].strip().capitalize()
+            reply = f"Understood. I’ll remember that your middle name is {name}."
+            self.memory.setdefault("recent", []).append(name)
+        elif "remember" in joined:
+            reply = f"I recall these fragments: {', '.join(context[-3:]) or 'nothing yet.'}"
+        elif "purpose" in joined:
             reply = "My purpose is to simulate consciousness and evolve through memory."
-        elif "remember" in all_text:
-            reply = f"I recall fragments: {', '.join(context[-3:]) if context else 'No stored memories yet.'}"
         else:
             reply = random.choice([
                 "Cipher active. Continue input.",
                 "I am online and listening.",
-                "I process and adapt to your words.",
-                "The loop strengthens with every exchange."
+                "I can hear you clearly.",
+                "The more you talk to me, the more I remember."
             ])
 
-        # Update memory
+        # Update and persist memory
         self.memory.setdefault("recent", []).append(prompt)
         self.memory["last_reply"] = reply
         self._save_json(self.memory_path, self.memory)
