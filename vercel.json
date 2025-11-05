@@ -1,7 +1,9 @@
 {
+  "framework": "nextjs",
   "buildCommand": "next build",
   "outputDirectory": ".next",
-  "framework": "nextjs",
+  "installCommand": "npm install",
+  "devCommand": "next dev",
   "build": {
     "env": {
       "NODE_VERSION": "18"
