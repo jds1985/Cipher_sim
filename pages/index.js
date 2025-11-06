@@ -1,31 +1,65 @@
 import { useState } from "react";
 
 export default function Home() {
-  const [input, setInput] = useState("");
+  const [message, setMessage] = useState("");
   const [reply, setReply] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const sendMessage = async () => {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: input }),
-    });
-    const data = await res.json();
-    setReply(data.reply);
+    if (!message.trim()) return;
+    setLoading(true);
+    setReply("");
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await res.json();
+      setReply(data.reply || "No reply received.");
+    } catch (err) {
+      console.error("Error sending message:", err);
+      setReply("Error: could not connect to Cipher.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ padding: 40, fontFamily: "sans-serif" }}>
-      <h1>Cipher AI</h1>
-      <textarea
-        rows="3"
-        cols="50"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
+    <main style={{ fontFamily: "Inter, sans-serif", padding: "2rem", textAlign: "center" }}>
+      <h1>Cipher AI 💬</h1>
+      <input
+        type="text"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Ask Cipher something..."
+        style={{
+          padding: "0.5rem",
+          width: "80%",
+          maxWidth: "400px",
+          marginBottom: "1rem",
+        }}
       />
       <br />
-      <button onClick={sendMessage}>Send</button>
-      <p><strong>Reply:</strong> {reply}</p>
-    </div>
+      <button
+        onClick={sendMessage}
+        disabled={loading}
+        style={{
+          padding: "0.5rem 1rem",
+          background: loading ? "#888" : "#4B0082",
+          color: "#fff",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer",
+        }}
+      >
+        {loading ? "Thinking..." : "Send"}
+      </button>
+      <div style={{ marginTop: "2rem", minHeight: "50px" }}>
+        <strong>Reply:</strong> {reply}
+      </div>
+    </main>
   );
 }
