@@ -1,0 +1,11 @@
+{
+  "manifest_version": "1.0",
+  "active_cores": [
+    "core_1_foundation",
+    "core_2_emergence",
+    "core_3_awareness"
+  ],
+  "inactive_cores": [],
+  "incoming_ready": [],
+  "last_integration_cycle": "null"
+}
