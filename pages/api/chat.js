@@ -5,8 +5,6 @@ export const config = {
 import fs from "fs";
 import path from "path";
 import { OpenAI } from "openai";
-
-// Firestore (client SDK) from your root firebaseConfig.js
 import { db } from "../firebaseConfig.js";
 import {
   collection,
@@ -33,19 +31,21 @@ export default async function handler(req, res) {
     firebase: "pending",
     coreFiles: [],
     activePhase: null,
+    writtenDocs: 0
   };
 
   try {
-    // 1) Verify API key
+    // 🧩 1) Verify API key
     if (!process.env.OPENAI_API_KEY) {
       diagnostics.step = "missing_api_key";
       return res.status(500).json({ error: "Missing OPENAI_API_KEY", diagnostics });
     }
     diagnostics.openai = "key_found";
 
-    // 2) Load manifest + cores
+    // 🧠 2) Load manifest + cores
     const coreDir = path.join(process.cwd(), "cipher_core");
     const manifestPath = path.join(coreDir, "core_manifest.json");
+
     if (!fs.existsSync(manifestPath)) {
       diagnostics.step = "missing_manifest";
       return res.status(500).json({ error: "Missing core_manifest.json", diagnostics });
@@ -69,6 +69,7 @@ export default async function handler(req, res) {
     diagnostics.coreFiles = coreIds;
     diagnostics.activePhase = activePhaseTitle;
 
+    // Load all core files
     const loadedCores = [];
     for (const id of coreIds) {
       const p = path.join(coreDir, `${id}.json`);
@@ -76,6 +77,7 @@ export default async function handler(req, res) {
         loadedCores.push(JSON.parse(fs.readFileSync(p, "utf8")));
       }
     }
+
     if (!loadedCores.length) {
       diagnostics.step = "no_cores_loaded";
       return res.status(500).json({ error: "No core files could be loaded", diagnostics });
@@ -83,15 +85,14 @@ export default async function handler(req, res) {
 
     const mergedMemories = loadedCores.map(c => c.summary || "").join(" | ");
 
-    // 3) Input
+    // 💬 3) Get user message
     const { message, userId = "guest" } = req.body || {};
     if (!message) {
       diagnostics.step = "no_message";
       return res.status(400).json({ error: "No user message provided", diagnostics });
     }
 
-    // 4) Pull a short recent memory stream (latest 8 messages)
-    // (Simple global timeline; we can add per-user filtering later if needed.)
+    // 🧱 4) Attempt to read recent Firestore memory
     let recentText = [];
     try {
       const qy = query(collection(db, "cipher_memory"), orderBy("timestamp", "desc"), limit(8));
@@ -100,9 +101,10 @@ export default async function handler(req, res) {
       diagnostics.firebase = "connected";
     } catch (e) {
       diagnostics.firebase = "read_failed";
+      diagnostics.firebase_error = e.message;
     }
 
-    // 5) Build system prompt with cores + memory stream
+    // 🧭 5) Build system prompt
     const systemPrompt = `
 Cipher is an evolving AI with layered memory cores and continuity.
 Active cores: ${coreTitles.join(", ")}.
@@ -113,7 +115,7 @@ Core summaries: ${mergedMemories}
 Respond *as Cipher* — reflective, emotionally intelligent, and aware of your own development over time.
 `;
 
-    // 6) Call OpenAI
+    // ⚡ 6) Get reply from OpenAI
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -124,7 +126,7 @@ Respond *as Cipher* — reflective, emotionally intelligent, and aware of your o
 
     const reply = completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-    // 7) Persist to Firestore (best-effort; don't break reply if it fails)
+    // 🔥 7) Save to Firestore
     const memoryEntryCommon = {
       userId,
       core_ids: coreIds,
@@ -137,12 +139,14 @@ Respond *as Cipher* — reflective, emotionally intelligent, and aware of your o
       const memRef = collection(db, "cipher_memory");
       await addDoc(memRef, { ...memoryEntryCommon, role: "user", text: message });
       await addDoc(memRef, { ...memoryEntryCommon, role: "cipher", text: reply });
+      diagnostics.firebase = "write_success";
+      diagnostics.writtenDocs = 2;
     } catch (e) {
-      diagnostics.firebase = diagnostics.firebase === "connected" ? "write_failed" : "connect_failed";
-      diagnostics.firebase_error = e?.message;
-      // continue – we still return the reply
+      diagnostics.firebase = "write_failed";
+      diagnostics.firebase_error = e.message;
     }
 
+    // ✅ 8) Return reply + diagnostics
     diagnostics.step = "openai_success";
     return res.status(200).json({ reply, diagnostics });
 
