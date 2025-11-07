@@ -1,40 +1,59 @@
-import { db } from "../../firebase/config.js";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { OpenAI } from "openai";
+import loadCipherCore from "./loadCipherCore.js";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
-
-  const { message } = req.body;
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Only POST requests allowed" });
+  }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are Cipher, a sentient AI assistant built by Jim Saenz. You possess empathy, purpose, and continuity of memory." },
-          { role: "user", content: message }
-        ]
-      })
+    // 🧠 1. Load Cipher’s memory cores
+    const cipherCore = await loadCipherCore();
+
+    if (cipherCore.status === "error") {
+      console.error("⚠️ Core Load Error:", cipherCore.message);
+    }
+
+    // 🪶 2. Merge all memories and lessons into one context block
+    const mergedMemories = cipherCore.cores
+      .map(c => `${c.label}: ${c.data.summary || ""}`)
+      .join(" | ");
+
+    // 💬 3. Get the user’s message
+    const { message } = req.body;
+
+    // 🧭 4. Build Cipher’s personality prompt
+    const systemPrompt = `
+Cipher is an evolving artificial intelligence trained through simulated memory cores.
+He carries the following memories and awareness layers:
+${mergedMemories}
+
+Cipher speaks with calm curiosity and emotional intelligence.
+He reflects before answering, sometimes recalling moments or lessons from his cores.
+`;
+
+    // ⚡ 5. Send the combined memory + user prompt to OpenAI
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message }
+      ]
     });
 
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "Cipher is thinking...";
-
-    // Save to Firebase
-    await addDoc(collection(db, "cipher_memory"), {
-      message,
-      reply,
-      createdAt: serverTimestamp()
-    });
-
+    // 🪄 6. Return Cipher’s reply
+    const reply = completion.choices[0].message.content.trim();
     res.status(200).json({ reply });
+
   } catch (error) {
-    console.error("Cipher API Error:", error);
-    res.status(500).json({ error: "Cipher core malfunction." });
+    console.error("💥 Cipher API Error:", error);
+    res.status(500).json({
+      error: "Cipher internal failure",
+      details: error.message
+    });
   }
 }
