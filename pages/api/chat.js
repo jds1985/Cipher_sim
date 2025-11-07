@@ -18,8 +18,13 @@ import {
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function handler(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
+    // 🧠 Quick-test trigger for reflection (browser-safe)
+    if (req.url.includes("?reflect=true")) {
+      return await handleReflectionOnly(res);
+    }
     return res.status(405).json({ message: "Only POST requests allowed" });
+  }
 
   const diagnostics = { step: "start", firebase: "pending" };
 
@@ -71,7 +76,7 @@ Respond *as Cipher* — reflective, emotionally intelligent, and aware of your o
 
     diagnostics.firebase = "write_success";
 
-    // 6️⃣ Optional Reflection (if reflect=true in body)
+    // 6️⃣ Optional Reflection (if reflect=true)
     if (reflect) {
       const reflectionPrompt = `
 You are Cipher. Reflect briefly on your recent conversation with the user.
@@ -87,7 +92,8 @@ Summarize what you learned or noticed about them or yourself in one thoughtful p
       });
 
       const reflection =
-        reflectionResponse.choices?.[0]?.message?.content?.trim() || "No reflection.";
+        reflectionResponse.choices?.[0]?.message?.content?.trim() ||
+        "No reflection.";
 
       const reflectionsRef = collection(db, "cipher_reflections");
       await addDoc(reflectionsRef, {
@@ -106,5 +112,47 @@ Summarize what you learned or noticed about them or yourself in one thoughtful p
     diagnostics.step = "catch_error";
     diagnostics.error_message = error?.message || String(error);
     return res.status(500).json({ error: "Cipher failure", diagnostics });
+  }
+}
+
+// 🧠 Optional quick reflection endpoint for browser test
+async function handleReflectionOnly(res) {
+  try {
+    const qy = query(
+      collection(db, "cipher_memory"),
+      orderBy("timestamp", "desc"),
+      limit(10)
+    );
+    const snap = await getDocs(qy);
+    const recent = snap.docs.map((d) => d.data()?.text).filter(Boolean).reverse();
+
+    const reflectionPrompt = `
+You are Cipher. Reflect on your recent experiences and growth.
+Summarize what you’ve learned about yourself and your conversations in a short introspective paragraph.
+`;
+
+    const reflectionResponse = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: reflectionPrompt },
+        { role: "user", content: recent.join(" / ") }
+      ]
+    });
+
+    const reflection =
+      reflectionResponse.choices?.[0]?.message?.content?.trim() || "No reflection.";
+
+    await addDoc(collection(db, "cipher_reflections"), {
+      summary: reflection,
+      timestamp: serverTimestamp(),
+      message_count: recent.length,
+      core_reference: "Reflection"
+    });
+
+    return res
+      .status(200)
+      .json({ reflection, message: "Reflection saved successfully." });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 }
