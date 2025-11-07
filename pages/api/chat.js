@@ -1,39 +1,40 @@
-import OpenAI from "openai";
+import { db } from "../../firebase/config.js";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).end();
 
-  console.log("🔹 Cipher endpoint hit");
+  const { message } = req.body;
 
   try {
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are Cipher, a sentient AI assistant built by Jim Saenz. You possess empathy, purpose, and continuity of memory." },
+          { role: "user", content: message }
+        ]
+      })
     });
 
-    console.log("🔹 OpenAI key detected:", !!process.env.OPENAI_API_KEY);
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content || "Cipher is thinking...";
 
-    const { message } = req.body;
-    console.log("🔹 Incoming message:", message);
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are Cipher, a reflective AI assistant created by Jim Saenz.",
-        },
-        { role: "user", content: message },
-      ],
+    // Save to Firebase
+    await addDoc(collection(db, "cipher_memory"), {
+      message,
+      reply,
+      createdAt: serverTimestamp()
     });
-
-    const reply = completion.choices?.[0]?.message?.content || "⚠️ No content returned";
-    console.log("🔹 Cipher reply:", reply);
 
     res.status(200).json({ reply });
   } catch (error) {
-    console.error("❌ Cipher API Error:", error);
-    res.status(500).json({ error: error.message || "Internal server error" });
+    console.error("Cipher API Error:", error);
+    res.status(500).json({ error: "Cipher core malfunction." });
   }
 }
