@@ -1,22 +1,18 @@
 // firebaseConfig.js
-// Initializes Firebase for Cipher's memory persistence layer
-
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDiToKj76nxjfXWhLiXgDS6VE8K86OFfiQ",
+  apiKey: "AIzaSyDiToKj76nxjFXWhLx9DS6VE8K86OFiq",
   authDomain: "digisoul1111.firebaseapp.com",
   projectId: "digisoul1111",
   storageBucket: "digisoul1111.appspot.com",
-  messagingSenderId: "000000000000", // optional placeholder
-  appId: "1:000000000000:web:0000000000000000" // optional placeholder
+  messagingSenderId: "260537897412",
+  appId: "1:260537897412:web:5c9cd6462747cde2c5491"
 };
 
-// Initialize Firebase app
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// Initialize Firestore database
 const db = getFirestore(app);
 
 export { db };
