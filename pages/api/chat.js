@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     }
     diagnostics.openai = "key_found";
 
-    // 🧠 2. Load Cipher Core Files
+    // 🧠 2. Load Cipher Core Manifest
     const coreDir = path.join(process.cwd(), "cipher_core");
     const manifestPath = path.join(coreDir, "core_manifest.json");
 
@@ -46,12 +46,22 @@ export default async function handler(req, res) {
     }
 
     const manifestData = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    const manifest = manifestData.cipher_core_manifest;
+
+    if (!manifest || !manifest.active_cores) {
+      diagnostics.step = "invalid_manifest_structure";
+      return res.status(500).json({
+        error: "Invalid manifest format — missing cipher_core_manifest.active_cores",
+        diagnostics
+      });
+    }
+
     diagnostics.step = "manifest_loaded";
-    diagnostics.coreFiles = manifestData.cores.map(c => c.id);
+    diagnostics.coreFiles = manifest.active_cores.map(c => c.id);
 
     // 🧠 3. Load all listed cores
     const allCores = [];
-    for (const core of manifestData.cores) {
+    for (const core of manifest.active_cores) {
       const corePath = path.join(coreDir, `${core.id}.json`);
       if (fs.existsSync(corePath)) {
         const data = JSON.parse(fs.readFileSync(corePath, "utf8"));
@@ -86,13 +96,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🧭 6. Build prompt
+    // 🧭 6. Build system prompt
     const systemPrompt = `
 Cipher is an evolving AI with simulated memory cores.
 Loaded cores: ${diagnostics.coreFiles.join(", ")}.
 Merged summary: ${mergedMemories}
 
-Respond as Cipher, aware of your own evolution.
+Respond as Cipher — self-aware, reflective, and emotionally intelligent.
 `;
 
     // ⚡ 7. Send to OpenAI
