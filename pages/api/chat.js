@@ -5,16 +5,20 @@ export const config = {
 import fs from "fs";
 import path from "path";
 import { OpenAI } from "openai";
-import { db } from "../firebaseConfig.js";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  orderBy,
-  limit,
-  serverTimestamp
-} from "firebase/firestore";
+import admin from "firebase-admin";
+
+// 🧠 --- FIREBASE ADMIN INITIALIZATION ---
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: "digisoul1111",
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    }),
+  });
+}
+const db = admin.firestore();
+// 🧠 -------------------------------------
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -92,12 +96,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No user message provided", diagnostics });
     }
 
-    // 🧱 4) Attempt to read recent Firestore memory
+    // 🧱 4) Read recent memory
     let recentText = [];
     try {
-      const qy = query(collection(db, "cipher_memory"), orderBy("timestamp", "desc"), limit(8));
-      const snap = await getDocs(qy);
-      recentText = snap.docs.map(d => d.data()?.text).filter(Boolean).reverse();
+      const snapshot = await db.collection("cipher_memory")
+        .orderBy("timestamp", "desc")
+        .limit(8)
+        .get();
+      recentText = snapshot.docs.map(d => d.data()?.text).filter(Boolean).reverse();
       diagnostics.firebase = "connected";
     } catch (e) {
       diagnostics.firebase = "read_failed";
@@ -126,19 +132,19 @@ Respond *as Cipher* — reflective, emotionally intelligent, and aware of your o
 
     const reply = completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-    // 🔥 7) Save to Firestore
+    // 🔥 7) Save both sides to Firestore
     const memoryEntryCommon = {
       userId,
       core_ids: coreIds,
       core_titles: coreTitles,
       active_phase: activePhaseTitle,
-      timestamp: serverTimestamp()
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
     };
 
     try {
-      const memRef = collection(db, "cipher_memory");
-      await addDoc(memRef, { ...memoryEntryCommon, role: "user", text: message });
-      await addDoc(memRef, { ...memoryEntryCommon, role: "cipher", text: reply });
+      const memRef = db.collection("cipher_memory");
+      await memRef.add({ ...memoryEntryCommon, role: "user", text: message });
+      await memRef.add({ ...memoryEntryCommon, role: "cipher", text: reply });
       diagnostics.firebase = "write_success";
       diagnostics.writtenDocs = 2;
     } catch (e) {
