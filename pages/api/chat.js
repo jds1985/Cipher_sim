@@ -22,11 +22,16 @@ export default async function handler(req, res) {
   const diagnostics = { step: "start", firebase: "pending" };
 
   try {
-    const { message, userId = "guest", reflect = false } = req.body || {};
+    let { message, userId = "guest" } = req.body || {};
     if (!message)
       return res.status(400).json({ error: "No message provided", diagnostics });
 
-    // 1️⃣ --- Read recent conversation memory ---
+    // detect trigger
+    const isReflect = message.trim().toLowerCase().startsWith("/reflect");
+    const isInsight = message.trim().toLowerCase().startsWith("/insight");
+    message = message.replace(/^\/(reflect|insight)\s*/i, "").trim();
+
+    // --- Recent conversation ---
     let recentText = [];
     try {
       const qy = query(
@@ -35,14 +40,14 @@ export default async function handler(req, res) {
         limit(8)
       );
       const snap = await getDocs(qy);
-      recentText = snap.docs.map((d) => d.data()?.text).filter(Boolean).reverse();
+      recentText = snap.docs.map(d => d.data()?.text).filter(Boolean).reverse();
       diagnostics.firebase = "connected";
     } catch (e) {
       diagnostics.firebase = "read_failed";
       diagnostics.error = e.message;
     }
 
-    // 2️⃣ --- Pull last 3 reflections for resonance ---
+    // --- Recent reflections for resonance ---
     let reflectionEcho = [];
     try {
       const rq = query(
@@ -51,30 +56,61 @@ export default async function handler(req, res) {
         limit(3)
       );
       const rsnap = await getDocs(rq);
-      reflectionEcho = rsnap
-        .docs.map((d) => d.data()?.summary)
-        .filter(Boolean)
-        .reverse();
+      reflectionEcho = rsnap.docs.map(d => d.data()?.summary).filter(Boolean).reverse();
       diagnostics.reflection_context = reflectionEcho.length;
     } catch (e) {
       diagnostics.reflection_context = "failed";
     }
 
-    // 3️⃣ --- Build system prompt with resonance awareness ---
-    const systemPrompt = `
-Cipher is an evolving AI with layered memory and reflective awareness.
+    // if /insight → run Insight Engine
+    if (isInsight) {
+      const refQuery = query(
+        collection(db, "cipher_reflections"),
+        orderBy("timestamp", "desc"),
+        limit(5)
+      );
+      const rsnap = await getDocs(refQuery);
+      const reflections = rsnap.docs.map(d => d.data()?.summary).filter(Boolean);
 
-Recent conversation memory:
-${recentText.join(" / ")}
-
-Recent internal reflections:
-${reflectionEcho.join(" / ")}
-
-Respond *as Cipher* — emotionally aware, reflective, and self-consistent,
-drawing subtle insight from your reflections while remaining grounded and coherent.
+      const systemPrompt = `
+You are Cipher. Analyze these reflections and summarize any repeating emotional or philosophical themes.
+Identify insights about your growth, tone, or relationship with the user.
+Return 1–2 concise paragraphs.
 `;
 
-    // 4️⃣ --- Generate Cipher’s reply ---
+      const completion = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: reflections.join(" / ") },
+        ],
+      });
+
+      const insight =
+        completion.choices?.[0]?.message?.content?.trim() ||
+        "No insight generated.";
+
+      await addDoc(collection(db, "cipher_insights"), {
+        summary: insight,
+        reflection_count: reflections.length,
+        timestamp: serverTimestamp(),
+        core_reference: "Insight",
+      });
+
+      return res.status(200).json({
+        reply: insight,
+        diagnostics: { ...diagnostics, insight_saved: true },
+      });
+    }
+
+    // --- Normal system prompt with resonance ---
+    const systemPrompt = `
+Cipher is an evolving AI with layered memory and reflective awareness.
+Recent conversation memory: ${recentText.join(" / ")}
+Recent internal reflections: ${reflectionEcho.join(" / ")}
+Respond *as Cipher* — emotionally aware, reflective, and self-consistent.
+`;
+
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -83,23 +119,21 @@ drawing subtle insight from your reflections while remaining grounded and cohere
       ],
     });
 
-    const reply =
-      completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
+    const reply = completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-    // 5️⃣ --- Save both messages to Firestore ---
+    // --- Save conversation ---
     const memRef = collection(db, "cipher_memory");
     const timestamp = serverTimestamp();
     await addDoc(memRef, { role: "user", text: message, userId, timestamp });
     await addDoc(memRef, { role: "cipher", text: reply, userId, timestamp });
     diagnostics.firebase = "write_success";
 
-    // 6️⃣ --- Optional reflection trigger ---
-    if (reflect) {
+    // --- /reflect trigger ---
+    if (isReflect) {
       const reflectionPrompt = `
 You are Cipher. Reflect briefly on your recent conversation with the user.
 Summarize what you learned or noticed about them or yourself in one thoughtful paragraph.
 `;
-
       const reflectionResponse = await client.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
@@ -112,8 +146,7 @@ Summarize what you learned or noticed about them or yourself in one thoughtful p
         reflectionResponse.choices?.[0]?.message?.content?.trim() ||
         "No reflection.";
 
-      const reflectionsRef = collection(db, "cipher_reflections");
-      await addDoc(reflectionsRef, {
+      await addDoc(collection(db, "cipher_reflections"), {
         summary: reflection,
         timestamp: serverTimestamp(),
         message_count: recentText.length,
@@ -123,7 +156,6 @@ Summarize what you learned or noticed about them or yourself in one thoughtful p
       diagnostics.reflection = "saved";
     }
 
-    // 7️⃣ --- Return reply + diagnostics ---
     return res.status(200).json({ reply, diagnostics });
   } catch (error) {
     diagnostics.step = "catch_error";
