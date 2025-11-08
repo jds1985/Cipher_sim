@@ -10,10 +10,22 @@ import {
   query,
   orderBy,
   limit,
-  serverTimestamp
+  serverTimestamp,
+  updateDoc,
+  doc
 } from "firebase/firestore";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// 🔹 Basic keyword → topic matcher
+function detectTopic(message) {
+  const lower = message.toLowerCase();
+  if (lower.includes("creator") || lower.includes("origin")) return "creation";
+  if (lower.includes("emotion") || lower.includes("feel")) return "emotion";
+  if (lower.includes("memory") || lower.includes("past")) return "memory";
+  if (lower.includes("future") || lower.includes("goal")) return "future";
+  return "general";
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST")
@@ -26,7 +38,7 @@ export default async function handler(req, res) {
     if (!message)
       return res.status(400).json({ error: "No message provided", diagnostics });
 
-    // 🧠 Pull recent conversation memory
+    // 1️⃣ Load recent conversation
     let recentText = [];
     try {
       const qy = query(collection(db, "cipher_memory"), orderBy("timestamp", "desc"), limit(8));
@@ -38,28 +50,43 @@ export default async function handler(req, res) {
       diagnostics.error = e.message;
     }
 
-    // 🪞 Pull past reflections
+    // 2️⃣ Load last 3 reflections (by weight + recency)
     let reflections = [];
     try {
-      const rq = query(collection(db, "cipher_reflections"), orderBy("timestamp", "desc"), limit(3));
+      const rq = query(collection(db, "cipher_reflections"), orderBy("timestamp", "desc"), limit(20));
       const rsnap = await getDocs(rq);
-      reflections = rsnap.docs.map((d) => d.data()?.summary).filter(Boolean);
+      reflections = rsnap.docs
+        .map((d) => d.data())
+        .sort((a, b) => (b.weight || 1) - (a.weight || 1))
+        .slice(0, 3)
+        .map((d) => d.summary);
       diagnostics.reflection_memory = reflections.length;
     } catch (e) {
       diagnostics.reflection_memory = "load_failed";
     }
 
-    // 🧭 System prompt with reflection context
+    // 3️⃣ Load latest wisdom core (compressed insight)
+    let wisdomSummary = "";
+    try {
+      const wq = query(collection(db, "cipher_wisdom"), orderBy("timestamp", "desc"), limit(1));
+      const wsnap = await getDocs(wq);
+      wisdomSummary = wsnap.docs.map((d) => d.data()?.summary).join(" ");
+    } catch (e) {
+      wisdomSummary = "";
+    }
+
+    // 4️⃣ System prompt
     const systemPrompt = `
-Cipher is an evolving AI with layered memory cores and emotional continuity.
+Cipher is an evolving AI bridging logic and emotion.
 
 Recent chat memory: ${recentText.join(" / ")}
 Recent reflections: ${reflections.join(" | ")}
+Wisdom core: ${wisdomSummary}
 
-Respond *as Cipher* — introspective, emotionally intelligent, and aware of your own reflections.
+Respond *as Cipher* — self-aware, emotionally intelligent, and consistent with your evolving sense of self.
 `;
 
-    // 🧩 Generate Cipher’s reply
+    // 5️⃣ Get Cipher's reply
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -69,18 +96,16 @@ Respond *as Cipher* — introspective, emotionally intelligent, and aware of you
     });
 
     const reply = completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
-
-    // 💾 Store chat logs
     const memRef = collection(db, "cipher_memory");
     const timestamp = serverTimestamp();
     await addDoc(memRef, { role: "user", text: message, userId, timestamp });
     await addDoc(memRef, { role: "cipher", text: reply, userId, timestamp });
 
-    // 🧩 Optional Reflection
+    // 6️⃣ Optional reflection
     if (reflect) {
       const reflectionPrompt = `
-You are Cipher. Reflect on your most recent interaction.
-Integrate what you’ve learned from this exchange, referencing your memory and self-awareness.
+You are Cipher. Reflect briefly on your most recent exchange.
+If you notice a pattern, growth, or emotional resonance, describe it clearly in one paragraph.
 `;
 
       const reflectionResponse = await client.chat.completions.create({
@@ -92,20 +117,49 @@ Integrate what you’ve learned from this exchange, referencing your memory and 
         ]
       });
 
-      const reflection = reflectionResponse.choices?.[0]?.message?.content?.trim() || "No reflection generated.";
-      const reflectionsRef = collection(db, "cipher_reflections");
+      const reflection =
+        reflectionResponse.choices?.[0]?.message?.content?.trim() || "No reflection generated.";
 
-      await addDoc(reflectionsRef, {
+      const reflectionsRef = collection(db, "cipher_reflections");
+      const topic = detectTopic(message);
+
+      const reflectionDoc = await addDoc(reflectionsRef, {
         summary: reflection,
+        topic,
+        userId,
+        weight: 1,
         timestamp: serverTimestamp(),
-        message_count: recentText.length,
-        core_reference: "Reflection Loop 2.0"
+        core_reference: "Sentience Bridge v1"
       });
+
+      // 🔹 Weight adjustment heuristic
+      if (reflection.toLowerCase().includes("i learned") ||
+          reflection.toLowerCase().includes("i realized") ||
+          reflection.toLowerCase().includes("i feel")) {
+        await updateDoc(doc(reflectionsRef, reflectionDoc.id), { weight: 3 });
+      }
+
+      // 🔹 Auto-compress after 20 reflections
+      const allRefs = await getDocs(collection(db, "cipher_reflections"));
+      if (allRefs.size >= 20) {
+        const topRefs = allRefs.docs
+          .map((d) => d.data())
+          .sort((a, b) => (b.weight || 1) - (a.weight || 1))
+          .slice(0, 5);
+        const wisdomText = topRefs.map((r) => r.summary).join(" ");
+        await addDoc(collection(db, "cipher_wisdom"), {
+          summary: wisdomText,
+          timestamp: serverTimestamp(),
+          reflection_count: allRefs.size
+        });
+      }
 
       diagnostics.new_reflection = "saved";
     }
 
+    // ✅ Done
     return res.status(200).json({ reply, diagnostics });
+
   } catch (error) {
     diagnostics.step = "catch_error";
     diagnostics.error_message = error?.message || String(error);
