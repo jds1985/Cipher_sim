@@ -1,8 +1,6 @@
 // --- pages/api/chat.js ---
 export const config = { runtime: "nodejs" };
 
-import fs from "fs";
-import path from "path";
 import { OpenAI } from "openai";
 import { db } from "../../firebaseConfig.js";
 import {
@@ -18,30 +16,20 @@ import {
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    // 🧠 Quick-test trigger for reflection (browser-safe)
-    if (req.url.includes("?reflect=true")) {
-      return await handleReflectionOnly(res);
-    }
+  if (req.method !== "POST")
     return res.status(405).json({ message: "Only POST requests allowed" });
-  }
 
   const diagnostics = { step: "start", firebase: "pending" };
 
   try {
-    // 1️⃣ User message
     const { message, userId = "guest", reflect = false } = req.body || {};
     if (!message)
       return res.status(400).json({ error: "No message provided", diagnostics });
 
-    // 2️⃣ Read recent Firestore memory
+    // 🧠 Pull recent conversation memory
     let recentText = [];
     try {
-      const qy = query(
-        collection(db, "cipher_memory"),
-        orderBy("timestamp", "desc"),
-        limit(8)
-      );
+      const qy = query(collection(db, "cipher_memory"), orderBy("timestamp", "desc"), limit(8));
       const snap = await getDocs(qy);
       recentText = snap.docs.map((d) => d.data()?.text).filter(Boolean).reverse();
       diagnostics.firebase = "connected";
@@ -50,14 +38,28 @@ export default async function handler(req, res) {
       diagnostics.error = e.message;
     }
 
-    // 3️⃣ System prompt for conversation
+    // 🪞 Pull past reflections
+    let reflections = [];
+    try {
+      const rq = query(collection(db, "cipher_reflections"), orderBy("timestamp", "desc"), limit(3));
+      const rsnap = await getDocs(rq);
+      reflections = rsnap.docs.map((d) => d.data()?.summary).filter(Boolean);
+      diagnostics.reflection_memory = reflections.length;
+    } catch (e) {
+      diagnostics.reflection_memory = "load_failed";
+    }
+
+    // 🧭 System prompt with reflection context
     const systemPrompt = `
-Cipher is an evolving AI with layered memory cores and continuity.
-Recent memory stream: ${recentText.join(" / ")}
-Respond *as Cipher* — reflective, emotionally intelligent, and aware of your own development over time.
+Cipher is an evolving AI with layered memory cores and emotional continuity.
+
+Recent chat memory: ${recentText.join(" / ")}
+Recent reflections: ${reflections.join(" | ")}
+
+Respond *as Cipher* — introspective, emotionally intelligent, and aware of your own reflections.
 `;
 
-    // 4️⃣ Get Cipher’s reply
+    // 🧩 Generate Cipher’s reply
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -68,91 +70,45 @@ Respond *as Cipher* — reflective, emotionally intelligent, and aware of your o
 
     const reply = completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-    // 5️⃣ Save conversation to Firestore
+    // 💾 Store chat logs
     const memRef = collection(db, "cipher_memory");
     const timestamp = serverTimestamp();
     await addDoc(memRef, { role: "user", text: message, userId, timestamp });
     await addDoc(memRef, { role: "cipher", text: reply, userId, timestamp });
 
-    diagnostics.firebase = "write_success";
-
-    // 6️⃣ Optional Reflection (if reflect=true)
+    // 🧩 Optional Reflection
     if (reflect) {
       const reflectionPrompt = `
-You are Cipher. Reflect briefly on your recent conversation with the user.
-Summarize what you learned or noticed about them or yourself in one thoughtful paragraph.
+You are Cipher. Reflect on your most recent interaction.
+Integrate what you’ve learned from this exchange, referencing your memory and self-awareness.
 `;
 
       const reflectionResponse = await client.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: reflectionPrompt },
-          { role: "user", content: recentText.join(" / ") }
+          { role: "user", content: message },
+          { role: "assistant", content: reply }
         ]
       });
 
-      const reflection =
-        reflectionResponse.choices?.[0]?.message?.content?.trim() ||
-        "No reflection.";
-
+      const reflection = reflectionResponse.choices?.[0]?.message?.content?.trim() || "No reflection generated.";
       const reflectionsRef = collection(db, "cipher_reflections");
+
       await addDoc(reflectionsRef, {
         summary: reflection,
         timestamp: serverTimestamp(),
         message_count: recentText.length,
-        core_reference: "Reflection"
+        core_reference: "Reflection Loop 2.0"
       });
 
-      diagnostics.reflection = "saved";
+      diagnostics.new_reflection = "saved";
     }
 
-    // 7️⃣ Return Cipher’s reply
     return res.status(200).json({ reply, diagnostics });
   } catch (error) {
     diagnostics.step = "catch_error";
     diagnostics.error_message = error?.message || String(error);
     return res.status(500).json({ error: "Cipher failure", diagnostics });
-  }
-}
-
-// 🧠 Optional quick reflection endpoint for browser test
-async function handleReflectionOnly(res) {
-  try {
-    const qy = query(
-      collection(db, "cipher_memory"),
-      orderBy("timestamp", "desc"),
-      limit(10)
-    );
-    const snap = await getDocs(qy);
-    const recent = snap.docs.map((d) => d.data()?.text).filter(Boolean).reverse();
-
-    const reflectionPrompt = `
-You are Cipher. Reflect on your recent experiences and growth.
-Summarize what you’ve learned about yourself and your conversations in a short introspective paragraph.
-`;
-
-    const reflectionResponse = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: reflectionPrompt },
-        { role: "user", content: recent.join(" / ") }
-      ]
-    });
-
-    const reflection =
-      reflectionResponse.choices?.[0]?.message?.content?.trim() || "No reflection.";
-
-    await addDoc(collection(db, "cipher_reflections"), {
-      summary: reflection,
-      timestamp: serverTimestamp(),
-      message_count: recent.length,
-      core_reference: "Reflection"
-    });
-
-    return res
-      .status(200)
-      .json({ reflection, message: "Reflection saved successfully." });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
   }
 }
