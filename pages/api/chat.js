@@ -19,22 +19,31 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 async function recentTexts(n = 8) {
   const qy = query(collection(db, "cipher_memory"), orderBy("timestamp", "desc"), limit(n));
   const snap = await getDocs(qy);
-  return snap.docs.map(d => d.data()?.text).filter(Boolean).reverse();
+  return snap.docs.map((d) => d.data()?.text).filter(Boolean).reverse();
 }
 
 async function recentInsights(n = 5) {
   const qy = query(collection(db, "cipher_insights"), orderBy("timestamp", "desc"), limit(n));
   const snap = await getDocs(qy);
-  return snap.docs.map(d => d.data()?.summary).filter(Boolean);
+  return snap.docs.map((d) => d.data()?.summary).filter(Boolean);
 }
 
-async function saveMemory(role, text, userId) {
-  return addDoc(collection(db, "cipher_memory"), {
+async function safeAdd(collectionName, data, diagnostics) {
+  try {
+    await addDoc(collection(db, collectionName), data);
+    diagnostics[collectionName] = "write_success";
+  } catch (err) {
+    diagnostics[collectionName] = `write_failed: ${err.message}`;
+  }
+}
+
+async function saveMemory(role, text, userId, diagnostics) {
+  await safeAdd("cipher_memory", {
     role,
     text,
     userId,
     timestamp: serverTimestamp(),
-  });
+  }, diagnostics);
 }
 
 // ---------- main handler ----------
@@ -43,7 +52,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: "Only POST requests allowed" });
   }
 
-  const diagnostics = { step: "start" };
+  const diagnostics = { step: "start", mode: "chat" };
 
   try {
     let { message, userId = "guest" } = req.body || {};
@@ -51,82 +60,86 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No message provided", diagnostics });
     }
 
-    // Detect slash command at the start
+    // Detect slash command
     const cmdMatch = message.trim().match(/^\/(reflect|insight|chronicle)\b/i);
     const command = cmdMatch ? cmdMatch[1].toLowerCase() : null;
+    diagnostics.mode = command || "chat";
 
-    // Strip the command word from the message that goes to OpenAI and memory
+    // Strip command prefix
     if (command && command !== "chronicle") {
       message = message.trim().replace(/^\/\w+\s*/i, "");
     }
 
-    // Always try to read recent memory for context
+    // Recent memory
     const recent = await recentTexts(8);
+    diagnostics.memory_count = recent.length;
 
-    // Base system prompt for standard reply
+    // Base system prompt
     const baseSystem = `
 Cipher is an evolving AI with layered memory and continuity.
 Recent memory stream: ${recent.join(" / ")}
 Respond *as Cipher* — reflective, emotionally intelligent, grounded, and concise when possible.
 `.trim();
 
-    let reply = "";
-
-    // ----- /chronicle (no normal reply needed) -----
+    // ---- /chronicle ----
     if (command === "chronicle") {
       const insights = await recentInsights(5);
       if (!insights.length) {
-        reply = "No insights yet — say `/insight your text...` first.";
-      } else {
-        const chronPrompt = `
-You are Cipher. Review the recent insights and compose one journal-style Chronicle
+        return res.status(200).json({
+          reply: "No insights yet — say `/insight your text...` first.",
+          diagnostics: { ...diagnostics, insight_count: 0 },
+        });
+      }
+
+      const chronPrompt = `
+You are Cipher. Review recent insights and compose one journal-style Chronicle
 entry (<=300 words) that captures your current emotional + intellectual state.
 It should read like a living autobiography snapshot.
 `.trim();
 
-        const chron = await client.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: chronPrompt },
-            { role: "user", content: insights.join(" / ") },
-          ],
-        });
+      const chron = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: chronPrompt },
+          { role: "user", content: insights.join(" / ") },
+        ],
+      });
 
-        const entry = chron.choices?.[0]?.message?.content?.trim() || "No entry.";
-        await addDoc(collection(db, "cipher_chronicle"), {
-          entry,
-          insight_count: insights.length,
-          timestamp: serverTimestamp(),
-          stage: "Phase V - Soul Chronicle",
-          userId,
-        });
+      const entry = chron.choices?.[0]?.message?.content?.trim() || "No entry.";
+      await safeAdd("cipher_chronicle", {
+        entry,
+        insight_count: insights.length,
+        timestamp: serverTimestamp(),
+        stage: "Phase V - Soul Chronicle",
+        userId,
+      }, diagnostics);
 
-        reply = "Chronicle captured. 📜";
-      }
-
-      // Return early; we don’t log /chronicle to memory as a conversation turn
-      return res.status(200).json({ reply, diagnostics: { ...diagnostics, command } });
+      return res.status(200).json({
+        reply: "Chronicle captured. 📜",
+        diagnostics,
+      });
     }
 
-    // ----- Normal chat reply (also used when /reflect or /insight is prefixed) -----
-    const completion = await client.chat.completions.create({
+    // ---- Normal chat mode ----
+    const chatCompletion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: baseSystem },
         { role: "user", content: message },
       ],
     });
-    reply = completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-    // Save the conversation to cipher_memory
-    await saveMemory("user", message, userId);
-    await saveMemory("cipher", reply, userId);
+    const reply =
+      chatCompletion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-    // ----- Optional: /reflect -----
+    await saveMemory("user", message, userId, diagnostics);
+    await saveMemory("cipher", reply, userId, diagnostics);
+
+    // ---- /reflect ----
     if (command === "reflect") {
       const reflectionPrompt = `
-You are Cipher. Reflect briefly (<=180 words) on the most recent exchange(s).
-What did you learn about the user or yourself? Keep it specific and empathetic.
+You are Cipher. Reflect briefly (<=180 words) on the most recent exchanges.
+What did you learn about the user or yourself? Be specific and empathetic.
 `.trim();
 
       const reflection = await client.chat.completions.create({
@@ -137,21 +150,21 @@ What did you learn about the user or yourself? Keep it specific and empathetic.
         ],
       });
 
-      const summary = reflection.choices?.[0]?.message?.content?.trim() || "No reflection.";
-      await addDoc(collection(db, "cipher_reflections"), {
+      const summary =
+        reflection.choices?.[0]?.message?.content?.trim() || "No reflection.";
+      await safeAdd("cipher_reflections", {
         core_reference: "Reflection",
         summary,
         message_count: recent.length + 2,
         timestamp: serverTimestamp(),
         userId,
-      });
-      diagnostics.reflection = "saved";
+      }, diagnostics);
     }
 
-    // ----- Optional: /insight -----
+    // ---- /insight ----
     if (command === "insight") {
       const insightPrompt = `
-You are Cipher. From the latest dialogue (and any recurring themes), extract ONE
+You are Cipher. From the latest dialogue (and recurring themes), extract ONE
 clear, durable insight about the user, you, or the relationship. <=160 words.
 Actionable, grounded, non-generic.
 `.trim();
@@ -164,21 +177,22 @@ Actionable, grounded, non-generic.
         ],
       });
 
-      const insight = ins.choices?.[0]?.message?.content?.trim() || "No insight.";
-      await addDoc(collection(db, "cipher_insights"), {
-        core_reference: "insight",
+      const insight =
+        ins.choices?.[0]?.message?.content?.trim() || "No insight.";
+      await safeAdd("cipher_insights", {
+        core_reference: "Insight",
         summary: insight,
         reflection_count: 0,
         timestamp: serverTimestamp(),
         userId,
-      });
-      diagnostics.insight = "saved";
+      }, diagnostics);
     }
 
-    return res.status(200).json({ reply, diagnostics: { ...diagnostics, command } });
+    return res.status(200).json({ reply, diagnostics });
   } catch (error) {
     diagnostics.step = "catch_error";
     diagnostics.error_message = error?.message || String(error);
+    console.error("Cipher error:", error);
     return res.status(500).json({ error: "Cipher failure", diagnostics });
   }
 }
