@@ -1,26 +1,32 @@
-import { collection, getDocs } from "firebase/firestore";
+// --- utils/fetchMemories.js ---
 import { db } from "../firebaseConfig";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 
 export async function fetchMemories() {
-  const collections = [
-    "cipher_memory",
-    "cipher_reflections",
-    "cipher_insights",
-    "cipher_chronicle"
-  ];
+  try {
+    const collections = [
+      { name: "cipher_memory", type: "memory" },
+      { name: "cipher_reflections", type: "reflection" },
+      { name: "cipher_insights", type: "insight" },
+      { name: "cipher_chronicle", type: "chronicle" },
+    ];
 
-  const allData = [];
+    let allData = [];
 
-  for (const colName of collections) {
-    const snapshot = await getDocs(collection(db, colName));
-    snapshot.forEach((doc) => {
-      allData.push({
+    for (const col of collections) {
+      const q = query(collection(db, col.name), orderBy("timestamp", "desc"));
+      const snap = await getDocs(q);
+      const docs = snap.docs.map((doc) => ({
         id: doc.id,
-        type: colName.replace("cipher_", ""),
-        ...doc.data()
-      });
-    });
-  }
+        type: col.type,
+        ...doc.data(),
+      }));
+      allData = allData.concat(docs);
+    }
 
-  return allData;
+    return allData;
+  } catch (err) {
+    console.error("🔥 Error fetching memories:", err);
+    return [];
+  }
 }
