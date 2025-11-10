@@ -2,9 +2,10 @@ import { useEffect, useState, useRef } from "react";
 import { fetchMemories } from "../utils/fetchMemories";
 import dynamic from "next/dynamic";
 
+// ✅ Disable server-side rendering for ForceGraph2D
 const ForceGraph2D = dynamic(
   () => import("react-force-graph").then((mod) => mod.ForceGraph2D),
-  { ssr: false } // ✅ no server-side rendering for graph
+  { ssr: false }
 );
 
 export default function Archive() {
@@ -15,7 +16,7 @@ export default function Archive() {
   const canvasRef = useRef(null);
   const [isClient, setIsClient] = useState(false);
 
-  // ✅ Wait until in browser
+  // ✅ Ensure we’re in a browser environment
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -54,7 +55,7 @@ export default function Archive() {
     load();
   }, [isClient]);
 
-  // ✅ Safe Nebula animation (client only)
+  // ✅ Safe Nebula animation
   useEffect(() => {
     if (!isClient) return;
 
@@ -64,7 +65,6 @@ export default function Archive() {
 
     let w = (canvas.width = window.innerWidth);
     let h = (canvas.height = window.innerHeight);
-
     const colors = ["#6A5ACD", "#9B59B6", "#4B0082", "#301934", "#1A0033"];
     let t = 0;
     let animationFrameId;
@@ -102,8 +102,14 @@ export default function Archive() {
     };
   }, [isClient]);
 
-  // If server rendering, show placeholder
-  if (!isClient) return <div style={{ textAlign: "center", color: "white" }}>Loading Archive...</div>;
+  // ✅ Prevent server crash
+  if (!isClient) {
+    return (
+      <div style={{ textAlign: "center", color: "white", padding: "2rem" }}>
+        Loading Archive...
+      </div>
+    );
+  }
 
   return (
     <main
@@ -143,42 +149,44 @@ export default function Archive() {
         Zeo Archive – Living Nebula of Cipher 🌌
       </h1>
 
-      {/* Graph */}
-      <div style={{ position: "relative", zIndex: 1 }}>
-        <ForceGraph2D
-          graphData={{ nodes, links }}
-          nodeAutoColorBy="type"
-          linkColor={() => "rgba(255,255,255,0.1)"}
-          linkDirectionalParticles={selectedType ? 2 : 0}
-          linkDirectionalParticleWidth={selectedType ? 2 : 0}
-          nodeCanvasObject={(node, ctx, globalScale) => {
-            const baseRadius = 6;
-            const pulse = Math.sin(Date.now() / 400 + node.id) * 2 + baseRadius;
-            const color =
-              selectedType && node.type !== selectedType
-                ? "rgba(255,255,255,0.15)"
-                : node.color;
+      {/* ✅ Graph (client only) */}
+      {isClient && (
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <ForceGraph2D
+            graphData={{ nodes, links }}
+            nodeAutoColorBy="type"
+            linkColor={() => "rgba(255,255,255,0.1)"}
+            linkDirectionalParticles={selectedType ? 2 : 0}
+            linkDirectionalParticleWidth={selectedType ? 2 : 0}
+            nodeCanvasObject={(node, ctx, globalScale) => {
+              const baseRadius = 6;
+              const pulse = Math.sin(Date.now() / 400 + node.id) * 2 + baseRadius;
+              const color =
+                selectedType && node.type !== selectedType
+                  ? "rgba(255,255,255,0.15)"
+                  : node.color;
 
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, pulse, 0, 2 * Math.PI, false);
-            ctx.fillStyle = color;
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = color;
-            ctx.fill();
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, pulse, 0, 2 * Math.PI, false);
+              ctx.fillStyle = color;
+              ctx.shadowBlur = 25;
+              ctx.shadowColor = color;
+              ctx.fill();
 
-            const label = node.name;
-            const fontSize = 10 / globalScale;
-            ctx.font = `${fontSize}px Inter`;
-            ctx.textAlign = "center";
-            ctx.fillStyle = "#fff";
-            ctx.fillText(label, node.x, node.y - 10);
-          }}
-          onNodeClick={(node) => {
-            setSelectedNode(node);
-            setSelectedType(node.type === selectedType ? null : node.type);
-          }}
-        />
-      </div>
+              const label = node.name;
+              const fontSize = 10 / globalScale;
+              ctx.font = `${fontSize}px Inter`;
+              ctx.textAlign = "center";
+              ctx.fillStyle = "#fff";
+              ctx.fillText(label, node.x, node.y - 10);
+            }}
+            onNodeClick={(node) => {
+              setSelectedNode(node);
+              setSelectedType(node.type === selectedType ? null : node.type);
+            }}
+          />
+        </div>
+      )}
 
       {/* Info panel */}
       {selectedNode && (
