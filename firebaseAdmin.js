@@ -1,14 +1,13 @@
-// firebaseAdmin.js
-const admin = require("firebase-admin");
+import admin from "firebase-admin";
 
 if (!admin.apps.length) {
-  const json = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, "base64").toString("utf8");
-  const serviceAccount = JSON.parse(json);
-
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.cert(
+      JSON.parse(
+        Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, "base64").toString()
+      )
+    ),
   });
 }
 
-const db = admin.firestore();
-module.exports = { db, admin };
+export const db = admin.firestore();
