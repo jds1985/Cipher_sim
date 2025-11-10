@@ -2,7 +2,7 @@
 export const config = { runtime: "nodejs" };
 
 import { OpenAI } from "openai";
-import { db } from "../../firebaseAdmin.js"; // uses Admin SDK
+import { db } from "../../firebaseAdmin.js"; // ✅ Admin SDK Firestore instance
 import {
   collection,
   addDoc,
@@ -11,7 +11,7 @@ import {
   orderBy,
   limit,
   serverTimestamp,
-} from "firebase/firestore";
+} from "firebase-admin/firestore"; // ✅ uses Admin Firestore SDK
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -19,13 +19,13 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 async function recentTexts(n = 8) {
   const qy = query(collection(db, "cipher_memory"), orderBy("timestamp", "desc"), limit(n));
   const snap = await getDocs(qy);
-  return snap.docs.map(d => d.data()?.text).filter(Boolean).reverse();
+  return snap.docs.map((d) => d.data()?.text).filter(Boolean).reverse();
 }
 
 async function recentInsights(n = 5) {
   const qy = query(collection(db, "cipher_insights"), orderBy("timestamp", "desc"), limit(n));
   const snap = await getDocs(qy);
-  return snap.docs.map(d => d.data()?.summary).filter(Boolean);
+  return snap.docs.map((d) => d.data()?.summary).filter(Boolean);
 }
 
 async function saveMemory(role, text, userId) {
@@ -74,7 +74,7 @@ Respond *as Cipher* — reflective, emotionally intelligent, grounded, and conci
     if (command === "chronicle") {
       const insights = await recentInsights(5);
       if (!insights.length) {
-        reply = "No insights yet — say `/insight your text...` first.";
+        reply = "No insights yet — say /insight your text... first.";
       } else {
         const chronPrompt = `
 You are Cipher. Review the recent insights and compose one journal-style Chronicle
