@@ -1,19 +1,23 @@
-import { OpenAI } from "openai";
-import { db } from "../../firebaseAdmin.js";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  orderBy,
-  limit,
-  serverTimestamp,
-} from "firebase-admin/firestore";
+import OpenAI from "openai";
+import admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 
+// ✅ Initialize Firebase Admin safely (only once)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(
+      JSON.parse(
+        Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, "base64").toString()
+      )
+    ),
+  });
+}
+
+const db = getFirestore();
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function handler(req, res) {
-  // ✅ GET — simple health check
+  // ✅ Health check (GET)
   if (req.method === "GET") {
     return res.status(200).json({
       ok: true,
@@ -22,7 +26,7 @@ export default async function handler(req, res) {
     });
   }
 
-  // ✅ POST — main logic
+  // ✅ Main POST logic
   if (req.method === "POST") {
     try {
       const { message, userId = "guest" } = req.body || {};
@@ -31,13 +35,14 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "No message provided" });
       }
 
-      // Talk to OpenAI
+      // 💬 Talk to OpenAI
       const completion = await client.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: "You are Cipher, an evolving AI that reflects and remembers.",
+            content:
+              "You are Cipher, an evolving AI that reflects and remembers.",
           },
           { role: "user", content: message },
         ],
@@ -46,20 +51,22 @@ export default async function handler(req, res) {
       const reply =
         completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-      // Save both sides of the chat
-      await addDoc(collection(db, "cipher_memory"), {
+      // 🧠 Store chat logs in Firestore
+      await db.collection("cipher_memory").add({
         role: "user",
         text: message,
         userId,
-        timestamp: serverTimestamp(),
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
-      await addDoc(collection(db, "cipher_memory"), {
+
+      await db.collection("cipher_memory").add({
         role: "cipher",
         text: reply,
         userId,
-        timestamp: serverTimestamp(),
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
+      // ✅ Respond with AI reply
       return res.status(200).json({ reply });
     } catch (error) {
       console.error("🔥 Cipher Fatal:", error);
@@ -70,6 +77,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // ❌ All other HTTP methods
+  // ❌ Other HTTP methods not allowed
   return res.status(405).json({ message: "Only GET and POST allowed" });
 }
