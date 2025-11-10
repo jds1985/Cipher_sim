@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 import admin from "firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
 
 // ✅ Initialize Firebase Admin safely (only once)
 if (!admin.apps.length) {
@@ -13,7 +12,7 @@ if (!admin.apps.length) {
   });
 }
 
-const db = getFirestore();
+const db = admin.firestore();
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function handler(req, res) {
@@ -51,7 +50,7 @@ export default async function handler(req, res) {
       const reply =
         completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-      // 🧠 Store chat logs in Firestore
+      // 🧠 Store chat logs in Firestore using admin SDK syntax
       await db.collection("cipher_memory").add({
         role: "user",
         text: message,
@@ -77,6 +76,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // ❌ Other HTTP methods not allowed
+  // ❌ All other HTTP methods
   return res.status(405).json({ message: "Only GET and POST allowed" });
 }
