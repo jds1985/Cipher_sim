@@ -8,7 +8,6 @@ export default function Home() {
   const chatEndRef = useRef(null);
 
   useEffect(() => setIsClient(true), []);
-
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -19,13 +18,15 @@ export default function Home() {
       header: "rgba(91,44,242,0.85)",
       userBubble: "#5b2cf2",
       cipherBubble: "#eee",
+      cipherText: "#333",
       background: "radial-gradient(circle at center, #f8f5ff 0%, #ede7ff 50%, #e4dcff 100%)",
     },
     midnight: {
       name: "Midnight",
       header: "#0b0b3b",
       userBubble: "#1a1a6d",
-      cipherBubble: "#262646",
+      cipherBubble: "rgba(255, 255, 255, 0.1)", // translucent for readability
+      cipherText: "#f8f8ff", // bright white text
       background: "linear-gradient(180deg, #060613 0%, #0a0a2a 100%)",
     },
     aurora: {
@@ -33,13 +34,13 @@ export default function Home() {
       header: "linear-gradient(90deg, #00c6ff, #ff6ec4)",
       userBubble: "#00c6ff",
       cipherBubble: "#ffeffa",
+      cipherText: "#333",
       background: "linear-gradient(180deg, #d4fc79 0%, #96e6a1 100%)",
     },
   };
 
   async function sendMessage() {
     if (!message.trim()) return;
-
     const userMsg = { role: "user", text: message };
     setMessages((prev) => [...prev, userMsg, { role: "cipher", text: "..." }]);
     setMessage("");
@@ -50,7 +51,6 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });
-
       const data = await res.json();
       const reply = data.reply || "(no reply)";
       typeReply(reply);
@@ -64,7 +64,6 @@ export default function Home() {
     let i = 0;
     const speed = 25;
     updateLastCipherMessage("");
-
     const interval = setInterval(() => {
       setMessages((prev) => {
         const updated = [...prev];
@@ -89,9 +88,7 @@ export default function Home() {
   }
 
   const activeTheme = themes[theme];
-
-  if (!isClient)
-    return <div style={{ textAlign: "center", padding: "40px" }}>Loading Cipher...</div>;
+  if (!isClient) return <div style={{ textAlign: "center", padding: "40px" }}>Loading Cipher...</div>;
 
   return (
     <div
@@ -168,17 +165,21 @@ export default function Home() {
             key={i}
             style={{
               alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-              background: msg.role === "user" ? activeTheme.userBubble : activeTheme.cipherBubble,
-              color: msg.role === "user" ? "#fff" : "#333",
+              background:
+                msg.role === "user" ? activeTheme.userBubble : activeTheme.cipherBubble,
+              color:
+                msg.role === "user" ? "#fff" : activeTheme.cipherText,
               padding: "12px 16px",
-              borderRadius: msg.role === "user"
-                ? "18px 18px 4px 18px"
-                : "18px 18px 18px 4px",
+              borderRadius:
+                msg.role === "user"
+                  ? "18px 18px 4px 18px"
+                  : "18px 18px 18px 4px",
               maxWidth: "75%",
               marginBottom: "8px",
-              boxShadow: msg.role === "cipher"
-                ? "0 2px 8px rgba(91,44,242,0.2)"
-                : "0 2px 8px rgba(0,0,0,0.15)",
+              boxShadow:
+                msg.role === "cipher"
+                  ? "0 2px 8px rgba(91,44,242,0.3)"
+                  : "0 2px 8px rgba(0,0,0,0.15)",
               fontSize: "16px",
               lineHeight: "1.4",
               animation: "fadeIn 0.3s ease-in-out",
