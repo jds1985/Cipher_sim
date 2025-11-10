@@ -2,7 +2,7 @@
 export const config = { runtime: "nodejs" };
 
 import { OpenAI } from "openai";
-import { db } from "../../firebaseAdmin.js";
+const { db } = require("../../firebaseAdmin.js");
 import {
   collection,
   addDoc,
