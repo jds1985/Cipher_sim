@@ -1,4 +1,4 @@
-// /public/chat.js
+// /api/chat.js
 
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.querySelector("input");
