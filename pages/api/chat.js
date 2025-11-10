@@ -1,9 +1,9 @@
 // /pages/api/chat.js
 export const config = { runtime: "nodejs" };
 
-import { OpenAI } from "openai";
+const { OpenAI } = require("openai");
 const { db } = require("../../firebaseAdmin.js");
-import {
+const {
   collection,
   addDoc,
   getDocs,
@@ -11,7 +11,7 @@ import {
   orderBy,
   limit,
   serverTimestamp,
-} from "firebase-admin/firestore";
+} = require("firebase-admin/firestore");
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -19,13 +19,13 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 async function recentTexts(n = 8) {
   const qy = query(collection(db, "cipher_memory"), orderBy("timestamp", "desc"), limit(n));
   const snap = await getDocs(qy);
-  return snap.docs.map(d => d.data()?.text).filter(Boolean).reverse();
+  return snap.docs.map((d) => d.data()?.text).filter(Boolean).reverse();
 }
 
 async function recentInsights(n = 5) {
   const qy = query(collection(db, "cipher_insights"), orderBy("timestamp", "desc"), limit(n));
   const snap = await getDocs(qy);
-  return snap.docs.map(d => d.data()?.summary).filter(Boolean);
+  return snap.docs.map((d) => d.data()?.summary).filter(Boolean);
 }
 
 async function saveMemory(role, text, userId) {
@@ -38,8 +38,8 @@ async function saveMemory(role, text, userId) {
 }
 
 // ---------- main handler ----------
-export default async function handler(req, res) {
-  // Health check (helps avoid 401s in logs)
+module.exports = async function handler(req, res) {
+  // Health check endpoint
   if (req.method === "GET") {
     return res.status(200).json({
       ok: true,
@@ -61,9 +61,7 @@ export default async function handler(req, res) {
       userId,
       env: {
         hasOPENAI: !!process.env.OPENAI_API_KEY,
-        hasFBProj: !!process.env.FIREBASE_PROJECT_ID,
-        hasFBEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
-        hasFBKey: !!process.env.FIREBASE_PRIVATE_KEY,
+        hasFBService: !!process.env.FIREBASE_SERVICE_ACCOUNT_B64,
       },
     });
 
@@ -92,7 +90,7 @@ Respond *as Cipher* — reflective, emotionally intelligent, grounded, and conci
     if (command === "chronicle") {
       const insights = await recentInsights(5);
       if (!insights.length) {
-        reply = "No insights yet — say \\/insight your text... first.";
+        reply = "No insights yet — say `/insight your text...` first.";
       } else {
         const chronPrompt = `
 You are Cipher. Review the recent insights and compose one journal-style Chronicle
@@ -132,9 +130,9 @@ It should read like a living autobiography snapshot.
         { role: "user", content: message },
       ],
     });
+
     reply = completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-    // Save to memory
     await saveMemory("user", message, userId);
     await saveMemory("cipher", reply, userId);
 
@@ -201,4 +199,4 @@ Actionable, grounded, non-generic.
     diagnostics.error_message = error?.message || String(error);
     return res.status(500).json({ error: "Cipher failure", diagnostics });
   }
-}
+};
