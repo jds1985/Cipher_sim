@@ -1,22 +1,14 @@
 // firebaseAdmin.js
-import admin from "firebase-admin";
+const admin = require("firebase-admin");
 
-const serviceKey = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-};
-
-// Only initialize once
 if (!admin.apps.length) {
+  const json = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, "base64").toString("utf8");
+  const serviceAccount = JSON.parse(json);
+
   admin.initializeApp({
-    credential: admin.credential.cert(serviceKey),
+    credential: admin.credential.cert(serviceAccount),
   });
-  console.log("✅ Firebase Admin initialized");
 }
 
 const db = admin.firestore();
-
-console.log("✅ Firestore ready (exporting db)");
-
 module.exports = { db, admin };
