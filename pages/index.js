@@ -171,13 +171,18 @@ export default function Home() {
               background: msg.role === "user" ? activeTheme.userBubble : activeTheme.cipherBubble,
               color: msg.role === "user" ? "#fff" : "#333",
               padding: "12px 16px",
-              borderRadius: "18px",
+              borderRadius: msg.role === "user"
+                ? "18px 18px 4px 18px"
+                : "18px 18px 18px 4px",
               maxWidth: "75%",
-              marginBottom: "10px",
-              boxShadow: msg.role === "cipher" ? "0 2px 8px rgba(91,44,242,0.2)" : "none",
+              marginBottom: "8px",
+              boxShadow: msg.role === "cipher"
+                ? "0 2px 8px rgba(91,44,242,0.2)"
+                : "0 2px 8px rgba(0,0,0,0.15)",
               fontSize: "16px",
               lineHeight: "1.4",
               animation: "fadeIn 0.3s ease-in-out",
+              wordBreak: "break-word",
             }}
           >
             {msg.text}
