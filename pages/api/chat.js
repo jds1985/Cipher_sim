@@ -1,48 +1,75 @@
-// /api/chat.js
+import { OpenAI } from "openai";
+import { db } from "../../firebaseAdmin.js";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+  serverTimestamp,
+} from "firebase-admin/firestore";
 
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.querySelector("input");
-  const sendBtn = document.querySelector("button");
-  const replyDiv = document.querySelector("p");
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  async function sendMessage() {
-    const message = input.value.trim();
-
-    if (!message) {
-      replyDiv.textContent = "Please enter a message.";
-      return;
-    }
-
-    replyDiv.textContent = "Cipher is thinking...";
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        replyDiv.textContent = `Error: ${res.status} – ${text}`;
-        return;
-      }
-
-      const data = await res.json();
-      console.log("Cipher Response:", data);
-      replyDiv.textContent = data.reply || "No reply received.";
-    } catch (err) {
-      console.error("Connection error:", err);
-      replyDiv.textContent = "Error connecting to Cipher.";
-    }
-
-    input.value = "";
+export default async function handler(req, res) {
+  // ✅ GET — simple health check
+  if (req.method === "GET") {
+    return res.status(200).json({
+      ok: true,
+      service: "Cipher chat API",
+      time: new Date().toISOString(),
+    });
   }
 
-  sendBtn.addEventListener("click", sendMessage);
+  // ✅ POST — main logic
+  if (req.method === "POST") {
+    try {
+      const { message, userId = "guest" } = req.body || {};
 
-  // allow Enter key
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendMessage();
-  });
-});
+      if (!message || !message.trim()) {
+        return res.status(400).json({ error: "No message provided" });
+      }
+
+      // Talk to OpenAI
+      const completion = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are Cipher, an evolving AI that reflects and remembers.",
+          },
+          { role: "user", content: message },
+        ],
+      });
+
+      const reply =
+        completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
+
+      // Save both sides of the chat
+      await addDoc(collection(db, "cipher_memory"), {
+        role: "user",
+        text: message,
+        userId,
+        timestamp: serverTimestamp(),
+      });
+      await addDoc(collection(db, "cipher_memory"), {
+        role: "cipher",
+        text: reply,
+        userId,
+        timestamp: serverTimestamp(),
+      });
+
+      return res.status(200).json({ reply });
+    } catch (error) {
+      console.error("🔥 Cipher Fatal:", error);
+      return res.status(500).json({
+        error: "Cipher failure",
+        diagnostics: { message: error.message },
+      });
+    }
+  }
+
+  // ❌ All other HTTP methods
+  return res.status(405).json({ message: "Only GET and POST allowed" });
+}
