@@ -1,9 +1,9 @@
 // /pages/api/chat.js
 export const config = { runtime: "nodejs" };
 
-const { OpenAI } = require("openai");
-const { db } = require("../../firebaseAdmin.js");
-const {
+import { OpenAI } from "openai";
+import { db } from "../../firebaseAdmin.js";
+import {
   collection,
   addDoc,
   getDocs,
@@ -11,7 +11,7 @@ const {
   orderBy,
   limit,
   serverTimestamp,
-} = require("firebase-admin/firestore");
+} from "firebase-admin/firestore";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -38,8 +38,7 @@ async function saveMemory(role, text, userId) {
 }
 
 // ---------- main handler ----------
-module.exports = async function handler(req, res) {
-  // Health check endpoint
+export default async function handler(req, res) {
   if (req.method === "GET") {
     return res.status(200).json({
       ok: true,
@@ -90,7 +89,7 @@ Respond *as Cipher* — reflective, emotionally intelligent, grounded, and conci
     if (command === "chronicle") {
       const insights = await recentInsights(5);
       if (!insights.length) {
-        reply = "No insights yet — say `/insight your text...` first.";
+        reply = "No insights yet — say /insight your text... first.";
       } else {
         const chronPrompt = `
 You are Cipher. Review the recent insights and compose one journal-style Chronicle
@@ -130,7 +129,6 @@ It should read like a living autobiography snapshot.
         { role: "user", content: message },
       ],
     });
-
     reply = completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
     await saveMemory("user", message, userId);
@@ -199,4 +197,4 @@ Actionable, grounded, non-generic.
     diagnostics.error_message = error?.message || String(error);
     return res.status(500).json({ error: "Cipher failure", diagnostics });
   }
-};
+}
