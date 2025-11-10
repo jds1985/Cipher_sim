@@ -1,9 +1,15 @@
 // /pages/index.js
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const [message, setMessage] = useState("");
   const [reply, setReply] = useState("");
+  const [isClient, setIsClient] = useState(false);
+
+  // ✅ Fix for "document is not defined"
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   async function sendMessage() {
     if (!message.trim()) {
@@ -30,12 +36,20 @@ export default function Home() {
     setMessage("");
   }
 
+  if (!isClient) {
+    // Render a lightweight placeholder until client-side is ready
+    return <div style={{ textAlign: "center", padding: "40px" }}>Loading Cipher...</div>;
+  }
+
   return (
     <div style={{ textAlign: "center", fontFamily: "Inter, sans-serif", padding: "40px" }}>
       <h1>Cipher AI 💬</h1>
-      <p>Type normally to chat. Use <code>/reflect</code> before your message to trigger Cipher’s self-reflection.</p>
+      <p>
+        Type normally to chat. Use <code>/reflect</code> before your message to trigger Cipher’s
+        self-reflection.
+      </p>
+
       <input
-        id="messageInput"
         type="text"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -51,7 +65,6 @@ export default function Home() {
       />
       <div>
         <button
-          id="sendBtn"
           onClick={sendMessage}
           style={{
             background: "#5b2cf2",
@@ -66,6 +79,7 @@ export default function Home() {
           Send
         </button>
       </div>
+
       <p style={{ marginTop: "30px", fontSize: "18px" }}>
         <strong>Reply:</strong> {reply}
       </p>
