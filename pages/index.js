@@ -1,41 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function Home() {
   const [message, setMessage] = useState("");
-  const [reply, setReply] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [displayedReply, setDisplayedReply] = useState("");
+  const [messages, setMessages] = useState([]);
   const [isClient, setIsClient] = useState(false);
+  const chatEndRef = useRef(null);
 
+  useEffect(() => setIsClient(true), []);
+
+  // Auto-scroll to latest message
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Typewriter effect
-  useEffect(() => {
-    if (!reply) return;
-    setDisplayedReply("");
-    setIsTyping(true);
-
-    let i = 0;
-    const interval = setInterval(() => {
-      setDisplayedReply((prev) => prev + reply.charAt(i));
-      i++;
-      if (i >= reply.length) {
-        clearInterval(interval);
-        setIsTyping(false);
-      }
-    }, 25); // typing speed in ms
-
-    return () => clearInterval(interval);
-  }, [reply]);
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   async function sendMessage() {
     if (!message.trim()) return;
 
-    setReply("");
-    setDisplayedReply("");
-    setIsTyping(true);
+    const userMsg = { role: "user", text: message };
+    setMessages((prev) => [...prev, userMsg, { role: "cipher", text: "..." }]);
+    setMessage("");
 
     try {
       const res = await fetch("/api/chat", {
@@ -45,118 +28,159 @@ export default function Home() {
       });
 
       const data = await res.json();
-      setReply(data.reply || "(no reply)");
+      const reply = data.reply || "(no reply)";
+      typeReply(reply);
     } catch (err) {
       console.error("Error:", err);
-      setReply("⚠️ Cipher encountered a connection issue.");
+      updateLastCipherMessage("⚠️ Connection issue.");
     }
-
-    setMessage("");
   }
 
-  if (!isClient) {
-    return <div style={{ textAlign: "center", padding: "40px" }}>Loading Cipher...</div>;
+  // Typewriter effect for Cipher
+  function typeReply(text) {
+    let i = 0;
+    const speed = 25;
+    updateLastCipherMessage("");
+
+    const interval = setInterval(() => {
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last.role === "cipher") {
+          last.text = text.slice(0, i + 1);
+        }
+        return updated;
+      });
+      i++;
+      if (i >= text.length) clearInterval(interval);
+    }, speed);
   }
+
+  function updateLastCipherMessage(text) {
+    setMessages((prev) => {
+      const updated = [...prev];
+      const last = updated[updated.length - 1];
+      if (last.role === "cipher") last.text = text;
+      return updated;
+    });
+  }
+
+  if (!isClient) return <div style={{ textAlign: "center", padding: "40px" }}>Loading Cipher...</div>;
 
   return (
     <div
       style={{
-        textAlign: "center",
         fontFamily: "Inter, sans-serif",
-        padding: "40px",
-        minHeight: "100vh",
-        background:
-          "radial-gradient(circle at center, #f8f5ff 0%, #ede7ff 50%, #e4dcff 100%)",
-        transition: "background 1s ease-in-out",
+        background: "radial-gradient(circle at center, #f8f5ff 0%, #ede7ff 50%, #e4dcff 100%)",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      <h1
+      {/* Header */}
+      <div
         style={{
-          fontSize: "2.5rem",
-          color: "#3a1b9a",
-          marginBottom: "10px",
+          textAlign: "center",
+          padding: "20px 0",
+          background: "rgba(91, 44, 242, 0.8)",
+          color: "white",
+          fontSize: "1.6rem",
+          fontWeight: "600",
+          letterSpacing: "0.5px",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
         }}
       >
         Cipher AI 💬
-      </h1>
-      <p style={{ fontSize: "16px", color: "#444" }}>
-        Type normally to chat. Use <code>/reflect</code> before your message to trigger Cipher’s
-        self-reflection.
-      </p>
+      </div>
 
-      <div style={{ marginTop: "25px" }}>
+      {/* Chat Window */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "20px",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            style={{
+              alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+              background: msg.role === "user" ? "#5b2cf2" : "#eee",
+              color: msg.role === "user" ? "#fff" : "#333",
+              padding: "12px 16px",
+              borderRadius: "18px",
+              maxWidth: "75%",
+              marginBottom: "10px",
+              boxShadow: msg.role === "cipher" ? "0 2px 8px rgba(91,44,242,0.2)" : "none",
+              fontSize: "16px",
+              lineHeight: "1.4",
+              animation: "fadeIn 0.3s ease-in-out",
+            }}
+          >
+            {msg.text}
+          </div>
+        ))}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Input Area */}
+      <div
+        style={{
+          padding: "20px",
+          borderTop: "1px solid #ddd",
+          background: "#fff",
+          display: "flex",
+          justifyContent: "center",
+          gap: "10px",
+        }}
+      >
         <input
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           placeholder="Type a message..."
           style={{
-            padding: "10px",
-            width: "300px",
-            fontSize: "16px",
-            borderRadius: "8px",
+            flex: 1,
+            padding: "12px",
+            borderRadius: "10px",
             border: "1px solid #ccc",
+            fontSize: "16px",
             outline: "none",
-            boxShadow: "0 0 6px rgba(91, 44, 242, 0.2)",
+            boxShadow: "0 0 5px rgba(91,44,242,0.2)",
           }}
         />
-        <div>
-          <button
-            onClick={sendMessage}
-            style={{
-              background: "#5b2cf2",
-              color: "#fff",
-              border: "none",
-              padding: "10px 20px",
-              marginTop: "10px",
-              borderRadius: "8px",
-              fontSize: "16px",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-            }}
-            onMouseEnter={(e) => (e.target.style.background = "#7d50f5")}
-            onMouseLeave={(e) => (e.target.style.background = "#5b2cf2")}
-          >
-            Send
-          </button>
-        </div>
-      </div>
-
-      <div
-        style={{
-          marginTop: "40px",
-          fontSize: "18px",
-          color: "#2a1b64",
-          minHeight: "60px",
-          transition: "opacity 0.5s ease-in-out",
-          opacity: displayedReply ? 1 : 0,
-        }}
-      >
-        <strong>Reply:</strong>{" "}
-        <span
+        <button
+          onClick={sendMessage}
           style={{
-            display: "inline-block",
-            transition: "opacity 1s ease-in-out",
-            opacity: isTyping ? 0.9 : 1,
+            background: "#5b2cf2",
+            color: "#fff",
+            border: "none",
+            padding: "12px 20px",
+            borderRadius: "10px",
+            fontSize: "16px",
+            cursor: "pointer",
+            transition: "background 0.3s ease",
           }}
+          onMouseEnter={(e) => (e.target.style.background = "#7d50f5")}
+          onMouseLeave={(e) => (e.target.style.background = "#5b2cf2")}
         >
-          {displayedReply}
-        </span>
-        {isTyping && <span className="cursor">▋</span>}
+          Send
+        </button>
       </div>
 
       <style jsx>{`
-        .cursor {
-          animation: blink 1s infinite;
-        }
-        @keyframes blink {
-          0%,
-          50% {
-            opacity: 1;
-          }
-          50.1%,
-          100% {
+        @keyframes fadeIn {
+          from {
             opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
       `}</style>
