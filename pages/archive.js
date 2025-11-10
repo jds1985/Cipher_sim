@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 
 const ForceGraph2D = dynamic(
   () => import("react-force-graph").then((mod) => mod.ForceGraph2D),
-  { ssr: false }
+  { ssr: false } // ✅ no server-side rendering for graph
 );
 
 export default function Archive() {
@@ -13,9 +13,16 @@ export default function Archive() {
   const [selectedType, setSelectedType] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const canvasRef = useRef(null);
+  const [isClient, setIsClient] = useState(false);
 
-  // Load memories from Firebase
+  // ✅ Wait until in browser
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // ✅ Load memories only after client confirmed
+  useEffect(() => {
+    if (!isClient) return;
     async function load() {
       const data = await fetchMemories();
       const formattedNodes = data.map((item, i) => ({
@@ -45,17 +52,22 @@ export default function Archive() {
       setLinks(generatedLinks);
     }
     load();
-  }, []);
+  }, [isClient]);
 
-  // Nebula animation background
+  // ✅ Safe Nebula animation (client only)
   useEffect(() => {
+    if (!isClient) return;
+
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
+
     let w = (canvas.width = window.innerWidth);
     let h = (canvas.height = window.innerHeight);
 
     const colors = ["#6A5ACD", "#9B59B6", "#4B0082", "#301934", "#1A0033"];
     let t = 0;
+    let animationFrameId;
 
     const draw = () => {
       const gradient = ctx.createRadialGradient(
@@ -66,24 +78,32 @@ export default function Archive() {
         h / 2,
         Math.max(w, h)
       );
-      for (let i = 0; i < colors.length; i++) {
-        const ratio = (Math.sin(t / 100 + i) + 1) / 2;
-        gradient.addColorStop(i / colors.length, colors[i] + Math.floor(ratio * 100));
-      }
+      colors.forEach((color, i) => {
+        gradient.addColorStop(i / colors.length, color);
+      });
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, w, h);
       t += 0.5;
-      requestAnimationFrame(draw);
+      animationFrameId = requestAnimationFrame(draw);
     };
 
     draw();
-    window.addEventListener("resize", () => {
+
+    const handleResize = () => {
       w = canvas.width = window.innerWidth;
       h = canvas.height = window.innerHeight;
-    });
+    };
 
-    return () => cancelAnimationFrame(draw);
-  }, []);
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isClient]);
+
+  // If server rendering, show placeholder
+  if (!isClient) return <div style={{ textAlign: "center", color: "white" }}>Loading Archive...</div>;
 
   return (
     <main
