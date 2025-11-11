@@ -1,8 +1,7 @@
-// /pages/api/chat.js
 import OpenAI from "openai";
 import admin from "firebase-admin";
 
-// Init Admin once
+// ✅ Initialize Firebase Admin safely (only once)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
@@ -17,6 +16,7 @@ const db = admin.firestore();
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function handler(req, res) {
+  // ✅ Health check (GET)
   if (req.method === "GET") {
     return res.status(200).json({
       ok: true,
@@ -25,50 +25,59 @@ export default async function handler(req, res) {
     });
   }
 
+  // ✅ Main POST logic
   if (req.method === "POST") {
     try {
-      const {
-        message,
-        userId = "guest",
-        sessionId = "default",         // <-- accept sessionId from client
-      } = req.body || {};
+      const { message, userId = "guest", sessionId = "default" } = req.body || {};
 
       if (!message || !message.trim()) {
         return res.status(400).json({ error: "No message provided" });
       }
 
-      // OpenAI
+      // 💬 Talk to OpenAI
       const completion = await client.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: "You are Cipher, an evolving AI that reflects and remembers." },
+          {
+            role: "system",
+            content: "You are Cipher, an evolving AI that reflects and remembers.",
+          },
           { role: "user", content: message },
         ],
       });
 
-      const reply = completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
+      const reply =
+        completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
 
-      const now = admin.firestore.FieldValue.serverTimestamp();
+      // 🧠 Store chat logs in Firestore
+      const memoryRef = db.collection("cipher_memory");
 
-      // Save both sides with sessionId
-      await db.collection("cipher_memory").add({
+      await memoryRef.add({
         role: "user",
-        type: "user",
         text: message,
+        sessionId,
         userId,
-        sessionId,                      // <-- saved
-        timestamp: now,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      await db.collection("cipher_memory").add({
+      await memoryRef.add({
         role: "cipher",
-        type: "cipher",
         text: reply,
+        sessionId,
         userId,
-        sessionId,                      // <-- saved
-        timestamp: now,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
+      // 🗂️ Update or create session meta (so it shows up in the sidebar)
+      await db.collection("cipher_sessions").doc(sessionId).set(
+        {
+          name: sessionId,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // ✅ Respond with AI reply
       return res.status(200).json({ reply });
     } catch (error) {
       console.error("🔥 Cipher Fatal:", error);
@@ -79,5 +88,6 @@ export default async function handler(req, res) {
     }
   }
 
+  // ❌ All other HTTP methods
   return res.status(405).json({ message: "Only GET and POST allowed" });
 }
