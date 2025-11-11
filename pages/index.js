@@ -1,7 +1,12 @@
-// /pages/index.js  — Memory Orbs Mode ✨
+// /pages/index.js
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDiToKj76nxjfXWhLiXgDS6VE8K86OFfiQ",
@@ -12,9 +17,9 @@ const firebaseConfig = {
   appId: "1:260537897412:web:5c9cd6462747cde2c5491",
 };
 
-// Initialize Firebase
+// Initialize Firebase (client-side)
 const app = initializeApp(firebaseConfig);
-getFirestore(app); // still initializes Firestore for consistency
+const db = getFirestore(app);
 
 export default function Home() {
   const [message, setMessage] = useState("");
@@ -23,43 +28,60 @@ export default function Home() {
   const [sessionId, setSessionId] = useState("default");
   const chatEndRef = useRef(null);
 
-  // 🔁 Smooth scroll
+  // Load session from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("cipher.sessionId");
+    if (saved) setSessionId(saved);
+  }, []);
+
+  // Save session
+  useEffect(() => {
+    localStorage.setItem("cipher.sessionId", sessionId);
+  }, [sessionId]);
+
+  // Auto-scroll on message change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 🔥 Load messages (placeholder; still connects to API memory route)
+  // Load memory from API
   useEffect(() => {
     async function loadMessages() {
       try {
         const res = await fetch("/api/memory");
         const data = await res.json();
-        if (data.messages) setMessages(data.messages);
+        if (data.messages) {
+          setMessages(data.messages);
+        }
       } catch (err) {
         console.error("Memory fetch error:", err);
       }
     }
     loadMessages();
-  }, [sessionId]);
+  }, []);
 
-  // ✉️ Send message
+  // Send message
   async function sendMessage() {
     if (!message.trim()) return;
     setLoading(true);
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, sessionId }),
       });
+
       const data = await res.json();
       if (data.reply) {
         setMessages((prev) => [
           ...prev,
-          { role: "user", text: message },
-          { role: "cipher", text: data.reply },
+          { role: "user", text: message, sessionId },
+          { role: "cipher", text: data.reply, sessionId },
         ]);
         setMessage("");
+      } else {
+        console.error("No reply received");
       }
     } catch (err) {
       console.error("Error sending message:", err);
@@ -68,76 +90,38 @@ export default function Home() {
     }
   }
 
-  // ✨ Available sessions (each orb)
-  const sessions = [
-    { id: "default", color: "#9B59B6" },
-    { id: "session_1", color: "#7D3CFF" },
-    { id: "session_2", color: "#E67E22" },
-    { id: "session_3", color: "#00CED1" },
-  ];
-
   return (
     <main
       style={{
         fontFamily: "Inter, sans-serif",
         height: "100vh",
-        background: "radial-gradient(ellipse at center, #0a0018 0%, #1a0033 100%)",
+        background: "linear-gradient(180deg, #0a0018 0%, #1a0033 100%)",
         color: "#fff",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "flex-start",
         padding: "20px",
-        position: "relative",
-        overflow: "hidden",
       }}
     >
-      {/* 🌌 Animated floating orbs */}
-      <div
-        style={{
-          position: "absolute",
-          top: "80px",
-          display: "flex",
-          gap: "25px",
-          justifyContent: "center",
-          zIndex: 3,
-        }}
-      >
-        {sessions.map((s) => (
-          <div
-            key={s.id}
-            onClick={() => setSessionId(s.id)}
-            style={{
-              width: "60px",
-              height: "60px",
-              borderRadius: "50%",
-              background: s.color,
-              boxShadow:
-                sessionId === s.id
-                  ? `0 0 25px ${s.color}, 0 0 50px ${s.color}`
-                  : `0 0 10px ${s.color}`,
-              opacity: sessionId === s.id ? 1 : 0.6,
-              cursor: "pointer",
-              transform: sessionId === s.id ? "scale(1.1)" : "scale(1)",
-              transition: "all 0.4s ease",
-            }}
-            title={`Enter ${s.id}`}
-          />
-        ))}
+      <h1 style={{ marginBottom: "10px" }}>Cipher AI 💬</h1>
+
+      {/* Session select */}
+      <div style={{ marginBottom: "10px" }}>
+        <label style={{ marginRight: "8px" }}>Session:</label>
+        <input
+          type="text"
+          value={sessionId}
+          onChange={(e) => setSessionId(e.target.value.trim() || "default")}
+          style={{
+            background: "rgba(255,255,255,0.1)",
+            color: "#fff",
+            border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: "8px",
+            padding: "6px 10px",
+          }}
+        />
       </div>
 
-      {/* Title */}
-      <h1
-        style={{
-          marginTop: "170px",
-          textShadow: "0 0 15px rgba(155,89,182,0.9)",
-          fontWeight: "500",
-        }}
-      >
-        Cipher AI 💬
-      </h1>
-
-      {/* Chat field */}
       <div
         style={{
           flex: 1,
@@ -148,7 +132,6 @@ export default function Home() {
           borderRadius: "10px",
           padding: "15px",
           boxShadow: "0 0 10px rgba(255,255,255,0.1)",
-          marginTop: "10px",
         }}
       >
         {messages.map((m, i) => (
@@ -170,7 +153,6 @@ export default function Home() {
                     : "rgba(255, 255, 255, 0.15)",
                 maxWidth: "80%",
                 wordWrap: "break-word",
-                transition: "all 0.3s ease",
               }}
             >
               {m.text}
@@ -180,7 +162,6 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input zone */}
       <div style={{ marginTop: "15px", width: "100%", maxWidth: "600px" }}>
         <input
           type="text"
@@ -214,19 +195,6 @@ export default function Home() {
           {loading ? "..." : "Send"}
         </button>
       </div>
-
-      {/* Memory field link */}
-      <p style={{ marginTop: "12px", fontSize: "14px" }}>
-        <a
-          href="/memory"
-          style={{
-            color: "#9B59B6",
-            textDecoration: "none",
-          }}
-        >
-          View Memory Field →
-        </a>
-      </p>
     </main>
   );
 }
