@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { initializeApp } from "firebase/app";
 import {
   getFirestore,
   collection,
-  query,
-  orderBy,
-  onSnapshot,
+  addDoc,
+  serverTimestamp,
 } from "firebase/firestore";
-import { initializeApp } from "firebase/app";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDiToKj76nxjfXWhLiXgDS6VE8K86OFfiQ",
@@ -32,31 +31,20 @@ export default function Home() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 🔥 Load chat memory from Firestore
+  // 🔥 Load chat memory from API (not directly from Firestore)
   useEffect(() => {
-    const q = query(
-      collection(db, "cipher_memory"),
-      orderBy("timestamp", "asc")
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const loaded = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            ...data,
-            text: data.text || "(empty message)",
-          };
-        });
-        setMessages(loaded);
-      },
-      (error) => {
-        console.error("Firestore error:", error);
+    async function loadMessages() {
+      try {
+        const res = await fetch("/api/memory");
+        const data = await res.json();
+        if (data.messages) {
+          setMessages(data.messages);
+        }
+      } catch (err) {
+        console.error("Memory fetch error:", err);
       }
-    );
-
-    return () => unsubscribe();
+    }
+    loadMessages();
   }, []);
 
   // ✉️ Send message to Cipher
@@ -74,8 +62,14 @@ export default function Home() {
       const data = await res.json();
       if (data.reply) {
         setMessage("");
+        // Immediately append both sides of chat
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", text: message },
+          { role: "cipher", text: data.reply },
+        ]);
       } else {
-        console.error("No reply received:", data);
+        console.error("No reply received");
       }
     } catch (err) {
       console.error("Error sending message:", err);
@@ -98,10 +92,6 @@ export default function Home() {
       }}
     >
       <h1 style={{ marginBottom: "10px" }}>Cipher AI 💬</h1>
-      <p style={{ fontSize: "14px", opacity: 0.8 }}>
-        Chat persists across sessions — reload to test memory persistence.
-      </p>
-
       <div
         style={{
           flex: 1,
