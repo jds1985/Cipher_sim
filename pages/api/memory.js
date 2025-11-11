@@ -1,16 +1,314 @@
-import { db } from "../../firebaseAdmin.js";
-import { collection, getDocs, orderBy, limit, query } from "firebase-admin/firestore";
+// /pages/memory.js
+import { useEffect, useMemo, useRef, useState } from "react";
+import { db } from "../firebaseConfig"; // your existing file
+import {
+  collection,
+  query,
+  orderBy,
+  where,
+  onSnapshot,
+  limit,
+} from "firebase/firestore";
 
-export default async function handler(req, res) {
-  try {
-    const memoryRef = collection(db, "cipher_memory");
-    const q = query(memoryRef, orderBy("timestamp", "asc"), limit(100));
-    const snapshot = await getDocs(q);
+// Simple palette by type/role
+const TYPE_COLORS = {
+  user: "#5B2CF2",
+  cipher: "#9B59B6",
+  memory: "#6A5ACD",
+  reflection: "#00CED1",
+  insight: "#E67E22",
+  system: "#7E8C8D",
+};
 
-    const messages = snapshot.docs.map(doc => doc.data());
-    res.status(200).json({ messages });
-  } catch (error) {
-    console.error("🔥 Memory load failed:", error);
-    res.status(500).json({ error: "Failed to load memory" });
-  }
+export default function MemoryField() {
+  const [memories, setMemories] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [sessionId, setSessionId] = useState("default"); // change via UI
+  const [search, setSearch] = useState("");
+  const wrapRef = useRef(null);
+
+  // 🔴 Live subscription to Firestore
+  useEffect(() => {
+    // Collection can be either a flat collection or a subcollection.
+    // If you later move to /sessions/{id}/messages, just swap path here.
+    const baseRef = collection(db, "cipher_memory");
+    const q = query(
+      baseRef,
+      where("sessionId", "==", sessionId),
+      orderBy("timestamp", "asc"),
+      limit(1000)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setMemories(rows);
+    });
+
+    return () => unsub();
+  }, [sessionId]);
+
+  // 🔎 filter + search
+  const filtered = useMemo(() => {
+    const t = typeFilter.toLowerCase();
+    const s = search.trim().toLowerCase();
+
+    return memories.filter((m) => {
+      const byType = t === "all" ? true : (m.type || m.role || "").toLowerCase() === t;
+      const bySearch = !s
+        ? true
+        : (m.text || "")
+            .toString()
+            .toLowerCase()
+            .includes(s);
+      return byType && bySearch;
+    });
+  }, [memories, typeFilter, search]);
+
+  // 🎯 layout: deterministic jittered grid so refreshes look stable
+  const laidOut = useMemo(() => {
+    const cols = 10; // number of columns
+    const pad = 18;  // orb spacing
+    return filtered.map((m, i) => {
+      const c = i % cols;
+      const r = Math.floor(i / cols);
+      const x = c * pad + (c % 2) * 6;
+      const y = r * pad + ((c + r) % 3) * 4;
+      return { ...m, x, y };
+    });
+  }, [filtered]);
+
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        color: "#fff",
+        background: "radial-gradient(1200px 800px at 50% -10%, #2c1a68 0%, #0a0018 60%, #070012 100%)",
+        fontFamily: "Inter, system-ui, sans-serif",
+        padding: "16px",
+      }}
+    >
+      {/* Header / Controls */}
+      <header
+        style={{
+          maxWidth: 1100,
+          margin: "0 auto 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: 26, letterSpacing: 0.3 }}>
+          Cipher – Memory Field
+        </h1>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <select
+            value={sessionId}
+            onChange={(e) => setSessionId(e.target.value)}
+            style={selStyle}
+            title="Session"
+          >
+            <option value="default">Session: default</option>
+            {/* Add more once you have a sessions list */}
+          </select>
+
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            style={selStyle}
+            title="Filter by type"
+          >
+            <option value="all">All types</option>
+            <option value="user">User</option>
+            <option value="cipher">Cipher</option>
+            <option value="memory">Memory</option>
+            <option value="reflection">Reflection</option>
+            <option value="insight">Insight</option>
+            <option value="system">System</option>
+          </select>
+
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search text…"
+            style={inputStyle}
+          />
+        </div>
+      </header>
+
+      {/* Field */}
+      <section
+        ref={wrapRef}
+        style={{
+          maxWidth: 1100,
+          margin: "0 auto",
+          borderRadius: 14,
+          padding: 18,
+          background: "rgba(255,255,255,0.04)",
+          boxShadow: "0 0 40px rgba(130, 90, 240, 0.25) inset",
+        }}
+      >
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            minHeight: 500,
+            overflow: "hidden",
+          }}
+        >
+          {/* Orbs */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(10, 1fr)",
+              gap: 12,
+            }}
+          >
+            {laidOut.map((m) => {
+              const t = (m.type || m.role || "memory").toLowerCase();
+              const color = TYPE_COLORS[t] || "#5B2CF2";
+              const size = 14 + Math.min(10, Math.floor((m.text || "").length / 120));
+
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setSelected(m)}
+                  title={(m.text || "").slice(0, 140)}
+                  style={{
+                    cursor: "pointer",
+                    aspectRatio: "1 / 1",
+                    borderRadius: "999px",
+                    border: "none",
+                    background: `radial-gradient(circle at 35% 30%, ${hexA(
+                      color,
+                      0.95
+                    )} 0%, ${hexA(color, 0.6)} 45%, rgba(255,255,255,0.06) 100%)`,
+                    boxShadow: `0 0 18px ${hexA(color, 0.5)}, inset 0 0 24px ${hexA(
+                      color,
+                      0.5
+                    )}`,
+                    transform: `scale(${size / 18})`,
+                    transition: "transform 140ms ease, box-shadow 140ms ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = `scale(${size / 18 + 0.05})`;
+                    e.currentTarget.style.boxShadow = `0 0 26px ${hexA(
+                      color,
+                      0.75
+                    )}, inset 0 0 30px ${hexA(color, 0.6)}`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = `scale(${size / 18})`;
+                    e.currentTarget.style.boxShadow = `0 0 18px ${hexA(
+                      color,
+                      0.5
+                    )}, inset 0 0 24px ${hexA(color, 0.5)}`;
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Details Drawer */}
+      {selected && (
+        <div style={drawerWrapStyle} onClick={() => setSelected(null)}>
+          <div style={drawerStyle} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+              <h3 style={{ margin: 0 }}>
+                {capitalize(selected.type || selected.role || "memory")}
+              </h3>
+              <button onClick={() => setSelected(null)} style={closeBtnStyle}>
+                ✕
+              </button>
+            </div>
+            <p
+              style={{
+                whiteSpace: "pre-wrap",
+                lineHeight: 1.5,
+                opacity: 0.95,
+                marginTop: 12,
+              }}
+            >
+              {selected.text || "(no text)"}
+            </p>
+            <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
+              <div>
+                <strong>Session:</strong> {selected.sessionId || "default"}
+              </div>
+              {selected.timestamp?.toDate && (
+                <div>
+                  <strong>When:</strong>{" "}
+                  {selected.timestamp.toDate().toLocaleString()}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+
+/* ——— styles/helpers ——— */
+const selStyle = {
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
+  border: "1px solid rgba(255,255,255,0.18)",
+  padding: "8px 10px",
+  borderRadius: 10,
+};
+
+const inputStyle = {
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
+  border: "1px solid rgba(255,255,255,0.18)",
+  padding: "8px 10px",
+  borderRadius: 10,
+  minWidth: 180,
+};
+
+const drawerWrapStyle = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.45)",
+  display: "grid",
+  placeItems: "center",
+  padding: 20,
+  zIndex: 50,
+};
+
+const drawerStyle = {
+  width: "min(720px, 92vw)",
+  background: "linear-gradient(180deg, rgba(20,10,40,.9), rgba(10,4,22,.95))",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 16,
+  padding: 18,
+  boxShadow: "0 20px 80px rgba(0,0,0,.55)",
+};
+
+const closeBtnStyle = {
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
+  border: "1px solid rgba(255,255,255,0.18)",
+  padding: "6px 10px",
+  borderRadius: 8,
+  cursor: "pointer",
+};
+
+function capitalize(s = "") {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// convert #rrggbb to rgba string with alpha
+function hexA(hex, a = 1) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
 }
