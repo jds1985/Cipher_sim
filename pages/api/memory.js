@@ -1,6 +1,6 @@
 import admin from "firebase-admin";
 
-// Initialize Firebase Admin (only once)
+// Initialize Firebase Admin once
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
@@ -16,7 +16,10 @@ const db = admin.firestore();
 export default async function handler(req, res) {
   if (req.method === "GET") {
     try {
-      const { sessionId = "default", limitCount = 50 } = req.query;
+      let { sessionId = "default", limitCount = 200 } = req.query;
+      sessionId = sessionId.trim(); // avoid space mismatch
+
+      console.log("📡 Fetching memory for session:", sessionId);
 
       const qSnap = await db
         .collection("cipher_memory")
@@ -25,7 +28,12 @@ export default async function handler(req, res) {
         .limit(Number(limitCount))
         .get();
 
-      const messages = qSnap.docs.map((doc) => doc.data());
+      const messages = qSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      console.log(`🧠 Loaded ${messages.length} messages for session ${sessionId}`);
       return res.status(200).json({ sessionId, messages });
     } catch (err) {
       console.error("🔥 Memory fetch error:", err);
