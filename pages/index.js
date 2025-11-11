@@ -1,78 +1,67 @@
-import { useState, useEffect, useRef } from "react";
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-
-// 🔥 Firebase setup
-const firebaseConfig = {
-  apiKey: "AIzaSyDiToKj76nxjfXWhLiXgDS6VE8K86OFfiQ",
-  authDomain: "digisoul1111.firebaseapp.com",
-  projectId: "digisoul1111",
-  storageBucket: "digisoul1111.appspot.com",
-  messagingSenderId: "260537897412",
-  appId: "1:260537897412:web:5c9cd6462747cde2c5491",
-};
-
-initializeApp(firebaseConfig);
-getFirestore();
+// /pages/index.js
+import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const [sessionId, setSessionId] = useState("default");
   const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState("default");
   const chatEndRef = useRef(null);
 
-  // 🧠 Load saved session
+  // Load saved sessionId from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem("cipher.sessionId");
+    const saved = typeof window !== "undefined" ? localStorage.getItem("cipher.sessionId") : null;
     if (saved) setSessionId(saved);
   }, []);
 
+  // Persist sessionId locally
   useEffect(() => {
-    localStorage.setItem("cipher.sessionId", sessionId);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cipher.sessionId", sessionId);
+    }
   }, [sessionId]);
 
-  // 🔁 Scroll to bottom on new message
+  // Auto-scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 🔥 Load conversation from Firestore via API
-  useEffect(() => {
-    async function loadMessages() {
-      try {
-        const res = await fetch(`/api/memory?sessionId=${sessionId}`);
-        const data = await res.json();
-        if (data.messages) setMessages(data.messages);
-      } catch (err) {
-        console.error("Memory load error:", err);
-      }
+  // Load conversation for this sessionId
+  async function loadMessages(sid = sessionId) {
+    try {
+      const res = await fetch(`/api/memory?sessionId=${encodeURIComponent(sid)}`);
+      const data = await res.json();
+      if (Array.isArray(data.messages)) setMessages(data.messages);
+    } catch (err) {
+      console.error("Memory fetch error:", err);
     }
-    loadMessages();
-  }, [sessionId]);
+  }
+  useEffect(() => { loadMessages(); }, [sessionId]);
 
-  // ✉️ Send message to Cipher
+  // Send
   async function sendMessage() {
     if (!message.trim()) return;
     setLoading(true);
+    const out = message;
+    setMessage("");
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, sessionId }),
+        body: JSON.stringify({ message: out, sessionId }), // <-- include sessionId
       });
-
       const data = await res.json();
 
-      if (data.reply) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "user", text: message },
-          { role: "cipher", text: data.reply },
-        ]);
-        setMessage("");
-      }
+      // optimistic UI
+      setMessages(prev => [
+        ...prev,
+        { role: "user", text: out, sessionId, timestamp: { toMillis: () => Date.now() } },
+        { role: "cipher", text: data.reply || "(no reply)", sessionId, timestamp: { toMillis: () => Date.now() } },
+      ]);
+
+      // reload from server to get canonical timestamps
+      loadMessages();
     } catch (err) {
       console.error("Send error:", err);
     } finally {
@@ -83,30 +72,32 @@ export default function Home() {
   return (
     <main
       style={{
-        fontFamily: "Inter, sans-serif",
-        height: "100vh",
-        background: "linear-gradient(180deg, #0a0018 0%, #1a0033 100%)",
+        fontFamily: "Inter, system-ui, sans-serif",
+        minHeight: "100vh",
+        background: "radial-gradient(1000px 700px at 50% -10%, #2c1a68 0%, #0a0018 60%, #070012 100%)",
         color: "#fff",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "20px",
+        padding: 20,
       }}
     >
-      <h1 style={{ marginBottom: "10px" }}>Cipher AI 💬</h1>
+      <h1 style={{ marginBottom: 10 }}>Cipher AI 💬</h1>
 
-      {/* Session selector */}
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ marginRight: 8 }}>Session:</label>
+      {/* Session control */}
+      <div style={{ marginBottom: 12, width: "100%", maxWidth: 640 }}>
+        <label style={{ opacity: 0.9, marginRight: 8 }}>Session:</label>
         <input
           value={sessionId}
-          onChange={(e) => setSessionId(e.target.value)}
-          placeholder="Enter session name"
+          onChange={e => setSessionId(e.target.value)}
+          placeholder="default"
           style={{
-            background: "rgba(255,255,255,0.1)",
-            border: "none",
-            padding: "8px 10px",
-            borderRadius: 8,
+            width: "60%",
+            maxWidth: 360,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,.18)",
+            background: "rgba(255,255,255,.08)",
             color: "#fff",
           }}
         />
@@ -117,31 +108,22 @@ export default function Home() {
         style={{
           flex: 1,
           width: "100%",
-          maxWidth: "600px",
+          maxWidth: 640,
           overflowY: "auto",
           background: "rgba(255,255,255,0.05)",
-          borderRadius: "10px",
-          padding: "15px",
+          borderRadius: 12,
+          padding: 14,
           boxShadow: "0 0 10px rgba(255,255,255,0.1)",
         }}
       >
         {messages.map((m, i) => (
-          <div
-            key={i}
-            style={{
-              textAlign: m.role === "user" ? "right" : "left",
-              marginBottom: "12px",
-            }}
-          >
+          <div key={i} style={{ textAlign: m.role === "user" ? "right" : "left", marginBottom: 12 }}>
             <div
               style={{
                 display: "inline-block",
                 padding: "10px 14px",
-                borderRadius: "18px",
-                background:
-                  m.role === "user"
-                    ? "rgba(90, 55, 230, 0.8)"
-                    : "rgba(255, 255, 255, 0.15)",
+                borderRadius: 18,
+                background: m.role === "user" ? "rgba(90,55,230,0.8)" : "rgba(255,255,255,0.15)",
                 maxWidth: "80%",
                 wordWrap: "break-word",
               }}
@@ -153,17 +135,18 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input area */}
-      <div style={{ marginTop: "15px", width: "100%", maxWidth: "600px" }}>
+      {/* Composer */}
+      <div style={{ marginTop: 12, width: "100%", maxWidth: 640, display: "flex", gap: 8 }}>
         <input
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type to Cipher..."
+          placeholder="Type to Cipher…"
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           style={{
-            width: "75%",
-            padding: "10px",
-            borderRadius: "8px",
+            flex: 1,
+            padding: "12px 14px",
+            borderRadius: 10,
             border: "none",
             outline: "none",
             background: "rgba(255,255,255,0.1)",
@@ -174,17 +157,16 @@ export default function Home() {
           onClick={sendMessage}
           disabled={loading}
           style={{
-            width: "20%",
-            marginLeft: "5%",
-            padding: "10px",
-            borderRadius: "8px",
+            padding: "12px 16px",
+            borderRadius: 10,
             border: "none",
             background: loading ? "#555" : "#7D3CFF",
             color: "#fff",
             cursor: "pointer",
+            minWidth: 90,
           }}
         >
-          {loading ? "..." : "Send"}
+          {loading ? "…" : "Send"}
         </button>
       </div>
     </main>
