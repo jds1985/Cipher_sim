@@ -6,6 +6,7 @@ export default function Home() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState("default");
+  const [sessionList, setSessionList] = useState(["default"]);
   const chatEndRef = useRef(null);
 
   // Load saved sessionId from localStorage
@@ -31,12 +32,27 @@ export default function Home() {
     try {
       const res = await fetch(`/api/memory?sessionId=${encodeURIComponent(sid)}`);
       const data = await res.json();
-      if (Array.isArray(data.messages)) setMessages(data.messages);
+      if (Array.isArray(data.messages)) {
+        const sorted = [...data.messages].sort(
+          (a, b) => (a.timestamp?.toMillis?.() ?? 0) - (b.timestamp?.toMillis?.() ?? 0)
+        );
+        setMessages(sorted);
+
+        // Build session list dynamically
+        const found = new Set(["default"]);
+        sorted.forEach((m) => {
+          if (m.sessionId && typeof m.sessionId === "string") found.add(m.sessionId);
+        });
+        setSessionList([...found]);
+      }
     } catch (err) {
       console.error("Memory fetch error:", err);
     }
   }
-  useEffect(() => { loadMessages(); }, [sessionId]);
+
+  useEffect(() => {
+    loadMessages();
+  }, [sessionId]);
 
   // Send
   async function sendMessage() {
@@ -49,18 +65,17 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: out, sessionId }), // <-- include sessionId
+        body: JSON.stringify({ message: out, sessionId }),
       });
       const data = await res.json();
 
-      // optimistic UI
-      setMessages(prev => [
+      // Optimistic UI
+      setMessages((prev) => [
         ...prev,
         { role: "user", text: out, sessionId, timestamp: { toMillis: () => Date.now() } },
         { role: "cipher", text: data.reply || "(no reply)", sessionId, timestamp: { toMillis: () => Date.now() } },
       ]);
 
-      // reload from server to get canonical timestamps
       loadMessages();
     } catch (err) {
       console.error("Send error:", err);
@@ -85,20 +100,48 @@ export default function Home() {
       <h1 style={{ marginBottom: 10 }}>Cipher AI 💬</h1>
 
       {/* Session control */}
-      <div style={{ marginBottom: 12, width: "100%", maxWidth: 640 }}>
-        <label style={{ opacity: 0.9, marginRight: 8 }}>Session:</label>
-        <input
+      <div style={{ marginBottom: 12, width: "100%", maxWidth: 640, display: "flex", gap: 8, alignItems: "center" }}>
+        <label style={{ opacity: 0.9 }}>Session:</label>
+
+        {/* Dropdown to switch sessions */}
+        <select
           value={sessionId}
-          onChange={e => setSessionId(e.target.value)}
-          placeholder="default"
+          onChange={(e) => setSessionId(e.target.value)}
           style={{
-            width: "60%",
-            maxWidth: 360,
+            flex: 1,
             padding: "10px 12px",
             borderRadius: 10,
             border: "1px solid rgba(255,255,255,.18)",
             background: "rgba(255,255,255,.08)",
             color: "#fff",
+            maxWidth: 220,
+          }}
+        >
+          {sessionList.sort().map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+
+        {/* Quick new session input */}
+        <input
+          type="text"
+          placeholder="New session..."
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && e.target.value.trim()) {
+              setSessionId(e.target.value.trim());
+              e.target.value = "";
+            }
+          }}
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,.18)",
+            background: "rgba(255,255,255,.08)",
+            color: "#fff",
+            maxWidth: 220,
           }}
         />
       </div>
