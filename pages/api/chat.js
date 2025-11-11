@@ -1,3 +1,4 @@
+// /pages/api/chat.js
 import OpenAI from "openai";
 import admin from "firebase-admin";
 
@@ -28,7 +29,7 @@ export default async function handler(req, res) {
   // ✅ Main POST logic
   if (req.method === "POST") {
     try {
-      const { message, userId = "guest" } = req.body || {};
+      const { message, userId = "guest", sessionId = "default" } = req.body || {};
 
       if (!message || !message.trim()) {
         return res.status(400).json({ error: "No message provided" });
@@ -53,15 +54,19 @@ export default async function handler(req, res) {
       // 🧠 Store chat logs in Firestore using admin SDK syntax
       await db.collection("cipher_memory").add({
         role: "user",
+        type: "user",
         text: message,
         userId,
+        sessionId,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       await db.collection("cipher_memory").add({
         role: "cipher",
+        type: "cipher",
         text: reply,
         userId,
+        sessionId,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
