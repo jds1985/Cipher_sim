@@ -1,6 +1,7 @@
+// /pages/api/memory.js
 import admin from "firebase-admin";
 
-// Initialize Firebase Admin once
+// Init Admin once
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
@@ -10,36 +11,41 @@ if (!admin.apps.length) {
     ),
   });
 }
-
 const db = admin.firestore();
 
 export default async function handler(req, res) {
-  if (req.method === "GET") {
+  try {
+    const sessionId = (req.query.sessionId || "default").toString();
+
+    // Try indexed query first
     try {
-      let { sessionId = "default", limitCount = 200 } = req.query;
-      sessionId = sessionId.trim(); // avoid space mismatch
-
-      console.log("📡 Fetching memory for session:", sessionId);
-
-      const qSnap = await db
+      const q = db
         .collection("cipher_memory")
         .where("sessionId", "==", sessionId)
         .orderBy("timestamp", "asc")
-        .limit(Number(limitCount))
+        .limit(1000);
+
+      const snap = await q.get();
+      const messages = snap.docs.map(d => d.data());
+      return res.status(200).json({ sessionId, messages });
+    } catch (indexedErr) {
+      // Fallback (no composite index yet): fetch recent & filter in memory
+      const snap = await db
+        .collection("cipher_memory")
+        .orderBy("timestamp", "desc")
+        .limit(1000)
         .get();
 
-      const messages = qSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const messages = snap
+        .docs
+        .map(d => d.data())
+        .filter(r => (r.sessionId || "default") === sessionId)
+        .sort((a, b) => (a.timestamp?.toMillis?.() ?? 0) - (b.timestamp?.toMillis?.() ?? 0));
 
-      console.log(`🧠 Loaded ${messages.length} messages for session ${sessionId}`);
-      return res.status(200).json({ sessionId, messages });
-    } catch (err) {
-      console.error("🔥 Memory fetch error:", err);
-      return res.status(500).json({ error: err.message });
+      return res.status(200).json({ sessionId, messages, fallback: true });
     }
+  } catch (err) {
+    console.error("🔥 Memory API error:", err);
+    return res.status(500).json({ error: "Failed to load memory", details: err.message });
   }
-
-  return res.status(405).json({ message: "Only GET supported" });
 }
