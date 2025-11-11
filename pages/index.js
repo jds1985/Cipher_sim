@@ -1,19 +1,15 @@
-// /pages/index.js
 import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-
+  const [sessions, setSessions] = useState([]);
   const [sessionId, setSessionId] = useState("default");
-  const [sessions, setSessions] = useState([{ id: "default", name: "default" }]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [creating, setCreating] = useState(false);
-
+  const [newSession, setNewSession] = useState("");
+  const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Load saved sessionId
+  // Load saved sessionId from localStorage
   useEffect(() => {
     const saved =
       typeof window !== "undefined"
@@ -22,114 +18,54 @@ export default function Home() {
     if (saved) setSessionId(saved);
   }, []);
 
-  // Persist sessionId
+  // Persist current sessionId locally
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("cipher.sessionId", sessionId);
     }
   }, [sessionId]);
 
-  // Auto-scroll
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  async function fetchSessions() {
+  // Fetch all sessions
+  async function loadSessions() {
     try {
       const res = await fetch("/api/sessions");
       const data = await res.json();
-      if (Array.isArray(data.sessions) && data.sessions.length) {
-        setSessions(data.sessions);
-        // Ensure active session exists in list
-        const found = data.sessions.find((s) => s.id === sessionId || s.name === sessionId);
-        if (!found) {
-          // if not found, switch to default if present
-          const def = data.sessions.find((s) => s.id === "default" || s.name === "default");
-          if (def) setSessionId(def.name || def.id);
-        }
-      } else {
-        // seed default
-        setSessions([{ id: "default", name: "default" }]);
-      }
-    } catch (e) {
-      console.error("fetchSessions error:", e);
+      if (Array.isArray(data.sessions)) setSessions(data.sessions);
+    } catch (err) {
+      console.error("Session load error:", err);
     }
   }
 
-  // Load messages for a session
+  // Load chat messages for current session
   async function loadMessages(sid = sessionId) {
     try {
       const res = await fetch(`/api/memory?sessionId=${encodeURIComponent(sid)}`);
       const data = await res.json();
-      if (Array.isArray(data.messages)) {
-        const sorted = [...data.messages].sort(
-          (a, b) => (a.timestamp?.toMillis?.() ?? 0) - (b.timestamp?.toMillis?.() ?? 0)
-        );
-        setMessages(sorted);
-      } else {
-        setMessages([]);
-      }
+      if (Array.isArray(data.messages)) setMessages(data.messages);
     } catch (err) {
       console.error("Memory fetch error:", err);
     }
   }
 
-  // Initial loads
   useEffect(() => {
-    fetchSessions();
+    loadSessions();
   }, []);
+
   useEffect(() => {
     loadMessages();
   }, [sessionId]);
 
-  // Create a new session
-  async function createSession(name) {
-    const clean = (name || "").trim();
-    if (!clean) return;
-    setCreating(true);
-    try {
-      await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: clean }),
-      });
-      await fetchSessions();
-      setSessionId(clean);
-    } catch (e) {
-      console.error("createSession error:", e);
-    } finally {
-      setCreating(false);
-    }
-  }
+  // Auto-scroll to bottom on message update
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  // Delete current session
-  async function deleteSession(targetId) {
-    const sid = targetId || sessionId;
-    if (!sid) return;
-    if (!confirm(`Delete session "${sid}" and all its messages?`)) return;
-
-    try {
-      const res = await fetch(`/api/sessions?sessionId=${encodeURIComponent(sid)}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (data?.ok) {
-        await fetchSessions();
-        // move to default after deletion
-        setSessionId("default");
-        await loadMessages("default");
-      }
-    } catch (e) {
-      console.error("deleteSession error:", e);
-    }
-  }
-
-  // Send message
+  // Send a new message
   async function sendMessage() {
     if (!message.trim()) return;
-    setLoading(true);
     const out = message;
     setMessage("");
+    setLoading(true);
 
     try {
       const res = await fetch("/api/chat", {
@@ -139,17 +75,15 @@ export default function Home() {
       });
       const data = await res.json();
 
-      // optimistic update
-      const now = Date.now();
+      // Optimistic UI
       setMessages((prev) => [
         ...prev,
-        { role: "user", text: out, sessionId, timestamp: { toMillis: () => now } },
-        { role: "cipher", text: data.reply || "(no reply)", sessionId, timestamp: { toMillis: () => now } },
+        { role: "user", text: out },
+        { role: "cipher", text: data.reply || "(no reply)" },
       ]);
 
-      // refresh canonical + update sessions order
-      await loadMessages();
-      await fetchSessions();
+      await loadMessages(sessionId);
+      await loadSessions();
     } catch (err) {
       console.error("Send error:", err);
     } finally {
@@ -157,186 +91,187 @@ export default function Home() {
     }
   }
 
+  // Create a new session
+  async function createSession() {
+    const name = newSession.trim();
+    if (!name) return;
+    try {
+      await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      setSessionId(name);
+      setNewSession("");
+      await loadSessions();
+      await loadMessages(name);
+    } catch (err) {
+      console.error("Create session error:", err);
+    }
+  }
+
+  // Delete current session
+  async function deleteSession(id) {
+    if (!confirm(`Delete session "${id}"?`)) return;
+    try {
+      await fetch(`/api/sessions?sessionId=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      await loadSessions();
+      if (sessionId === id) setSessionId("default");
+      await loadMessages("default");
+    } catch (err) {
+      console.error("Delete session error:", err);
+    }
+  }
+
   return (
-    <div
+    <main
       style={{
         display: "flex",
-        minHeight: "100vh",
-        fontFamily: "Inter, system-ui, sans-serif",
+        height: "100vh",
         background:
           "radial-gradient(1000px 700px at 50% -10%, #2c1a68 0%, #0a0018 60%, #070012 100%)",
         color: "#fff",
+        fontFamily: "Inter, system-ui, sans-serif",
       }}
     >
       {/* Sidebar */}
       <aside
         style={{
-          width: sidebarOpen ? 260 : 64,
-          background: "rgba(255,255,255,0.04)",
-          borderRight: "1px solid rgba(255,255,255,0.1)",
-          boxShadow: "2px 0 10px rgba(0,0,0,0.4)",
-          transition: "width 0.28s ease",
-          overflow: "hidden",
+          width: 220,
+          background: "rgba(255,255,255,0.06)",
+          borderRight: "1px solid rgba(255,255,255,0.15)",
+          padding: 10,
           display: "flex",
           flexDirection: "column",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", padding: 10, gap: 8 }}>
-          <button
-            onClick={() => setSidebarOpen((s) => !s)}
-            title="Toggle sidebar"
-            style={{
-              background: "none",
-              border: "1px solid rgba(255,255,255,.18)",
-              borderRadius: 8,
-              color: "#aaa",
-              cursor: "pointer",
-              padding: "4px 8px",
-            }}
-          >
-            {sidebarOpen ? "⟨" : "⟩"}
-          </button>
-          {sidebarOpen && <div style={{ opacity: 0.8 }}>Sessions</div>}
-        </div>
-
-        {/* Session list */}
-        <div style={{ flex: 1, overflowY: "auto", padding: sidebarOpen ? "0 10px" : 0 }}>
-          {sessions.map((s) => {
-            const name = s.name || s.id;
-            const active = name === sessionId;
-            return (
-              <div
-                key={name}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 8,
-                }}
-              >
-                <button
-                  onClick={() => setSessionId(name)}
-                  title={name}
-                  style={{
-                    flex: 1,
-                    textAlign: "left",
-                    background: active
-                      ? "linear-gradient(90deg, rgba(139,92,246,.28), rgba(91,33,182,.22))"
-                      : "transparent",
-                    border: "1px solid rgba(255,255,255,.14)",
-                    borderRadius: 10,
-                    color: "#fff",
-                    padding: sidebarOpen ? "10px 12px" : "10px 8px",
-                    cursor: "pointer",
-                    overflow: "hidden",
-                    whiteSpace: "nowrap",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {sidebarOpen ? name : name.slice(0, 1).toUpperCase()}
-                </button>
-                {/* delete */}
-                {sidebarOpen && name !== "default" && (
-                  <button
-                    onClick={() => deleteSession(name)}
-                    title="Delete session"
-                    style={{
-                      background: "rgba(255,80,80,.15)",
-                      border: "1px solid rgba(255,80,80,.35)",
-                      color: "#fff",
-                      borderRadius: 8,
-                      cursor: "pointer",
-                      padding: "8px 10px",
-                    }}
-                  >
-                    🗑️
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Create new */}
-        <div style={{ padding: sidebarOpen ? 10 : 6, borderTop: "1px solid rgba(255,255,255,.1)" }}>
-          {sidebarOpen ? (
-            <input
-              type="text"
-              placeholder={creating ? "Creating…" : "New session name…"}
-              disabled={creating}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  createSession(e.currentTarget.value);
-                  e.currentTarget.value = "";
-                }
-              }}
+        <h3 style={{ marginBottom: 10 }}>Sessions</h3>
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            marginBottom: 10,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              onClick={() => setSessionId(s.name || s.id)}
               style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid rgba(255,255,255,0.18)",
-                background: "rgba(255,255,255,0.08)",
-                color: "#fff",
-              }}
-            />
-          ) : (
-            <button
-              onClick={() => {
-                const name = prompt("New session name:");
-                if (name) createSession(name);
-              }}
-              style={{
-                width: "100%",
-                background: "rgba(255,255,255,.08)",
-                border: "1px solid rgba(255,255,255,.18)",
-                color: "#fff",
-                borderRadius: 10,
-                padding: "8px 6px",
                 cursor: "pointer",
+                padding: "8px 10px",
+                borderRadius: 8,
+                background:
+                  sessionId === (s.name || s.id)
+                    ? "rgba(125,60,255,0.7)"
+                    : "rgba(255,255,255,0.08)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              ＋
-            </button>
-          )}
+              <span style={{ fontSize: 14 }}>{s.name || s.id}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteSession(s.id);
+                }}
+                style={{
+                  background: "none",
+                  color: "#aaa",
+                  border: "none",
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* New session input */}
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            value={newSession}
+            onChange={(e) => setNewSession(e.target.value)}
+            placeholder="New session"
+            style={{
+              flex: 1,
+              background: "rgba(255,255,255,0.1)",
+              color: "#fff",
+              border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 6,
+              padding: "6px 8px",
+            }}
+          />
+          <button
+            onClick={createSession}
+            style={{
+              background: "#7D3CFF",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "6px 10px",
+              cursor: "pointer",
+            }}
+          >
+            +
+          </button>
         </div>
       </aside>
 
-      {/* Main */}
-      <main
+      {/* Chat area */}
+      <section
         style={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           padding: 20,
+          overflow: "hidden",
         }}
       >
-        <h1 style={{ marginBottom: 8 }}>Cipher AI 💬</h1>
-        <div style={{ marginBottom: 10, opacity: 0.85 }}>
+        <h1 style={{ marginBottom: 10 }}>Cipher AI 💬</h1>
+        <p style={{ opacity: 0.8, marginTop: 0 }}>
           Session: <strong>{sessionId}</strong>
-        </div>
+        </p>
 
-        {/* Chat */}
+        {/* Chat window */}
         <div
           style={{
             flex: 1,
             width: "100%",
-            maxWidth: 680,
-            overflowY: "auto",
+            maxWidth: 700,
             background: "rgba(255,255,255,0.05)",
             borderRadius: 12,
             padding: 14,
-            boxShadow: "0 0 10px rgba(255,255,255,0.1)",
+            overflowY: "auto",
+            boxShadow: "0 0 20px rgba(255,255,255,0.1)",
           }}
         >
           {messages.map((m, i) => (
-            <div key={i} style={{ textAlign: m.role === "user" ? "right" : "left", marginBottom: 12 }}>
+            <div
+              key={i}
+              style={{
+                textAlign: m.role === "user" ? "right" : "left",
+                marginBottom: 12,
+              }}
+            >
               <div
                 style={{
                   display: "inline-block",
                   padding: "10px 14px",
                   borderRadius: 18,
-                  background: m.role === "user" ? "rgba(90,55,230,0.8)" : "rgba(255,255,255,0.15)",
+                  background:
+                    m.role === "user"
+                      ? "rgba(125,60,255,0.8)"
+                      : "rgba(255,255,255,0.15)",
                   maxWidth: "80%",
                   wordWrap: "break-word",
                 }}
@@ -349,7 +284,15 @@ export default function Home() {
         </div>
 
         {/* Composer */}
-        <div style={{ marginTop: 12, width: "100%", maxWidth: 680, display: "flex", gap: 8 }}>
+        <div
+          style={{
+            marginTop: 10,
+            display: "flex",
+            width: "100%",
+            maxWidth: 700,
+            gap: 8,
+          }}
+        >
           <input
             type="text"
             value={message}
@@ -382,7 +325,7 @@ export default function Home() {
             {loading ? "…" : "Send"}
           </button>
         </div>
-      </main>
-    </div>
+      </section>
+    </main>
   );
 }
