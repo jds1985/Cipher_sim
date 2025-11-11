@@ -1,7 +1,6 @@
-// /pages/api/sessions.js
 import admin from "firebase-admin";
 
-// Safe one-time init for firebase-admin
+// ✅ Initialize Firebase Admin safely (only once)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
@@ -17,7 +16,7 @@ const db = admin.firestore();
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      // List sessions from meta collection
+      // 📜 Get a list of all sessions
       const snap = await db
         .collection("cipher_sessions")
         .orderBy("updatedAt", "desc")
@@ -33,6 +32,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
+      // ➕ Create or update a session
       const { name } = req.body || {};
       const sessionId = (name || "").trim() || "default";
 
@@ -48,15 +48,15 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "DELETE") {
+      // ❌ Delete session and its messages
       const { sessionId } = req.query || {};
       if (!sessionId) {
-        return res.status(400).json({ error: "sessionId is required" });
+        return res.status(400).json({ error: "Missing sessionId" });
       }
 
-      // Delete all messages in this session (batched)
+      // 🧹 Delete all messages in this session
       const batchSize = 400;
       let deletedTotal = 0;
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const q = await db
           .collection("cipher_memory")
@@ -73,15 +73,16 @@ export default async function handler(req, res) {
         if (q.size < batchSize) break;
       }
 
-      // Remove meta doc
+      // 🗂️ Remove the session meta doc
       await db.collection("cipher_sessions").doc(sessionId).delete();
 
       return res.status(200).json({ ok: true, deleted: deletedTotal });
     }
 
+    // Unsupported method
     return res.status(405).json({ error: "Method not allowed" });
-  } catch (e) {
-    console.error("sessions API error:", e);
-    return res.status(500).json({ error: e.message });
+  } catch (error) {
+    console.error("🔥 sessions.js error:", error);
+    return res.status(500).json({ error: error.message });
   }
 }
