@@ -1,13 +1,8 @@
-// /pages/index.js
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 
+// 🔥 Firebase setup
 const firebaseConfig = {
   apiKey: "AIzaSyDiToKj76nxjfXWhLiXgDS6VE8K86OFfiQ",
   authDomain: "digisoul1111.firebaseapp.com",
@@ -17,50 +12,46 @@ const firebaseConfig = {
   appId: "1:260537897412:web:5c9cd6462747cde2c5491",
 };
 
-// Initialize Firebase (client-side)
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+initializeApp(firebaseConfig);
+getFirestore();
 
 export default function Home() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState("default");
+  const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Load session from localStorage
+  // 🧠 Load saved session
   useEffect(() => {
     const saved = localStorage.getItem("cipher.sessionId");
     if (saved) setSessionId(saved);
   }, []);
 
-  // Save session
   useEffect(() => {
     localStorage.setItem("cipher.sessionId", sessionId);
   }, [sessionId]);
 
-  // Auto-scroll on message change
+  // 🔁 Scroll to bottom on new message
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load memory from API
+  // 🔥 Load conversation from Firestore via API
   useEffect(() => {
     async function loadMessages() {
       try {
-        const res = await fetch("/api/memory");
+        const res = await fetch(`/api/memory?sessionId=${sessionId}`);
         const data = await res.json();
-        if (data.messages) {
-          setMessages(data.messages);
-        }
+        if (data.messages) setMessages(data.messages);
       } catch (err) {
-        console.error("Memory fetch error:", err);
+        console.error("Memory load error:", err);
       }
     }
     loadMessages();
-  }, []);
+  }, [sessionId]);
 
-  // Send message
+  // ✉️ Send message to Cipher
   async function sendMessage() {
     if (!message.trim()) return;
     setLoading(true);
@@ -73,18 +64,17 @@ export default function Home() {
       });
 
       const data = await res.json();
+
       if (data.reply) {
         setMessages((prev) => [
           ...prev,
-          { role: "user", text: message, sessionId },
-          { role: "cipher", text: data.reply, sessionId },
+          { role: "user", text: message },
+          { role: "cipher", text: data.reply },
         ]);
         setMessage("");
-      } else {
-        console.error("No reply received");
       }
     } catch (err) {
-      console.error("Error sending message:", err);
+      console.error("Send error:", err);
     } finally {
       setLoading(false);
     }
@@ -105,23 +95,24 @@ export default function Home() {
     >
       <h1 style={{ marginBottom: "10px" }}>Cipher AI 💬</h1>
 
-      {/* Session select */}
-      <div style={{ marginBottom: "10px" }}>
-        <label style={{ marginRight: "8px" }}>Session:</label>
+      {/* Session selector */}
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ marginRight: 8 }}>Session:</label>
         <input
-          type="text"
           value={sessionId}
-          onChange={(e) => setSessionId(e.target.value.trim() || "default")}
+          onChange={(e) => setSessionId(e.target.value)}
+          placeholder="Enter session name"
           style={{
             background: "rgba(255,255,255,0.1)",
+            border: "none",
+            padding: "8px 10px",
+            borderRadius: 8,
             color: "#fff",
-            border: "1px solid rgba(255,255,255,0.2)",
-            borderRadius: "8px",
-            padding: "6px 10px",
           }}
         />
       </div>
 
+      {/* Chat area */}
       <div
         style={{
           flex: 1,
@@ -162,6 +153,7 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
+      {/* Input area */}
       <div style={{ marginTop: "15px", width: "100%", maxWidth: "600px" }}>
         <input
           type="text"
