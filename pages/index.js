@@ -1,3 +1,4 @@
+// /pages/index.js
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import {
@@ -24,6 +25,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState("default");
   const chatEndRef = useRef(null);
 
   // 🔁 Auto-scroll when messages change
@@ -31,7 +33,7 @@ export default function Home() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 🔥 Load chat memory from API (not directly from Firestore)
+  // 🔥 Load chat memory from API (optional, can fetch session-specific later)
   useEffect(() => {
     async function loadMessages() {
       try {
@@ -56,7 +58,7 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, sessionId }),
       });
 
       const data = await res.json();
@@ -92,6 +94,29 @@ export default function Home() {
       }}
     >
       <h1 style={{ marginBottom: "10px" }}>Cipher AI 💬</h1>
+
+      {/* 🔮 Session selector */}
+      <div style={{ marginBottom: "10px" }}>
+        <label style={{ marginRight: "8px" }}>Session:</label>
+        <select
+          value={sessionId}
+          onChange={(e) => setSessionId(e.target.value)}
+          style={{
+            background: "rgba(255,255,255,0.1)",
+            color: "#fff",
+            borderRadius: "6px",
+            border: "none",
+            padding: "6px 10px",
+          }}
+        >
+          <option value="default">Default</option>
+          <option value="session_1">Session 1</option>
+          <option value="session_2">Session 2</option>
+          <option value="session_3">Session 3</option>
+        </select>
+      </div>
+
+      {/* 💭 Chat display */}
       <div
         style={{
           flex: 1,
@@ -132,6 +157,7 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
+      {/* 📝 Input + send */}
       <div style={{ marginTop: "15px", width: "100%", maxWidth: "600px" }}>
         <input
           type="text"
@@ -165,6 +191,19 @@ export default function Home() {
           {loading ? "..." : "Send"}
         </button>
       </div>
+
+      {/* 🌌 Memory Field link */}
+      <p style={{ marginTop: "12px", fontSize: "14px" }}>
+        <a
+          href="/memory"
+          style={{
+            color: "#9B59B6",
+            textDecoration: "none",
+          }}
+        >
+          View Memory Field →
+        </a>
+      </p>
     </main>
   );
 }
