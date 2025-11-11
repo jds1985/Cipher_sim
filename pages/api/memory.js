@@ -1,42 +1,37 @@
-// /pages/api/memory.js
-import { db } from "../../firebaseConfig";
-import {
-  collection,
-  getDocs,
-  orderBy,
-  limit,
-  query,
-} from "firebase/firestore";
+import admin from "firebase-admin";
 
-// This endpoint reads saved chat memory from Firestore.
-// You can call it from your frontend with:  fetch("/api/memory")
+// Initialize Firebase Admin (only once)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(
+      JSON.parse(
+        Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, "base64").toString()
+      )
+    ),
+  });
+}
+
+const db = admin.firestore();
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
     try {
-      // 🔍 Build query to get the latest 100 chat entries, ordered by time
-      const q = query(
-        collection(db, "cipher_memory"),
-        orderBy("timestamp", "asc"),
-        limit(100)
-      );
+      const { sessionId = "default", limitCount = 50 } = req.query;
 
-      const snapshot = await getDocs(q);
-      const messages = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const qSnap = await db
+        .collection("cipher_memory")
+        .where("sessionId", "==", sessionId)
+        .orderBy("timestamp", "asc")
+        .limit(Number(limitCount))
+        .get();
 
-      return res.status(200).json({ messages });
-    } catch (error) {
-      console.error("🔥 Memory fetch error:", error);
-      return res.status(500).json({
-        error: "Failed to fetch memory",
-        diagnostics: { message: error.message },
-      });
+      const messages = qSnap.docs.map((doc) => doc.data());
+      return res.status(200).json({ sessionId, messages });
+    } catch (err) {
+      console.error("🔥 Memory fetch error:", err);
+      return res.status(500).json({ error: err.message });
     }
   }
 
-  // Only allow GET requests
-  return res.status(405).json({ message: "Method not allowed" });
+  return res.status(405).json({ message: "Only GET supported" });
 }
