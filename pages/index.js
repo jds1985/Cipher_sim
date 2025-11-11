@@ -5,8 +5,6 @@ import {
   query,
   orderBy,
   onSnapshot,
-  addDoc,
-  serverTimestamp,
 } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 
@@ -16,7 +14,7 @@ const firebaseConfig = {
   projectId: "digisoul1111",
   storageBucket: "digisoul1111.appspot.com",
   messagingSenderId: "260537897412",
-  appId: "1:260537897412:web:5c9cd6462747cde2c5491"
+  appId: "1:260537897412:web:5c9cd6462747cde2c5491",
 };
 
 // Initialize Firebase (client-side)
@@ -36,11 +34,28 @@ export default function Home() {
 
   // 🔥 Load chat memory from Firestore
   useEffect(() => {
-    const q = query(collection(db, "cipher_memory"), orderBy("timestamp", "asc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const loaded = snapshot.docs.map((doc) => doc.data());
-      setMessages(loaded);
-    });
+    const q = query(
+      collection(db, "cipher_memory"),
+      orderBy("timestamp", "asc")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const loaded = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            ...data,
+            text: data.text || "(empty message)",
+          };
+        });
+        setMessages(loaded);
+      },
+      (error) => {
+        console.error("Firestore error:", error);
+      }
+    );
+
     return () => unsubscribe();
   }, []);
 
@@ -60,7 +75,7 @@ export default function Home() {
       if (data.reply) {
         setMessage("");
       } else {
-        console.error("No reply received");
+        console.error("No reply received:", data);
       }
     } catch (err) {
       console.error("Error sending message:", err);
@@ -83,6 +98,10 @@ export default function Home() {
       }}
     >
       <h1 style={{ marginBottom: "10px" }}>Cipher AI 💬</h1>
+      <p style={{ fontSize: "14px", opacity: 0.8 }}>
+        Chat persists across sessions — reload to test memory persistence.
+      </p>
+
       <div
         style={{
           flex: 1,
