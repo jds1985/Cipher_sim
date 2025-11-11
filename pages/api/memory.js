@@ -1,16 +1,15 @@
 // /pages/memory.js
 import { useEffect, useMemo, useRef, useState } from "react";
-import { db } from "../firebaseConfig"; // your existing file
+import { db } from "../firebaseConfig"; // ← ensure this file is at project root
 import {
   collection,
   query,
   orderBy,
-  where,
   onSnapshot,
   limit,
 } from "firebase/firestore";
 
-// Simple palette by type/role
+// Orb colors by role/type
 const TYPE_COLORS = {
   user: "#5B2CF2",
   cipher: "#9B59B6",
@@ -24,68 +23,110 @@ export default function MemoryField() {
   const [memories, setMemories] = useState([]);
   const [selected, setSelected] = useState(null);
   const [typeFilter, setTypeFilter] = useState("all");
-  const [sessionId, setSessionId] = useState("default"); // change via UI
+  const [sessionId, setSessionId] = useState("default");
   const [search, setSearch] = useState("");
+  const [allSessions, setAllSessions] = useState(["default"]);
+  const [newSessionName, setNewSessionName] = useState("");
   const wrapRef = useRef(null);
 
-  // 🔴 Live subscription to Firestore
+  // Load/persist chosen session
   useEffect(() => {
-    // Collection can be either a flat collection or a subcollection.
-    // If you later move to /sessions/{id}/messages, just swap path here.
+    const saved = typeof window !== "undefined"
+      ? localStorage.getItem("cipher.sessionId")
+      : null;
+    if (saved) setSessionId(saved);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cipher.sessionId", sessionId);
+    }
+  }, [sessionId]);
+
+  // 🔴 Live subscription to Firestore (client-side)
+  // NOTE: we avoid "where" so you don't need composite indexes.
+  // We fetch latest 800 docs by time, then filter in memory.
+  useEffect(() => {
     const baseRef = collection(db, "cipher_memory");
-    const q = query(
-      baseRef,
-      where("sessionId", "==", sessionId),
-      orderBy("timestamp", "asc"),
-      limit(1000)
-    );
+    const q = query(baseRef, orderBy("timestamp", "desc"), limit(800));
 
     const unsub = onSnapshot(q, (snap) => {
       const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // Build a session list for the dropdown
+      const sessionSet = new Set(["default"]);
+      rows.forEach((r) => {
+        if (r.sessionId && typeof r.sessionId === "string") sessionSet.add(r.sessionId);
+      });
+      setAllSessions(Array.from(sessionSet).sort());
+      // We’ll flip to ASC for display after filtering
       setMemories(rows);
     });
 
     return () => unsub();
-  }, [sessionId]);
+  }, []);
 
-  // 🔎 filter + search
-  const filtered = useMemo(() => {
+  // 🔎 Filter, search, and order ASC for the grid
+  const filteredAsc = useMemo(() => {
     const t = typeFilter.toLowerCase();
     const s = search.trim().toLowerCase();
 
-    return memories.filter((m) => {
-      const byType = t === "all" ? true : (m.type || m.role || "").toLowerCase() === t;
-      const bySearch = !s
-        ? true
-        : (m.text || "")
-            .toString()
-            .toLowerCase()
-            .includes(s);
-      return byType && bySearch;
-    });
-  }, [memories, typeFilter, search]);
+    const keep = memories.filter((m) => {
+      // Filter by selected session:
+      const bySession =
+        (m.sessionId || "default") === sessionId;
 
-  // 🎯 layout: deterministic jittered grid so refreshes look stable
+      // Filter by type:
+      const roleType = (m.type || m.role || "memory").toLowerCase();
+      const byType = t === "all" ? true : roleType === t;
+
+      // Filter by search:
+      const text = (m.text || "").toString().toLowerCase();
+      const bySearch = s ? text.includes(s) : true;
+
+      return bySession && byType && bySearch;
+    });
+
+    // Oldest → newest for display
+    return keep.sort((a, b) => {
+      const ta = (a.timestamp?.toMillis?.() ?? 0);
+      const tb = (b.timestamp?.toMillis?.() ?? 0);
+      return ta - tb;
+    });
+  }, [memories, typeFilter, search, sessionId]);
+
+  // Deterministic jittered grid
   const laidOut = useMemo(() => {
-    const cols = 10; // number of columns
-    const pad = 18;  // orb spacing
-    return filtered.map((m, i) => {
+    const cols = 10; // columns
+    const pad = 18;  // spacing
+    return filteredAsc.map((m, i) => {
       const c = i % cols;
       const r = Math.floor(i / cols);
       const x = c * pad + (c % 2) * 6;
       const y = r * pad + ((c + r) % 3) * 4;
       return { ...m, x, y };
     });
-  }, [filtered]);
+  }, [filteredAsc]);
+
+  // Add a new session name (local only until messages are saved under it)
+  function addSession() {
+    const name = (newSessionName || "").trim();
+    if (!name) return;
+    if (!allSessions.includes(name)) {
+      setAllSessions((prev) => [...prev, name].sort());
+    }
+    setSessionId(name);
+    setNewSessionName("");
+  }
 
   return (
     <main
       style={{
         minHeight: "100vh",
         color: "#fff",
-        background: "radial-gradient(1200px 800px at 50% -10%, #2c1a68 0%, #0a0018 60%, #070012 100%)",
+        background:
+          "radial-gradient(1200px 800px at 50% -10%, #2c1a68 0%, #0a0018 60%, #070012 100%)",
         fontFamily: "Inter, system-ui, sans-serif",
-        padding: "16px",
+        padding: 16,
       }}
     >
       {/* Header / Controls */}
@@ -105,16 +146,30 @@ export default function MemoryField() {
         </h1>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {/* Session select */}
           <select
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
             style={selStyle}
             title="Session"
           >
-            <option value="default">Session: default</option>
-            {/* Add more once you have a sessions list */}
+            {allSessions.map((s) => (
+              <option key={s} value={s}>
+                Session: {s}
+              </option>
+            ))}
           </select>
 
+          {/* Quick new session */}
+          <input
+            value={newSessionName}
+            onChange={(e) => setNewSessionName(e.target.value)}
+            placeholder="New session name…"
+            style={{ ...inputStyle, minWidth: 160 }}
+          />
+          <button onClick={addSession} style={btnStyle}>Add</button>
+
+          {/* Type filter */}
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
@@ -130,6 +185,7 @@ export default function MemoryField() {
             <option value="system">System</option>
           </select>
 
+          {/* Search */}
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -159,7 +215,6 @@ export default function MemoryField() {
             overflow: "hidden",
           }}
         >
-          {/* Orbs */}
           <div
             style={{
               display: "grid",
@@ -180,7 +235,7 @@ export default function MemoryField() {
                   style={{
                     cursor: "pointer",
                     aspectRatio: "1 / 1",
-                    borderRadius: "999px",
+                    borderRadius: 999,
                     border: "none",
                     background: `radial-gradient(circle at 35% 30%, ${hexA(
                       color,
@@ -270,6 +325,15 @@ const inputStyle = {
   padding: "8px 10px",
   borderRadius: 10,
   minWidth: 180,
+};
+
+const btnStyle = {
+  background: "rgba(255,255,255,0.12)",
+  color: "#fff",
+  border: "1px solid rgba(255,255,255,0.18)",
+  padding: "8px 10px",
+  borderRadius: 10,
+  cursor: "pointer",
 };
 
 const drawerWrapStyle = {
