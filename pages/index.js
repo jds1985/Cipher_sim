@@ -1,160 +1,240 @@
-import { useState, useEffect, useRef } from "react";
+// /pages/index.js
+import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
+  const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  // 🔹 Auto-scroll to latest message
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // ---------- helpers ----------
+  const toMillis = (ts) => {
+    if (!ts) return 0;
+    // Firestore Timestamp?
+    if (typeof ts?.toMillis === "function") return ts.toMillis();
+    // Already a number or ISO?
+    if (typeof ts === "number") return ts;
+    const n = Number(ts);
+    if (!Number.isNaN(n)) return n;
+    try { return Date.parse(ts) || 0; } catch { return 0; }
   };
+
+  const sortByTime = (arr) =>
+    [...arr].sort((a, b) => toMillis(a.timestamp) - toMillis(b.timestamp));
+
+  const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
+  // ---------- load memory ----------
+  const loadMessages = async () => {
+    try {
+      const res = await fetch("/api/memory");
+      const data = await res.json();
+      if (Array.isArray(data?.messages)) {
+        setMessages(sortByTime(data.messages));
+      }
+    } catch (err) {
+      console.error("memory load error:", err);
+    }
+  };
+
+  useEffect(() => { loadMessages(); }, []);
+  useEffect(() => {
+    const onFocus = () => loadMessages();
+    window.addEventListener("visibilitychange", onFocus);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
 
   useEffect(scrollToBottom, [messages]);
 
-  // 🔹 Load saved memory from Firestore (through API)
-  useEffect(() => {
-    const loadMemory = async () => {
-      try {
-        const res = await fetch("/api/memory");
-        const data = await res.json();
-        if (data.messages) setMessages(data.messages);
-      } catch (err) {
-        console.error("Failed to load memory:", err);
-      }
-    };
-    loadMemory();
-  }, []);
-
-  // 🔹 Send message to Cipher
+  // ---------- send ----------
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    const text = message.trim();
+    if (!text || loading) return;
 
-    const newUserMessage = {
-      role: "user",
-      text: input.trim(),
-      timestamp: new Date().toISOString(),
-    };
+    // optimistic UI
+    const now = Date.now();
+    const optimisticUser = { role: "user", text, timestamp: now };
+    const optimisticAI   = { role: "cipher", text: "(…)", timestamp: now + 1 };
 
-    const updatedMessages = [...messages, newUserMessage];
-    setMessages(updatedMessages);
-    setInput("");
+    setMessages((prev) => sortByTime([...prev, optimisticUser, optimisticAI]));
+    setMessage("");
     setLoading(true);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message: text }),
       });
 
       const data = await res.json();
-      if (data.reply) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "cipher",
-            text: data.reply,
-            timestamp: new Date().toISOString(),
-          },
-        ]);
-      } else {
-        console.error("No reply received:", data);
+      // Replace the last placeholder with the real reply by just reloading canonical history
+      await loadMessages();
+
+      // Fallback: if API didn’t return messages in time, update the last bubble
+      if (!Array.isArray(data?.messages) && data?.reply) {
+        setMessages((prev) => {
+          const cp = [...prev];
+          for (let i = cp.length - 1; i >= 0; i--) {
+            if (cp[i].role === "cipher" && cp[i].text === "(…)") {
+              cp[i] = { ...cp[i], text: data.reply, timestamp: Date.now() };
+              break;
+            }
+          }
+          return sortByTime(cp);
+        });
       }
     } catch (err) {
-      console.error("Send failed:", err);
+      console.error("send error:", err);
+      // show an inline error bubble
+      setMessages((prev) =>
+        sortByTime([
+          ...prev.filter((m) => !(m.role === "cipher" && m.text === "(…)")),
+          { role: "cipher", text: "Sorry—something went wrong. Try again.", timestamp: Date.now() },
+        ])
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") sendMessage();
+  const onKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
 
-  return (
-    <div
-      style={{
-        background: "radial-gradient(circle at top, #24124d, #0b031b)",
-        color: "#fff",
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "20px",
-        fontFamily: "Inter, sans-serif",
-      }}
-    >
-      {/* Header */}
-      <div style={{ textAlign: "center", marginTop: "10px" }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: "700" }}>
-          Cipher AI <span style={{ opacity: 0.8 }}>💬</span>
-        </h1>
-      </div>
+  // ---------- styles ----------
+  const wrap = {
+    minHeight: "100vh",
+    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    background: "#ffffff",
+    color: "#0b0b0b",
+    display: "flex",
+    flexDirection: "column",
+  };
 
-      {/* Chat Window */}
-      <div
-        style={{
-          flex: 1,
-          width: "100%",
-          maxWidth: "600px",
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-          padding: "10px",
-        }}
-      >
-        {messages.map((msg, i) => (
+  const header = {
+    padding: "18px 16px",
+    textAlign: "center",
+    fontWeight: 800,
+    fontSize: "28px",
+    letterSpacing: 0.3,
+    borderBottom: "1px solid #eee",
+    color: "#111",
+  };
+
+  const chat = {
+    flex: 1,
+    maxWidth: 820,
+    width: "100%",
+    margin: "0 auto",
+    padding: "20px 14px 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  };
+
+  const bubbleBase = {
+    maxWidth: "84%",
+    padding: "12px 14px",
+    borderRadius: 18,
+    lineHeight: 1.45,
+    wordWrap: "break-word",
+    whiteSpace: "pre-wrap",
+    boxShadow: "0 1px 1px rgba(0,0,0,0.04)",
+    fontSize: 16,
+  };
+
+  const bubbleAI = {
+    ...bubbleBase,
+    alignSelf: "flex-start",
+    background: "#f2f2f7",         // light gray
+    color: "#111",
+  };
+
+  const bubbleUser = {
+    ...bubbleBase,
+    alignSelf: "flex-end",
+    background: "#1e60ff",         // blue
+    color: "#fff",
+  };
+
+  const composerWrap = {
+    position: "sticky",
+    bottom: 0,
+    borderTop: "1px solid #eee",
+    background: "#fff",
+  };
+
+  const composer = {
+    display: "flex",
+    gap: 8,
+    maxWidth: 820,
+    width: "100%",
+    margin: "0 auto",
+    padding: 12,
+  };
+
+  const input = {
+    flex: 1,
+    resize: "none",
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid #ddd",
+    outline: "none",
+    background: "#fff",
+    fontSize: 16,
+  };
+
+  const sendBtn = {
+    minWidth: 92,
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "none",
+    background: loading ? "#8aa6ff" : "#1e60ff",
+    color: "#fff",
+    fontWeight: 600,
+    cursor: loading ? "default" : "pointer",
+  };
+
+  // ---------- render ----------
+  return (
+    <main style={wrap}>
+      <div style={header}>Cipher AI</div>
+
+      <section style={chat}>
+        {messages.map((m, i) => (
           <div
-            key={i}
-            style={{
-              alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-              backgroundColor: msg.role === "user" ? "#6a3df0" : "#3b2b5f",
-              padding: "10px 15px",
-              borderRadius: "20px",
-              marginBottom: "10px",
-              maxWidth: "80%",
-              wordBreak: "break-word",
-            }}
+            key={`${i}-${toMillis(m.timestamp)}`}
+            style={m.role === "user" ? bubbleUser : bubbleAI}
           >
-            {msg.text}
+            {m.text}
           </div>
         ))}
         <div ref={chatEndRef} />
-      </div>
+      </section>
 
-      {/* Input Area */}
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          width: "100%",
-          maxWidth: "600px",
-          marginBottom: "10px",
-        }}
-      >
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyPress}
-          placeholder="Type to Cipher..."
-          style={{
-            flex: 1,
-            padding: "12px",
-            borderRadius: "25px",
-            border: "none",
-            outline: "none",
-            fontSize: "1rem",
-            backgroundColor: "#1b0e2b",
-            color: "white",
-          }}
-        />
-        <button
-          onClick={sendMessage}
-          disabled={loading}
-          style={{
-            backgroundColor: "#6a3df0",
-            color
+      <div style={composerWrap}>
+        <div style={composer}>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={onKeyDown}
+            rows={1}
+            placeholder="Type to Cipher…"
+            style={input}
+          />
+          <button onClick={sendMessage} disabled={loading} style={sendBtn}>
+            {loading ? "Sending…" : "Send"}
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}
