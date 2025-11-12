@@ -1,6 +1,5 @@
 import admin from "firebase-admin";
 
-// Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
@@ -14,28 +13,64 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 export default async function handler(req, res) {
-  try {
-    const sessionId = req.query.sessionId || "default";
-
-    // Fetch only messages from the specified session
-    const snapshot = await db
-      .collection("cipher_memory")
-      .where("sessionId", "==", sessionId)
-      .orderBy("timestamp", "asc")
-      .limit(250)
-      .get();
-
-    const messages = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    return res.status(200).json({ sessionId, messages });
-  } catch (error) {
-    console.error("memory.js error:", error);
-    return res.status(500).json({
-      error: "Failed to load memory",
-      details: error.message,
+  // Health check
+  if (req.method === "GET" && !req.query.sessionId) {
+    return res.status(200).json({
+      ok: true,
+      service: "Cipher memory API",
+      time: new Date().toISOString(),
     });
   }
+
+  // Get memory messages
+  if (req.method === "GET") {
+    try {
+      const snapshot = await db
+        .collection("cipher_memory")
+        .orderBy("timestamp", "asc")
+        .limit(100)
+        .get();
+
+      const messages = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return res.status(200).json({ messages });
+    } catch (error) {
+      console.error("memory.js error:", error);
+      return res.status(500).json({
+        error: "Error fetching messages",
+        details: error.message,
+      });
+    }
+  }
+
+  // Add a new message (optional future use)
+  if (req.method === "POST") {
+    try {
+      const { role, text, userId = "guest" } = req.body;
+      if (!text) {
+        return res.status(400).json({ error: "No text provided" });
+      }
+
+      await db.collection("cipher_memory").add({
+        role,
+        text,
+        userId,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      console.error("memory.js POST error:", error);
+      return res.status(500).json({
+        error: "Error saving message",
+        details: error.message,
+      });
+    }
+  }
+
+  // Unsupported method
+  return res.status(405).json({ error: "Method not allowed" });
 }
