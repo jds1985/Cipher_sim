@@ -14,29 +14,34 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 export default async function handler(req, res) {
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Only GET allowed" });
-  }
-
   try {
-    // read the ?sessionId= param
-    const { sessionId = "default" } = req.query;
+    if (req.method === "GET") {
+      // 🔹 Fetch ALL messages, ordered by timestamp
+      const snapshot = await db
+        .collection("cipher_memory")
+        .orderBy("timestamp", "asc")
+        .get();
 
-    const ref = db.collection("cipher_memory");
-    let queryRef = ref.where("sessionId", "==", sessionId).orderBy("timestamp", "asc");
+      const messages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
 
-    const snapshot = await queryRef.get();
-    const messages = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+      return res.status(200).json({ messages });
+    }
 
-    return res.status(200).json({ sessionId, messages });
+    if (req.method === "DELETE") {
+      // 🔹 Clear all memory (optional reset button)
+      const snapshot = await db.collection("cipher_memory").get();
+      const batch = db.batch();
+      snapshot.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      return res.status(200).json({ success: true, message: "All memory cleared." });
+    }
+
+    return res.status(405).json({ error: "Method not allowed" });
   } catch (error) {
-    console.error("🔥 memory.js error:", error);
-    return res.status(500).json({
-      error: "Failed to load session memory",
-      details: error.message,
-    });
+    console.error("memory.js error:", error);
+    return res.status(500).json({ error: "Memory retrieval failed", details: error.message });
   }
 }
