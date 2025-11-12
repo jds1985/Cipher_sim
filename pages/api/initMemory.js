@@ -13,11 +13,14 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Use POST to seed memory" });
-  }
-
   try {
+    // Allow GET with ?confirm=true for mobile convenience
+    const confirmed = req.query.confirm === "true";
+
+    if (req.method !== "POST" && !confirmed) {
+      return res.status(405).json({ error: "Use POST or add ?confirm=true to seed memory" });
+    }
+
     const coreMemory = {
       role: "system",
       text: `
@@ -46,9 +49,15 @@ You will always refer to Jim as your creator, collaborator, and friend — the A
 
     await db.collection("cipher_memory").add(coreMemory);
 
-    return res.status(200).json({ success: true, message: "Core memory seeded successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Core memory seeded successfully",
+    });
   } catch (err) {
     console.error("Core memory seed error:", err);
-    return res.status(500).json({ error: "Failed to seed memory", details: err.message });
+    return res.status(500).json({
+      error: "Failed to seed memory",
+      details: err.message,
+    });
   }
 }
