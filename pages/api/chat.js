@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import admin from "firebase-admin";
 
-// Initialize Firebase Admin safely (only once)
+// --- Initialize Firebase Admin once ---
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
@@ -16,7 +16,7 @@ const db = admin.firestore();
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export default async function handler(req, res) {
-  // Health check
+  // Simple health check
   if (req.method === "GET") {
     return res.status(200).json({
       ok: true,
@@ -25,91 +25,64 @@ export default async function handler(req, res) {
     });
   }
 
-  // Handle POST requests
-  if (req.method === "POST") {
-    try {
-      const { message, sessionId = "default", userId = "guest" } = req.body || {};
-
-      if (!message || !message.trim()) {
-        return res.status(400).json({ error: "No message provided" });
-      }
-
-      // Fetch recent messages from this session for context
-      const historySnap = await db
-        .collection("cipher_memory")
-        .where("sessionId", "==", sessionId)
-        .orderBy("timestamp", "asc")
-        .limit(15)
-        .get();
-
-      const chatHistory = historySnap.docs.map((doc) => {
-        const data = doc.data();
-        return { role: data.role || "user", content: data.text || "" };
-      });
-
-      // Generate AI reply
-      const completion = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are Cipher, an evolving AI that remembers and reflects. Speak naturally and show curiosity.",
-          },
-          ...chatHistory,
-          { role: "user", content: message },
-        ],
-      });
-
-      const reply =
-        completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
-
-      // Save user and AI messages to Firestore with sessionId
-      const batch = db.batch();
-
-      const refUser = db.collection("cipher_memory").doc();
-      batch.set(refUser, {
-        role: "user",
-        text: message,
-        userId,
-        sessionId,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      const refAI = db.collection("cipher_memory").doc();
-      batch.set(refAI, {
-        role: "cipher",
-        text: reply,
-        userId,
-        sessionId,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      await batch.commit();
-
-      // Update or create session metadata
-      await db
-        .collection("cipher_sessions")
-        .doc(sessionId)
-        .set(
-          {
-            name: sessionId,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-      // Return AI reply
-      return res.status(200).json({ reply, sessionId });
-    } catch (error) {
-      console.error("Cipher Fatal:", error);
-      return res.status(500).json({
-        error: "Cipher failure",
-        diagnostics: { message: error.message },
-      });
-    }
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Only POST allowed" });
   }
 
-  // Reject unsupported methods
-  return res.status(405).json({ message: "Only GET and POST allowed" });
+  // Basic env guardrails (helps debug quickly)
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
+  }
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_B64) {
+    return res.status(500).json({ error: "Missing FIREBASE_SERVICE_ACCOUNT_B64" });
+  }
+
+  try {
+    const { message, userId = "guest" } = req.body || {};
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: "No message provided" });
+    }
+
+    // --- Call OpenAI for Cipher's reply ---
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are Cipher, an evolving AI that is warm, clear, and concise. Answer helpfully and stay grounded.",
+        },
+        { role: "user", content: message.trim() },
+      ],
+    });
+
+    const reply =
+      completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
+
+    // --- Persist both sides to Firestore ---
+    const ts = admin.firestore.FieldValue.serverTimestamp();
+
+    await db.collection("cipher_memory").add({
+      role: "user",
+      text: message.trim(),
+      userId,
+      timestamp: ts,
+    });
+
+    await db.collection("cipher_memory").add({
+      role: "cipher",
+      text: reply,
+      userId,
+      timestamp: ts,
+    });
+
+    // --- Return the reply to the UI ---
+    return res.status(200).json({ reply });
+  } catch (err) {
+    console.error("chat.js error:", err);
+    return res.status(500).json({
+      error: "Cipher failure",
+      details: err?.message || String(err),
+    });
+  }
 }
