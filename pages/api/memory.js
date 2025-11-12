@@ -1,3 +1,4 @@
+// /pages/api/memory.js
 import admin from "firebase-admin";
 
 if (!admin.apps.length) {
@@ -16,12 +17,12 @@ export default async function handler(req, res) {
   try {
     const sessionId = req.query.sessionId || "default";
 
-    // ✅ Only load messages for this sessionId
+    // 🔒  Fetch only messages for this session
     const snapshot = await db
       .collection("cipher_memory")
       .where("sessionId", "==", sessionId)
       .orderBy("timestamp", "asc")
-      .limit(200)
+      .limit(250)
       .get();
 
     const messages = snapshot.docs.map((doc) => ({
@@ -30,8 +31,8 @@ export default async function handler(req, res) {
     }));
 
     res.status(200).json({ sessionId, messages });
-  } catch (error) {
-    console.error("🔥 memory.js error:", error);
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error("memory.js error:", err);
+    res.status(500).json({ error: err.message });
   }
 }
