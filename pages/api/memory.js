@@ -1,6 +1,6 @@
-// /pages/api/memory.js
 import admin from "firebase-admin";
 
+// Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   try {
     const sessionId = req.query.sessionId || "default";
 
-    // 🔒  Fetch only messages for this session
+    // Fetch only messages from the specified session
     const snapshot = await db
       .collection("cipher_memory")
       .where("sessionId", "==", sessionId)
@@ -30,9 +30,12 @@ export default async function handler(req, res) {
       ...doc.data(),
     }));
 
-    res.status(200).json({ sessionId, messages });
-  } catch (err) {
-    console.error("memory.js error:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(200).json({ sessionId, messages });
+  } catch (error) {
+    console.error("memory.js error:", error);
+    return res.status(500).json({
+      error: "Failed to load memory",
+      details: error.message,
+    });
   }
 }
