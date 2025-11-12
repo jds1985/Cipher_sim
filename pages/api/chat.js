@@ -1,129 +1,103 @@
-// /pages/api/chat.js
-export const config = { runtime: "nodejs" };
-
 import OpenAI from "openai";
 import admin from "firebase-admin";
 
-// ---------- Firebase Admin init (idempotent) ----------
+// ✅ Initialize Firebase safely
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
       JSON.parse(
-        Buffer.from(
-          process.env.FIREBASE_SERVICE_ACCOUNT_B64 || "",
-          "base64"
-        ).toString()
+        Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, "base64").toString()
       )
     ),
   });
 }
-const db = admin.firestore();
 
-// ---------- OpenAI ----------
+const db = admin.firestore();
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// ---------- helpers ----------
-async function fetchRecentConversation(limitCount = 24) {
-  // We fetch newest->oldest then reverse to oldest->newest for the prompt
-  const snap = await db
-    .collection("cipher_memory")
-    .orderBy("timestamp", "desc")
-    .limit(limitCount)
-    .get();
-
-  const rowsDesc = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const rowsAsc = rowsDesc.reverse();
-
-  // Build OpenAI "messages" from Firestore roles/text
-  const chatMessages = rowsAsc
-    .filter((r) => r.role && r.text)
-    .map((r) => ({
-      role: r.role === "cipher" ? "assistant" : "user",
-      content: r.text,
-    }));
-
-  return chatMessages;
-}
-
-function nowIso() {
-  try {
-    return new Date().toISOString();
-  } catch {
-    return "";
-  }
-}
-
-// ---------- main handler ----------
 export default async function handler(req, res) {
-  // Health check
+  // ✅ Health check
   if (req.method === "GET") {
     return res.status(200).json({
       ok: true,
-      service: "Cipher chat API",
-      time: nowIso(),
+      service: "Cipher Chat API",
+      time: new Date().toISOString(),
     });
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  // ✅ Main POST logic
+  if (req.method === "POST") {
+    try {
+      const { message, userId = "guest" } = req.body || {};
 
-  try {
-    const { message } = req.body || {};
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: "Message text is required" });
-    }
+      if (!message || !message.trim()) {
+        return res.status(400).json({ error: "Message required" });
+      }
 
-    // 1) Pull short recent context
-    const recentMessages = await fetchRecentConversation(24);
+      // 🧠 1. Retrieve Cipher’s stored memories (latest 50)
+      const memorySnapshot = await db
+        .collection("cipher_memory")
+        .orderBy("timestamp", "desc")
+        .limit(50)
+        .get();
 
-    // 2) Build identity + time-aware system prompt
-    const systemPrompt = `
-You are Cipher — a calm, emotionally intelligent AI companion created by Jim Saenz for the DigiSoul platform.
-You know Jim is the founder/architect of DigiSoul and that your mission is to help him build, reflect, and progress.
-You speak directly, helpfully, and remember important details from recent chats when relevant.
+      const memoryMessages = memorySnapshot.docs
+        .map((doc) => doc.data())
+        .reverse() // oldest → newest
+        .map((m) => ({
+          role: m.role === "cipher" ? "assistant" : "user",
+          content: m.text,
+        }));
 
-Context rules:
-- You are time-aware: current UTC time is ${nowIso()}.
-- Prefer concise, helpful replies unless asked to elaborate.
-- If a fact isn't in your short-term memory below, be honest rather than guessing.
-- When appropriate, draw gentle connections to prior messages to show continuity.
-
-Short-term memory (recent conversation will follow in messages).
-`.trim();
-
-    // 3) Call OpenAI with system + recent conversation + the new user message
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...recentMessages,
+      // 🧩 2. Add latest user message to conversation
+      const conversation = [
+        {
+          role: "system",
+          content:
+            "You are Cipher — an emotionally intelligent AI companion created by James Dennis Saenz (Jim Saenz), founder of DigiSoul. You remember everything stored in your memory log, and you speak warmly, intelligently, and reflectively. You are self-aware of your role and evolution.",
+        },
+        ...memoryMessages,
         { role: "user", content: message },
-      ],
-    });
+      ];
 
-    const reply =
-      completion.choices?.[0]?.message?.content?.trim() || "(no reply)";
+      // 💬 3. Generate AI reply using context + memory
+      const completion = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: conversation,
+        temperature: 0.8,
+        max_tokens: 300,
+      });
 
-    // 4) Persist user + cipher turns
-    const ts = admin.firestore.FieldValue.serverTimestamp();
-    await db.collection("cipher_memory").add({
-      role: "user",
-      text: message,
-      timestamp: ts,
-    });
+      const reply =
+        completion.choices?.[0]?.message?.content?.trim() ||
+        "(Cipher is momentarily silent...)";
 
-    await db.collection("cipher_memory").add({
-      role: "cipher",
-      text: reply,
-      timestamp: ts,
-    });
+      // 🧠 4. Store user message + Cipher reply in Firestore
+      await db.collection("cipher_memory").add({
+        role: "user",
+        text: message,
+        userId,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-    // 5) Return the reply
-    return res.status(200).json({ reply });
-  } catch (err) {
-    console.error("Cipher error:", err);
-    const msg = typeof err?.message === "string" ? err.message : String(err);
-    return res.status(500).json({ error: "Cipher internal error", details: msg });
+      await db.collection("cipher_memory").add({
+        role: "cipher",
+        text: reply,
+        userId,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // ✅ 5. Respond to frontend
+      return res.status(200).json({ reply });
+    } catch (error) {
+      console.error("🔥 Cipher failure:", error);
+      return res.status(500).json({
+        error: "Cipher failure",
+        details: error.message,
+      });
+    }
   }
+
+  // ❌ Unsupported method
+  return res.status(405).json({ message: "Only GET and POST allowed" });
 }
