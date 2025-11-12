@@ -1,160 +1,160 @@
 import { useState, useEffect, useRef } from "react";
 
 export default function Home() {
-  const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Load messages on mount
+  // 🔹 Auto-scroll to latest message
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(scrollToBottom, [messages]);
+
+  // 🔹 Load saved memory from Firestore (through API)
   useEffect(() => {
-    loadMessages();
+    const loadMemory = async () => {
+      try {
+        const res = await fetch("/api/memory");
+        const data = await res.json();
+        if (data.messages) setMessages(data.messages);
+      } catch (err) {
+        console.error("Failed to load memory:", err);
+      }
+    };
+    loadMemory();
   }, []);
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  // 🔹 Send message to Cipher
+  const sendMessage = async () => {
+    if (!input.trim()) return;
 
-  async function loadMessages() {
-    try {
-      const res = await fetch("/api/memory");
-      const data = await res.json();
-      if (Array.isArray(data.messages)) setMessages(data.messages);
-    } catch (err) {
-      console.error("Error loading memory:", err);
-    }
-  }
+    const newUserMessage = {
+      role: "user",
+      text: input.trim(),
+      timestamp: new Date().toISOString(),
+    };
 
-  async function sendMessage() {
-    if (!message.trim()) return;
-    const userMsg = message.trim();
-    setMessage("");
+    const updatedMessages = [...messages, newUserMessage];
+    setMessages(updatedMessages);
+    setInput("");
     setLoading(true);
-
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", text: userMsg, timestamp: Date.now() },
-    ]);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg }),
+        body: JSON.stringify({ message: input }),
       });
 
       const data = await res.json();
-      const reply = data.reply || "(no reply)";
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "cipher", text: reply, timestamp: Date.now() },
-      ]);
-
-      await loadMessages(); // reload to sync Firestore
+      if (data.reply) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "cipher",
+            text: data.reply,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      } else {
+        console.error("No reply received:", data);
+      }
     } catch (err) {
-      console.error("Send error:", err);
+      console.error("Send failed:", err);
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") sendMessage();
+  };
 
   return (
-    <main
+    <div
       style={{
-        minHeight: "100vh",
-        background: "linear-gradient(180deg, #0b001a 0%, #150035 100%)",
+        background: "radial-gradient(circle at top, #24124d, #0b031b)",
+        color: "#fff",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
+        justifyContent: "space-between",
         alignItems: "center",
-        color: "white",
-        fontFamily: "Inter, system-ui, sans-serif",
-        padding: 20,
+        padding: "20px",
+        fontFamily: "Inter, sans-serif",
       }}
     >
-      <h1 style={{ marginBottom: 10, fontWeight: 700 }}>Cipher AI 💬</h1>
+      {/* Header */}
+      <div style={{ textAlign: "center", marginTop: "10px" }}>
+        <h1 style={{ fontSize: "2rem", fontWeight: "700" }}>
+          Cipher AI <span style={{ opacity: 0.8 }}>💬</span>
+        </h1>
+      </div>
 
+      {/* Chat Window */}
       <div
         style={{
           flex: 1,
           width: "100%",
-          maxWidth: 640,
-          background: "rgba(255,255,255,0.05)",
-          borderRadius: 12,
-          padding: 14,
+          maxWidth: "600px",
           overflowY: "auto",
-          boxShadow: "0 0 12px rgba(255,255,255,0.1)",
+          display: "flex",
+          flexDirection: "column",
+          padding: "10px",
         }}
       >
-        {messages.map((m, i) => (
+        {messages.map((msg, i) => (
           <div
             key={i}
             style={{
-              textAlign: m.role === "user" ? "right" : "left",
-              marginBottom: 12,
+              alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+              backgroundColor: msg.role === "user" ? "#6a3df0" : "#3b2b5f",
+              padding: "10px 15px",
+              borderRadius: "20px",
+              marginBottom: "10px",
+              maxWidth: "80%",
+              wordBreak: "break-word",
             }}
           >
-            <div
-              style={{
-                display: "inline-block",
-                padding: "10px 14px",
-                borderRadius: 18,
-                background:
-                  m.role === "user"
-                    ? "rgba(125,60,255,0.8)"
-                    : "rgba(255,255,255,0.12)",
-                maxWidth: "80%",
-                wordWrap: "break-word",
-              }}
-            >
-              {m.text}
-            </div>
+            {msg.text}
           </div>
         ))}
         <div ref={chatEndRef} />
       </div>
 
+      {/* Input Area */}
       <div
         style={{
-          marginTop: 12,
-          width: "100%",
-          maxWidth: 640,
           display: "flex",
-          gap: 8,
+          gap: "10px",
+          width: "100%",
+          maxWidth: "600px",
+          marginBottom: "10px",
         }}
       >
         <input
           type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder="Type to Cipher…"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyPress}
+          placeholder="Type to Cipher..."
           style={{
             flex: 1,
-            padding: "12px 14px",
-            borderRadius: 10,
+            padding: "12px",
+            borderRadius: "25px",
             border: "none",
             outline: "none",
-            background: "rgba(255,255,255,0.1)",
-            color: "#fff",
+            fontSize: "1rem",
+            backgroundColor: "#1b0e2b",
+            color: "white",
           }}
         />
         <button
           onClick={sendMessage}
           disabled={loading}
           style={{
-            padding: "12px 16px",
-            borderRadius: 10,
-            border: "none",
-            background: loading ? "#555" : "#7D3CFF",
-            color: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "..." : "Send"}
-        </button>
-      </div>
-    </main>
-  );
-}
+            backgroundColor: "#6a3df0",
+            color
