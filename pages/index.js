@@ -4,21 +4,30 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(false);
   const chatEndRef = useRef(null);
+  const lastAudioRef = useRef(null);
 
-  // Load messages from localStorage
+  // Load chat + voice preference
   useEffect(() => {
     const stored = localStorage.getItem("cipher_messages");
     if (stored) setMessages(JSON.parse(stored));
+
+    const voicePref = localStorage.getItem("cipher_voiceOn");
+    if (voicePref) setVoiceOn(voicePref === "true");
   }, []);
 
-  // Persist + autoscroll
+  // Persist chat and voice
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     localStorage.setItem("cipher_messages", JSON.stringify(messages));
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function sendMessage() {
+  useEffect(() => {
+    localStorage.setItem("cipher_voiceOn", voiceOn);
+  }, [voiceOn]);
+
+  const sendMessage = async () => {
     if (!input.trim()) return;
     const userMessage = { role: "user", text: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
@@ -31,14 +40,17 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage.text }),
       });
-      const data = await res.json();
 
+      const data = await res.json();
       if (data.reply) {
         const aiMessage = { role: "cipher", text: data.reply };
         setMessages((prev) => [...prev, aiMessage]);
 
-        // 🔊 Try to play Cipher’s voice
-        if (data.audio) {
+        // store for replay
+        if (data.audio) lastAudioRef.current = data.audio;
+
+        // play automatically if voiceOn
+        if (voiceOn && data.audio) {
           try {
             const audio = new Audio("data:audio/mp3;base64," + data.audio);
             await audio.play();
@@ -61,7 +73,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -70,28 +82,24 @@ export default function Home() {
     }
   };
 
-  async function clearConversation() {
+  const clearConversation = async () => {
     if (confirm("Delete all chat history and reset Cipher?")) {
       await fetch("/api/clear", { method: "POST" });
       localStorage.removeItem("cipher_messages");
       setMessages([]);
       alert("Conversation cleared.");
     }
-  }
+  };
 
-  // 🔊 Manual test button
-  async function testVoice() {
-    try {
-      const r = await fetch("/api/voice-test");
-      const { audio } = await r.json();
-      if (!audio) return alert("No audio data returned.");
-      const a = new Audio("data:audio/mp3;base64," + audio);
-      await a.play();
-    } catch (err) {
-      console.error("Voice test error:", err);
-      alert("Voice test failed.");
+  // replay last voice
+  const replayVoice = async () => {
+    if (!lastAudioRef.current) {
+      alert("No audio available yet.");
+      return;
     }
-  }
+    const audio = new Audio("data:audio/mp3;base64," + lastAudioRef.current);
+    await audio.play();
+  };
 
   return (
     <div
@@ -156,13 +164,14 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input + controls */}
       <div
         style={{
           display: "flex",
           width: "100%",
           maxWidth: "700px",
           marginTop: "15px",
+          alignItems: "center",
         }}
       >
         <textarea
@@ -195,12 +204,31 @@ export default function Home() {
         >
           Send
         </button>
+
+        {/* Voice toggle button */}
+        <button
+          onClick={() => setVoiceOn((v) => !v)}
+          title={voiceOn ? "Voice on" : "Voice off"}
+          style={{
+            marginLeft: "6px",
+            backgroundColor: voiceOn ? "#1e73be" : "#b0b0b0",
+            color: "white",
+            border: "none",
+            borderRadius: "50%",
+            width: "40px",
+            height: "40px",
+            fontSize: "18px",
+            cursor: "pointer",
+          }}
+        >
+          {voiceOn ? "🔊" : "🔇"}
+        </button>
       </div>
 
-      {/* Controls */}
+      {/* Replay + delete */}
       <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
         <button
-          onClick={testVoice}
+          onClick={replayVoice}
           style={{
             backgroundColor: "#1e73be",
             color: "#fff",
@@ -210,7 +238,7 @@ export default function Home() {
             cursor: "pointer",
           }}
         >
-          🔊 Test Cipher’s Voice
+          🔁 Replay Voice
         </button>
 
         <button
