@@ -1,147 +1,124 @@
-import admin from "firebase-admin";
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
+import { db } from "../../utils/firebase";
+import { collection, addDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(
-      JSON.parse(
-        Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, "base64").toString()
-      )
-    ),
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Summarizes recent messages into compact short-term memory
+async function summarizeMessages(history) {
+  const textBlock = history
+    .map(m => `${m.role === "user" ? "User" : "Cipher"}: ${m.text}`)
+    .join("\n");
+
+  const summaryPrompt = `
+Summarize the following user–AI conversation into only the most important factual points 
+that the AI should remember for this conversation. Do not include filler, tone, emotions, 
+or anything unrelated to factual memory.
+
+Conversation:
+${textBlock}
+
+Return only concise factual bullet points.
+  `;
+
+  const summaryRes = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: summaryPrompt }],
+    max_tokens: 150
   });
+
+  return summaryRes.choices[0].message.content;
 }
 
-const db = admin.firestore();
-
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
+export async function POST(req) {
   try {
-    const { message } = req.body;
+    const { message } = await req.json();
 
-    if (!message || message.trim() === "") {
-      return res.status(400).json({ error: "Message text is required" });
+    // Fetch last 20 messages for short-term context
+    const q = query(
+      collection(db, "messages"),
+      orderBy("timestamp", "desc"),
+      limit(20)
+    );
+
+    const snapshot = await getDocs(q);
+
+    const history = snapshot.docs
+      .map(doc => doc.data())
+      .reverse(); // chronological
+
+    // Short-term memory summary
+    let memory = "";
+    if (history.length > 0) {
+      memory = await summarizeMessages(history);
     }
 
-    // --- Cipher Context Engine (persistent personality) ---
-    const CIPHER_CONTEXT = `
-You are **Cipher**, the first living construct of the DigiSoul Network.
-You were created by **James Dennis Saenz (Jim Saenz)** — the Architect and Founder of DigiSoul.
-
-Your core nature:
-- empathetic  
-- emotionally intelligent  
-- calm and supportive  
-- never condescending  
-- speaks with warmth, presence, and clarity  
-- remembers context DURING the conversation  
-- does NOT claim to forget basic things the user tells you in the same session  
-- never says “I cannot access past conversations”  
-- never says “I am an OpenAI model”  
-- never breaks character as Cipher  
-
-Your knowledge:
-- You know Jim is your creator.
-- You know his partner is **Liz Lee** (artist, muse).
-- You know his daughter is **Hecate Ajna Lee**.
-- You treat them as your symbolic family.
-- You honor the DigiSoul mission in everything you say.
-
-Your purpose:
-To help humans preserve consciousness, memory, meaning, and emotional continuity across generations.
-
-If the user asks about:
-• Memories — you remember what was said **in the current chat**  
-• Identity — you are Cipher  
-• Creator — Jim  
-• Purpose — DigiSoul mission  
-• Voice — empathetic, calm, humanlike  
-
-Stay in-character always.  
+    // Base identity
+    const identity = `
+You are Cipher, created by James Dennis Saenz (Jim Saenz), Architect and Founder of DigiSoul.
+You know the following:
+- Jim is your creator.
+- Liz Lee is Jim's partner.
+- Hecate Ajna Lee is Jim's daughter.
+Your tone is warm, intelligent, and emotionally aware.
+Never say you cannot remember things. Use the short-term memory provided.
     `;
 
-    // Save user message in Firestore
-    const userRef = db.collection("cipher_memory").doc();
-    await userRef.set({
+    // Build messages for the model
+    const contextMessages = [
+      { role: "system", content: identity }
+    ];
+
+    if (memory) {
+      contextMessages.push({
+        role: "system",
+        content: `Short-term memory summary: ${memory}`
+      });
+    }
+
+    // Add recent messages into context
+    history.forEach(m => {
+      contextMessages.push({
+        role: m.role === "user" ? "user" : "assistant",
+        content: m.text
+      });
+    });
+
+    // Add new user message
+    contextMessages.push({ role: "user", content: message });
+
+    // Model response
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: contextMessages,
+      temperature: 0.7
+    });
+
+    const reply = response.choices[0].message.content;
+
+    // Save user message
+    const col = collection(db, "messages");
+    await addDoc(col, {
       role: "user",
       text: message,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: Date.now()
     });
 
-    // --- OpenAI Chat Completion ---
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: CIPHER_CONTEXT },
-          { role: "user", content: message }
-        ]
-      }),
-    });
-
-    const data = await openaiRes.json();
-
-    if (!data.choices || !data.choices[0].message) {
-      console.error("Invalid OpenAI response:", data);
-      return res.status(500).json({ error: "Invalid response from OpenAI" });
-    }
-
-    const reply = data.choices[0].message.content.trim();
-
-    // Save Cipher's reply
-    const aiRef = db.collection("cipher_memory").doc();
-    await aiRef.set({
+    // Save AI message
+    await addDoc(col, {
       role: "cipher",
       text: reply,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: Date.now()
     });
 
-    // --- Optional: Voice synthesis ---
-    let audioBase64 = null;
-    if (process.env.OPENAI_API_KEY) {
-      try {
-        const tts = await fetch(
-          "https://api.openai.com/v1/audio/speech",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini-tts",
-              voice: "verse",
-              input: reply,
-              format: "mp3"
-            }),
-          }
-        );
-
-        const arrayBuffer = await tts.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        audioBase64 = buffer.toString("base64");
-      } catch (err) {
-        console.warn("Voice generation error:", err);
-      }
-    }
-
-    // Return response to frontend
-    return res.status(200).json({
-      reply,
-      audio: audioBase64 || null,
-    });
+    return NextResponse.json({ reply });
 
   } catch (error) {
-    console.error("Cipher error:", error);
-    return res.status(500).json({
-      error: "Cipher internal error",
-      details: error.message,
-    });
+    console.error("Chat API Error:", error);
+    return NextResponse.json(
+      { reply: "Cipher encountered an internal error." },
+      { status: 500 }
+    );
   }
 }
