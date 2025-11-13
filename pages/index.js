@@ -12,7 +12,7 @@ export default function Home() {
     if (stored) setMessages(JSON.parse(stored));
   }, []);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom and persist messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     localStorage.setItem("cipher_messages", JSON.stringify(messages));
@@ -33,9 +33,20 @@ export default function Home() {
       });
 
       const data = await res.json();
+
       if (data.reply) {
         const aiMessage = { role: "cipher", text: data.reply };
         setMessages((prev) => [...prev, aiMessage]);
+
+        // 🔊 Play Cipher’s voice if available
+        if (data.audio) {
+          try {
+            const audio = new Audio("data:audio/mp3;base64," + data.audio);
+            await audio.play();
+          } catch (err) {
+            console.warn("Autoplay blocked or playback error:", err);
+          }
+        }
       } else {
         const err = {
           role: "cipher",
@@ -82,6 +93,7 @@ export default function Home() {
     >
       <h1 style={{ color: "#1a2a40", marginBottom: "10px" }}>Cipher AI</h1>
 
+      {/* Chat window */}
       <div
         style={{
           width: "100%",
@@ -97,16 +109,13 @@ export default function Home() {
         }}
       >
         {messages.map((m, i) => {
-          // Hide seed/system messages
           if (m.role === "system") return null;
-
           return (
             <div
               key={i}
               style={{
                 alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                backgroundColor:
-                  m.role === "user" ? "#1e73be" : "#e9ecf1",
+                backgroundColor: m.role === "user" ? "#1e73be" : "#e9ecf1",
                 color: m.role === "user" ? "#fff" : "#1a2a40",
                 borderRadius: "16px",
                 padding: "10px 14px",
