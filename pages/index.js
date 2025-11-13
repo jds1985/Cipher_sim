@@ -4,12 +4,13 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [lastAudio, setLastAudio] = useState(null);
   const chatEndRef = useRef(null);
 
-  // Hidden memory store (browser only)
+  // Hidden memory
   const [cipherMemory, setCipherMemory] = useState({});
 
-  // Load messages + memory from localStorage
+  // Load saved data
   useEffect(() => {
     const storedMessages = localStorage.getItem("cipher_messages");
     if (storedMessages) setMessages(JSON.parse(storedMessages));
@@ -18,30 +19,29 @@ export default function Home() {
     if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
   }, []);
 
-  // Save messages and auto-scroll
+  // Save messages + autoscroll
   useEffect(() => {
     localStorage.setItem("cipher_messages", JSON.stringify(messages));
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Save memory whenever it updates
+  // Save memory
   useEffect(() => {
     localStorage.setItem("cipher_memory", JSON.stringify(cipherMemory));
   }, [cipherMemory]);
 
-  // Extract simple facts from user messages
+  // Fact extraction
   const extractFacts = (text) => {
-    let newFacts = {};
-
     const patterns = [
       { key: "favoriteAnimal", regex: /favorite animal is ([a-zA-Z]+)/i },
       { key: "favoriteColor", regex: /favorite color is ([a-zA-Z]+)/i },
       { key: "daughterName", regex: /my daughter'?s name is ([a-zA-Z ]+)/i },
       { key: "location", regex: /i live in ([a-zA-Z ]+)/i },
       { key: "age", regex: /i am ([0-9]+) years old/i },
-      { key: "partnerName", regex: /my partner'?s name is ([a-zA-Z ]+)/i }
+      { key: "partnerName", regex: /my partner'?s name is ([a-zA-Z ]+)/i },
     ];
 
+    let newFacts = {};
     for (const p of patterns) {
       const match = text.match(p.regex);
       if (match) newFacts[p.key] = match[1].trim();
@@ -58,10 +58,10 @@ export default function Home() {
     const userText = input.trim();
     extractFacts(userText);
 
-    const userMessage = { role: "user", text: userText };
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, { role: "user", text: userText }]);
     setInput("");
     setLoading(true);
+    setLastAudio(null);
 
     try {
       const res = await fetch("/api/chat", {
@@ -69,38 +69,43 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
-          memory: cipherMemory
-        })
+          memory: cipherMemory,
+        }),
       });
 
       const data = await res.json();
 
       if (data.reply) {
-        const aiMessage = { role: "cipher", text: data.reply };
-        setMessages((prev) => [...prev, aiMessage]);
+        setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
 
-        // If audio provided, play it
+        // if audio exists, save + play
         if (data.audio) {
-          const audio = new Audio("data:audio/mp3;base64," + data.audio);
-          audio.play().catch(() => {});
+          setLastAudio(data.audio);
+          try {
+            const audio = new Audio("data:audio/mp3;base64," + data.audio);
+            audio.play();
+          } catch {}
         }
       } else {
-        const err = { role: "cipher", text: "Error processing message." };
-        setMessages((prev) => [...prev, err]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "cipher", text: "Error processing message." },
+        ]);
       }
-    } catch (error) {
-      const fail = { role: "cipher", text: "Network or server error." };
-      setMessages((prev) => [...prev, fail]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Network or server error." },
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  const replayAudio = () => {
+    if (!lastAudio) return;
+    const audio = new Audio("data:audio/mp3;base64," + lastAudio);
+    audio.play();
   };
 
   const clearConversation = () => {
@@ -109,6 +114,7 @@ export default function Home() {
       localStorage.removeItem("cipher_memory");
       setMessages([]);
       setCipherMemory({});
+      setLastAudio(null);
       alert("Conversation cleared.");
     }
   };
@@ -117,16 +123,17 @@ export default function Home() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f0f4f8",
+        backgroundColor: "#e8eef3",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         padding: "20px",
-        fontFamily: "Inter, sans-serif"
+        fontFamily: "Inter, sans-serif",
       }}
     >
       <h1 style={{ color: "#1a2a40", marginBottom: "10px" }}>Cipher AI</h1>
 
+      {/* Chat Window */}
       <div
         style={{
           width: "100%",
@@ -135,41 +142,30 @@ export default function Home() {
           borderRadius: "12px",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           padding: "20px",
-          overflowY: "auto",
           flexGrow: 1,
-          display: "flex",
-          flexDirection: "column"
+          overflowY: "auto",
         }}
       >
-        {messages.map((m, i) =>
-          m.role === "system" ? null : (
-            <div
-              key={i}
-              style={{
-                alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                backgroundColor: m.role === "user" ? "#1e73be" : "#e9ecf1",
-                color: m.role === "user" ? "#fff" : "#1a2a40",
-                borderRadius: "16px",
-                padding: "10px 14px",
-                margin: "6px 0",
-                maxWidth: "80%",
-                whiteSpace: "pre-wrap"
-              }}
-            >
-              {m.text}
-            </div>
-          )
-        )}
-
-        {loading && (
+        {messages.map((m, i) => (
           <div
+            key={i}
             style={{
-              alignSelf: "flex-start",
-              color: "#888",
-              fontStyle: "italic",
-              marginTop: "6px"
+              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+              backgroundColor: m.role === "user" ? "#1e73be" : "#dfe4ea",
+              color: m.role === "user" ? "white" : "#1a2a40",
+              padding: "10px 14px",
+              borderRadius: "16px",
+              margin: "8px 0",
+              maxWidth: "80%",
+              whiteSpace: "pre-wrap",
             }}
           >
+            {m.text}
+          </div>
+        ))}
+
+        {loading && (
+          <div style={{ color: "#555", marginTop: "6px" }}>
             Cipher is thinking...
           </div>
         )}
@@ -177,27 +173,31 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
+      {/* Input + Send */}
       <div
         style={{
           display: "flex",
           width: "100%",
           maxWidth: "700px",
-          marginTop: "15px"
+          marginTop: "15px",
         }}
       >
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
           placeholder="Type to Cipher..."
           rows={1}
           style={{
             flex: 1,
-            resize: "none",
             border: "1px solid #ccc",
             borderRadius: "8px",
             padding: "10px",
-            fontFamily: "inherit"
           }}
         />
 
@@ -211,10 +211,27 @@ export default function Home() {
             border: "none",
             borderRadius: "8px",
             padding: "10px 16px",
-            cursor: "pointer"
           }}
         >
           Send
+        </button>
+
+        {/* Voice Replay Button */}
+        <button
+          onClick={replayAudio}
+          disabled={!lastAudio}
+          style={{
+            marginLeft: "8px",
+            backgroundColor: lastAudio ? "#2d89ef" : "#9bb7d1",
+            color: "white",
+            border: "none",
+            borderRadius: "50%",
+            width: "48px",
+            height: "48px",
+            fontSize: "20px",
+          }}
+        >
+          🔊
         </button>
       </div>
 
@@ -222,13 +239,10 @@ export default function Home() {
         onClick={clearConversation}
         style={{
           marginTop: "20px",
-          backgroundColor: "#5c6b73",
+          backgroundColor: "#444e57",
           color: "white",
-          border: "none",
-          borderRadius: "8px",
           padding: "8px 16px",
-          cursor: "pointer",
-          opacity: 0.9
+          borderRadius: "8px",
         }}
       >
         Delete Conversation
