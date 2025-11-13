@@ -4,31 +4,24 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [voiceOn, setVoiceOn] = useState(false);
+  const [lastAudio, setLastAudio] = useState(null);
   const chatEndRef = useRef(null);
-  const lastAudioRef = useRef(null);
 
-  // Load chat + voice preference
+  // Load messages from localStorage
   useEffect(() => {
     const stored = localStorage.getItem("cipher_messages");
     if (stored) setMessages(JSON.parse(stored));
-
-    const voicePref = localStorage.getItem("cipher_voiceOn");
-    if (voicePref) setVoiceOn(voicePref === "true");
   }, []);
 
-  // Persist chat and voice
+  // Auto-scroll + persist chat
   useEffect(() => {
-    localStorage.setItem("cipher_messages", JSON.stringify(messages));
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    localStorage.setItem("cipher_messages", JSON.stringify(messages));
   }, [messages]);
-
-  useEffect(() => {
-    localStorage.setItem("cipher_voiceOn", voiceOn);
-  }, [voiceOn]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
+
     const userMessage = { role: "user", text: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
@@ -42,36 +35,40 @@ export default function Home() {
       });
 
       const data = await res.json();
+
       if (data.reply) {
         const aiMessage = { role: "cipher", text: data.reply };
         setMessages((prev) => [...prev, aiMessage]);
 
-        // store for replay
-        if (data.audio) lastAudioRef.current = data.audio;
-
-        // play automatically if voiceOn
-        if (voiceOn && data.audio) {
+        if (data.audio) {
           try {
             const audio = new Audio("data:audio/mp3;base64," + data.audio);
+            setLastAudio(audio);
             await audio.play();
           } catch (err) {
-            console.warn("Autoplay blocked or playback error:", err);
+            console.warn("Audio playback blocked or failed:", err);
           }
         }
       } else {
         setMessages((prev) => [
           ...prev,
-          { role: "cipher", text: "⚠️ No reply received." },
+          { role: "cipher", text: "Cipher could not process that request." },
         ]);
       }
     } catch (err) {
-      console.error("Send error:", err);
       setMessages((prev) => [
         ...prev,
-        { role: "cipher", text: "⚠️ Network or server error." },
+        { role: "cipher", text: "Network or server error." },
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const replayLastAudio = () => {
+    if (lastAudio) {
+      lastAudio.currentTime = 0;
+      lastAudio.play();
     }
   };
 
@@ -83,22 +80,11 @@ export default function Home() {
   };
 
   const clearConversation = async () => {
-    if (confirm("Delete all chat history and reset Cipher?")) {
+    if (confirm("Clear all chat history?")) {
       await fetch("/api/clear", { method: "POST" });
       localStorage.removeItem("cipher_messages");
       setMessages([]);
-      alert("Conversation cleared.");
     }
-  };
-
-  // replay last voice
-  const replayVoice = async () => {
-    if (!lastAudioRef.current) {
-      alert("No audio available yet.");
-      return;
-    }
-    const audio = new Audio("data:audio/mp3;base64," + lastAudioRef.current);
-    await audio.play();
   };
 
   return (
@@ -115,7 +101,6 @@ export default function Home() {
     >
       <h1 style={{ color: "#1a2a40", marginBottom: "10px" }}>Cipher AI</h1>
 
-      {/* Chat window */}
       <div
         style={{
           width: "100%",
@@ -130,23 +115,27 @@ export default function Home() {
           flexDirection: "column",
         }}
       >
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            style={{
-              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              backgroundColor: m.role === "user" ? "#1e73be" : "#e9ecf1",
-              color: m.role === "user" ? "#fff" : "#1a2a40",
-              borderRadius: "16px",
-              padding: "10px 14px",
-              margin: "6px 0",
-              maxWidth: "80%",
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {m.text}
-          </div>
-        ))}
+        {messages.map((m, i) => {
+          if (m.role === "system") return null;
+
+          return (
+            <div
+              key={i}
+              style={{
+                alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                backgroundColor: m.role === "user" ? "#1e73be" : "#e9ecf1",
+                color: m.role === "user" ? "#fff" : "#1a2a40",
+                borderRadius: "16px",
+                padding: "10px 14px",
+                margin: "6px 0",
+                maxWidth: "80%",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {m.text}
+            </div>
+          );
+        })}
 
         {loading && (
           <div
@@ -164,7 +153,6 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input + controls */}
       <div
         style={{
           display: "flex",
@@ -178,7 +166,7 @@ export default function Home() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Type to Cipher…"
+          placeholder="Type to Cipher..."
           rows={1}
           style={{
             flex: 1,
@@ -189,6 +177,7 @@ export default function Home() {
             fontFamily: "inherit",
           }}
         />
+
         <button
           onClick={sendMessage}
           disabled={loading}
@@ -205,56 +194,38 @@ export default function Home() {
           Send
         </button>
 
-        {/* Voice toggle button */}
         <button
-          onClick={() => setVoiceOn((v) => !v)}
-          title={voiceOn ? "Voice on" : "Voice off"}
+          onClick={replayLastAudio}
+          disabled={!lastAudio}
           style={{
-            marginLeft: "6px",
-            backgroundColor: voiceOn ? "#1e73be" : "#b0b0b0",
-            color: "white",
-            border: "none",
+            marginLeft: "8px",
+            backgroundColor: "#d9d9d9",
+            border: "1px solid #999",
             borderRadius: "50%",
-            width: "40px",
-            height: "40px",
-            fontSize: "18px",
-            cursor: "pointer",
+            padding: "10px",
+            width: "45px",
+            height: "45px",
+            cursor: lastAudio ? "pointer" : "not-allowed",
           }}
         >
-          {voiceOn ? "🔊" : "🔇"}
+          ▷
         </button>
       </div>
 
-      {/* Replay + delete */}
-      <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
-        <button
-          onClick={replayVoice}
-          style={{
-            backgroundColor: "#1e73be",
-            color: "#fff",
-            border: "none",
-            borderRadius: "8px",
-            padding: "8px 16px",
-            cursor: "pointer",
-          }}
-        >
-          🔁 Replay Voice
-        </button>
-
-        <button
-          onClick={clearConversation}
-          style={{
-            backgroundColor: "#5c6b73",
-            color: "#fff",
-            border: "none",
-            borderRadius: "8px",
-            padding: "8px 16px",
-            cursor: "pointer",
-          }}
-        >
-          🗑️ Delete Conversation
-        </button>
-      </div>
+      <button
+        onClick={clearConversation}
+        style={{
+          marginTop: "20px",
+          backgroundColor: "#5c6b73",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          padding: "8px 16px",
+          cursor: "pointer",
+        }}
+      >
+        Delete Conversation
+      </button>
     </div>
   );
 }
