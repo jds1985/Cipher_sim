@@ -30,10 +30,8 @@ export default function Home() {
   }, [cipherMemory]);
 
   // -----------------------------------------------
-  // IMPROVED FACT EXTRACTION ENGINE
-  // More flexible detection + better matching
+  // FACT EXTRACTION ENGINE – returns updates only
   // -----------------------------------------------
-
   const extractFacts = (text) => {
     const lower = text.toLowerCase();
     let updates = {};
@@ -41,12 +39,7 @@ export default function Home() {
     const checks = [
       {
         key: "favoriteAnimal",
-        patterns: [
-          "my favorite animal is",
-          "favorite animal is",
-          "i like",
-          "i love"
-        ],
+        patterns: ["my favorite animal is", "favorite animal is"],
         extract: () => {
           const match = lower.match(/favorite animal is ([a-zA-Z]+)/i);
           return match ? match[1] : null;
@@ -70,7 +63,7 @@ export default function Home() {
       },
       {
         key: "partnerName",
-        patterns: ["my partner's name is", "my partner is"],
+        patterns: ["my partner's name is"],
         extract: () => {
           const match = lower.match(/partner(?:'s)? name is ([a-zA-Z ]+)/i);
           return match ? match[1].trim() : null;
@@ -93,21 +86,27 @@ export default function Home() {
       }
     }
 
-    if (Object.keys(updates).length > 0) {
-      setCipherMemory((prev) => ({ ...prev, ...updates }));
-    }
+    return updates;
   };
 
   // -----------------------------------------------
-  // SEND MESSAGE TO /api/chat
+  // SEND MESSAGE TO /api/chat  (with fresh memory)
   // -----------------------------------------------
-
   const sendMessage = async () => {
     if (!input.trim()) return;
 
     const userText = input.trim();
-    extractFacts(userText);
 
+    // 1) Compute memory updates from this message
+    const updates = extractFacts(userText);
+    const newMemory = { ...cipherMemory, ...updates };
+
+    // 2) Commit memory to state so UI + localStorage stay in sync
+    if (Object.keys(updates).length > 0) {
+      setCipherMemory(newMemory);
+    }
+
+    // 3) Push user message into chat
     const userMessage = { role: "user", text: userText };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
@@ -119,17 +118,21 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
-          memory: cipherMemory
+          memory: newMemory // 🔥 always fresh memory
         })
       });
 
       const data = await res.json();
 
       if (data.reply) {
-        const aiMessage = { role: "cipher", text: data.reply };
+        const aiMessage = {
+          role: "cipher",
+          text: data.reply,
+          audio: data.audio || null
+        };
         setMessages((prev) => [...prev, aiMessage]);
 
-        // If voice response exists, play it
+        // Auto-play voice if present
         if (data.audio) {
           const audio = new Audio("data:audio/mp3;base64," + data.audio);
           audio.play().catch(() => {});
@@ -170,7 +173,6 @@ export default function Home() {
   // ------------------------------------------------
   // UI
   // ------------------------------------------------
-
   return (
     <div
       style={{
@@ -235,7 +237,7 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* INPUT */}
+      {/* INPUT + BUTTONS */}
       <div
         style={{
           display: "flex",
@@ -279,10 +281,14 @@ export default function Home() {
         {/* Voice replay button */}
         <button
           onClick={() => {
-            const last = messages.filter((m) => m.role === "cipher").pop();
+            const last = [...messages]
+              .filter((m) => m.role === "cipher")
+              .pop();
             if (last?.audio) {
               const audio = new Audio("data:audio/mp3;base64," + last.audio);
               audio.play().catch(() => {});
+            } else {
+              alert("No recent voice response to replay yet.");
             }
           }}
           style={{
