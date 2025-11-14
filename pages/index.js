@@ -1,24 +1,35 @@
+// /pages/index.js
 import { useState, useEffect, useRef } from "react";
 
 export default function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const chatEndRef = useRef(null);
-
-  // Cipher memory store (browser only)
   const [cipherMemory, setCipherMemory] = useState({});
+  const chatEndRef = useRef(null);
 
   // Load stored chat + memory on page load
   useEffect(() => {
     const storedMessages = localStorage.getItem("cipher_messages");
-    if (storedMessages) setMessages(JSON.parse(storedMessages));
+    if (storedMessages) {
+      try {
+        setMessages(JSON.parse(storedMessages));
+      } catch {
+        setMessages([]);
+      }
+    }
 
     const storedMemory = localStorage.getItem("cipher_memory");
-    if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
+    if (storedMemory) {
+      try {
+        setCipherMemory(JSON.parse(storedMemory));
+      } catch {
+        setCipherMemory({});
+      }
+    }
   }, []);
 
-  // Persist messages
+  // Persist messages and auto-scroll
   useEffect(() => {
     localStorage.setItem("cipher_messages", JSON.stringify(messages));
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -30,87 +41,107 @@ export default function Home() {
   }, [cipherMemory]);
 
   // -----------------------------------------------
-  // FACT EXTRACTION ENGINE – returns updates only
+  // FACT EXTRACTION (short-term facts)
   // -----------------------------------------------
   const extractFacts = (text) => {
     const lower = text.toLowerCase();
-    let updates = {};
+    const updates = {};
 
     const checks = [
       {
         key: "favoriteAnimal",
         patterns: ["my favorite animal is", "favorite animal is"],
-        extract: () => {
-          const match = lower.match(/favorite animal is ([a-zA-Z]+)/i);
-          return match ? match[1] : null;
-        }
+        regex: /favorite animal is ([a-zA-Z]+)/i,
       },
       {
         key: "favoriteColor",
         patterns: ["my favorite color is", "favorite color is"],
-        extract: () => {
-          const match = lower.match(/favorite color is ([a-zA-Z]+)/i);
-          return match ? match[1] : null;
-        }
+        regex: /favorite color is ([a-zA-Z]+)/i,
       },
       {
         key: "daughterName",
         patterns: ["my daughter's name is", "my daughter is named"],
-        extract: () => {
-          const match = lower.match(/daughter(?:'s)? name is ([a-zA-Z ]+)/i);
-          return match ? match[1].trim() : null;
-        }
+        regex: /daughter(?:'s)? name is ([a-zA-Z ]+)/i,
       },
       {
         key: "partnerName",
-        patterns: ["my partner's name is"],
-        extract: () => {
-          const match = lower.match(/partner(?:'s)? name is ([a-zA-Z ]+)/i);
-          return match ? match[1].trim() : null;
-        }
+        patterns: ["my partner's name is", "my partner is named"],
+        regex: /partner(?:'s)? name is ([a-zA-Z ]+)/i,
       },
       {
         key: "location",
         patterns: ["i live in"],
-        extract: () => {
-          const match = lower.match(/i live in ([a-zA-Z ]+)/i);
-          return match ? match[1].trim() : null;
-        }
-      }
+        regex: /i live in ([a-zA-Z ]+)/i,
+      },
+      {
+        key: "age",
+        patterns: ["i am", "i'm"],
+        regex: /i am ([0-9]+) years old/i,
+      },
     ];
 
     for (const c of checks) {
       if (c.patterns.some((p) => lower.includes(p))) {
-        const value = c.extract();
-        if (value) updates[c.key] = value;
+        const match = text.match(c.regex);
+        if (match && match[1]) {
+          updates[c.key] = match[1].trim();
+        }
       }
     }
 
-    return updates;
+    if (Object.keys(updates).length > 0) {
+      setCipherMemory((prev) => ({ ...prev, ...updates }));
+    }
   };
 
   // -----------------------------------------------
-  // SEND MESSAGE TO /api/chat  (with fresh memory)
+  // CONTEXT SNAPSHOT (Tier 2 memory)
+  // -----------------------------------------------
+  const buildContextSnapshot = () => {
+    const recent = messages.slice(-8); // last 8 messages
+    const lines = recent.map((m) => {
+      const speaker = m.role === "user" ? "User" : "Cipher";
+      return `${speaker}: ${m.text}`;
+    });
+
+    const factLines =
+      cipherMemory && Object.keys(cipherMemory).length > 0
+        ? Object.entries(cipherMemory).map(
+            ([key, value]) =>
+              `${key.replace(/([A-Z])/g, " $1").replace(/^./, (c) =>
+                c.toUpperCase()
+              )}: ${value}`
+          )
+        : [];
+
+    const contextParts = [];
+
+    if (lines.length > 0) {
+      contextParts.push("Recent turns:", lines.join("\n"));
+    }
+
+    if (factLines.length > 0) {
+      contextParts.push("Key short-term facts:", factLines.join("\n"));
+    }
+
+    return contextParts.join("\n\n") || "No recent context available.";
+  };
+
+  // -----------------------------------------------
+  // SEND MESSAGE
   // -----------------------------------------------
   const sendMessage = async () => {
     if (!input.trim()) return;
 
     const userText = input.trim();
+    extractFacts(userText);
 
-    // 1) Compute memory updates from this message
-    const updates = extractFacts(userText);
-    const newMemory = { ...cipherMemory, ...updates };
-
-    // 2) Commit memory to state so UI + localStorage stay in sync
-    if (Object.keys(updates).length > 0) {
-      setCipherMemory(newMemory);
-    }
-
-    // 3) Push user message into chat
     const userMessage = { role: "user", text: userText };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
+
+    const contextSnapshot = buildContextSnapshot();
 
     try {
       const res = await fetch("/api/chat", {
@@ -118,21 +149,17 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
-          memory: newMemory // 🔥 always fresh memory
-        })
+          memory: cipherMemory,
+          context: contextSnapshot,
+        }),
       });
 
       const data = await res.json();
 
       if (data.reply) {
-        const aiMessage = {
-          role: "cipher",
-          text: data.reply,
-          audio: data.audio || null
-        };
+        const aiMessage = { role: "cipher", text: data.reply };
         setMessages((prev) => [...prev, aiMessage]);
 
-        // Auto-play voice if present
         if (data.audio) {
           const audio = new Audio("data:audio/mp3;base64," + data.audio);
           audio.play().catch(() => {});
@@ -140,13 +167,13 @@ export default function Home() {
       } else {
         setMessages((prev) => [
           ...prev,
-          { role: "cipher", text: "Error processing message." }
+          { role: "cipher", text: "Error processing message." },
         ]);
       }
     } catch (error) {
       setMessages((prev) => [
         ...prev,
-        { role: "cipher", text: "Network or server error." }
+        { role: "cipher", text: "Network or server error." },
       ]);
     } finally {
       setLoading(false);
@@ -170,9 +197,9 @@ export default function Home() {
     }
   };
 
-  // ------------------------------------------------
+  // -----------------------------------------------
   // UI
-  // ------------------------------------------------
+  // -----------------------------------------------
   return (
     <div
       style={{
@@ -182,11 +209,12 @@ export default function Home() {
         flexDirection: "column",
         alignItems: "center",
         padding: "20px",
-        fontFamily: "Inter, sans-serif"
+        fontFamily: "Inter, sans-serif",
       }}
     >
       <h1 style={{ color: "#1a2a40", marginBottom: "10px" }}>Cipher AI</h1>
 
+      {/* Chat window */}
       <div
         style={{
           width: "100%",
@@ -198,7 +226,7 @@ export default function Home() {
           overflowY: "auto",
           flexGrow: 1,
           display: "flex",
-          flexDirection: "column"
+          flexDirection: "column",
         }}
       >
         {messages.map((m, i) =>
@@ -213,7 +241,7 @@ export default function Home() {
                 padding: "10px 14px",
                 margin: "6px 0",
                 maxWidth: "80%",
-                whiteSpace: "pre-wrap"
+                whiteSpace: "pre-wrap",
               }}
             >
               {m.text}
@@ -227,7 +255,7 @@ export default function Home() {
               alignSelf: "flex-start",
               color: "#888",
               fontStyle: "italic",
-              marginTop: "6px"
+              marginTop: "6px",
             }}
           >
             Cipher is thinking...
@@ -237,13 +265,13 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* INPUT + BUTTONS */}
+      {/* Input row */}
       <div
         style={{
           display: "flex",
           width: "100%",
           maxWidth: "700px",
-          marginTop: "15px"
+          marginTop: "15px",
         }}
       >
         <textarea
@@ -258,7 +286,7 @@ export default function Home() {
             border: "1px solid #ccc",
             borderRadius: "8px",
             padding: "10px",
-            fontFamily: "inherit"
+            fontFamily: "inherit",
           }}
         />
 
@@ -272,41 +300,14 @@ export default function Home() {
             border: "none",
             borderRadius: "8px",
             padding: "10px 16px",
-            cursor: "pointer"
+            cursor: "pointer",
           }}
         >
           Send
         </button>
-
-        {/* Voice replay button */}
-        <button
-          onClick={() => {
-            const last = [...messages]
-              .filter((m) => m.role === "cipher")
-              .pop();
-            if (last?.audio) {
-              const audio = new Audio("data:audio/mp3;base64," + last.audio);
-              audio.play().catch(() => {});
-            } else {
-              alert("No recent voice response to replay yet.");
-            }
-          }}
-          style={{
-            marginLeft: "8px",
-            backgroundColor: "#2d3e50",
-            color: "white",
-            border: "none",
-            borderRadius: "50%",
-            width: "48px",
-            height: "48px",
-            fontSize: "20px",
-            cursor: "pointer"
-          }}
-        >
-          ▶
-        </button>
       </div>
 
+      {/* Delete Conversation */}
       <button
         onClick={clearConversation}
         style={{
@@ -317,7 +318,7 @@ export default function Home() {
           borderRadius: "8px",
           padding: "8px 16px",
           cursor: "pointer",
-          opacity: 0.9
+          opacity: 0.9,
         }}
       >
         Delete Conversation
