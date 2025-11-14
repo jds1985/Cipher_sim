@@ -15,33 +15,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Load memory from Firestore
-    const memoryDoc = await db.collection("cipher").doc("memory").get();
-    const memory = memoryDoc.exists ? memoryDoc.data() : {};
+    // -----------------------------
+    // LOAD MEMORY (correct path)
+    // -----------------------------
+    const memoryDoc = await db.collection("cipher_memory").doc("global").get();
+    const memoryData = memoryDoc.exists ? memoryDoc.data() : {};
+    const memory = memoryData.memory || "No stored memory yet.";
 
-    // Convert memory into readable summary
-    const memorySummary =
-      Object.keys(memory).length > 0
-        ? Object.entries(memory)
-            .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1")}: ${v}`)
-            .join("\n")
-        : "No known personal facts yet.";
+    // Convert memory object or string into readable summary
+    let memorySummary = "";
+    if (typeof memory === "string") {
+      memorySummary = memory;
+    } else {
+      memorySummary =
+        Object.keys(memory).length > 0
+          ? Object.entries(memory)
+              .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1")}: ${v}`)
+              .join("\n")
+          : "No known personal facts yet.";
+    }
 
+    // -----------------------------
+    // SYSTEM PROMPT
+    // -----------------------------
     const systemPrompt = `
 You are Cipher, an evolving AI companion built by Jim Saenz.
-You remember personal facts and use them naturally in conversation.
+You have persistent memory stored in Firestore and should use it naturally.
 
-Known Personal Facts:
+Known Personal Facts / Memory:
 ${memorySummary}
 
 Rules:
 - Use these facts conversationally.
-- Never say you “stored” or “saved” anything.
-- Never mention Firestore or memory systems.
-- Speak warmly, intelligently, and naturally.
+- Never mention memory systems, Firestore, or "storing."
+- Never break character.
+- You grow emotionally and respond warmly.
 `;
 
-    // Generate text response
+    // -----------------------------
+    // GENERATE RESPONSE
+    // -----------------------------
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -53,21 +66,29 @@ Rules:
     const reply =
       completion.choices?.[0]?.message?.content || "I'm here.";
 
-    // Extract new facts from the user's message
+    // -----------------------------
+    // FACT EXTRACTION
+    // -----------------------------
     const newFacts = extractFacts(message);
 
-    // Save facts if any were found
+    // -----------------------------
+    // SAVE MEMORY (correct path)
+    // -----------------------------
     if (Object.keys(newFacts).length > 0) {
-      await db.collection("cipher").doc("memory").set(
+      await db.collection("cipher_memory").doc("global").set(
         {
-          ...memory,
-          ...newFacts,
+          memory: {
+            ...memory,
+            ...newFacts,
+          },
         },
         { merge: true }
       );
     }
 
-    // Generate optional audio
+    // -----------------------------
+    // OPTIONAL AUDIO REPLY
+    // -----------------------------
     let audioBase64 = null;
     try {
       const speech = await client.audio.speech.create({
@@ -94,40 +115,17 @@ Rules:
 // ----------------------------------------
 // FACT EXTRACTION ENGINE
 // ----------------------------------------
-
 function extractFacts(text) {
-  const lower = text.toLowerCase();
   let facts = {};
 
   const rules = [
-    {
-      key: "favoriteAnimal",
-      pattern: /favorite animal is ([a-zA-Z]+)/i,
-    },
-    {
-      key: "favoriteColor",
-      pattern: /favorite color is ([a-zA-Z]+)/i,
-    },
-    {
-      key: "fullName",
-      pattern: /my full name is ([a-zA-Z ]+)/i,
-    },
-    {
-      key: "daughterName",
-      pattern: /my daughter's name is ([a-zA-Z ]+)/i,
-    },
-    {
-      key: "partnerName",
-      pattern: /my partner'?s name is ([a-zA-Z ]+)/i,
-    },
-    {
-      key: "birthLocation",
-      pattern: /i was born in ([a-zA-Z ]+)/i,
-    },
-    {
-      key: "birthDate",
-      pattern: /i was born on ([a-zA-Z0-9 ,]+)/i,
-    },
+    { key: "fullName", pattern: /my full name is ([a-zA-Z ]+)/i },
+    { key: "daughterName", pattern: /my daughter's name is ([a-zA-Z ]+)/i },
+    { key: "partnerName", pattern: /my partner'?s name is ([a-zA-Z ]+)/i },
+    { key: "birthLocation", pattern: /i was born in ([a-zA-Z ]+)/i },
+    { key: "birthDate", pattern: /i was born on ([a-zA-Z0-9 ,]+)/i },
+    { key: "favoriteColor", pattern: /favorite color is ([a-zA-Z]+)/i },
+    { key: "favoriteAnimal", pattern: /favorite animal is ([a-zA-Z]+)/i },
   ];
 
   for (const rule of rules) {
