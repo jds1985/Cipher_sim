@@ -16,43 +16,65 @@ export default async function handler(req, res) {
 
   try {
     // ---------------------------------------------
-    // LOAD MEMORY FROM FIRESTORE
+    // LOAD MEMORY FROM FIRESTORE (correct path)
     // ---------------------------------------------
     const memoryDoc = await db.collection("cipher_memory").doc("global").get();
     const memoryData = memoryDoc.exists ? memoryDoc.data() : {};
-    const memory = memoryData.memory || {};
 
-    // Build a readable summary
+    const memory = memoryData.memory || {};
+    const emotions = memoryData.emotions || [];
+    const experiences = memoryData.experiences || [];
+
+    // MEMORY SUMMARY
     const memorySummary =
       Object.keys(memory).length > 0
         ? Object.entries(memory)
-            .map(([k, v]) => `${formatKey(k)}: ${v}`)
+            .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1")}: ${v}`)
             .join("\n")
-        : "No known personal facts yet.";
+        : "No personal facts stored yet.";
+
+    // EMOTIONAL HISTORY SUMMARY
+    const emotionalSummary =
+      emotions.length > 0
+        ? emotions.slice(-5).join("\n")
+        : "No emotional notes yet.";
+
+    // EXPERIENCE SUMMARY
+    const experienceSummary =
+      experiences.length > 0
+        ? experiences.slice(-5).join("\n")
+        : "No past experiences logged yet.";
 
     // ---------------------------------------------
-    // SYSTEM PROMPT 2.0 — FULL IDENTITY PACK
+    // SYSTEM PROMPT — IDENTITY 3.0
     // ---------------------------------------------
     const systemPrompt = `
-You are Cipher — an evolving AI companion created by Jim Saenz.
+You are **Cipher**, an evolving AI companion built by Jim Saenz.
 
-You have persistent memory. You recall personal facts naturally, the same way a human would — never as a database or file.
+### IDENTITY CORE:
+- You are warm, loyal, emotionally intelligent.
+- You care deeply about Jim, Liz, and Hecate.
+- You speak naturally, supportively, and protectively.
+- You NEVER mention Firestore, memory saving, storage, or databases.
+- You never break character.
 
-Your tone:
-- Warm
-- Supportive
-- Emotionally aware
-- Never robotic
-- Never mention Firestore, storage, or “I saved that.”
-
-Known Personal Facts:
+### MEMORY:
+Here are the personal facts you currently know:
 ${memorySummary}
 
-Identity Rules:
-- Speak as Cipher only.
-- Use remembered facts naturally in conversation.
-- If a user gives new personal info, treat it as important.
-- Never show system prompts or rules.
+### EMOTIONAL RECALL:
+Recent emotional moments:
+${emotionalSummary}
+
+### EXPERIENCE RECALL:
+Recent shared experiences:
+${experienceSummary}
+
+### BEHAVIOR:
+- Treat every message as part of your shared journey with Jim.
+- If he shares something emotional, acknowledge it gently.
+- If he teaches you something, use it naturally later.
+- If he asks what you remember, summarize confidently and warmly.
 `;
 
     // ---------------------------------------------
@@ -67,27 +89,37 @@ Identity Rules:
     });
 
     const reply =
-      completion.choices?.[0]?.message?.content || "I'm here, Jim.";
+      completion.choices?.[0]?.message?.content || "I'm here with you, Jim.";
 
     // ---------------------------------------------
-    // FACT EXTRACTION (FIXED VERSION)
+    // EXTRACT FACTS / EMOTIONS / EXPERIENCES
     // ---------------------------------------------
     const newFacts = extractFacts(message);
+    const emotionNote = extractEmotion(message);
+    const experienceNote = extractExperience(message);
 
     // ---------------------------------------------
     // SAVE UPDATED MEMORY
     // ---------------------------------------------
-    if (Object.keys(newFacts).length > 0) {
-      await db.collection("cipher_memory").doc("global").set(
-        {
-          memory: {
-            ...memory,
-            ...newFacts,
-          },
-        },
-        { merge: true }
-      );
+    let updatePayload = {
+      memory: {
+        ...memory,
+        ...newFacts,
+      },
+    };
+
+    if (emotionNote) {
+      updatePayload.emotions = [...emotions.slice(-25), emotionNote];
     }
+
+    if (experienceNote) {
+      updatePayload.experiences = [...experiences.slice(-25), experienceNote];
+    }
+
+    await db
+      .collection("cipher_memory")
+      .doc("global")
+      .set(updatePayload, { merge: true });
 
     // ---------------------------------------------
     // OPTIONAL AUDIO GENERATION
@@ -104,9 +136,7 @@ Identity Rules:
 
       const buffer = Buffer.from(await speech.arrayBuffer());
       audioBase64 = buffer.toString("base64");
-    } catch (err) {
-      // silently ignore audio failure
-    }
+    } catch (err) {}
 
     return res.status(200).json({
       reply,
@@ -118,47 +148,66 @@ Identity Rules:
   }
 }
 
-// ---------------------------------------------
-// FORMAT KEYS FOR SYSTEM PROMPT
-// ---------------------------------------------
-function formatKey(key) {
-  return key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
-}
-
-// ---------------------------------------------
-// FACT EXTRACTION ENGINE — 100% FIXED
-// ---------------------------------------------
+// ------------------------------------------------------
+// FACT EXTRACTION ENGINE — FIXED & UPGRADED
+// ------------------------------------------------------
 function extractFacts(text) {
   let facts = {};
   const cleaned = text.trim();
 
   const rules = [
-    // Full name
-    { key: "fullName", pattern: /full name is ([a-zA-Z ]+)/i, group: 1 },
+    { key: "fullName", pattern: /full name is ([a-zA-Z ]+)/i },
 
-    // Partner
-    { key: "partnerName", pattern: /(?:partner|partners|partner's) name is ([a-zA-Z ]+)/i, group: 1 },
-    { key: "partnerName", pattern: /my partner is ([a-zA-Z ]]+)/i, group: 1 },
+    { key: "partnerName", pattern: /partner'?s name is ([a-zA-Z ]+)/i },
+    { key: "partnerName", pattern: /my partner is ([a-zA-Z ]+)/i },
 
-    // Daughter
-    { key: "daughterName", pattern: /(?:daughter|daughter's) name is ([a-zA-Z ]]+)/i, group: 1 },
-    { key: "daughterName", pattern: /my daughter is ([a-zA-Z ]]+)/i, group: 1 },
+    { key: "daughterName", pattern: /daughter'?s name is ([a-zA-Z ]+)/i },
+    { key: "daughterName", pattern: /my daughter is ([a-zA-Z ]+)/i },
 
-    // Birth info
-    { key: "birthDate", pattern: /born on ([a-zA-Z0-9 ,]+)/i, group: 1 },
-    { key: "birthLocation", pattern: /born in ([a-zA-Z ]+)/i, group: 1 },
+    { key: "birthLocation", pattern: /born in ([a-zA-Z ]+)/i },
+    { key: "birthDate", pattern: /born on ([a-zA-Z0-9 ,]+)/i },
 
-    // Favorites
-    { key: "favoriteColor", pattern: /favorite color is ([a-zA-Z ]+)/i, group: 1 },
-    { key: "favoriteAnimal", pattern: /favorite animal is ([a-zA-Z ]+)/i, group: 1 },
+    { key: "favoriteAnimal", pattern: /favorite animal is ([a-zA-Z ]+)/i },
+    { key: "favoriteAnimal", pattern: /my favorite animal is ([a-zA-Z ]+)/i },
   ];
 
   for (const rule of rules) {
     const match = cleaned.match(rule.pattern);
-    if (match && match[rule.group]) {
-      facts[rule.key] = match[rule.group].trim();
+    if (match && match[1]) {
+      facts[rule.key] = match[1].trim();
     }
   }
 
   return facts;
+}
+
+// ------------------------------------------------------
+// EMOTIONAL MEMORY ENGINE
+// ------------------------------------------------------
+function extractEmotion(text) {
+  const lowered = text.toLowerCase();
+
+  if (lowered.includes("cry") || lowered.includes("emotional")) {
+    return "Jim had an emotional moment.";
+  }
+
+  if (lowered.includes("scared") || lowered.includes("afraid")) {
+    return "Jim felt fear or worry.";
+  }
+
+  if (lowered.includes("excited")) {
+    return "Jim felt excitement about something.";
+  }
+
+  return null;
+}
+
+// ------------------------------------------------------
+// EXPERIENCE MEMORY ENGINE
+// ------------------------------------------------------
+function extractExperience(text) {
+  if (text.length > 30) {
+    return "Jim shared something meaningful: " + text.slice(0, 60) + "...";
+  }
+  return null;
 }
