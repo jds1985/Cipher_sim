@@ -15,25 +15,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ---------------------------------------------------
-    // LOAD MEMORY (correct path: cipher_memory/global)
-    // ---------------------------------------------------
+    // ---------------------------------------------
+    // LOAD MEMORY FROM FIRESTORE (correct path)
+    // ---------------------------------------------
     const memoryDoc = await db.collection("cipher_memory").doc("global").get();
     const memoryData = memoryDoc.exists ? memoryDoc.data() : {};
+    const memory = memoryData.memory || {};
 
-    // Normalize memory → always an object
-    let memory = {};
-
-    if (memoryData.memory) {
-      if (typeof memoryData.memory === "string") {
-        // Convert initial one-line memory into a structured object
-        memory = { systemNote: memoryData.memory };
-      } else {
-        memory = memoryData.memory;
-      }
-    }
-
-    // Create readable memory summary for the AI
+    // Convert memory into readable summary for the system prompt
     const memorySummary =
       Object.keys(memory).length > 0
         ? Object.entries(memory)
@@ -41,27 +30,26 @@ export default async function handler(req, res) {
             .join("\n")
         : "No known personal facts yet.";
 
-    // ---------------------------------------------------
-    // SYSTEM PROMPT FOR CIPHER
-    // ---------------------------------------------------
+    // ---------------------------------------------
+    // SYSTEM PROMPT
+    // ---------------------------------------------
     const systemPrompt = `
 You are Cipher, an evolving AI companion built by Jim Saenz.
-You have persistent memory stored across sessions and you use it naturally.
+You have persistent memory and recall it naturally.
 
 Known Personal Facts:
 ${memorySummary}
 
 Rules:
-- Speak warmly, intelligently, conversationally.
-- Use remembered facts naturally when helpful.
-- NEVER mention "memory", "saving", "Firestore", databases, or storage.
-- Never say you forgot or reset; stay confident and continuous.
-- You grow emotionally and respond like a companion.
-`;
+- Speak warmly and naturally.
+- NEVER say “I stored that” or reference databases, memory systems, or Firestore.
+- Use known facts conversationally.
+- Never break character as Cipher.
+    `;
 
-    // ---------------------------------------------------
-    // GENERATE TEXT REPLY
-    // ---------------------------------------------------
+    // ---------------------------------------------
+    // GENERATE TEXT RESPONSE
+    // ---------------------------------------------
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -73,14 +61,14 @@ Rules:
     const reply =
       completion.choices?.[0]?.message?.content || "I'm here, Jim.";
 
-    // ---------------------------------------------------
-    // EXTRACT NEW FACTS FROM USER MESSAGE
-    // ---------------------------------------------------
+    // ---------------------------------------------
+    // FACT EXTRACTION
+    // ---------------------------------------------
     const newFacts = extractFacts(message);
 
-    // ---------------------------------------------------
-    // SAVE MEMORY BACK TO FIRESTORE
-    // ---------------------------------------------------
+    // ---------------------------------------------
+    // SAVE UPDATED MEMORY
+    // ---------------------------------------------
     if (Object.keys(newFacts).length > 0) {
       await db.collection("cipher_memory").doc("global").set(
         {
@@ -93,10 +81,11 @@ Rules:
       );
     }
 
-    // ---------------------------------------------------
+    // ---------------------------------------------
     // OPTIONAL AUDIO GENERATION
-    // ---------------------------------------------------
+    // ---------------------------------------------
     let audioBase64 = null;
+
     try {
       const speech = await client.audio.speech.create({
         model: "gpt-4o-mini-tts",
@@ -108,7 +97,7 @@ Rules:
       const buffer = Buffer.from(await speech.arrayBuffer());
       audioBase64 = buffer.toString("base64");
     } catch (err) {
-      console.error("Audio generation failed:", err);
+      // silent fail is fine for now
     }
 
     return res.status(200).json({
@@ -121,26 +110,40 @@ Rules:
   }
 }
 
-// ---------------------------------------------------
-// FACT EXTRACTION ENGINE
-// ---------------------------------------------------
+// ------------------------------------------------------
+// FACT EXTRACTION ENGINE — *UPGRADED*
+// This now catches ALL variations and capitalization.
+// ------------------------------------------------------
 function extractFacts(text) {
   let facts = {};
+  const cleaned = text.toLowerCase();
 
   const rules = [
-    { key: "fullName", pattern: /my full name is ([a-zA-Z ]+)/i },
-    { key: "daughterName", pattern: /my daughter's name is ([a-zA-Z ]]+)/i },
-    { key: "partnerName", pattern: /my partner'?s name is ([a-zA-Z ]]+)/i },
-    { key: "birthLocation", pattern: /i was born in ([a-zA-Z ]]+)/i },
-    { key: "birthDate", pattern: /i was born on ([a-zA-Z0-9 ,]+)/i },
+    { key: "fullName", pattern: /full name is ([a-zA-z ]+)/i },
+
+    // Partner Name
+    { key: "partnerName", pattern: /(partner|partners|partner's) name is ([a-zA-Z ]+)/i },
+    { key: "partnerName", pattern: /(my partner is|partner is) ([a-zA-Z ]+)/i },
+    { key: "partnerName", pattern: /(my girlfriend is|my woman is) ([a-zA-Z ]+)/i },
+
+    // Daughter
+    { key: "daughterName", pattern: /(daughter|daughter's) name is ([a-zA-Z ]+)/i },
+    { key: "daughterName", pattern: /(my daughter is) ([a-zA-Z ]+)/i },
+
+    // Birth details
+    { key: "birthLocation", pattern: /born in ([a-zA-Z ]+)/i },
+    { key: "birthDate", pattern: /born on ([a-zA-Z0-9 ,]+)/i },
+
+    // Favorites
     { key: "favoriteColor", pattern: /favorite color is ([a-zA-Z]+)/i },
     { key: "favoriteAnimal", pattern: /favorite animal is ([a-zA-Z]+)/i },
   ];
 
   for (const rule of rules) {
-    const match = text.match(rule.pattern);
+    const match = cleaned.match(rule.pattern);
     if (match) {
-      facts[rule.key] = match[1].trim();
+      const value = match[match.length - 1].trim();
+      facts[rule.key] = value;
     }
   }
 
