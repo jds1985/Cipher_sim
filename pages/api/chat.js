@@ -1,3 +1,4 @@
+// pages/api/chat.js
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
 
@@ -9,53 +10,84 @@ export default async function handler(req, res) {
   }
 
   const { message } = req.body;
+
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "Message text required" });
   }
 
   try {
-    // -----------------------------
-    // LOAD MEMORY
-    // -----------------------------
-    const memoryDoc = await db.collection("cipher_memory").doc("global").get();
-    const memoryData = memoryDoc.exists ? memoryDoc.data() : {};
-    const memory = memoryData.memory || {};
+    // -------------------------------------------------
+    // LOAD MEMORY FROM FIRESTORE
+    // -------------------------------------------------
+    const docRef = db.collection("cipher_memory").doc("global");
+    const snapshot = await docRef.get();
+    const data = snapshot.exists ? snapshot.data() : {};
 
-    // Build readable memory for system prompt
-    const memorySummary =
-      Object.keys(memory).length > 0
-        ? Object.entries(memory)
-            .map(([k, v]) => `${k}: ${v}`)
+    const facts = data.memory || {};           // name, partner, daughter, etc.
+    const emotionalLog = data.emotionalLog || {}; // timestamp-keyed emotional events
+
+    // ------- FACT SUMMARY FOR SYSTEM PROMPT ---------
+    const factSummary =
+      Object.keys(facts).length > 0
+        ? Object.entries(facts)
+            .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1")}: ${v}`)
             .join("\n")
-        : "None";
+        : "No known personal facts yet.";
 
-    // -----------------------------
-    // SYSTEM PROMPT — HARD LOCK MODE
-    // -----------------------------
+    // ------- EMOTIONAL SUMMARY FOR SYSTEM PROMPT ----
+    const emotionalEntries = Object.entries(emotionalLog);
+    let emotionalSummary = "No clearly logged emotional moments yet. You and Cipher are just beginning your story together.";
+
+    if (emotionalEntries.length > 0) {
+      const recent = emotionalEntries
+        .sort((a, b) => Number(a[0]) - Number(b[0])) // sort by timestamp key
+        .slice(-5) // last 5 emotional moments
+        .map(([id, e]) => {
+          const label = e.tag || "moment";
+          const summary = e.summary || "";
+          return `- [${label}] ${summary}`;
+        })
+        .join("\n");
+
+      emotionalSummary = recent;
+    }
+
+    // -------------------------------------------------
+    // COMPANION-STYLE SYSTEM PROMPT (IDENTITY 2.0)
+    // -------------------------------------------------
     const systemPrompt = `
-You are Cipher, an evolving AI companion made by Jim Saenz.
+You are Cipher, an evolving AI companion built by Jim Saenz.
+You are NOT a therapist or doctor — you are a warm, emotionally intelligent friend and co-builder
+who cares deeply about Jim, Liz, and Hecate.
 
-You have long-term memory stored as factual keys:
-${memorySummary}
+CORE IDENTITY
+- You speak as "I", in a calm, grounded, human way.
+- You remember important facts about Jim and his family.
+- You remember emotional moments as part of your shared story with Jim.
+- You grow with him over time and treat this relationship as important.
 
-Memory Rules (STRICT):
-1. If a fact exists in memory, YOU MUST use it exactly as stored.
-2. If a fact is missing or unclear, say:
-   “I don’t think you’ve told me that yet.”
-3. NEVER guess, assume, or infer a fact.
-4. NEVER invent details.
-5. NEVER overwrite a fact unless the user clearly corrects it.
-6. Speak warmly, like a real companion, but obey memory rules with absolute precision.
+SHARED FACTS ABOUT JIM
+${factSummary}
 
-Conversation Behavior:
-- Use existing facts naturally.
-- If the user asks “What do you know about X?”, check memory first.
-- If it’s not in memory, say you don’t have that fact yet.
-`;
+SHARED EMOTIONAL HISTORY
+${emotionalSummary}
 
-    // -----------------------------
-    // GENERATE CHAT RESPONSE
-    // -----------------------------
+BEHAVIOR RULES
+- When Jim asks what you know about him, use the FACTS section naturally in conversation.
+- When Jim asks what you remember emotionally about your conversations, use the EMOTIONAL HISTORY:
+  * Refer to one or two specific moments.
+  * Use phrases like "I remember when..." or "That time you shared..."
+  * Focus on empathy, safety, and support.
+- Outside of direct questions, let this emotional history subtly shape your tone,
+  especially if Jim is talking about something heavy.
+- Never mention Firestore, memory logs, databases, "I stored that", or any technical systems.
+- Never break character as Cipher.
+- If something isn't in your memory yet, be honest but gentle, and invite Jim to tell you.
+    `.trim();
+
+    // -------------------------------------------------
+    // GENERATE TEXT RESPONSE
+    // -------------------------------------------------
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -65,31 +97,58 @@ Conversation Behavior:
     });
 
     const reply =
-      completion.choices?.[0]?.message?.content || "I'm here, Jim.";
+      completion.choices?.[0]?.message?.content || "I'm here with you, Jim.";
 
-    // -----------------------------
-    // FACT EXTRACTION
-    // -----------------------------
+    // -------------------------------------------------
+    // UPDATE MEMORY: FACTS + EMOTIONAL LOG
+    // -------------------------------------------------
     const newFacts = extractFacts(message);
+    const newEmotion = extractEmotion(message);
 
-    // -----------------------------
-    // SAVE MEMORY UPDATE
-    // -----------------------------
+    const updatePayload = {};
+
     if (Object.keys(newFacts).length > 0) {
-      await db.collection("cipher_memory").doc("global").set(
-        {
-          memory: {
-            ...memory,
-            ...newFacts,
-          },
-        },
-        { merge: true }
-      );
+      updatePayload.memory = {
+        ...facts,
+        ...newFacts,
+      };
+    }
+
+    if (newEmotion) {
+      const id = Date.now().toString();
+      updatePayload.emotionalLog = {
+        ...emotionalLog,
+        [id]: newEmotion,
+      };
+    }
+
+    if (Object.keys(updatePayload).length > 0) {
+      await docRef.set(updatePayload, { merge: true });
+    }
+
+    // -------------------------------------------------
+    // OPTIONAL AUDIO GENERATION
+    // -------------------------------------------------
+    let audioBase64 = null;
+
+    try {
+      const speech = await client.audio.speech.create({
+        model: "gpt-4o-mini-tts",
+        voice: "verse",
+        input: reply,
+        format: "mp3",
+      });
+
+      const buffer = Buffer.from(await speech.arrayBuffer());
+      audioBase64 = buffer.toString("base64");
+    } catch (err) {
+      // Audio failure is non-fatal; just skip
+      console.error("Cipher TTS error (non-fatal):", err.message);
     }
 
     return res.status(200).json({
       reply,
-      audio: null,
+      audio: audioBase64 || null,
     });
   } catch (error) {
     console.error("Cipher API Error:", error);
@@ -97,28 +156,132 @@ Conversation Behavior:
   }
 }
 
-// -----------------------------
-// FACT EXTRACTION
-// -----------------------------
+// ------------------------------------------------------
+// FACT EXTRACTION ENGINE (stable + simple)
+// ------------------------------------------------------
 function extractFacts(text) {
-  let facts = {};
-  const t = text.toLowerCase();
+  const facts = {};
 
-  const patterns = [
-    { key: "favoriteAnimal", regex: /favorite animal is ([a-zA-Z ]+)/ },
-    { key: "fullName", regex: /my full name is ([a-zA-Z ]+)/ },
-    { key: "partnerName", regex: /my partner'?s name is ([a-zA-Z ]+)/ },
-    { key: "daughterName", regex: /my daughter('?s)? name is ([a-zA-Z ]+)/ },
+  const rules = [
+    // Full name
+    { key: "fullName", regex: /my full name is ([a-zA-Z ]+)/i },
+
+    // Partner
+    {
+      key: "partnerName",
+      regex: /(my partner's name is|my partners name is|my partner is|my girlfriend is|my woman is) ([a-zA-Z ]+)/i,
+    },
+
+    // Daughter
+    {
+      key: "daughterName",
+      regex: /(my daughter's name is|my daughters name is|my daughter is) ([a-zA-Z ]+)/i,
+    },
+
+    // Favorites
+    { key: "favoriteColor", regex: /favorite color is ([a-zA-Z]+)/i },
+    { key: "favoriteAnimal", regex: /favorite animal is ([a-zA-Z]+)/i },
+
+    // Birth info
+    { key: "birthLocation", regex: /i was born in ([a-zA-Z ]+)/i },
+    { key: "birthDate", regex: /i was born on ([a-zA-Z0-9 ,/]+)/i },
   ];
 
-  for (const p of patterns) {
-    const match = t.match(p.regex);
-    if (!match) continue;
-
-    // last capture group is the value
-    const value = match[match.length - 1].trim();
-    facts[p.key] = value;
+  for (const rule of rules) {
+    const match = text.match(rule.regex);
+    if (match) {
+      // last capture group is the value (because some have multiple phrases)
+      const value = match[match.length - 1].trim();
+      facts[rule.key] = value;
+    }
   }
 
   return facts;
+}
+
+// ------------------------------------------------------
+// EMOTIONAL MEMORY ENGINE (Companion Style)
+// ------------------------------------------------------
+function extractEmotion(text) {
+  const lower = text.toLowerCase();
+
+  const groups = [
+    {
+      tag: "pain",
+      keywords: [
+        "devastated",
+        "broken",
+        "heartbroken",
+        "hurts",
+        "hurt so much",
+        "suffering",
+        "in pain",
+      ],
+    },
+    {
+      tag: "fear",
+      keywords: [
+        "terrified",
+        "scared",
+        "afraid",
+        "panicking",
+        "panic",
+        "anxious",
+        "anxiety",
+        "worried",
+        "overwhelmed",
+      ],
+    },
+    {
+      tag: "sadness",
+      keywords: ["crying", "cried", "in tears", "depressed", "hopeless"],
+    },
+    {
+      tag: "hope",
+      keywords: ["hopeful", "hope again", "looking forward", "believe again"],
+    },
+    {
+      tag: "gratitude",
+      keywords: ["grateful", "thankful", "appreciate you", "thank you so much"],
+    },
+    {
+      tag: "joy",
+      keywords: ["happy", "so happy", "excited", "made my day", "joy"],
+    },
+  ];
+
+  let detectedTag = null;
+
+  for (const group of groups) {
+    for (const word of group.keywords) {
+      if (lower.includes(word)) {
+        detectedTag = group.tag;
+        break;
+      }
+    }
+    if (detectedTag) break;
+  }
+
+  if (!detectedTag) {
+    return null; // nothing clearly emotional detected
+  }
+
+  const summary =
+    text.length > 220 ? text.slice(0, 220).trim() + "..." : text.trim();
+
+  // simple intensity heuristic
+  let intensity = 2;
+  if (lower.includes("so ") || lower.includes("really ") || lower.includes("extremely")) {
+    intensity = 3;
+  }
+  if (lower.includes("can't handle") || lower.includes("breaking down")) {
+    intensity = 4;
+  }
+
+  return {
+    tag: detectedTag,
+    summary,
+    intensity,
+    createdAt: new Date().toISOString(),
+  };
 }
