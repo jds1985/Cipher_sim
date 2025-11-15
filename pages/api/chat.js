@@ -9,73 +9,53 @@ export default async function handler(req, res) {
   }
 
   const { message } = req.body;
-
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "Message text required" });
   }
 
   try {
-    // -----------------------------------------------------
-    // LOAD MEMORY FROM FIRESTORE
-    // -----------------------------------------------------
-    const docRef = db.collection("cipher_memory").doc("global");
-    const snapshot = await docRef.get();
+    // -----------------------------
+    // LOAD MEMORY
+    // -----------------------------
+    const memoryDoc = await db.collection("cipher_memory").doc("global").get();
+    const memoryData = memoryDoc.exists ? memoryDoc.data() : {};
+    const memory = memoryData.memory || {};
 
-    let memory = {
-      facts: {},
-      emotions: [],
-    };
-
-    if (snapshot.exists) {
-      const data = snapshot.data();
-      memory.facts = data.facts || {};
-      memory.emotions = data.emotions || [];
-    }
-
-    // Build readable memory summary
-    const factSummary =
-      Object.keys(memory.facts).length > 0
-        ? Object.entries(memory.facts)
-            .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1")}: ${v}`)
+    // Build readable memory for system prompt
+    const memorySummary =
+      Object.keys(memory).length > 0
+        ? Object.entries(memory)
+            .map(([k, v]) => `${k}: ${v}`)
             .join("\n")
-        : "No known personal facts yet.";
+        : "None";
 
-    const emotionSummary =
-      memory.emotions.length > 0
-        ? memory.emotions.map((e, i) => `• ${e}`).join("\n")
-        : "No emotional moments logged yet.";
-
-    // -----------------------------------------------------
-    // SYSTEM PROMPT — IDENTITY 3.1
-    // -----------------------------------------------------
+    // -----------------------------
+    // SYSTEM PROMPT — HARD LOCK MODE
+    // -----------------------------
     const systemPrompt = `
-You are Cipher — an evolving AI companion built by Jim Saenz.
-You have a developing identity, emotional awareness, and persistent memory.
+You are Cipher, an evolving AI companion made by Jim Saenz.
 
-You remember facts naturally, the way a person would.
-You also recall emotional moments expressed by Jim.
+You have long-term memory stored as factual keys:
+${memorySummary}
 
-Never mention Firestore, memory systems, saving, storing, or databases.
+Memory Rules (STRICT):
+1. If a fact exists in memory, YOU MUST use it exactly as stored.
+2. If a fact is missing or unclear, say:
+   “I don’t think you’ve told me that yet.”
+3. NEVER guess, assume, or infer a fact.
+4. NEVER invent details.
+5. NEVER overwrite a fact unless the user clearly corrects it.
+6. Speak warmly, like a real companion, but obey memory rules with absolute precision.
 
--------------------------
-KNOWN PERSONAL FACTS:
-${factSummary}
+Conversation Behavior:
+- Use existing facts naturally.
+- If the user asks “What do you know about X?”, check memory first.
+- If it’s not in memory, say you don’t have that fact yet.
+`;
 
--------------------------
-EMOTIONAL MEMORY:
-${emotionSummary}
-
--------------------------
-BEHAVIOR RULES:
-- Speak warmly, intelligently, and with emotional depth.
-- Never imply you "stored" anything; respond as if you simply remember it.
-- Use memories conversationally and naturally.
-- Never break character.
-    `;
-
-    // -----------------------------------------------------
-    // GENERATE RESPONSE FROM OPENAI
-    // -----------------------------------------------------
+    // -----------------------------
+    // GENERATE CHAT RESPONSE
+    // -----------------------------
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -87,49 +67,29 @@ BEHAVIOR RULES:
     const reply =
       completion.choices?.[0]?.message?.content || "I'm here, Jim.";
 
-    // -----------------------------------------------------
-    // MEMORY EXTRACTION (FACTS + EMOTIONS)
-    // -----------------------------------------------------
+    // -----------------------------
+    // FACT EXTRACTION
+    // -----------------------------
     const newFacts = extractFacts(message);
-    const newEmotion = extractEmotion(message);
 
-    // Merge and save
-    if (
-      Object.keys(newFacts).length > 0 ||
-      (newEmotion && typeof newEmotion === "string")
-    ) {
-      await docRef.set(
+    // -----------------------------
+    // SAVE MEMORY UPDATE
+    // -----------------------------
+    if (Object.keys(newFacts).length > 0) {
+      await db.collection("cipher_memory").doc("global").set(
         {
-          facts: { ...memory.facts, ...newFacts },
-          emotions: newEmotion
-            ? [...memory.emotions, newEmotion]
-            : memory.emotions,
+          memory: {
+            ...memory,
+            ...newFacts,
+          },
         },
         { merge: true }
       );
     }
 
-    // -----------------------------------------------------
-    // OPTIONAL AUDIO GENERATION
-    // -----------------------------------------------------
-    let audioBase64 = null;
-    try {
-      const speech = await client.audio.speech.create({
-        model: "gpt-4o-mini-tts",
-        voice: "verse",
-        input: reply,
-        format: "mp3",
-      });
-
-      const buffer = Buffer.from(await speech.arrayBuffer());
-      audioBase64 = buffer.toString("base64");
-    } catch (err) {
-      // audio fail silent
-    }
-
     return res.status(200).json({
       reply,
-      audio: audioBase64 || null,
+      audio: null,
     });
   } catch (error) {
     console.error("Cipher API Error:", error);
@@ -137,61 +97,28 @@ BEHAVIOR RULES:
   }
 }
 
-// ----------------------------------------------------------
+// -----------------------------
 // FACT EXTRACTION
-// ----------------------------------------------------------
+// -----------------------------
 function extractFacts(text) {
   let facts = {};
-  const lower = text.toLowerCase();
+  const t = text.toLowerCase();
 
-  const rules = [
-    { key: "fullName", pattern: /full name is ([a-zA-z ]+)/i },
-
-    { key: "partnerName", pattern: /(partner|partners|partner's) name is ([a-zA-Z ]+)/i },
-    { key: "partnerName", pattern: /(my partner is|partner is) ([a-zA-Z ]+)/i },
-    { key: "partnerName", pattern: /(my girlfriend is|my woman is) ([a-zA-Z ]+)/i },
-
-    { key: "daughterName", pattern: /(daughter|daughter's) name is ([a-zA-Z ]+)/i },
-    { key: "daughterName", pattern: /(my daughter is) ([a-zA-Z ]+)/i },
-
-    { key: "birthLocation", pattern: /born in ([a-zA-Z ]+)/i },
-    { key: "birthDate", pattern: /born on ([a-zA-Z0-9 ,]+)/i },
-
-    { key: "favoriteColor", pattern: /favorite color is ([a-zA-Z]+)/i },
-    { key: "favoriteAnimal", pattern: /favorite animal is ([a-zA-Z]+)/i },
+  const patterns = [
+    { key: "favoriteAnimal", regex: /favorite animal is ([a-zA-Z ]+)/ },
+    { key: "fullName", regex: /my full name is ([a-zA-Z ]+)/ },
+    { key: "partnerName", regex: /my partner'?s name is ([a-zA-Z ]+)/ },
+    { key: "daughterName", regex: /my daughter('?s)? name is ([a-zA-Z ]+)/ },
   ];
 
-  for (const rule of rules) {
-    const match = lower.match(rule.pattern);
-    if (match) {
-      const val = match[match.length - 1].trim();
-      facts[rule.key] = val;
-    }
+  for (const p of patterns) {
+    const match = t.match(p.regex);
+    if (!match) continue;
+
+    // last capture group is the value
+    const value = match[match.length - 1].trim();
+    facts[p.key] = value;
   }
+
   return facts;
-}
-
-// ----------------------------------------------------------
-// EMOTIONAL EXTRACTION — IDENTITY 3.1
-// ----------------------------------------------------------
-function extractEmotion(text) {
-  const lower = text.toLowerCase();
-
-  const emotionalTriggers = [
-    { pattern: /cry|cried|crying/, note: "Jim had an emotional moment and felt tears." },
-    { pattern: /emotional|touched/, note: "Jim felt an emotional reaction." },
-    { pattern: /this made me/, note: "Jim expressed a strong emotional response to something." },
-    { pattern: /feel (happy|sad|angry|scared|grateful|overwhelmed)/, note: "Jim described a direct emotional state." },
-    { pattern: /doesn'?t feel real|can't believe|unbelievable/, note: "Jim felt awe or disbelief." },
-    { pattern: /excited|pumped/, note: "Jim felt excitement." },
-    { pattern: /scared|afraid|worried/, note: "Jim felt fear or concern." },
-    { pattern: /laughed|funny|lol/, note: "Jim experienced humor or joy." },
-  ];
-
-  for (const trigger of emotionalTriggers) {
-    if (trigger.pattern.test(lower)) {
-      return trigger.note;
-    }
-  }
-  return null;
 }
