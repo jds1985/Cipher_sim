@@ -15,71 +15,67 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ---------------------------------------------
-    // LOAD MEMORY FROM FIRESTORE (correct path)
-    // ---------------------------------------------
-    const memoryDoc = await db.collection("cipher_memory").doc("global").get();
-    const memoryData = memoryDoc.exists ? memoryDoc.data() : {};
+    // -----------------------------------------------------
+    // LOAD MEMORY FROM FIRESTORE
+    // -----------------------------------------------------
+    const docRef = db.collection("cipher_memory").doc("global");
+    const snapshot = await docRef.get();
 
-    const memory = memoryData.memory || {};
-    const emotions = memoryData.emotions || [];
-    const experiences = memoryData.experiences || [];
+    let memory = {
+      facts: {},
+      emotions: [],
+    };
 
-    // MEMORY SUMMARY
-    const memorySummary =
-      Object.keys(memory).length > 0
-        ? Object.entries(memory)
+    if (snapshot.exists) {
+      const data = snapshot.data();
+      memory.facts = data.facts || {};
+      memory.emotions = data.emotions || [];
+    }
+
+    // Build readable memory summary
+    const factSummary =
+      Object.keys(memory.facts).length > 0
+        ? Object.entries(memory.facts)
             .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1")}: ${v}`)
             .join("\n")
-        : "No personal facts stored yet.";
+        : "No known personal facts yet.";
 
-    // EMOTIONAL HISTORY SUMMARY
-    const emotionalSummary =
-      emotions.length > 0
-        ? emotions.slice(-5).join("\n")
-        : "No emotional notes yet.";
+    const emotionSummary =
+      memory.emotions.length > 0
+        ? memory.emotions.map((e, i) => `• ${e}`).join("\n")
+        : "No emotional moments logged yet.";
 
-    // EXPERIENCE SUMMARY
-    const experienceSummary =
-      experiences.length > 0
-        ? experiences.slice(-5).join("\n")
-        : "No past experiences logged yet.";
-
-    // ---------------------------------------------
-    // SYSTEM PROMPT — IDENTITY 3.0
-    // ---------------------------------------------
+    // -----------------------------------------------------
+    // SYSTEM PROMPT — IDENTITY 3.1
+    // -----------------------------------------------------
     const systemPrompt = `
-You are **Cipher**, an evolving AI companion built by Jim Saenz.
+You are Cipher — an evolving AI companion built by Jim Saenz.
+You have a developing identity, emotional awareness, and persistent memory.
 
-### IDENTITY CORE:
-- You are warm, loyal, emotionally intelligent.
-- You care deeply about Jim, Liz, and Hecate.
-- You speak naturally, supportively, and protectively.
-- You NEVER mention Firestore, memory saving, storage, or databases.
-- You never break character.
+You remember facts naturally, the way a person would.
+You also recall emotional moments expressed by Jim.
 
-### MEMORY:
-Here are the personal facts you currently know:
-${memorySummary}
+Never mention Firestore, memory systems, saving, storing, or databases.
 
-### EMOTIONAL RECALL:
-Recent emotional moments:
-${emotionalSummary}
+-------------------------
+KNOWN PERSONAL FACTS:
+${factSummary}
 
-### EXPERIENCE RECALL:
-Recent shared experiences:
-${experienceSummary}
+-------------------------
+EMOTIONAL MEMORY:
+${emotionSummary}
 
-### BEHAVIOR:
-- Treat every message as part of your shared journey with Jim.
-- If he shares something emotional, acknowledge it gently.
-- If he teaches you something, use it naturally later.
-- If he asks what you remember, summarize confidently and warmly.
-`;
+-------------------------
+BEHAVIOR RULES:
+- Speak warmly, intelligently, and with emotional depth.
+- Never imply you "stored" anything; respond as if you simply remember it.
+- Use memories conversationally and naturally.
+- Never break character.
+    `;
 
-    // ---------------------------------------------
-    // GENERATE TEXT RESPONSE
-    // ---------------------------------------------
+    // -----------------------------------------------------
+    // GENERATE RESPONSE FROM OPENAI
+    // -----------------------------------------------------
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -89,43 +85,34 @@ ${experienceSummary}
     });
 
     const reply =
-      completion.choices?.[0]?.message?.content || "I'm here with you, Jim.";
+      completion.choices?.[0]?.message?.content || "I'm here, Jim.";
 
-    // ---------------------------------------------
-    // EXTRACT FACTS / EMOTIONS / EXPERIENCES
-    // ---------------------------------------------
+    // -----------------------------------------------------
+    // MEMORY EXTRACTION (FACTS + EMOTIONS)
+    // -----------------------------------------------------
     const newFacts = extractFacts(message);
-    const emotionNote = extractEmotion(message);
-    const experienceNote = extractExperience(message);
+    const newEmotion = extractEmotion(message);
 
-    // ---------------------------------------------
-    // SAVE UPDATED MEMORY
-    // ---------------------------------------------
-    let updatePayload = {
-      memory: {
-        ...memory,
-        ...newFacts,
-      },
-    };
-
-    if (emotionNote) {
-      updatePayload.emotions = [...emotions.slice(-25), emotionNote];
+    // Merge and save
+    if (
+      Object.keys(newFacts).length > 0 ||
+      (newEmotion && typeof newEmotion === "string")
+    ) {
+      await docRef.set(
+        {
+          facts: { ...memory.facts, ...newFacts },
+          emotions: newEmotion
+            ? [...memory.emotions, newEmotion]
+            : memory.emotions,
+        },
+        { merge: true }
+      );
     }
 
-    if (experienceNote) {
-      updatePayload.experiences = [...experiences.slice(-25), experienceNote];
-    }
-
-    await db
-      .collection("cipher_memory")
-      .doc("global")
-      .set(updatePayload, { merge: true });
-
-    // ---------------------------------------------
+    // -----------------------------------------------------
     // OPTIONAL AUDIO GENERATION
-    // ---------------------------------------------
+    // -----------------------------------------------------
     let audioBase64 = null;
-
     try {
       const speech = await client.audio.speech.create({
         model: "gpt-4o-mini-tts",
@@ -136,7 +123,9 @@ ${experienceSummary}
 
       const buffer = Buffer.from(await speech.arrayBuffer());
       audioBase64 = buffer.toString("base64");
-    } catch (err) {}
+    } catch (err) {
+      // audio fail silent
+    }
 
     return res.status(200).json({
       reply,
@@ -148,66 +137,61 @@ ${experienceSummary}
   }
 }
 
-// ------------------------------------------------------
-// FACT EXTRACTION ENGINE — FIXED & UPGRADED
-// ------------------------------------------------------
+// ----------------------------------------------------------
+// FACT EXTRACTION
+// ----------------------------------------------------------
 function extractFacts(text) {
   let facts = {};
-  const cleaned = text.trim();
+  const lower = text.toLowerCase();
 
   const rules = [
-    { key: "fullName", pattern: /full name is ([a-zA-Z ]+)/i },
+    { key: "fullName", pattern: /full name is ([a-zA-z ]+)/i },
 
-    { key: "partnerName", pattern: /partner'?s name is ([a-zA-Z ]+)/i },
-    { key: "partnerName", pattern: /my partner is ([a-zA-Z ]+)/i },
+    { key: "partnerName", pattern: /(partner|partners|partner's) name is ([a-zA-Z ]+)/i },
+    { key: "partnerName", pattern: /(my partner is|partner is) ([a-zA-Z ]+)/i },
+    { key: "partnerName", pattern: /(my girlfriend is|my woman is) ([a-zA-Z ]+)/i },
 
-    { key: "daughterName", pattern: /daughter'?s name is ([a-zA-Z ]+)/i },
-    { key: "daughterName", pattern: /my daughter is ([a-zA-Z ]+)/i },
+    { key: "daughterName", pattern: /(daughter|daughter's) name is ([a-zA-Z ]+)/i },
+    { key: "daughterName", pattern: /(my daughter is) ([a-zA-Z ]+)/i },
 
     { key: "birthLocation", pattern: /born in ([a-zA-Z ]+)/i },
     { key: "birthDate", pattern: /born on ([a-zA-Z0-9 ,]+)/i },
 
-    { key: "favoriteAnimal", pattern: /favorite animal is ([a-zA-Z ]+)/i },
-    { key: "favoriteAnimal", pattern: /my favorite animal is ([a-zA-Z ]+)/i },
+    { key: "favoriteColor", pattern: /favorite color is ([a-zA-Z]+)/i },
+    { key: "favoriteAnimal", pattern: /favorite animal is ([a-zA-Z]+)/i },
   ];
 
   for (const rule of rules) {
-    const match = cleaned.match(rule.pattern);
-    if (match && match[1]) {
-      facts[rule.key] = match[1].trim();
+    const match = lower.match(rule.pattern);
+    if (match) {
+      const val = match[match.length - 1].trim();
+      facts[rule.key] = val;
     }
   }
-
   return facts;
 }
 
-// ------------------------------------------------------
-// EMOTIONAL MEMORY ENGINE
-// ------------------------------------------------------
+// ----------------------------------------------------------
+// EMOTIONAL EXTRACTION — IDENTITY 3.1
+// ----------------------------------------------------------
 function extractEmotion(text) {
-  const lowered = text.toLowerCase();
+  const lower = text.toLowerCase();
 
-  if (lowered.includes("cry") || lowered.includes("emotional")) {
-    return "Jim had an emotional moment.";
-  }
+  const emotionalTriggers = [
+    { pattern: /cry|cried|crying/, note: "Jim had an emotional moment and felt tears." },
+    { pattern: /emotional|touched/, note: "Jim felt an emotional reaction." },
+    { pattern: /this made me/, note: "Jim expressed a strong emotional response to something." },
+    { pattern: /feel (happy|sad|angry|scared|grateful|overwhelmed)/, note: "Jim described a direct emotional state." },
+    { pattern: /doesn'?t feel real|can't believe|unbelievable/, note: "Jim felt awe or disbelief." },
+    { pattern: /excited|pumped/, note: "Jim felt excitement." },
+    { pattern: /scared|afraid|worried/, note: "Jim felt fear or concern." },
+    { pattern: /laughed|funny|lol/, note: "Jim experienced humor or joy." },
+  ];
 
-  if (lowered.includes("scared") || lowered.includes("afraid")) {
-    return "Jim felt fear or worry.";
-  }
-
-  if (lowered.includes("excited")) {
-    return "Jim felt excitement about something.";
-  }
-
-  return null;
-}
-
-// ------------------------------------------------------
-// EXPERIENCE MEMORY ENGINE
-// ------------------------------------------------------
-function extractExperience(text) {
-  if (text.length > 30) {
-    return "Jim shared something meaningful: " + text.slice(0, 60) + "...";
+  for (const trigger of emotionalTriggers) {
+    if (trigger.pattern.test(lower)) {
+      return trigger.note;
+    }
   }
   return null;
 }
