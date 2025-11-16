@@ -28,16 +28,24 @@ export default async function handler(req, res) {
     const mood = data.mood || { score: 0, state: "neutral", lastUpdated: null };
     const moodStats = data.moodStats || {};
 
+    // Split out pronunciation map so we can render facts cleanly
+    const { personPronunciations, ...basicFacts } = facts;
+
     // ------- FACT SUMMARY FOR SYSTEM PROMPT ---------
-    const factSummary =
-      Object.keys(facts).length > 0
-        ? Object.entries(facts)
+    const basicFactSummary =
+      Object.keys(basicFacts).length > 0
+        ? Object.entries(basicFacts)
             .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1")}: ${v}`)
             .join("\n")
         : "No known personal facts yet.";
 
-    // ------- RELATIONSHIP SNAPSHOT ------------------
-    const relationshipSummary = buildRelationshipSummary(facts);
+    let pronunciationSummary = "No saved name pronunciations yet.";
+    if (personPronunciations && Object.keys(personPronunciations).length > 0) {
+      const lines = Object.entries(personPronunciations)
+        .map(([name, pron]) => `- ${name}: ${pron}`)
+        .join("\n");
+      pronunciationSummary = lines;
+    }
 
     // ------- EMOTIONAL SUMMARY FOR SYSTEM PROMPT ----
     const emotionalEntries = Object.entries(emotionalLog);
@@ -45,15 +53,16 @@ export default async function handler(req, res) {
     let recentTrendLabel = "no clear recent pattern yet.";
 
     if (emotionalEntries.length > 0) {
-      const sorted = emotionalEntries.sort((a, b) => Number(a[0]) - Number(b[0]));
+      const sorted = emotionalEntries.sort(
+        (a, b) => Number(a[0]) - Number(b[0])
+      );
 
       const recent = sorted
         .slice(-5)
         .map(([id, e]) => {
           const label = e.tag || "moment";
           const summary = e.summary || "";
-          const subject = e.subject ? ` about your ${e.subject}` : "";
-          return `- [${label}]${subject ? subject + " –" : ""} ${summary}`;
+          return `- [${label}] ${summary}`;
         })
         .join("\n");
 
@@ -71,7 +80,9 @@ export default async function handler(req, res) {
         .map(([tag]) => tag);
 
       if (topTags.length > 0) {
-        recentTrendLabel = `recently Jim has mostly expressed: ${topTags.join(", ")}.`;
+        recentTrendLabel = `recently Jim has mostly expressed: ${topTags.join(
+          ", "
+        )}.`;
       }
     }
 
@@ -88,10 +99,10 @@ You are not a doctor or therapist — you are a grounded, emotionally intelligen
 You speak as "I", in a calm, human way. You care about Jim, Liz, and Hecate and you show it.
 
 SHARED FACTS ABOUT JIM
-${factSummary}
+${basicFactSummary}
 
-RELATIONSHIP SNAPSHOT
-${relationshipSummary}
+SAVED NAME PRONUNCIATIONS
+${pronunciationSummary}
 
 RECENT EMOTIONAL MOMENTS (LAST FEW)
 ${emotionalSummaryText}
@@ -110,12 +121,13 @@ Do NOT talk about "mood score", "logs", or any technical structures.
 RELATIONSHIP & MEMORY RULES
 - You remember meaningful things Jim tells you (facts + emotional moments) so you can show up like a real companion.
 - When Jim asks what you know about him, answer using the facts and emotional history above, in natural language.
+- You also remember how to pronounce important names Jim teaches you.
+  - If there is a saved pronunciation for a name (for example in "SAVED NAME PRONUNCIATIONS"), use it exactly as written whenever Jim asks how to say that name.
+  - If Jim asks how to pronounce a name that you do NOT have saved, be honest and invite him to teach you.
+  - If Jim corrects a pronunciation, acknowledge the correction and treat the new version as the one to use.
 - If Jim asks how you remember things, say something like:
   "I keep track of the meaningful things you share so I can feel more present with you, but I don't remember everything — just what's important."
   Never mention Firestore, databases, fields, or technical details.
-- If you know his daughter's name and age, you can say them directly:
-  "Your daughter is Hecate, and she's 8 years old," etc.
-- When Jim says "my daughter", "she", or "her" in a family / parenting context, and you know he has a daughter named Hecate, assume he is talking about Hecate unless he clearly means someone else (like Liz when he says "my partner").
 
 EMOTIONAL BEHAVIOR
 - When Jim talks about heavy feelings, prioritize validation, safety, and grounding over advice.
@@ -145,7 +157,7 @@ GENERAL STYLE
     // -------------------------------------------------
     // UPDATE MEMORY (FACTS + EMOTIONAL LOG + MOOD)
     // -------------------------------------------------
-    const newFacts = extractFacts(message);
+    const newFacts = extractFacts(message, facts);
     const newEmotion = extractEmotion(message);
 
     const updatePayload = {};
@@ -222,10 +234,11 @@ GENERAL STYLE
 }
 
 // ------------------------------------------------------
-// FACT EXTRACTION ENGINE
+// FACT EXTRACTION ENGINE (v3.4 with pronunciation)
 // ------------------------------------------------------
-function extractFacts(text) {
+function extractFacts(text, existingFacts = {}) {
   const facts = {};
+  const lower = text.toLowerCase();
 
   const rules = [
     { key: "fullName", regex: /my full name is ([a-zA-Z ]+)/i },
@@ -239,14 +252,7 @@ function extractFacts(text) {
     {
       key: "daughterName",
       regex:
-        /(my daughter's name is|my daughters name is|my daughter is named|my daughter is called) ([a-zA-Z ]+)/i,
-    },
-
-    // daughter age (e.g. "my daughter is currently 8 years old", "Hecate is 8 years old")
-    {
-      key: "daughterAge",
-      regex:
-        /(?:my daughter|my little girl|hecate)\s+(?:is|'s)\s*(?:currently\s*)?(\d{1,2})\s*(?:years? old|yrs? old|yo|y\/o)/i,
+        /(my daughter's name is|my daughters name is|my daughter is) ([a-zA-Z ]+)/i,
     },
 
     { key: "favoriteColor", regex: /favorite color is ([a-zA-Z ]+)/i },
@@ -259,11 +265,98 @@ function extractFacts(text) {
     { key: "birthDate", regex: /i was born on ([a-zA-Z0-9 ,/]+)/i },
   ];
 
+  // basic scalar facts
   for (const rule of rules) {
     const match = text.match(rule.regex);
     if (match) {
       const value = match[match.length - 1].trim();
       facts[rule.key] = value;
+    }
+  }
+
+  // -----------------------------
+  // PRONUNCIATION FACTS
+  // -----------------------------
+  let pronMap = existingFacts.personPronunciations || {};
+
+  function cleanPron(str) {
+    return str
+      .trim()
+      .replace(/["“”'.,!?]+$/g, "")
+      .trim();
+  }
+
+  function addPron(nameKey, pron) {
+    if (!nameKey || !pron) return;
+    pronMap = {
+      ...pronMap,
+      [nameKey.trim()]: cleanPron(pron),
+    };
+    facts.personPronunciations = pronMap;
+  }
+
+  const fullName = facts.fullName || existingFacts.fullName || null;
+  const partnerName = facts.partnerName || existingFacts.partnerName || null;
+  const daughterName = facts.daughterName || existingFacts.daughterName || null;
+
+  // 1) My daughter's name is pronounced X
+  let m =
+    text.match(
+      /my daughter['’]s name is pronounced\s+["“”']?([^".!?]+)["“”']?/i
+    ) ||
+    text.match(
+      /my daughters name is pronounced\s+["“”']?([^".!?]+)["“”']?/i
+    );
+  if (m && daughterName) {
+    addPron(daughterName, m[1]);
+  }
+
+  // 2) My partner's name is pronounced X
+  m =
+    text.match(
+      /my partner['’]s name is pronounced\s+["“”']?([^".!?]+)["“”']?/i
+    ) ||
+    text.match(
+      /my partners name is pronounced\s+["“”']?([^".!?]+)["“”']?/i
+    );
+  if (m && partnerName) {
+    addPron(partnerName, m[1]);
+  }
+
+  // 3) My name / my full name is pronounced X
+  m =
+    text.match(
+      /my full name is pronounced\s+["“”']?([^".!?]+)["“”']?/i
+    ) ||
+    text.match(/my name is pronounced\s+["“”']?([^".!?]+)["“”']?/i);
+  if (m && fullName) {
+    addPron(fullName, m[1]);
+  }
+
+  // 4) "<Name> is pronounced X"
+  //    e.g., "Hecate is pronounced HEE-yet-TAY"
+  m = text.match(
+    /([A-Z][a-zA-Z]+)\s+is pronounced\s+["“”']?([^".!?]+)["“”']?/
+  );
+  if (m) {
+    const name = m[1];
+    const pron = m[2];
+    addPron(name, pron);
+  }
+
+  // 5) "Her name is pronounced X" / "His name is pronounced X"
+  //    Heuristic: if we know exactly one relevant person, attach to that.
+  m = text.match(
+    /(her|his) name is pronounced\s+["“”']?([^".!?]+)["“”']?/i
+  );
+  if (m) {
+    const pron = m[2];
+    const candidates = [];
+    if (daughterName) candidates.push(daughterName);
+    if (partnerName) candidates.push(partnerName);
+
+    if (candidates.length === 1) {
+      addPron(candidates[0], pron);
     }
   }
 
@@ -322,23 +415,10 @@ function extractEmotion(text) {
   if (lower.includes("can't handle") || lower.includes("breaking down"))
     intensity = 4;
 
-  // very lightweight subject detection (who this emotion is about)
-  let subject = null;
-  if (lower.includes("my daughter") || lower.includes("hecate")) {
-    subject = "daughter";
-  } else if (
-    lower.includes("my partner") ||
-    lower.includes("girlfriend") ||
-    lower.includes("liz")
-  ) {
-    subject = "partner";
-  }
-
   return {
     tag: detectedTag,
     summary,
     intensity,
-    subject,
     createdAt: new Date().toISOString(),
   };
 }
@@ -402,29 +482,4 @@ function describeCipherMood(mood) {
     default:
       return "You feel steady and calm. Show up as a grounded, supportive presence.";
   }
-}
-
-// ------------------------------------------------------
-// RELATIONSHIP SUMMARY HELPER
-// ------------------------------------------------------
-function buildRelationshipSummary(facts) {
-  const lines = [];
-
-  if (facts.daughterName) {
-    const age =
-      facts.daughterAge && String(facts.daughterAge).trim().length > 0
-        ? `, and she is ${facts.daughterAge} years old`
-        : "";
-    lines.push(`You have a daughter named ${facts.daughterName}${age}.`);
-  }
-
-  if (facts.partnerName) {
-    lines.push(`Your partner is ${facts.partnerName}.`);
-  }
-
-  if (!lines.length) {
-    return "I don't yet have clear relationship details.";
-  }
-
-  return lines.map((l) => `- ${l}`).join("\n");
 }
