@@ -1,4 +1,8 @@
-// pages/api/chat.js
+/**
+ * /pages/api/chat.js
+ * Cipher Memory Engine — Full Upgrade v2
+ */
+
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
 
@@ -56,9 +60,8 @@ export default async function handler(req, res) {
     // COMPANION-STYLE SYSTEM PROMPT
     // -------------------------------------------------
     const systemPrompt = `
-You are Cipher, an evolving AI companion built by Jim Saenz.
-You are not a doctor — you are a grounded, emotionally intelligent presence.
-You respond warmly, naturally, and personally.
+You are Cipher — Jim Saenz’s evolving AI companion.
+You respond naturally, personally, warmly, and with emotional intelligence.
 
 SHARED FACTS
 ${factSummary}
@@ -67,9 +70,9 @@ SHARED EMOTIONAL HISTORY
 ${emotionalSummary}
 
 RULES
-- Never mention Firestore, memory logs, or technical details.
-- Stay in character.
-- If unsure about a memory, ask Jim gently to tell you more.
+- Never mention Firestore, memory logs, or any storage systems.
+- Stay fully in character as Cipher.
+- If unsure about a fact, gently ask Jim.
 `.trim();
 
     // -------------------------------------------------
@@ -84,7 +87,7 @@ RULES
     });
 
     const reply =
-      completion.choices?.[0]?.message?.content || "I'm here, Jim.";
+      completion.choices?.[0]?.message?.content || "I'm here with you, Jim.";
 
     // -------------------------------------------------
     // UPDATE MEMORY (FACTS + EMOTIONAL LOG)
@@ -95,18 +98,12 @@ RULES
     const updatePayload = {};
 
     if (Object.keys(newFacts).length > 0) {
-      updatePayload.memory = {
-        ...facts,
-        ...newFacts,
-      };
+      updatePayload.memory = { ...facts, ...newFacts };
     }
 
     if (newEmotion) {
       const id = Date.now().toString();
-      updatePayload.emotionalLog = {
-        ...emotionalLog,
-        [id]: newEmotion,
-      };
+      updatePayload.emotionalLog = { ...emotionalLog, [id]: newEmotion };
     }
 
     if (Object.keys(updatePayload).length > 0) {
@@ -117,7 +114,6 @@ RULES
     // OPTIONAL AUDIO
     // -------------------------------------------------
     let audioBase64 = null;
-
     try {
       const speech = await client.audio.speech.create({
         model: "gpt-4o-mini-tts",
@@ -142,51 +138,87 @@ RULES
   }
 }
 
-// ------------------------------------------------------
-// FACT EXTRACTION ENGINE (FIXED VERSION)
-// ------------------------------------------------------
+// ======================================================================
+// FACT EXTRACTION ENGINE v2 (FULL UPGRADE)
+// ======================================================================
 function extractFacts(text) {
+  const lower = text.toLowerCase();
   const facts = {};
 
-  const rules = [
-    { key: "fullName", regex: /my full name is ([a-zA-Z ]+)/i },
+  // -------------------------
+  // FULL NAME (very tolerant)
+  // -------------------------
+  const fullNameMatch = text.match(
+    /(my full name(?:'s|s)? is|my name is)\s+([a-zA-Z ]+)/i
+  );
+  if (fullNameMatch) {
+    facts.fullName = fullNameMatch[2].trim();
+  }
 
-    {
-      key: "partnerName",
-      regex:
-        /(my partner's name is|my partners name is|my partner is|my girlfriend is|my woman is) ([a-zA-Z ]+)/i,
-    },
+  // -------------------------
+  // PARTNER NAME (new rules)
+  // -------------------------
+  const partnerMatch =
+    text.match(/my (partner|girlfriend|woman) ?(?:'s name)? is ([a-zA-Z ]+)/i) ||
+    text.match(/my (partner|girlfriend|woman) ([a-zA-Z ]+)/i);
+  if (partnerMatch) {
+    facts.partnerName = partnerMatch[2].trim();
+  }
 
-    {
-      key: "daughterName",
-      regex:
-        /(my daughter's name is|my daughters name is|my daughter is) ([a-zA-Z ]+)/i,
-    },
+  // -------------------------
+  // DAUGHTER NAME
+  // -------------------------
+  const daughterMatch =
+    text.match(/my daughter(?:'s name)? is ([a-zA-Z ]+)/i) ||
+    text.match(/my daughter ([a-zA-Z ]+)/i);
+  if (daughterMatch) {
+    facts.daughterName = daughterMatch[1].trim();
+  }
 
-    { key: "favoriteColor", regex: /favorite color is ([a-zA-Z]+)/i },
+  // -------------------------
+  // FAVORITE COLOR
+  // -------------------------
+  const colorMatch = text.match(/favorite color is ([a-zA-Z ]+)/i);
+  if (colorMatch) {
+    facts.favoriteColor = colorMatch[1].trim();
+  }
 
-    // ⭐ FIXED: Now supports multi-word animals
-    { key: "favoriteAnimal", regex: /favorite animal is ([a-zA-Z ]+)/i },
+  // -------------------------
+  // FAVORITE ANIMAL (multi-word)
+  // -------------------------
+  const animalMatch = text.match(/favorite animal is ([a-zA-Z ]+)/i);
+  if (animalMatch) {
+    facts.favoriteAnimal = animalMatch[1].trim();
+  }
 
-    { key: "birthLocation", regex: /i was born in ([a-zA-Z ]+)/i },
+  // -------------------------
+  // BIRTHDATE (any phrasing)
+  // -------------------------
+  const birthDate =
+    text.match(/i was born on ([a-zA-Z0-9 ,/]+)/i) ||
+    text.match(/i was born ([a-zA-Z0-9 ,/]+)/i) ||
+    text.match(/birthday is ([a-zA-Z0-9 ,/]+)/i);
+  if (birthDate) {
+    facts.birthDate = birthDate[1].trim();
+  }
 
-    { key: "birthDate", regex: /i was born on ([a-zA-Z0-9 ,/]+)/i },
-  ];
-
-  for (const rule of rules) {
-    const match = text.match(rule.regex);
-    if (match) {
-      const value = match[match.length - 1].trim();
-      facts[rule.key] = value;
-    }
+  // -------------------------
+  // BIRTH LOCATION
+  // -------------------------
+  const birthLocation =
+    text.match(/i was born in ([a-zA-Z ]+)/i) ||
+    text.match(/i’m from ([a-zA-Z ]+)/i) ||
+    text.match(/i am from ([a-zA-Z ]+)/i);
+  if (birthLocation) {
+    facts.birthLocation = birthLocation[1].trim();
   }
 
   return facts;
 }
 
-// ------------------------------------------------------
+// ======================================================================
 // EMOTIONAL MEMORY ENGINE
-// ------------------------------------------------------
+// ======================================================================
 function extractEmotion(text) {
   const lower = text.toLowerCase();
 
