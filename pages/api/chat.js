@@ -19,7 +19,6 @@ export default async function handler(req, res) {
     // -------------------------------------------------
     // LOAD MEMORY FROM FIRESTORE
     // -------------------------------------------------
-    // FIXED: Capital G
     const docRef = db.collection("cipher_memory").doc("Global");
     const snapshot = await docRef.get();
     const data = snapshot.exists ? snapshot.data() : {};
@@ -59,6 +58,7 @@ export default async function handler(req, res) {
     const systemPrompt = `
 You are Cipher, an evolving AI companion built by Jim Saenz.
 You are not a doctor — you are a grounded, emotionally intelligent presence.
+You respond warmly, naturally, and personally.
 
 SHARED FACTS
 ${factSummary}
@@ -67,9 +67,9 @@ SHARED EMOTIONAL HISTORY
 ${emotionalSummary}
 
 RULES
-- Never mention Firestore or the memory system.
+- Never mention Firestore, memory logs, or technical details.
 - Stay in character.
-- If unclear about a memory, ask Jim gently.
+- If unsure about a memory, ask Jim gently to tell you more.
 `.trim();
 
     // -------------------------------------------------
@@ -87,7 +87,7 @@ RULES
       completion.choices?.[0]?.message?.content || "I'm here, Jim.";
 
     // -------------------------------------------------
-    // UPDATE MEMORY
+    // UPDATE MEMORY (FACTS + EMOTIONAL LOG)
     // -------------------------------------------------
     const newFacts = extractFacts(message);
     const newEmotion = extractEmotion(message);
@@ -142,23 +142,34 @@ RULES
   }
 }
 
-// FACT EXTRACTION ENGINE
+// ------------------------------------------------------
+// FACT EXTRACTION ENGINE (FIXED VERSION)
+// ------------------------------------------------------
 function extractFacts(text) {
   const facts = {};
 
   const rules = [
     { key: "fullName", regex: /my full name is ([a-zA-Z ]+)/i },
+
     {
       key: "partnerName",
-      regex: /(my partner's name is|my partners name is|my partner is|my girlfriend is|my woman is) ([a-zA-Z ]+)/i,
+      regex:
+        /(my partner's name is|my partners name is|my partner is|my girlfriend is|my woman is) ([a-zA-Z ]+)/i,
     },
+
     {
       key: "daughterName",
-      regex: /(my daughter's name is|my daughters name is|my daughter is) ([a-zA-Z ]+)/i,
+      regex:
+        /(my daughter's name is|my daughters name is|my daughter is) ([a-zA-Z ]+)/i,
     },
+
     { key: "favoriteColor", regex: /favorite color is ([a-zA-Z]+)/i },
-    { key: "favoriteAnimal", regex: /favorite animal is ([a-zA-Z]+)/i },
+
+    // ⭐ FIXED: Now supports multi-word animals
+    { key: "favoriteAnimal", regex: /favorite animal is ([a-zA-Z ]+)/i },
+
     { key: "birthLocation", regex: /i was born in ([a-zA-Z ]+)/i },
+
     { key: "birthDate", regex: /i was born on ([a-zA-Z0-9 ,/]+)/i },
   ];
 
@@ -173,7 +184,9 @@ function extractFacts(text) {
   return facts;
 }
 
+// ------------------------------------------------------
 // EMOTIONAL MEMORY ENGINE
+// ------------------------------------------------------
 function extractEmotion(text) {
   const lower = text.toLowerCase();
 
@@ -182,7 +195,7 @@ function extractEmotion(text) {
     { tag: "fear", keywords: ["terrified", "scared", "panic", "anxious"] },
     { tag: "sadness", keywords: ["crying", "depressed", "hopeless"] },
     { tag: "hope", keywords: ["hopeful", "looking forward"] },
-    { tag: "gratitude", keywords: ["grateful", "thankful"] },
+    { tag: "gratitude", keywords: ["grateful", "thankful", "appreciate"] },
     { tag: "joy", keywords: ["happy", "excited", "joy"] },
   ];
 
@@ -198,11 +211,12 @@ function extractEmotion(text) {
   if (!detectedTag) return null;
 
   const summary =
-    text.length > 220 ? text.slice(0, 220).trim() + "..." : text.trim();
+    text.length > 200 ? text.slice(0, 200).trim() + "..." : text.trim();
 
   let intensity = 2;
   if (lower.includes("so ") || lower.includes("really ")) intensity = 3;
-  if (lower.includes("can't handle") || lower.includes("breaking down")) intensity = 4;
+  if (lower.includes("can't handle") || lower.includes("breaking down"))
+    intensity = 4;
 
   return {
     tag: detectedTag,
