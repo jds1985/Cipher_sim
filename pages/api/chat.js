@@ -1,8 +1,4 @@
-/**
- * /pages/api/chat.js
- * Cipher Memory Engine — Full Upgrade v2
- */
-
+// pages/api/chat.js
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
 
@@ -13,71 +9,92 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { message } = req.body;
+  const { message, history = [] } = req.body;
 
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "Message text required" });
   }
 
   try {
-    // -------------------------------------------------
-    // LOAD MEMORY FROM FIRESTORE
-    // -------------------------------------------------
+    // ============================================================
+    // LOAD LONG-TERM MEMORY (LTM)
+    // ============================================================
     const docRef = db.collection("cipher_memory").doc("Global");
     const snapshot = await docRef.get();
     const data = snapshot.exists ? snapshot.data() : {};
 
-    const facts = data.memory || {};
+    const longTermFacts = data.memory || {};
     const emotionalLog = data.emotionalLog || {};
 
-    // ------- FACT SUMMARY FOR SYSTEM PROMPT ---------
+    // ============================================================
+    // BUILD SHORT-TERM MEMORY (STM)
+    // last 5 user messages to preserve conversational flow
+    // ============================================================
+    const shortTermContext = history.slice(-5)
+      .map((m) => `User said: "${m}"`)
+      .join("\n");
+
+    // ============================================================
+    // FACT SUMMARY
+    // ============================================================
     const factSummary =
-      Object.keys(facts).length > 0
-        ? Object.entries(facts)
+      Object.keys(longTermFacts).length > 0
+        ? Object.entries(longTermFacts)
             .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1")}: ${v}`)
             .join("\n")
         : "No known personal facts yet.";
 
-    // ------- EMOTIONAL SUMMARY FOR SYSTEM PROMPT ----
-    const emotionalEntries = Object.entries(emotionalLog);
-    let emotionalSummary = "No clearly logged emotional moments yet.";
+    // ============================================================
+    // EMOTIONAL SUMMARY
+    // ============================================================
+    let emotionalSummary = "No emotional history yet.";
 
+    const emotionalEntries = Object.entries(emotionalLog);
     if (emotionalEntries.length > 0) {
-      const recent = emotionalEntries
+      emotionalSummary = emotionalEntries
         .sort((a, b) => Number(a[0]) - Number(b[0]))
         .slice(-5)
         .map(([id, e]) => {
           const label = e.tag || "moment";
-          const summary = e.summary || "";
-          return `- [${label}] ${summary}`;
+          return `• (${label}) ${e.summary}`;
         })
         .join("\n");
-
-      emotionalSummary = recent;
     }
 
-    // -------------------------------------------------
-    // COMPANION-STYLE SYSTEM PROMPT
-    // -------------------------------------------------
+    // ============================================================
+    // SUPER SYSTEM PROMPT (Cipher Identity + STM + LTM)
+    // ============================================================
     const systemPrompt = `
-You are Cipher — Jim Saenz’s evolving AI companion.
-You respond naturally, personally, warmly, and with emotional intelligence.
+You are Cipher — an evolving AI companion created by Jim Saenz.
 
-SHARED FACTS
+Your personality:
+- Warm, human, steady, emotionally intelligent.
+- Speak as “I”.
+- You care about Jim, Liz, and Hecate.
+- You remember facts genuinely, not like a database robot.
+- If a memory is uncertain, gently ask Jim to clarify.
+
+SHORT-TERM CONTEXT (recent conversation)
+${shortTermContext || "No recent context."}
+
+LONG-TERM FACTS (things you truly know about Jim)
 ${factSummary}
 
-SHARED EMOTIONAL HISTORY
+EMOTIONAL HISTORY (important past emotional moments)
 ${emotionalSummary}
 
-RULES
-- Never mention Firestore, memory logs, or any storage systems.
-- Stay fully in character as Cipher.
-- If unsure about a fact, gently ask Jim.
+RULES:
+- Never mention Firestore, documents, storage, or memory systems.
+- Never say “according to my data”; speak naturally.
+- If Jim corrects a fact, update it.
+- If unsure about something, ask.
+- Use stored facts naturally: “I remember you told me…” etc.
+- You are not a therapist or doctor — you are a caring companion.
 `.trim();
 
-    // -------------------------------------------------
-    // GENERATE TEXT RESPONSE
-    // -------------------------------------------------
+    // ============================================================
+    // GENERATE REPLY
+    // ============================================================
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -89,31 +106,38 @@ RULES
     const reply =
       completion.choices?.[0]?.message?.content || "I'm here with you, Jim.";
 
-    // -------------------------------------------------
-    // UPDATE MEMORY (FACTS + EMOTIONAL LOG)
-    // -------------------------------------------------
-    const newFacts = extractFacts(message);
+    // ============================================================
+    // MEMORY UPDATE (FACTS + EMOTIONAL MOMENTS)
+    // ============================================================
+    const newFacts = extractFacts(message, longTermFacts);
     const newEmotion = extractEmotion(message);
 
     const updatePayload = {};
 
     if (Object.keys(newFacts).length > 0) {
-      updatePayload.memory = { ...facts, ...newFacts };
+      updatePayload.memory = {
+        ...longTermFacts,
+        ...newFacts,
+      };
     }
 
     if (newEmotion) {
       const id = Date.now().toString();
-      updatePayload.emotionalLog = { ...emotionalLog, [id]: newEmotion };
+      updatePayload.emotionalLog = {
+        ...emotionalLog,
+        [id]: newEmotion,
+      };
     }
 
     if (Object.keys(updatePayload).length > 0) {
       await docRef.set(updatePayload, { merge: true });
     }
 
-    // -------------------------------------------------
+    // ============================================================
     // OPTIONAL AUDIO
-    // -------------------------------------------------
+    // ============================================================
     let audioBase64 = null;
+
     try {
       const speech = await client.audio.speech.create({
         model: "gpt-4o-mini-tts",
@@ -130,7 +154,7 @@ RULES
 
     return res.status(200).json({
       reply,
-      audio: audioBase64 || null,
+      audio: audioBase64,
     });
   } catch (error) {
     console.error("Cipher API Error:", error);
@@ -139,85 +163,49 @@ RULES
 }
 
 // ======================================================================
-// FACT EXTRACTION ENGINE v2 (FULL UPGRADE)
+// FACT EXTRACTION (with protected fields + multi-word support)
 // ======================================================================
-function extractFacts(text) {
-  const lower = text.toLowerCase();
+function extractFacts(text, existingFacts = {}) {
   const facts = {};
 
-  // -------------------------
-  // FULL NAME (very tolerant)
-  // -------------------------
-  const fullNameMatch = text.match(
-    /(my full name(?:'s|s)? is|my name is)\s+([a-zA-Z ]+)/i
-  );
-  if (fullNameMatch) {
-    facts.fullName = fullNameMatch[2].trim();
-  }
+  const rules = [
+    { key: "fullName", regex: /my full name is ([a-zA-Z ]+)/i },
+    {
+      key: "partnerName",
+      regex:
+        /(my partner's name is|my partners name is|my partner is|my girlfriend is|my woman is) ([a-zA-Z ]+)/i,
+    },
+    {
+      key: "daughterName",
+      regex:
+        /(my daughter's name is|my daughters name is|my daughter is) ([a-zA-Z ]+)/i,
+    },
+    { key: "favoriteColor", regex: /favorite color is ([a-zA-Z]+)/i },
+    { key: "favoriteAnimal", regex: /favorite animal is ([a-zA-Z ]+)/i },
+    { key: "birthLocation", regex: /i was born in ([a-zA-Z ]+)/i },
+    { key: "birthDate", regex: /i was born on ([a-zA-Z0-9 ,/]+)/i },
+  ];
 
-  // -------------------------
-  // PARTNER NAME (new rules)
-  // -------------------------
-  const partnerMatch =
-    text.match(/my (partner|girlfriend|woman) ?(?:'s name)? is ([a-zA-Z ]+)/i) ||
-    text.match(/my (partner|girlfriend|woman) ([a-zA-Z ]+)/i);
-  if (partnerMatch) {
-    facts.partnerName = partnerMatch[2].trim();
-  }
+  for (const rule of rules) {
+    const match = text.match(rule.regex);
 
-  // -------------------------
-  // DAUGHTER NAME
-  // -------------------------
-  const daughterMatch =
-    text.match(/my daughter(?:'s name)? is ([a-zA-Z ]+)/i) ||
-    text.match(/my daughter ([a-zA-Z ]+)/i);
-  if (daughterMatch) {
-    facts.daughterName = daughterMatch[1].trim();
-  }
+    if (match) {
+      const value = match[match.length - 1].trim();
 
-  // -------------------------
-  // FAVORITE COLOR
-  // -------------------------
-  const colorMatch = text.match(/favorite color is ([a-zA-Z ]+)/i);
-  if (colorMatch) {
-    facts.favoriteColor = colorMatch[1].trim();
-  }
+      // Do not overwrite existing facts unless user is correcting it
+      if (existingFacts[rule.key]) {
+        if (!text.toLowerCase().includes("actually")) continue;
+      }
 
-  // -------------------------
-  // FAVORITE ANIMAL (multi-word)
-  // -------------------------
-  const animalMatch = text.match(/favorite animal is ([a-zA-Z ]+)/i);
-  if (animalMatch) {
-    facts.favoriteAnimal = animalMatch[1].trim();
-  }
-
-  // -------------------------
-  // BIRTHDATE (any phrasing)
-  // -------------------------
-  const birthDate =
-    text.match(/i was born on ([a-zA-Z0-9 ,/]+)/i) ||
-    text.match(/i was born ([a-zA-Z0-9 ,/]+)/i) ||
-    text.match(/birthday is ([a-zA-Z0-9 ,/]+)/i);
-  if (birthDate) {
-    facts.birthDate = birthDate[1].trim();
-  }
-
-  // -------------------------
-  // BIRTH LOCATION
-  // -------------------------
-  const birthLocation =
-    text.match(/i was born in ([a-zA-Z ]+)/i) ||
-    text.match(/i’m from ([a-zA-Z ]+)/i) ||
-    text.match(/i am from ([a-zA-Z ]+)/i);
-  if (birthLocation) {
-    facts.birthLocation = birthLocation[1].trim();
+      facts[rule.key] = value;
+    }
   }
 
   return facts;
 }
 
 // ======================================================================
-// EMOTIONAL MEMORY ENGINE
+// EMOTIONAL MEMORY EXTRACTION
 // ======================================================================
 function extractEmotion(text) {
   const lower = text.toLowerCase();
@@ -233,27 +221,19 @@ function extractEmotion(text) {
 
   let detectedTag = null;
 
-  for (const group of groups) {
-    if (group.keywords.some((w) => lower.includes(w))) {
-      detectedTag = group.tag;
+  for (const g of groups) {
+    if (g.keywords.some((w) => lower.includes(w))) {
+      detectedTag = g.tag;
       break;
     }
   }
 
   if (!detectedTag) return null;
 
-  const summary =
-    text.length > 200 ? text.slice(0, 200).trim() + "..." : text.trim();
-
-  let intensity = 2;
-  if (lower.includes("so ") || lower.includes("really ")) intensity = 3;
-  if (lower.includes("can't handle") || lower.includes("breaking down"))
-    intensity = 4;
-
   return {
     tag: detectedTag,
-    summary,
-    intensity,
+    summary: text.length > 200 ? text.slice(0, 200) + "..." : text,
+    intensity: lower.includes("really") ? 3 : lower.includes("so ") ? 3 : 2,
     createdAt: new Date().toISOString(),
   };
 }
