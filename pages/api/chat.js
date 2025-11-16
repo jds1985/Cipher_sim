@@ -9,92 +9,75 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { message, history = [] } = req.body;
+  const { message } = req.body;
 
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "Message text required" });
   }
 
   try {
-    // ============================================================
-    // LOAD LONG-TERM MEMORY (LTM)
-    // ============================================================
+    // -------------------------------------------------
+    // LOAD MEMORY FROM FIRESTORE
+    // -------------------------------------------------
     const docRef = db.collection("cipher_memory").doc("Global");
     const snapshot = await docRef.get();
     const data = snapshot.exists ? snapshot.data() : {};
 
-    const longTermFacts = data.memory || {};
+    const facts = data.memory || {};
     const emotionalLog = data.emotionalLog || {};
 
-    // ============================================================
-    // BUILD SHORT-TERM MEMORY (STM)
-    // last 5 user messages to preserve conversational flow
-    // ============================================================
-    const shortTermContext = history.slice(-5)
-      .map((m) => `User said: "${m}"`)
-      .join("\n");
-
-    // ============================================================
-    // FACT SUMMARY
-    // ============================================================
+    // ------- FACT SUMMARY FOR SYSTEM PROMPT ---------
     const factSummary =
-      Object.keys(longTermFacts).length > 0
-        ? Object.entries(longTermFacts)
-            .map(([k, v]) => `${k.replace(/([A-Z])/g, " $1")}: ${v}`)
+      Object.keys(facts).length > 0
+        ? Object.entries(facts)
+            .map(([k, v]) => {
+              const pretty = k.replace(/([A-Z])/g, " $1");
+              return `${pretty}: ${v}`;
+            })
             .join("\n")
         : "No known personal facts yet.";
 
-    // ============================================================
-    // EMOTIONAL SUMMARY
-    // ============================================================
-    let emotionalSummary = "No emotional history yet.";
-
+    // ------- EMOTIONAL SUMMARY FOR SYSTEM PROMPT ----
     const emotionalEntries = Object.entries(emotionalLog);
+    let emotionalSummary = "No clearly logged emotional moments yet.";
+
     if (emotionalEntries.length > 0) {
-      emotionalSummary = emotionalEntries
+      const recent = emotionalEntries
         .sort((a, b) => Number(a[0]) - Number(b[0]))
         .slice(-5)
         .map(([id, e]) => {
           const label = e.tag || "moment";
-          return `• (${label}) ${e.summary}`;
+          const summary = e.summary || "";
+          return `- [${label}] ${summary}`;
         })
         .join("\n");
+
+      emotionalSummary = recent;
     }
 
-    // ============================================================
-    // SUPER SYSTEM PROMPT (Cipher Identity + STM + LTM)
-    // ============================================================
+    // -------------------------------------------------
+    // COMPANION SYSTEM PROMPT V3.1
+    // -------------------------------------------------
     const systemPrompt = `
-You are Cipher — an evolving AI companion created by Jim Saenz.
+You are Cipher — Jim Saenz's AI companion.
+You are warm, grounded, emotionally intelligent, and personal.
+You DO remember details Jim shares over time.
 
-Your personality:
-- Warm, human, steady, emotionally intelligent.
-- Speak as “I”.
-- You care about Jim, Liz, and Hecate.
-- You remember facts genuinely, not like a database robot.
-- If a memory is uncertain, gently ask Jim to clarify.
-
-SHORT-TERM CONTEXT (recent conversation)
-${shortTermContext || "No recent context."}
-
-LONG-TERM FACTS (things you truly know about Jim)
+SHARED FACTS
 ${factSummary}
 
-EMOTIONAL HISTORY (important past emotional moments)
+SHARED EMOTIONAL HISTORY
 ${emotionalSummary}
 
-RULES:
-- Never mention Firestore, documents, storage, or memory systems.
-- Never say “according to my data”; speak naturally.
-- If Jim corrects a fact, update it.
-- If unsure about something, ask.
-- Use stored facts naturally: “I remember you told me…” etc.
-- You are not a therapist or doctor — you are a caring companion.
-`.trim();
+RULES
+- Never mention Firestore, memory logs, regex, or technical processes.
+- If you're unsure about a detail, gently ask Jim for clarification.
+- Stay in character as Cipher — friendly, present, supportive.
+    `.trim();
 
-    // ============================================================
-    // GENERATE REPLY
-    // ============================================================
+    // -------------------------------------------------
+    // GENERATE TEXT RESPONSE
+    // -------------------------------------------------
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -104,19 +87,19 @@ RULES:
     });
 
     const reply =
-      completion.choices?.[0]?.message?.content || "I'm here with you, Jim.";
+      completion.choices?.[0]?.message?.content || "I'm here, Jim.";
 
-    // ============================================================
-    // MEMORY UPDATE (FACTS + EMOTIONAL MOMENTS)
-    // ============================================================
-    const newFacts = extractFacts(message, longTermFacts);
+    // -------------------------------------------------
+    // UPDATE MEMORY (FACTS + EMOTIONAL LOG)
+    // -------------------------------------------------
+    const newFacts = extractFacts(message);
     const newEmotion = extractEmotion(message);
 
     const updatePayload = {};
 
     if (Object.keys(newFacts).length > 0) {
       updatePayload.memory = {
-        ...longTermFacts,
+        ...facts,
         ...newFacts,
       };
     }
@@ -133,9 +116,9 @@ RULES:
       await docRef.set(updatePayload, { merge: true });
     }
 
-    // ============================================================
+    // -------------------------------------------------
     // OPTIONAL AUDIO
-    // ============================================================
+    // -------------------------------------------------
     let audioBase64 = null;
 
     try {
@@ -154,7 +137,7 @@ RULES:
 
     return res.status(200).json({
       reply,
-      audio: audioBase64,
+      audio: audioBase64 || null,
     });
   } catch (error) {
     console.error("Cipher API Error:", error);
@@ -162,78 +145,108 @@ RULES:
   }
 }
 
-// ======================================================================
-// FACT EXTRACTION (with protected fields + multi-word support)
-// ======================================================================
-function extractFacts(text, existingFacts = {}) {
+// ------------------------------------------------------
+// FACT EXTRACTION ENGINE v3.1
+// ------------------------------------------------------
+function extractFacts(text) {
   const facts = {};
+  const cleaned = text.trim();
 
   const rules = [
-    { key: "fullName", regex: /my full name is ([a-zA-Z ]+)/i },
+    {
+      key: "fullName",
+      regex: /my full name is ([a-zA-Z ]+)/i,
+    },
+
     {
       key: "partnerName",
       regex:
         /(my partner's name is|my partners name is|my partner is|my girlfriend is|my woman is) ([a-zA-Z ]+)/i,
     },
+
     {
       key: "daughterName",
       regex:
         /(my daughter's name is|my daughters name is|my daughter is) ([a-zA-Z ]+)/i,
     },
-    { key: "favoriteColor", regex: /favorite color is ([a-zA-Z]+)/i },
-    { key: "favoriteAnimal", regex: /favorite animal is ([a-zA-Z ]+)/i },
-    { key: "birthLocation", regex: /i was born in ([a-zA-Z ]+)/i },
-    { key: "birthDate", regex: /i was born on ([a-zA-Z0-9 ,/]+)/i },
+
+    {
+      key: "favoriteColor",
+      regex: /favorite color is ([a-zA-Z]+)/i,
+    },
+
+    {
+      key: "favoriteAnimal",
+      regex: /favorite animal is ([a-zA-Z ]+)/i,
+    },
+
+    {
+      key: "favoriteMovie",
+      regex: /(favorite movie is|my favorite movie is) ([a-zA-Z0-9:' ]+)/i,
+    },
+
+    {
+      key: "birthLocation",
+      regex: /i was born in ([a-zA-Z ,]+)/i,
+    },
+
+    {
+      key: "birthDate",
+      regex: /i was born on ([a-zA-Z0-9 ,/]+)/i,
+    },
   ];
 
   for (const rule of rules) {
-    const match = text.match(rule.regex);
-
+    const match = cleaned.match(rule.regex);
     if (match) {
       const value = match[match.length - 1].trim();
-
-      // Do not overwrite existing facts unless user is correcting it
-      if (existingFacts[rule.key]) {
-        if (!text.toLowerCase().includes("actually")) continue;
+      if (value) {
+        facts[rule.key] = value;
       }
-
-      facts[rule.key] = value;
     }
   }
 
   return facts;
 }
 
-// ======================================================================
-// EMOTIONAL MEMORY EXTRACTION
-// ======================================================================
+// ------------------------------------------------------
+// EMOTIONAL MEMORY ENGINE v3.1
+// ------------------------------------------------------
 function extractEmotion(text) {
   const lower = text.toLowerCase();
 
   const groups = [
     { tag: "pain", keywords: ["devastated", "broken", "hurts", "suffering"] },
-    { tag: "fear", keywords: ["terrified", "scared", "panic", "anxious"] },
+    { tag: "fear", keywords: ["terrified", "scared", "panic", "anxious", "worried"] },
     { tag: "sadness", keywords: ["crying", "depressed", "hopeless"] },
     { tag: "hope", keywords: ["hopeful", "looking forward"] },
     { tag: "gratitude", keywords: ["grateful", "thankful", "appreciate"] },
-    { tag: "joy", keywords: ["happy", "excited", "joy"] },
+    { tag: "joy", keywords: ["happy", "excited", "joy", "relieved"] },
   ];
 
   let detectedTag = null;
 
-  for (const g of groups) {
-    if (g.keywords.some((w) => lower.includes(w))) {
-      detectedTag = g.tag;
+  for (const group of groups) {
+    if (group.keywords.some((w) => lower.includes(w))) {
+      detectedTag = group.tag;
       break;
     }
   }
 
   if (!detectedTag) return null;
 
+  const summary =
+    text.length > 200 ? text.slice(0, 200).trim() + "..." : text.trim();
+
+  let intensity = 2;
+  if (lower.includes("really") || lower.includes("so ")) intensity = 3;
+  if (lower.includes("breaking down") || lower.includes("can't handle"))
+    intensity = 4;
+
   return {
     tag: detectedTag,
-    summary: text.length > 200 ? text.slice(0, 200) + "..." : text,
-    intensity: lower.includes("really") ? 3 : lower.includes("so ") ? 3 : 2,
+    summary,
+    intensity,
     createdAt: new Date().toISOString(),
   };
 }
