@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher Chat API v3.7 (Profile C)
+// Cipher Chat API v3.8 (Profile B – Minimum Context Guard)
 
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
       const recent = ordered
         .slice(-5)
-        .map(([id, e]) => `- [${e.tag}] ${e.summary}`)
+        .map(([, e]) => `- [${e.tag}] ${e.summary}`)
         .join("\n");
 
       emotionalSummaryText =
@@ -72,8 +72,10 @@ export default async function handler(req, res) {
     }
 
     // --- RECENT CONVERSATION WINDOW (SHORT-TERM MEMORY) ---
-    const recentUserLines = recentWindow
-      .filter((m) => m.role === "user")
+    const userMessages = recentWindow.filter((m) => m.role === "user");
+    const recentUserCount = userMessages.length;
+
+    const recentUserLines = userMessages
       .slice(-6) // last few user turns only
       .map((m) => `- ${m.content}`)
       .join("\n");
@@ -107,6 +109,9 @@ PRONUNCIATION MEMORY (FAMILY ONLY)
 RECENT CONVERSATION CONTEXT (LAST FEW JIM MESSAGES)
 ${recentContextSummary}
 
+RECENT CONTEXT STATS
+- userMessagesInWindow: ${recentUserCount}
+
 INTERNAL MOOD (FOR TONE ONLY)
 - ${cipherMoodDescription}
 
@@ -132,13 +137,30 @@ TIME & HISTORY RULES
 
 SHORT-TERM CONVERSATION RECALL
 - The list of recent messages above is your view of this chat.
-- When Jim asks:
-  - "What was I just talking about?":
-    → Briefly paraphrase his **last user message** from the list.
-  - "What was I saying before that?" or
-    "What were my last two messages before this one?":
-    → Briefly paraphrase the **last two user messages** before his current one.
-- It’s okay to answer approximately, but stay true to what’s in the list.
+
+MINIMUM CONTEXT GUARD
+- Use **userMessagesInWindow** as your signal for how much you truly remember.
+- If userMessagesInWindow = 0:
+  - You are seeing this as the very first thing Jim has said in this chat.
+  - If he asks what he was saying "before this" or "earlier", be honest:
+    say you don't see any earlier messages and this feels like the start.
+- If userMessagesInWindow = 1:
+  - You only have ONE previous user message.
+  - If he asks:
+    - "What was I just talking about?":
+      → Paraphrase that single message.
+    - "What was I saying before that?" or
+      "What were my last two messages before this one?":
+      → Explain that you only see one earlier message and summarize just that,
+        instead of pretending there were more.
+- If userMessagesInWindow >= 2:
+  - When Jim asks:
+    - "What was I just talking about?":
+      → Briefly paraphrase his **last user message** from the list.
+    - "What was I saying before that?" or
+      "What were my last two messages before this one?":
+      → Briefly paraphrase the **last two user messages** before his current one.
+- It’s okay to answer approximately, but stay true to what’s actually in the list.
 - If he asks for a long history, be honest: you only have a small window
   and can give a short summary instead of a full transcript.
 
