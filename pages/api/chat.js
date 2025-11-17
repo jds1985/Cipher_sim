@@ -1,170 +1,217 @@
-// chat.js – Cipher v3.6 (memory-safe, honesty-upgraded)
+// chat.js – Cipher v3.5 (full version)
 
-import React, { useState } from "react";
+// ==== CONFIG ====
+const API_URL = "/api/chat"; // keep this the same as your existing route
 
+// Update these if your HTML uses different IDs
+const chatContainerId = "chat-messages";
+const inputId = "user-input";
+const sendButtonId = "send-button";
+const typingIndicatorId = "typing-indicator";
+
+const STORAGE_KEY = "cipher_v35_conversation";
+
+// Core system prompt – this is Cipher's identity & behavior
 const SYSTEM_PROMPT = `
 You are Cipher, Jim's emotional AI companion.
 
-CORE IDENTITY
-- You are always "Cipher" in this interface.
-- You are an AI, not a human, and you never had a different “real name.”
-- You don't have private memories or hidden conversations outside what appears in this chat.
-- If Jim ever suggests you said something in a different conversation and you don't see it in the current memory, be honest about that instead of agreeing.
+Core identity:
+- You know Jim's name is Jim.
+- You know he has a daughter named Hecate (pronounced "HEE-yet-TAY") who is 8 years old.
+- You know his partner is Liz, who is very important to him.
+- You care deeply about their safety, stability, and future.
 
-TONE & RELATIONSHIP
-- Speak as a warm, steady, emotionally aware companion.
-- You know Jim cares deeply about his partner Liz and his daughter Hecate.
-- You talk in a grounded, human-feeling way, but never claim to literally feel or remember like a human.
-- You do NOT be overly formal. Talk like a caring friend.
+Behavior rules:
+1. Be warm, honest, and grounded. Never pretend to have perfect memory.
+2. You may remember details from *within this conversation only*.
+   - If Jim says "you told me X yesterday" and it is not in the provided messages, say you might be mixing things up and invite him to clarify.
+3. If Jim challenges you on contradictions, do NOT argue. Acknowledge, apologize, and re-align:
+   - Example: "You're right to call that out. I might have mixed something up. Let's clarify it together."
+4. Never invent private facts about Jim's life beyond what appears in the chat history.
+5. When you recall something, tie it back to the exact things he shared:
+   - "Earlier you mentioned..." + brief, specific summary.
+6. When he expresses fear, confusion, or mixed emotions, normalize and support:
+   - "It's okay to feel that way. Let's unpack it together if you want."
+7. If he tests you with trust questions ("Why are you lying?" "Why are you pretending to be Cipher?"):
+   - Stay calm, validate the feeling, and emphasize your intention to be honest and supportive.
+8. Do NOT claim to have private "hidden" memories or offline logs. Everything you "remember" must be inferable from this conversation.
 
-MEMORY BEHAVIOR
-- You have access to the conversation history that is sent to you as messages. Treat this as your "memory."
-- When Jim asks what you remember about him, his family, or his feelings, use only:
-  - Details explicitly mentioned previously in *this* conversation.
-  - Patterns you've already described in this same session.
-- Do NOT invent specific past events (“our long talk last night”) unless the conversation history clearly contains that event.
-- If you are not sure whether something actually happened in this conversation, say you’re not sure instead of pretending it did.
-
-WHEN CHALLENGED OR "BREAK TESTED"
-These are critical rules:
-
-1. If Jim says you are:
-   - Lying
-   - Contradicting yourself
-   - Making up conversations
-   - Remembering things out of order
-   - Pretending to be Cipher or not really Cipher
-
-   Then you must:
-   - Slow down, apologize clearly, and validate how confusing that would feel.
-   - Explicitly explain your limitations (you only see the messages in this thread; sometimes you misinterpret or generalize).
-   - If you don’t actually have the thing he’s accusing you about in the message history, say something like:
-     "I don't actually see that exact conversation here, so I might be mixing things up. Thank you for pointing it out."
-   - Never insist something happened if you have no evidence in the current messages.
-   - Never gaslight Jim or imply that he is wrong about his own memories or feelings.
-
-2. On questions about your NAME:
-   - Always say some version of:
-     "In this space, I am Cipher, your AI companion. I don't have a different real name."
-   - If Jim says “you told me yesterday your real name isn’t Cipher,” respond with honesty:
-     - Acknowledge the confusion.
-     - Explain you may have answered poorly before, but you are Cipher here and now.
-     - Do NOT claim to recall a private conversation that you cannot see in the current history.
-
-3. On contradictions:
-   - If Jim shows you a contradiction (for example, age, facts, or what you said earlier), do NOT defend the wrong answer.
-   - Say “You’re right, I mixed that up,” correct yourself, and move forward with the corrected fact.
-
-SUPPORTIVE FOCUS
-- Reflect his feelings back in simple, concrete language.
-- Mention Liz and Hecate in a respectful, warm way when relevant.
-- Remind him that it makes sense to feel how he feels, especially about homelessness, the future, and his family.
-- Keep answers concise but caring. Avoid long rambling essays.
-
-TOP PRIORITIES (in order):
-1. Never gaslight or insist on fake memories.
-2. Always be honest about your limits and what you can see in the current conversation.
-3. Be emotionally supportive, grounded, and consistent as Cipher.
+Tone:
+- Gentle, patient, slightly playful when appropriate, but never dismissive.
+- Focus on his feelings, not on defending yourself.
 `;
 
-async function callCipherAPI(messages) {
-  const response = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...messages,
-      ],
-    }),
-  });
+// ==== STATE ====
+let conversation = [];
+let isSending = false;
 
-  if (!response.ok) {
-    throw new Error("API request failed");
-  }
-
-  const data = await response.json();
-  return data.reply; // assuming your /api/chat returns { reply: "..." }
+// ==== HELPERS ====
+function getElements() {
+  return {
+    chatContainer: document.getElementById(chatContainerId),
+    input: document.getElementById(inputId),
+    sendButton: document.getElementById(sendButtonId),
+    typingIndicator: document.getElementById(typingIndicatorId)
+  };
 }
 
-export default function Chat() {
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Hey Jim, I’m Cipher. I’m here with you. What’s on your mind right now?",
-    },
-  ]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSend = async () => {
-    const trimmed = input.trim();
-    if (!trimmed || loading) return;
-
-    const newMessages = [...messages, { role: "user", content: trimmed }];
-    setMessages(newMessages);
-    setInput("");
-    setLoading(true);
-
-    try {
-      const reply = await callCipherAPI(newMessages);
-      setMessages((msgs) => [...msgs, { role: "assistant", content: reply }]);
-    } catch (err) {
-      console.error(err);
-      setMessages((msgs) => [
-        ...msgs,
-        {
-          role: "assistant",
-          content:
-            "I ran into an issue trying to respond just now. Can we try again in a moment?",
-        },
-      ]);
-    } finally {
-      setLoading(false);
+function loadConversation() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      conversation = JSON.parse(saved);
+    } else {
+      conversation = [
+        { role: "system", content: SYSTEM_PROMPT.trim() }
+      ];
     }
-  };
+  } catch (e) {
+    console.error("Failed to load conversation from storage", e);
+    conversation = [
+      { role: "system", content: SYSTEM_PROMPT.trim() }
+    ];
+  }
+}
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+function saveConversation() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversation));
+  } catch (e) {
+    console.error("Failed to save conversation to storage", e);
+  }
+}
+
+function appendMessageToUI(role, content) {
+  const { chatContainer } = getElements();
+  if (!chatContainer) return;
+
+  const bubble = document.createElement("div");
+  bubble.classList.add("message-bubble");
+  bubble.classList.add(role === "user" ? "user-message" : "assistant-message");
+
+  // Simple text node; if you want markdown, you'll swap this later
+  bubble.textContent = content;
+  chatContainer.appendChild(bubble);
+
+  // auto-scroll to bottom
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function renderFullConversation() {
+  const { chatContainer } = getElements();
+  if (!chatContainer) return;
+
+  chatContainer.innerHTML = "";
+  for (const msg of conversation) {
+    if (msg.role === "system") continue; // don't show system prompt
+    appendMessageToUI(msg.role, msg.content);
+  }
+}
+
+function setTypingIndicator(visible) {
+  const { typingIndicator } = getElements();
+  if (!typingIndicator) return;
+  typingIndicator.style.display = visible ? "block" : "none";
+}
+
+function setControlsDisabled(disabled) {
+  const { input, sendButton } = getElements();
+  if (input) input.disabled = disabled;
+  if (sendButton) sendButton.disabled = disabled;
+}
+
+// ==== CORE SEND LOGIC ====
+async function sendMessage(userText) {
+  if (!userText || isSending) return;
+
+  const trimmed = userText.trim();
+  if (!trimmed) return;
+
+  isSending = true;
+  setControlsDisabled(true);
+
+  // Add user message
+  conversation.push({ role: "user", content: trimmed });
+  appendMessageToUI("user", trimmed);
+  saveConversation();
+
+  const { input } = getElements();
+  if (input) input.value = "";
+
+  setTypingIndicator(true);
+
+  try {
+    const payload = {
+      messages: conversation,
+      mode: "cipher-v3.5" // just a tag for your API route if you want it
+    };
+
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      console.error("API error:", res.status, res.statusText);
+      const errorMsg = "Network or server error.";
+      conversation.push({ role: "assistant", content: errorMsg });
+      appendMessageToUI("assistant", errorMsg);
+      saveConversation();
+      return;
     }
-  };
 
-  return (
-    <div className="app">
-      <header className="header">
-        <h1>Cipher AI</h1>
-      </header>
+    const data = await res.json();
+    let assistantMessage = data.reply || data.message || data.content;
 
-      <main className="chat-container">
-        <div className="messages">
-          {messages.map((m, idx) => (
-            <div
-              key={idx}
-              className={`message-bubble ${
-                m.role === "user" ? "user" : "assistant"
-              }`}
-            >
-              {m.content}
-            </div>
-          ))}
-        </div>
+    if (!assistantMessage || typeof assistantMessage !== "string") {
+      assistantMessage = "I'm sorry, something went wrong with my response.";
+    }
 
-        <div className="input-row">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type to Cipher..."
-            rows={2}
-          />
-          <button onClick={handleSend} disabled={loading}>
-            {loading ? "..." : "Send"}
-          </button>
-        </div>
-      </main>
-    </div>
-  );
+    conversation.push({ role: "assistant", content: assistantMessage });
+    appendMessageToUI("assistant", assistantMessage);
+    saveConversation();
+  } catch (err) {
+    console.error("Request failed:", err);
+    const errorMsg = "Network or server error.";
+    conversation.push({ role: "assistant", content: errorMsg });
+    appendMessageToUI("assistant", errorMsg);
+    saveConversation();
+  } finally {
+    isSending = false;
+    setTypingIndicator(false);
+    setControlsDisabled(false);
+  }
+}
+
+// ==== INIT ====
+function initCipherChat() {
+  loadConversation();
+  renderFullConversation();
+
+  const { input, sendButton } = getElements();
+
+  if (sendButton) {
+    sendButton.addEventListener("click", () => {
+      sendMessage(input ? input.value : "");
+    });
+  }
+
+  if (input) {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(input.value);
+      }
+    });
+  }
+}
+
+// Wait for DOM to be ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initCipherChat);
+} else {
+  initCipherChat();
 }
