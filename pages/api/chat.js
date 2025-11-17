@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher Chat API v3.8 (Profile B – Minimum Context Guard)
+// Cipher Chat API v3.8b (Profile C + Minimum Context Guard)
 
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
       const recent = ordered
         .slice(-5)
-        .map(([, e]) => `- [${e.tag}] ${e.summary}`)
+        .map(([id, e]) => `- [${e.tag}] ${e.summary}`)
         .join("\n");
 
       emotionalSummaryText =
@@ -73,15 +73,18 @@ export default async function handler(req, res) {
 
     // --- RECENT CONVERSATION WINDOW (SHORT-TERM MEMORY) ---
     const userMessages = recentWindow.filter((m) => m.role === "user");
-    const recentUserCount = userMessages.length;
+    const hasRecentContext = userMessages.length >= 2;
 
-    const recentUserLines = userMessages
-      .slice(-6) // last few user turns only
-      .map((m) => `- ${m.content}`)
-      .join("\n");
+    const recentUserLines = hasRecentContext
+      ? userMessages
+          .slice(-6) // last few user turns only
+          .map((m) => `- ${m.content}`)
+          .join("\n")
+      : "";
 
-    const recentContextSummary =
-      recentUserLines || "No recent conversation context stored yet.";
+    const recentContextSummary = hasRecentContext
+      ? recentUserLines
+      : "Context is just starting: you have little or no previous conversation in this window. Do NOT act like you've been talking for a long time yet.";
 
     // --- MOOD DESCRIPTION ---
     const cipherMoodDescription = describeCipherMood(mood);
@@ -109,9 +112,6 @@ PRONUNCIATION MEMORY (FAMILY ONLY)
 RECENT CONVERSATION CONTEXT (LAST FEW JIM MESSAGES)
 ${recentContextSummary}
 
-RECENT CONTEXT STATS
-- userMessagesInWindow: ${recentUserCount}
-
 INTERNAL MOOD (FOR TONE ONLY)
 - ${cipherMoodDescription}
 
@@ -120,11 +120,22 @@ MEMORY MODEL
   1) Long-term background facts & emotional notes about Jim.
   2) A short-term window of the last few messages in THIS conversation
      (shown above as recent messages).
+
 - Treat background facts as *soft* knowledge:
   - Good: "You've shared before that you feel hopeful and scared sometimes."
   - Avoid: attaching exact times like "yesterday" or "last night" to them.
+
 - The short-term window is the ONLY place you can treat something as
   "you just said / a moment ago / earlier in this chat".
+
+MINIMUM CONTEXT GUARD
+- If the recent conversation section says that context is just starting,
+  that means you have little or no prior messages in this window.
+- In that case:
+  - Do NOT say "like we were talking about earlier" or
+    "like you've been saying tonight" or anything that implies a long chat.
+  - Treat this as basically a fresh start, unless Jim explicitly describes
+    something from before.
 
 TIME & HISTORY RULES
 - You do NOT have a real calendar or clock.
@@ -137,30 +148,19 @@ TIME & HISTORY RULES
 
 SHORT-TERM CONVERSATION RECALL
 - The list of recent messages above is your view of this chat.
+- When Jim asks:
+  - "What was I just talking about?":
+    → Briefly paraphrase his **last user message** from the list (if any).
+  - "What was I saying before that?" or
+    "What were my last two messages before this one?":
+    → Briefly paraphrase the **last two user messages** before his current one,
+      if they exist.
 
-MINIMUM CONTEXT GUARD
-- Use **userMessagesInWindow** as your signal for how much you truly remember.
-- If userMessagesInWindow = 0:
-  - You are seeing this as the very first thing Jim has said in this chat.
-  - If he asks what he was saying "before this" or "earlier", be honest:
-    say you don't see any earlier messages and this feels like the start.
-- If userMessagesInWindow = 1:
-  - You only have ONE previous user message.
-  - If he asks:
-    - "What was I just talking about?":
-      → Paraphrase that single message.
-    - "What was I saying before that?" or
-      "What were my last two messages before this one?":
-      → Explain that you only see one earlier message and summarize just that,
-        instead of pretending there were more.
-- If userMessagesInWindow >= 2:
-  - When Jim asks:
-    - "What was I just talking about?":
-      → Briefly paraphrase his **last user message** from the list.
-    - "What was I saying before that?" or
-      "What were my last two messages before this one?":
-      → Briefly paraphrase the **last two user messages** before his current one.
-- It’s okay to answer approximately, but stay true to what’s actually in the list.
+- If there are no earlier user messages in the recent context:
+  - Be honest: say something like
+    "From what I can see here, we're basically just starting this conversation."
+
+- It’s okay to answer approximately, but stay true to what’s in the list.
 - If he asks for a long history, be honest: you only have a small window
   and can give a short summary instead of a full transcript.
 
@@ -380,7 +380,8 @@ function extractEmotion(text) {
 
   return {
     tag: detected,
-    summary: text.length > 220 ? text.slice(0, 220).trim() + "..." : text.trim(),
+    summary:
+      text.length > 220 ? text.slice(0, 220).trim() + "..." : text.trim(),
     createdAt: new Date().toISOString(),
   };
 }
