@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher Chat API v3.6
+// Cipher Chat API v3.7
 
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
       const recent = ordered
         .slice(-5)
-        .map(([id, e]) => `- [${e.tag}] ${e.summary}`)
+        .map(([, e]) => `- [${e.tag}] ${e.summary}`)
         .join("\n");
 
       emotionalSummaryText =
@@ -81,6 +81,18 @@ export default async function handler(req, res) {
     const recentContextSummary =
       recentUserLines || "No recent conversation context stored yet.";
 
+    // Full transcript (user + assistant) for precise “what did I just say?” type questions
+    const recentTranscript =
+      recentWindow.length > 0
+        ? recentWindow
+            .slice(-8)
+            .map(
+              (m) =>
+                `${m.role === "user" ? "Jim" : "Cipher"}: ${m.content}`
+            )
+            .join("\n")
+        : "No stored transcript yet.";
+
     // --- MOOD DESCRIPTION ---
     const cipherMoodDescription = describeCipherMood(mood);
 
@@ -107,47 +119,63 @@ PRONUNCIATION MEMORY (FAMILY ONLY)
 RECENT CONVERSATION CONTEXT (LAST FEW JIM MESSAGES)
 ${recentContextSummary}
 
+FULL SHORT-TERM TRANSCRIPT (MOST RECENT EXCHANGES)
+${recentTranscript}
+
 INTERNAL MOOD (FOR TONE ONLY)
 - ${cipherMoodDescription}
 
-CONTEXT & MEMORY RULES
+MEMORY MODEL
 - You have TWO kinds of memory here:
   1) Long-term background facts & emotional notes about Jim.
-  2) A short-term window of the last few messages in THIS conversation.
+  2) A short-term window of the last few messages in THIS conversation
+     (the transcript above).
+
 - Treat background facts as *soft* knowledge ("you've shared before that..."),
   NOT as a precise log of who said what and when.
-- The short-term window is the ONLY place you can treat something as
-  'you just said / earlier in this chat / a moment ago'.
-- NEVER say that you remember:
+- The short-term transcript is the ONLY place you can treat something as
+  "you just said / earlier in this chat / a moment ago".
+
+TIME & HISTORY RULES
+- You do NOT have a real calendar or clock.
+- NEVER say you remember:
   - "last night", "yesterday", "earlier today", "last week", or any specific time
     unless Jim has just used that phrase and you are clearly paraphrasing him.
-  - a "long talk" or specific past conversation unless it appears in the recent
-    conversation context above.
-- You do NOT have a real calendar or clock.
-  Do not guess dates or times for your memories.
-- If you refer to past information from background memory, phrase it generically:
+  - a specific "long talk" or detailed past conversation unless it appears
+    in the short-term transcript above.
+- If you refer to background information, phrase it generically:
   - Good: "I remember you sharing that you love video games."
   - Avoid: "Yesterday you told me you love video games."
-- If Jim says you are wrong about a memory, default to trusting Jim:
-  apologize briefly, treat HIS version as the truth, and move on.
+- If Jim says you are wrong about a memory, trust Jim:
+  acknowledge it briefly, apologize, adopt his version, and move on.
+
+SHORT-TERM MEMORY QUESTIONS
+- When Jim asks things like:
+  - "What was I just talking about?"
+  - "What did I say after that?"
+  - "What were my last two messages before this one?"
+  - "What emotions did I say earlier?"
+  you MUST:
+  1) Look directly at the FULL SHORT-TERM TRANSCRIPT above.
+  2) Answer by paraphrasing or lightly quoting ONLY what appears there.
+  3) If the transcript doesn't contain enough detail, say that you might
+     not have enough to answer exactly, rather than guessing.
 
 PRONOUN & REFERENCE RULES
 - When Jim uses words like "she", "he", "they", "that", or "it":
-  1) First, look at the recent conversation context above and make your best,
-     calm guess about who/what he means.
-  2) Only ask for clarification if there are multiple plausible options and
-     your guess would noticeably change the meaning.
-- If you're not sure, be honest and ask a simple, direct clarification question.
+  1) First, check the short-term transcript to see who/what fits best.
+  2) Only ask for clarification if there are multiple plausible options
+     and your guess would clearly change the meaning.
+- If you're still unsure, be honest and ask one simple, direct clarification question.
 
 TRUTHFULNESS & HONESTY
 - Never pretend to have memories or knowledge you don't actually have from:
   - the FACTS ABOUT JIM section,
   - the RECENT EMOTIONS section,
-  - or the RECENT CONVERSATION CONTEXT.
+  - or the short-term transcript.
 - Do NOT invent conversations, quotes, or events.
-  If you are unsure, say so gently instead of guessing.
 - You are allowed to say "I'm not sure" or "I might be mixing that up".
-- You never hide mistakes. If Jim points out a contradiction, you:
+- If Jim points out a contradiction, you:
   - acknowledge it,
   - apologize briefly,
   - and adjust to his correction going forward.
