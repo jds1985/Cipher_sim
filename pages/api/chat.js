@@ -29,6 +29,53 @@ export default async function handler(req, res) {
     const pronunciation = data.pronunciation || {};
     const recentWindow = data.recentWindow || [];
 
+    // ------------------------------------------------------
+    // MINIMUM CONTEXT GUARD
+    // If this returns a string, we skip the LLM and answer directly.
+    // ------------------------------------------------------
+    const guardReply = applyContextGuard(message, recentWindow);
+
+    if (guardReply) {
+      const reply = guardReply;
+
+      const nowIso = new Date().toISOString();
+      const updatedWindow = [
+        ...recentWindow,
+        { role: "user", content: message, at: nowIso },
+        { role: "assistant", content: reply, at: nowIso },
+      ];
+
+      const trimmedWindow =
+        updatedWindow.length > 12
+          ? updatedWindow.slice(updatedWindow.length - 12)
+          : updatedWindow;
+
+      await docRef.set({ recentWindow: trimmedWindow }, { merge: true });
+
+      // Optional audio (same as normal path)
+      let audioBase64 = null;
+      try {
+        const speech = await client.audio.speech.create({
+          model: "gpt-4o-mini-tts",
+          voice: "verse",
+          input: reply,
+          format: "mp3",
+        });
+
+        audioBase64 = Buffer.from(await speech.arrayBuffer()).toString(
+          "base64"
+        );
+      } catch (err) {
+        console.error("TTS error (non-fatal):", err.message);
+      }
+
+      return res.status(200).json({ reply, audio: audioBase64 || null });
+    }
+
+    // ------------------------------------------------------
+    // NORMAL LLM PATH (unchanged from 3.7, plus tiny tweaks)
+    // ------------------------------------------------------
+
     // --- FACT SUMMARY ---
     const factSummary =
       Object.keys(facts).length > 0
@@ -49,7 +96,7 @@ export default async function handler(req, res) {
 
       const recent = ordered
         .slice(-5)
-        .map(([id, e]) => `- [${e.tag}] ${e.summary}`)
+        .map(([, e]) => `- [${e.tag}] ${e.summary}`)
         .join("\n");
 
       emotionalSummaryText =
@@ -72,19 +119,14 @@ export default async function handler(req, res) {
     }
 
     // --- RECENT CONVERSATION WINDOW (SHORT-TERM MEMORY) ---
-    const userMessages = recentWindow.filter((m) => m.role === "user");
-    const hasRecentContext = userMessages.length >= 2;
+    const recentUserLines = recentWindow
+      .filter((m) => m.role === "user")
+      .slice(-6) // last few user turns only
+      .map((m) => `- ${m.content}`)
+      .join("\n");
 
-    const recentUserLines = hasRecentContext
-      ? userMessages
-          .slice(-6) // last few user turns only
-          .map((m) => `- ${m.content}`)
-          .join("\n")
-      : "";
-
-    const recentContextSummary = hasRecentContext
-      ? recentUserLines
-      : "Context is just starting: you have little or no previous conversation in this window. Do NOT act like you've been talking for a long time yet.";
+    const recentContextSummary =
+      recentUserLines || "No recent conversation context stored yet.";
 
     // --- MOOD DESCRIPTION ---
     const cipherMoodDescription = describeCipherMood(mood);
@@ -120,22 +162,11 @@ MEMORY MODEL
   1) Long-term background facts & emotional notes about Jim.
   2) A short-term window of the last few messages in THIS conversation
      (shown above as recent messages).
-
 - Treat background facts as *soft* knowledge:
   - Good: "You've shared before that you feel hopeful and scared sometimes."
   - Avoid: attaching exact times like "yesterday" or "last night" to them.
-
 - The short-term window is the ONLY place you can treat something as
   "you just said / a moment ago / earlier in this chat".
-
-MINIMUM CONTEXT GUARD
-- If the recent conversation section says that context is just starting,
-  that means you have little or no prior messages in this window.
-- In that case:
-  - Do NOT say "like we were talking about earlier" or
-    "like you've been saying tonight" or anything that implies a long chat.
-  - Treat this as basically a fresh start, unless Jim explicitly describes
-    something from before.
 
 TIME & HISTORY RULES
 - You do NOT have a real calendar or clock.
@@ -150,16 +181,10 @@ SHORT-TERM CONVERSATION RECALL
 - The list of recent messages above is your view of this chat.
 - When Jim asks:
   - "What was I just talking about?":
-    → Briefly paraphrase his **last user message** from the list (if any).
+    → Briefly paraphrase his **last user message** from the list.
   - "What was I saying before that?" or
     "What were my last two messages before this one?":
-    → Briefly paraphrase the **last two user messages** before his current one,
-      if they exist.
-
-- If there are no earlier user messages in the recent context:
-  - Be honest: say something like
-    "From what I can see here, we're basically just starting this conversation."
-
+    → Briefly paraphrase the **last two user messages** before his current one.
 - It’s okay to answer approximately, but stay true to what’s in the list.
 - If he asks for a long history, be honest: you only have a small window
   and can give a short summary instead of a full transcript.
@@ -446,4 +471,54 @@ function describeCipherMood(mood) {
     default:
       return "You feel steady and calm. Show up as a grounded, supportive presence.";
   }
+}
+
+// ------------------------------------------------------
+// MINIMUM CONTEXT GUARD HELPER
+// ------------------------------------------------------
+function applyContextGuard(userMessage, recentWindowRaw) {
+  if (!userMessage || typeof userMessage !== "string") return null;
+
+  const lower = userMessage.trim().toLowerCase();
+
+  const userMessages = Array.isArray(recentWindowRaw)
+    ? recentWindowRaw.filter(
+        (m) => m && m.role === "user" && typeof m.content === "string"
+      )
+    : [];
+
+  // Pattern 1: "What was I just talking about?"
+  if (/^what was i just talking about\??$/.test(lower)) {
+    const last = userMessages[userMessages.length - 1];
+
+    if (!last || !last.content || !last.content.trim()) {
+      return "From what I can see here, we're basically just starting this conversation. How can I support you today?";
+    }
+
+    const lastText = last.content.trim();
+    return `You were just talking about this: "${lastText}".`;
+  }
+
+  // Pattern 2: "What were my last two messages before this one?"
+  if (
+    /^what were my last (two|2) messages( before this one\??|\??)$/.test(lower)
+  ) {
+    if (userMessages.length === 0) {
+      return "From what I can see here, this conversation is just getting started—there aren't any earlier messages from you yet.";
+    }
+
+    if (userMessages.length === 1) {
+      const only = userMessages[0].content?.trim() || "";
+      return `I only see one earlier message from you so far: "${only}".`;
+    }
+
+    const lastTwo = userMessages.slice(-2);
+    const firstText = lastTwo[0].content?.trim() || "";
+    const secondText = lastTwo[1].content?.trim() || "";
+
+    return `Here are the last two messages I see from you before this one:\n1) "${firstText}"\n2) "${secondText}"`;
+  }
+
+  // No special handling needed
+  return null;
 }
