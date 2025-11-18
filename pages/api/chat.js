@@ -519,10 +519,6 @@ function applyContextGuard(userMessage, recentWindowRaw) {
     return `Here are the last two messages I see from you before this one:\n1) "${firstText}"\n2) "${secondText}"`;
   }
 
-// No special handling neededreturn null;
-}
-
-catch (error) {
-  console.error("Cipher API error:", error);
-  return res.status(500).json({ error: "Internal server error" });
+  // No special handling needed
+  return null;
 }
