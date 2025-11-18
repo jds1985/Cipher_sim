@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher Chat API v3.8b (Profile C + Minimum Context Guard)
+// Cipher Chat API v3.9 (Profile C + Minimum Context Guard+)
 
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
@@ -62,9 +62,7 @@ export default async function handler(req, res) {
           format: "mp3",
         });
 
-        audioBase64 = Buffer.from(await speech.arrayBuffer()).toString(
-          "base64"
-        );
+        audioBase64 = Buffer.from(await speech.arrayBuffer()).toString("base64");
       } catch (err) {
         console.error("TTS error (non-fatal):", err.message);
       }
@@ -73,7 +71,7 @@ export default async function handler(req, res) {
     }
 
     // ------------------------------------------------------
-    // NORMAL LLM PATH (unchanged from 3.7, plus tiny tweaks)
+    // NORMAL LLM PATH (same core as 3.8b, with tiny tweaks)
     // ------------------------------------------------------
 
     // --- FACT SUMMARY ---
@@ -180,7 +178,10 @@ TIME & HISTORY RULES
 SHORT-TERM CONVERSATION RECALL
 - The list of recent messages above is your view of this chat.
 - When Jim asks:
-  - "What was I just talking about?":
+  - "What was I just talking about?" or
+    "What was I just saying?" or
+    "What did I just say?" or
+    "What did I say just now?":
     → Briefly paraphrase his **last user message** from the list.
   - "What was I saying before that?" or
     "What were my last two messages before this one?":
@@ -474,7 +475,7 @@ function describeCipherMood(mood) {
 }
 
 // ------------------------------------------------------
-// MINIMUM CONTEXT GUARD HELPER
+// MINIMUM CONTEXT GUARD HELPER (v3.9)
 // ------------------------------------------------------
 function applyContextGuard(userMessage, recentWindowRaw) {
   if (!userMessage || typeof userMessage !== "string") return null;
@@ -487,8 +488,15 @@ function applyContextGuard(userMessage, recentWindowRaw) {
       )
     : [];
 
-  // Pattern 1: "What was I just talking about?"
-  if (/^what was i just talking about\??$/.test(lower)) {
+  // Pattern 1: "What was I just talking about / saying / what did I just say?"
+  const justTalkingPatterns = [
+    /^what was i just talking about\??$/,
+    /^what was i just saying\??$/,
+    /^what did i just say\??$/,
+    /^what did i say just now\??$/,
+  ];
+
+  if (justTalkingPatterns.some((re) => re.test(lower))) {
     const last = userMessages[userMessages.length - 1];
 
     if (!last || !last.content || !last.content.trim()) {
