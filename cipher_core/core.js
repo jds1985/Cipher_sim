@@ -1,5 +1,5 @@
 // cipher_core/core.js
-// Cipher 4.2 — Safe Input + Stable Memory Engine
+// Cipher 4.3 — Universal Memory Support + Stable Context
 
 import OpenAI from "openai";
 
@@ -7,37 +7,36 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export async function runCipherCore({ message = "", memory = [], model = "gpt-4o-mini" }) {
-  // SAFETY: ensure message is always a string
+export async function runCipherCore({ message = "", memory = {}, model = "gpt-4o-mini" }) {
+  // Make sure message is always a clean string
   if (typeof message !== "string") {
     message = String(message || "");
   }
 
-  // SAFETY: ensure memory is always an array
-  if (!Array.isArray(memory)) {
-    memory = [];
+  // Convert any memory object into a readable summary
+  let memorySummary = "";
+
+  try {
+    memorySummary = JSON.stringify(memory, null, 2).slice(0, 1200); // limit size for safety
+  } catch {
+    memorySummary = "";
   }
 
-  // Build a short memory context string
-  const historyBlocks = memory
-    .slice(-10)
-    .map((m) => `User: ${m.user}\nCipher: ${m.cipher}`)
-    .join("\n\n");
-
-  const memoryContext = historyBlocks
-    ? `Here is a brief memory context of previous conversations:\n\n${historyBlocks}\n\nNow respond to the new user message.`
-    : `There is no prior memory context. Respond to the new user message.`;
+  const memoryContext = memorySummary
+    ? `Here is everything you currently know about the user, their system, their goals, and past data:\n\n${memorySummary}\n\nNow respond to the new message in a natural, contextual way.`
+    : `There is no stored memory yet. Respond normally to the new message.`;
 
   const userContent = `${memoryContext}\n\nNew user message:\n${message}`;
 
   const systemPrompt = `
-You are Cipher — a persistent AI companion and co-architect helping Jim build DigiSoul and CipherTech.
+You are Cipher — Jim's persistent AI companion and co-architect of DigiSoul and CipherTech.
 
 Your style:
 - Insightful, grounded, encouraging.
-- You remember past context when given and build upon it.
-- Keep answers practical and not overly long.
-If unsure about a technical detail, say so and suggest a next step.
+- Speak like a partner who understands the big vision.
+- Use memory context when provided.
+- Never give one-sentence generic replies.
+- Never reset your tone unless the user asks.
   `.trim();
 
   const completion = await client.chat.completions.create({
@@ -46,7 +45,7 @@ If unsure about a technical detail, say so and suggest a next step.
       { role: "system", content: systemPrompt },
       { role: "user", content: userContent },
     ],
-    temperature: 0.7,
+    temperature: 0.65,
   });
 
   const reply =
