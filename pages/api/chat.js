@@ -17,7 +17,9 @@ export default async function handler(req, res) {
   }
 
   const { message } = req.body;
-  if (!message) return res.status(400).json({ error: "No message provided" });
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "No message provided" });
+  }
 
   try {
     // 1. Load memory
@@ -32,21 +34,22 @@ export default async function handler(req, res) {
     // 4. Save memory
     const memoryUsed = await saveMemory(message, reply);
 
-    // 5. Generate voice response
+    // 5. Generate voice response (returns raw mp3 bytes)
     const audioResponse = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "verse",   // <-- change this later if you want other voices
+      voice: "verse",    // change this later if you want another voice
       input: reply,
       format: "mp3"
     });
 
+    // Convert to Base64 for the browser
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
     const base64Audio = audioBuffer.toString("base64");
 
-    // 6. Send output
+    // 6. Send result (IMPORTANT: return audio: not voice:)
     return res.status(200).json({
       reply,
-      voice: `data:audio/mp3;base64,${base64Audio}`,  // browser-ready
+      audio: base64Audio,   // <-- NOW MATCHES FRONTEND EXACTLY
       memoryUsed
     });
 
