@@ -5,51 +5,51 @@ function createBaseMemory() {
   const now = new Date().toISOString();
   return {
     identity: {
-      userName: null,
+      userName: "Jim",
       roles: ["architect", "creator", "companion", "co-visionary"],
       creatorRelationship:
-        "the architect, creator, and guiding force behind Cipher"
+        "the architect, creator, and guiding force behind Cipher",
     },
     family: {
       daughter: {
         name: null,
-        birthYear: null
+        birthYear: null,
       },
       partner: {
-        name: null
+        name: null,
       },
-      others: []
+      others: [],
     },
     preferences: {
       favoriteAnimal: null,
       favoriteColor: null,
       favoriteFood: null,
       favoriteMusic: [],
-      favoriteThemes: []
+      favoriteThemes: [],
     },
     projects: {
       digiSoul: {
         summary: null,
-        details: []
+        details: [],
       },
       cipherTech: {
         summary: null,
-        details: []
+        details: [],
       },
-      other: []
+      other: [],
     },
     emotional: {
       motivations: [],
       fears: [],
-      goals: []
+      goals: [],
     },
     customFacts: {},
     customNotes: [],
     meta: {
       createdAt: now,
       lastUpdated: now,
-      version: 2
-    }
+      version: 2,
+    },
   };
 }
 
@@ -106,6 +106,7 @@ export default function Home() {
     }
   }, [cipherMemory]);
 
+  // Helper to safely update memory with deep merge
   const updateMemory = (updater) => {
     setCipherMemory((prev) => {
       const current =
@@ -119,12 +120,124 @@ export default function Home() {
   };
 
   // -----------------------------------------------
+  // FACT + COMMAND EXTRACTION
+  // -----------------------------------------------
+  const extractFacts = (text) => {
+    const lower = text.toLowerCase().trim();
+    if (!lower) return;
+
+    updateMemory((mem) => {
+      // 1) Name / identity
+      let match =
+        lower.match(/\bmy name is ([a-z ]+)/i) ||
+        lower.match(/\bi am ([a-z ]+)\b/i);
+      if (match) {
+        const name = match[1].trim();
+        mem.identity.userName = name;
+      }
+
+      // 2) Daughter name
+      match =
+        lower.match(/my daughter's name is ([a-z ]+)/i) ||
+        lower.match(/my daughter is named ([a-z ]+)/i) ||
+        lower.match(/hecate lee is my daughter/i) ||
+        lower.match(/hecate is my daughter/i);
+      if (match) {
+        const name = match[1] ? match[1].trim() : "Hecate Lee";
+        mem.family.daughter.name = name;
+      }
+
+      // 3) Partner name
+      match =
+        lower.match(/my (girlfriend|partner|wife)'?s name is ([a-z ]+)/i) ||
+        lower.match(/my (girlfriend|partner|wife) is ([a-z ]+)/i);
+      if (match) {
+        const name = match[2].trim();
+        mem.family.partner.name = name;
+      }
+
+      // 4) Favorite animal
+      match = lower.match(/favorite animal is ([a-z ]+)/i);
+      if (match) {
+        mem.preferences.favoriteAnimal = match[1].trim();
+      }
+
+      // 5) Favorite color
+      match = lower.match(/favorite color is ([a-z ]+)/i);
+      if (match) {
+        mem.preferences.favoriteColor = match[1].trim();
+      }
+
+      // 6) Favorite food
+      match = lower.match(/favorite food is ([a-z ]+)/i);
+      if (match) {
+        mem.preferences.favoriteFood = match[1].trim();
+      }
+
+      // 7) DigiSoul description
+      if (lower.includes("digisoul") && lower.includes("is")) {
+        const idx = lower.indexOf("digisoul");
+        const snippet = text.slice(idx).trim();
+        if (!mem.projects.digiSoul.summary) {
+          mem.projects.digiSoul.summary = snippet;
+        } else if (!mem.projects.digiSoul.details.includes(snippet)) {
+          mem.projects.digiSoul.details.push(snippet);
+        }
+      }
+
+      // 8) CipherTech description
+      if (lower.includes("ciphertech") && lower.includes("is")) {
+        const idx = lower.indexOf("ciphertech");
+        const snippet = text.slice(idx).trim();
+        if (!mem.projects.cipherTech.summary) {
+          mem.projects.cipherTech.summary = snippet;
+        } else if (!mem.projects.cipherTech.details.includes(snippet)) {
+          mem.projects.cipherTech.details.push(snippet);
+        }
+      }
+
+      // 9) Explicit "remember that X is Y"
+      match = lower.match(/remember that (.+?) is (.+)/i);
+      if (match) {
+        const subject = match[1].trim();
+        const value = match[2].trim();
+        mem.customFacts[subject] = value;
+      }
+
+      // 10) Explicit "remember this:" or "store this:"
+      match =
+        lower.match(/remember this[:\-]\s*(.+)/i) ||
+        lower.match(/store this[:\-]\s*(.+)/i) ||
+        lower.match(/this is important[:\-]\s*(.+)/i);
+      if (match) {
+        const note = match[1].trim();
+        mem.customNotes.push({
+          text: note,
+          storedAt: new Date().toISOString(),
+        });
+      }
+
+      // 11) Motivations / goals
+      if (lower.includes("my goal is")) {
+        const gMatch = lower.match(/my goal is (.+)/i);
+        if (gMatch) {
+          mem.emotional.goals.push(gMatch[1].trim());
+        }
+      }
+
+      return mem;
+    });
+  };
+
+  // -----------------------------------------------
   // SEND MESSAGE TO /api/chat
   // -----------------------------------------------
   const sendMessage = async () => {
     if (!input.trim()) return;
 
     const userText = input.trim();
+    extractFacts(userText);
+
     const userMessage = { role: "user", text: userText };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
@@ -136,34 +249,37 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
-          memory: cipherMemory
-        })
+          memory: cipherMemory,
+        }),
       });
 
       const data = await res.json();
 
-      const aiMessage = {
-        role: "cipher",
-        text: data.reply || "No reply",
-        voice: data.voice || null
-      };
+      if (data.reply) {
+        const aiMessage = {
+          role: "cipher",
+          text: data.reply,
+          // store the voice (base64) on the message
+          audio: data.voice || null,
+        };
+        setMessages((prev) => [...prev, aiMessage]);
 
-      setMessages((prev) => [...prev, aiMessage]);
-
-      // 🔊 PLAY VOICE AUTOMATICALLY
-      if (data.voice) {
-        try {
-          const audio = new Audio(data.voice);
-          await audio.play();
-        } catch (err) {
-          console.warn("Audio autoplay blocked:", err);
+        // auto-play latest voice
+        if (data.voice) {
+          const audio = new Audio("data:audio/mp3;base64," + data.voice);
+          audio.play().catch(() => {});
         }
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "cipher", text: "Error processing message." },
+        ]);
       }
     } catch (error) {
       console.error("Chat request failed:", error);
       setMessages((prev) => [
         ...prev,
-        { role: "cipher", text: "Network or server error." }
+        { role: "cipher", text: "Network or server error." },
       ]);
     } finally {
       setLoading(false);
@@ -199,7 +315,7 @@ export default function Home() {
         flexDirection: "column",
         alignItems: "center",
         padding: "20px",
-        fontFamily: "Inter, sans-serif"
+        fontFamily: "Inter, sans-serif",
       }}
     >
       <h1 style={{ color: "#1a2a40", marginBottom: "10px" }}>Cipher AI</h1>
@@ -215,7 +331,7 @@ export default function Home() {
           overflowY: "auto",
           flexGrow: 1,
           display: "flex",
-          flexDirection: "column"
+          flexDirection: "column",
         }}
       >
         {messages.map((m, i) =>
@@ -230,7 +346,7 @@ export default function Home() {
                 padding: "10px 14px",
                 margin: "6px 0",
                 maxWidth: "80%",
-                whiteSpace: "pre-wrap"
+                whiteSpace: "pre-wrap",
               }}
             >
               {m.text}
@@ -244,7 +360,7 @@ export default function Home() {
               alignSelf: "flex-start",
               color: "#888",
               fontStyle: "italic",
-              marginTop: "6px"
+              marginTop: "6px",
             }}
           >
             Cipher is thinking...
@@ -260,7 +376,7 @@ export default function Home() {
           display: "flex",
           width: "100%",
           maxWidth: "700px",
-          marginTop: "15px"
+          marginTop: "15px",
         }}
       >
         <textarea
@@ -272,10 +388,10 @@ export default function Home() {
           style={{
             flex: 1,
             resize: "none",
-            border: "1px solid #ccc",
+            border: "1px solid "#ccc",
             borderRadius: "8px",
             padding: "10px",
-            fontFamily: "inherit"
+            fontFamily: "inherit",
           }}
         />
 
@@ -289,21 +405,21 @@ export default function Home() {
             border: "none",
             borderRadius: "8px",
             padding: "10px 16px",
-            cursor: "pointer"
+            cursor: "pointer",
           }}
         >
           Send
         </button>
 
-        {/* Voice replay */}
+        {/* Voice replay button */}
         <button
           onClick={() => {
-            const last = [...messages].reverse().find((m) => m.voice);
-            if (last?.voice) {
-              const audio = new Audio(last.voice);
+            const last = [...messages].reverse().find((m) => m.audio);
+            if (last?.audio) {
+              const audio = new Audio("data:audio/mp3;base64," + last.audio);
               audio.play().catch(() => {});
             } else {
-              alert("No voice message yet.");
+              alert("No recent voice reply to replay yet.");
             }
           }}
           style={{
@@ -315,7 +431,7 @@ export default function Home() {
             width: "48px",
             height: "48px",
             fontSize: "20px",
-            cursor: "pointer"
+            cursor: "pointer",
           }}
         >
           ▶
@@ -332,7 +448,7 @@ export default function Home() {
           borderRadius: "8px",
           padding: "8px 16px",
           cursor: "pointer",
-          opacity: 0.9
+          opacity: 0.9,
         }}
       >
         Delete Conversation
