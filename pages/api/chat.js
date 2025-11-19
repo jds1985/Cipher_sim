@@ -1,10 +1,10 @@
 // pages/api/chat.js
-// Cipher 4.0 – Modular Chat API (Thin Wrapper)
+// Cipher 4.1 — Stable Modular Chat API
 
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
 
-// Load the new modular engines
+// Modular Cipher Core
 import { runCipherCore } from "../../cipher_core/core";
 import { runGuard } from "../../cipher_core/guard";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
@@ -14,60 +14,44 @@ const client = new OpenAI({
 });
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { message } = req.body;
-
-  if (!message || typeof message !== "string") {
-    return res.status(400).json({ error: "Message text required" });
-  }
-
   try {
-    // 1. Load current memory snapshot (fast)
-    const memory = await loadMemory(db);
-
-    // 2. Run the Guard first (minimal context handler)
-    const guardReply = runGuard(message, memory.recentWindow);
-
-    if (guardReply) {
-      // update short-term memory
-      const reply = guardReply;
-      const now = new Date().toISOString();
-
-      memory.recentWindow.push(
-        { role: "user", content: message, at: now },
-        { role: "assistant", content: reply, at: now }
-      );
-
-      memory.recentWindow = memory.recentWindow.slice(-12);
-
-      await saveMemory(db, memory);
-
-      return res.status(200).json({ reply, audio: null });
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Only POST allowed" });
     }
 
-    // 3. Send the message to the Cipher Core
-    const coreOutput = await runCipherCore({
-      message,
+    const { message } = req.body;
+
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Message must be text" });
+    }
+
+    // Step 1 — Load memory
+    const memory = await loadMemory(db);
+
+    // Step 2 — Apply guard layer
+    const safeMessage = await runGuard(message);
+
+    // Step 3 — Run Cipher Core
+    const cipherReply = await runCipherCore({
+      message: safeMessage,
       memory,
-      client,
+      model: "gpt-4.1-mini"
     });
 
-    const reply = coreOutput.reply;
-    const updatedMemory = coreOutput.updatedMemory;
+    // Step 4 — Save new message to memory
+    await saveMemory(db, {
+      user: message,
+      cipher: cipherReply,
+      timestamp: Date.now()
+    });
 
-    // 4. Persist new memory snapshot
-    await saveMemory(db, updatedMemory);
-
-    // 5. Return result
     return res.status(200).json({
-      reply,
-      audio: coreOutput.audio || null,
+      reply: cipherReply,
+      memoryUsed: memory.length,
     });
+
   } catch (err) {
-    console.error("Cipher 4.0 API ERROR:", err);
-    return res.status(500).json({ error: "Chat generation failed" });
+    console.error("Cipher Error:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
