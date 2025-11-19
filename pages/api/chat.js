@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher 4.0 — Memory + Voice + Guard + Stable Output
+// Cipher 4.2 — Stable Memory + Voice + Guard + Core Link
 
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
@@ -16,45 +16,50 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { message } = req.body;
-  if (!message || typeof message !== "string") {
-    return res.status(400).json({ error: "No message provided" });
-  }
-
   try {
-    // 1. Load memory
+    const { message } = req.body;
+
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Invalid message" });
+    }
+
+    // 1. Load memory from Firebase
     const memory = await loadMemory();
 
-    // 2. Guard rails
+    // 2. Clean the message
     const safeMessage = await runGuard(message);
 
-    // 3. Cipher core reasoning
-    const reply = await runCipherCore(safeMessage, memory);
+    // 3. Run Cipher Core with proper shape
+    const reply = await runCipherCore({
+      message: safeMessage,
+      memory: memory || [],
+    });
 
-    // 4. Save memory
+    // 4. Save memory for future sessions
     const memoryUsed = await saveMemory(message, reply);
 
-    // 5. Generate voice response (returns raw mp3 bytes)
-    const audioResponse = await client.audio.speech.create({
+    // 5. Create voice output
+    const voiceOut = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "verse",    // change this later if you want another voice
+      voice: "verse",
       input: reply,
-      format: "mp3"
+      format: "mp3",
     });
 
-    // Convert to Base64 for the browser
-    const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-    const base64Audio = audioBuffer.toString("base64");
+    const voiceBuffer = Buffer.from(await voiceOut.arrayBuffer());
+    const base64Audio = voiceBuffer.toString("base64");
 
-    // 6. Send result (IMPORTANT: return audio: not voice:)
+    // 6. Send response to frontend
     return res.status(200).json({
       reply,
-      audio: base64Audio,   // <-- NOW MATCHES FRONTEND EXACTLY
-      memoryUsed
+      audio: base64Audio, // frontend wraps into data:audio/mp3;base64,
+      memoryUsed,
     });
-
   } catch (err) {
-    console.error("Cipher error:", err);
-    return res.status(500).json({ error: err.message });
+    console.error("Cipher API Error:", err);
+    return res.status(500).json({
+      error: "Cipher crashed internally.",
+      details: err.message,
+    });
   }
 }
