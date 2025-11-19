@@ -25,33 +25,32 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Message must be text" });
     }
 
-    // Step 1 — Load memory
+    // 1 — Load recent memory from Firestore
     const memory = await loadMemory(db);
 
-    // Step 2 — Apply guard layer
+    // 2 — Guard the incoming message (basic safety/length trimming)
     const safeMessage = await runGuard(message);
 
-    // Step 3 — Run Cipher Core
+    // 3 — Run Cipher Core with memory context
     const cipherReply = await runCipherCore({
       message: safeMessage,
       memory,
-      model: "gpt-4.1-mini"
+      model: "gpt-4o-mini", // stable, cheap OpenAI chat model
     });
 
-    // Step 4 — Save new message to memory
+    // 4 — Save this turn into memory
     await saveMemory(db, {
       user: message,
       cipher: cipherReply,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     return res.status(200).json({
       reply: cipherReply,
       memoryUsed: memory.length,
     });
-
   } catch (err) {
     console.error("Cipher Error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || "Internal error" });
   }
 }
