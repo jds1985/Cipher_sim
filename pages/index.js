@@ -388,7 +388,7 @@ export default function Home() {
           style={{
             flex: 1,
             resize: "none",
-            border: "1px solid "#ccc",
+            border: "1px solid #ccc",
             borderRadius: "8px",
             padding: "10px",
             fontFamily: "inherit",
