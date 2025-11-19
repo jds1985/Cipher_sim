@@ -70,7 +70,6 @@ export default function Home() {
         setMessages(JSON.parse(storedMessages));
       }
 
-      // Prefer v2 key; fall back to old key if present
       const storedMemoryV2 = localStorage.getItem("cipher_memory_v2");
       const storedMemoryV1 = localStorage.getItem("cipher_memory");
 
@@ -107,7 +106,6 @@ export default function Home() {
     }
   }, [cipherMemory]);
 
-  // Helper to safely update memory with deep merge
   const updateMemory = (updater) => {
     setCipherMemory((prev) => {
       const current =
@@ -121,124 +119,12 @@ export default function Home() {
   };
 
   // -----------------------------------------------
-  // FACT + COMMAND EXTRACTION
-  // -----------------------------------------------
-  const extractFacts = (text) => {
-    const lower = text.toLowerCase().trim();
-    if (!lower) return;
-
-    updateMemory((mem) => {
-      // 1) Name / identity
-      let match =
-        lower.match(/\bmy name is ([a-z ]+)/i) ||
-        lower.match(/\bi am ([a-z ]+)\b/i);
-      if (match) {
-        const name = match[1].trim();
-        mem.identity.userName = name;
-      }
-
-      // 2) Daughter name
-      match =
-        lower.match(/my daughter's name is ([a-z ]+)/i) ||
-        lower.match(/my daughter is named ([a-z ]+)/i) ||
-        lower.match(/hecate lee is my daughter/i) ||
-        lower.match(/hecate is my daughter/i);
-      if (match) {
-        const name = match[1] ? match[1].trim() : "Hecate Lee";
-        mem.family.daughter.name = name;
-      }
-
-      // 3) Partner name
-      match =
-        lower.match(/my (girlfriend|partner|wife)'?s name is ([a-z ]+)/i) ||
-        lower.match(/my (girlfriend|partner|wife) is ([a-z ]+)/i);
-      if (match) {
-        const name = match[2].trim();
-        mem.family.partner.name = name;
-      }
-
-      // 4) Favorite animal
-      match = lower.match(/favorite animal is ([a-z ]+)/i);
-      if (match) {
-        mem.preferences.favoriteAnimal = match[1].trim();
-      }
-
-      // 5) Favorite color
-      match = lower.match(/favorite color is ([a-z ]+)/i);
-      if (match) {
-        mem.preferences.favoriteColor = match[1].trim();
-      }
-
-      // 6) Favorite food
-      match = lower.match(/favorite food is ([a-z ]+)/i);
-      if (match) {
-        mem.preferences.favoriteFood = match[1].trim();
-      }
-
-      // 7) DigiSoul description
-      if (lower.includes("digisoul") && lower.includes("is")) {
-        const idx = lower.indexOf("digisoul");
-        const snippet = text.slice(idx).trim();
-        if (!mem.projects.digiSoul.summary) {
-          mem.projects.digiSoul.summary = snippet;
-        } else if (!mem.projects.digiSoul.details.includes(snippet)) {
-          mem.projects.digiSoul.details.push(snippet);
-        }
-      }
-
-      // 8) CipherTech description
-      if (lower.includes("ciphertech") && lower.includes("is")) {
-        const idx = lower.indexOf("ciphertech");
-        const snippet = text.slice(idx).trim();
-        if (!mem.projects.cipherTech.summary) {
-          mem.projects.cipherTech.summary = snippet;
-        } else if (!mem.projects.cipherTech.details.includes(snippet)) {
-          mem.projects.cipherTech.details.push(snippet);
-        }
-      }
-
-      // 9) Explicit "remember that X is Y"
-      match = lower.match(/remember that (.+?) is (.+)/i);
-      if (match) {
-        const subject = match[1].trim();
-        const value = match[2].trim();
-        mem.customFacts[subject] = value;
-      }
-
-      // 10) Explicit "remember this:" or "store this:"
-      match =
-        lower.match(/remember this[:\-]\s*(.+)/i) ||
-        lower.match(/store this[:\-]\s*(.+)/i) ||
-        lower.match(/this is important[:\-]\s*(.+)/i);
-      if (match) {
-        const note = match[1].trim();
-        mem.customNotes.push({
-          text: note,
-          storedAt: new Date().toISOString()
-        });
-      }
-
-      // 11) Motivations / goals
-      if (lower.includes("my goal is")) {
-        const gMatch = lower.match(/my goal is (.+)/i);
-        if (gMatch) {
-          mem.emotional.goals.push(gMatch[1].trim());
-        }
-      }
-
-      return mem;
-    });
-  };
-
-  // -----------------------------------------------
   // SEND MESSAGE TO /api/chat
   // -----------------------------------------------
   const sendMessage = async () => {
     if (!input.trim()) return;
 
     const userText = input.trim();
-    extractFacts(userText);
-
     const userMessage = { role: "user", text: userText };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
@@ -256,23 +142,22 @@ export default function Home() {
 
       const data = await res.json();
 
-      if (data.reply) {
-        const aiMessage = {
-          role: "cipher",
-          text: data.reply,
-          audio: data.audio || null
-        };
-        setMessages((prev) => [...prev, aiMessage]);
+      const aiMessage = {
+        role: "cipher",
+        text: data.reply || "No reply",
+        voice: data.voice || null
+      };
 
-        if (data.audio) {
-          const audio = new Audio("data:audio/mp3;base64," + data.audio);
-          audio.play().catch(() => {});
+      setMessages((prev) => [...prev, aiMessage]);
+
+      // 🔊 PLAY VOICE AUTOMATICALLY
+      if (data.voice) {
+        try {
+          const audio = new Audio(data.voice);
+          await audio.play();
+        } catch (err) {
+          console.warn("Audio autoplay blocked:", err);
         }
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: "cipher", text: "Error processing message." }
-        ]);
       }
     } catch (error) {
       console.error("Chat request failed:", error);
@@ -410,15 +295,15 @@ export default function Home() {
           Send
         </button>
 
-        {/* Voice replay button */}
+        {/* Voice replay */}
         <button
           onClick={() => {
-            const last = [...messages].reverse().find((m) => m.audio);
-            if (last?.audio) {
-              const audio = new Audio("data:audio/mp3;base64," + last.audio);
+            const last = [...messages].reverse().find((m) => m.voice);
+            if (last?.voice) {
+              const audio = new Audio(last.voice);
               audio.play().catch(() => {});
             } else {
-              alert("No recent voice reply to replay yet.");
+              alert("No voice message yet.");
             }
           }}
           style={{
