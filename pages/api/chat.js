@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     // 4. Save memory for future sessions
     const memoryUsed = await saveMemory(message, reply);
 
-    // 5. Create voice output
+    // 5. Create voice output (TTS)
     const voiceOut = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
@@ -47,12 +47,12 @@ export default async function handler(req, res) {
     });
 
     const voiceBuffer = Buffer.from(await voiceOut.arrayBuffer());
-    const base64Audio = voiceBuffer.toString("base64");
+    const base64Voice = voiceBuffer.toString("base64");
 
     // 6. Send response to frontend
     return res.status(200).json({
       reply,
-      audio: base64Audio, // frontend wraps into data:audio/mp3;base64,
+      voice: base64Voice,   // <— FRONTEND WILL USE THIS
       memoryUsed,
     });
   } catch (err) {
