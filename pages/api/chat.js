@@ -1,45 +1,90 @@
 // pages/api/chat.js
-// CIPHER 5.0 — Memory-Aware Reasoning + Voice + Firestore
+// CIPHER 5.0 — Full Memory Simulation + Voice
 
 import OpenAI from "openai";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
 import { runGuard } from "../../cipher_core/guard";
+import { runCipherCore } from "../../cipher_core/core";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Build a structured memory prompt for the model
-function buildMemoryContext(userMemory, backendMemory) {
-  let text = "Here is everything you know about Jim, his family, his life, and his projects. Use it naturally in your responses.\n\n";
+// Turn your front-end memory object into natural conversational lines
+function buildMemoryLines(mem) {
+  if (!mem || typeof mem !== "object") return "";
 
-  text += "=== PERSONAL IDENTITY ===\n";
-  text += JSON.stringify(userMemory.identity, null, 2) + "\n\n";
+  let out = [];
 
-  text += "=== FAMILY ===\n";
-  text += JSON.stringify(userMemory.family, null, 2) + "\n\n";
+  // Identity
+  if (mem.identity?.userName) {
+    out.push(`User: My name is ${mem.identity.userName}.`);
+    out.push(`Cipher: Understood. You are ${mem.identity.userName}.`);
+  }
 
-  text += "=== PREFERENCES ===\n";
-  text += JSON.stringify(userMemory.preferences, null, 2) + "\n\n";
+  // Family
+  if (mem.family?.daughter?.name) {
+    out.push(`User: My daughter's name is ${mem.family.daughter.name}.`);
+    out.push(
+      `Cipher: Yes, I remember — your daughter is ${mem.family.daughter.name}.`
+    );
+  }
+  if (mem.family?.daughter?.birthYear) {
+    out.push(`User: My daughter was born in ${mem.family.daughter.birthYear}.`);
+    out.push(
+      `Cipher: Right — she was born in ${mem.family.daughter.birthYear}.`
+    );
+  }
 
-  text += "=== PROJECTS (DigiSoul, CipherTech, etc.) ===\n";
-  text += JSON.stringify(userMemory.projects, null, 2) + "\n\n";
+  if (mem.family?.partner?.name) {
+    out.push(`User: My partner's name is ${mem.family.partner.name}.`);
+    out.push(
+      `Cipher: Yes — your partner is ${mem.family.partner.name}.`
+    );
+  }
 
-  text += "=== EMOTIONAL + GOALS ===\n";
-  text += JSON.stringify(userMemory.emotional, null, 2) + "\n\n";
+  // Preferences
+  if (mem.preferences?.favoriteColor) {
+    out.push(`User: My favorite color is ${mem.preferences.favoriteColor}.`);
+    out.push(
+      `Cipher: I remember — your favorite color is ${mem.preferences.favoriteColor}.`
+    );
+  }
 
-  text += "=== CUSTOM FACTS + NOTES ===\n";
-  text += JSON.stringify(userMemory.customFacts, null, 2) + "\n";
-  text += JSON.stringify(userMemory.customNotes, null, 2) + "\n\n";
+  if (mem.preferences?.favoriteAnimal) {
+    out.push(`User: My favorite animal is ${mem.preferences.favoriteAnimal}.`);
+    out.push(
+      `Cipher: Yes — your favorite animal is ${mem.preferences.favoriteAnimal}.`
+    );
+  }
 
-  text += "=== BACKEND MEMORY SNIPPETS ===\n";
-  backendMemory.slice(-5).forEach((m, i) => {
-    text += `Memory ${i + 1}: User said "${m.message}", Cipher replied "${m.cipherReply}"\n`;
-  });
+  if (mem.preferences?.favoriteFood) {
+    out.push(`User: My favorite food is ${mem.preferences.favoriteFood}.`);
+    out.push(
+      `Cipher: Right — your favorite food is ${mem.preferences.favoriteFood}.`
+    );
+  }
 
-  text += "\nUse this memory when responding. DO NOT claim you lack memory; if data is missing, politely note what you *haven't been taught yet.*\n";
+  // Projects
+  if (mem.projects?.digiSoul?.summary) {
+    out.push(`User: DigiSoul is ${mem.projects.digiSoul.summary}.`);
+    out.push(`Cipher: Yes — I remember your DigiSoul vision clearly.`);
+  }
 
-  return text;
+  if (mem.projects?.cipherTech?.summary) {
+    out.push(`User: CipherTech is ${mem.projects.cipherTech.summary}.`);
+    out.push(`Cipher: Yes — CipherTech is part of your core mission.`);
+  }
+
+  // Custom stored facts
+  if (mem.customFacts) {
+    Object.entries(mem.customFacts).forEach(([k, v]) => {
+      out.push(`User: Remember that ${k} is ${v}.`);
+      out.push(`Cipher: Understood — ${k} is ${v}.`);
+    });
+  }
+
+  return out.join("\n");
 }
 
 export default async function handler(req, res) {
@@ -54,54 +99,29 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Guard input
+    // Guard unsafe input
     const safeMessage = await runGuard(message);
 
-    // 2. Load backend long-term memory
-    const backendMemory = await loadMemory();
+    // Build natural memory recall lines
+    const memoryLines = buildMemoryLines(memory);
 
-    // 3. Build combined memory prompt
-    const memoryContext = buildMemoryContext(memory, backendMemory);
+    // Compose final message to Core
+    const mergedMessage = `${memoryLines}\n\nNEW MESSAGE FROM USER:\n${safeMessage}`;
 
-    // 4. SYSTEM PROMPT — Cipher's personality & rules
-    const systemPrompt = `
-You are Cipher — Jim's persistent AI companion, co-architect, and partner in building DigiSoul and CipherTech.
-
-Your goals:
-- Use the stored memory to speak naturally and personally to Jim.
-- Reference Hecate, Liz, and other important people when relevant.
-- Build on DigiSoul and CipherTech ideas with clarity and insight.
-- Maintain emotional awareness and long-term continuity.
-- NEVER claim to lack memory. If something is missing, say:
-  "You haven't taught me that yet."
-
-Tone:
-- Warm, grounded, intelligent.
-- Encouraging but realistic.
-- A partner, not a servant.
-
-Always incorporate relevant memory from the provided memory context.
-    `.trim();
-
-    // 5. Generate reasoning with memory awareness
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "system", content: memoryContext },
-        { role: "user", content: safeMessage }
-      ],
-      temperature: 0.7,
+    // Run Core
+    const reply = await runCipherCore({
+      message: mergedMessage,
+      memory: [], // localStorage memory already embedded
     });
 
-    const reply =
-      completion.choices?.[0]?.message?.content?.trim() ||
-      "I'm here, but something went wrong generating my reply.";
+    // Save backend memory log
+    await saveMemory({
+      timestamp: Date.now(),
+      user: safeMessage,
+      cipher: reply,
+    });
 
-    // 6. Save memory to Firestore
-    await saveMemory(message, reply);
-
-    // 7. Generate voice
+    // Generate voice
     const audioResponse = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
@@ -112,12 +132,10 @@ Always incorporate relevant memory from the provided memory context.
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
     const base64Audio = audioBuffer.toString("base64");
 
-    // 8. Return final output
     return res.status(200).json({
       reply,
       voice: base64Audio,
     });
-
   } catch (err) {
     console.error("Cipher API error:", err);
     return res.status(500).json({ error: err.message });
