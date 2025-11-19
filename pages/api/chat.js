@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// CIPHER 5.0 — Full Memory Simulation + Voice
+// CIPHER 5.1 — Natural Memory Recall Engine + Voice
 
 import OpenAI from "openai";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
@@ -10,82 +10,82 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Turn your front-end memory object into natural conversational lines
-function buildMemoryLines(mem) {
+/* ---------------------------------------------
+   Build natural memory recall text (Option B)
+--------------------------------------------- */
+function buildMemoryContext(mem) {
   if (!mem || typeof mem !== "object") return "";
 
   let out = [];
 
   // Identity
   if (mem.identity?.userName) {
-    out.push(`User: My name is ${mem.identity.userName}.`);
-    out.push(`Cipher: Understood. You are ${mem.identity.userName}.`);
+    out.push(`The user’s name is ${mem.identity.userName}.`);
   }
 
-  // Family
+  // Family – Daughter
   if (mem.family?.daughter?.name) {
-    out.push(`User: My daughter's name is ${mem.family.daughter.name}.`);
-    out.push(
-      `Cipher: Yes, I remember — your daughter is ${mem.family.daughter.name}.`
-    );
+    out.push(`The user's daughter's name is ${mem.family.daughter.name}.`);
   }
   if (mem.family?.daughter?.birthYear) {
-    out.push(`User: My daughter was born in ${mem.family.daughter.birthYear}.`);
     out.push(
-      `Cipher: Right — she was born in ${mem.family.daughter.birthYear}.`
+      `${mem.family.daughter.name} was born in ${mem.family.daughter.birthYear}.`
     );
   }
 
+  // Partner
   if (mem.family?.partner?.name) {
-    out.push(`User: My partner's name is ${mem.family.partner.name}.`);
-    out.push(
-      `Cipher: Yes — your partner is ${mem.family.partner.name}.`
-    );
+    out.push(`The user's partner is named ${mem.family.partner.name}.`);
   }
 
   // Preferences
   if (mem.preferences?.favoriteColor) {
-    out.push(`User: My favorite color is ${mem.preferences.favoriteColor}.`);
-    out.push(
-      `Cipher: I remember — your favorite color is ${mem.preferences.favoriteColor}.`
-    );
+    out.push(`The user's favorite color is ${mem.preferences.favoriteColor}.`);
   }
 
   if (mem.preferences?.favoriteAnimal) {
-    out.push(`User: My favorite animal is ${mem.preferences.favoriteAnimal}.`);
     out.push(
-      `Cipher: Yes — your favorite animal is ${mem.preferences.favoriteAnimal}.`
+      `The user's favorite animal is ${mem.preferences.favoriteAnimal}.`
     );
   }
 
   if (mem.preferences?.favoriteFood) {
-    out.push(`User: My favorite food is ${mem.preferences.favoriteFood}.`);
-    out.push(
-      `Cipher: Right — your favorite food is ${mem.preferences.favoriteFood}.`
-    );
+    out.push(`The user's favorite food is ${mem.preferences.favoriteFood}.`);
   }
 
   // Projects
   if (mem.projects?.digiSoul?.summary) {
-    out.push(`User: DigiSoul is ${mem.projects.digiSoul.summary}.`);
-    out.push(`Cipher: Yes — I remember your DigiSoul vision clearly.`);
+    out.push(`The user’s DigiSoul vision: ${mem.projects.digiSoul.summary}`);
   }
 
   if (mem.projects?.cipherTech?.summary) {
-    out.push(`User: CipherTech is ${mem.projects.cipherTech.summary}.`);
-    out.push(`Cipher: Yes — CipherTech is part of your core mission.`);
+    out.push(`CipherTech vision: ${mem.projects.cipherTech.summary}`);
   }
 
-  // Custom stored facts
+  // Custom facts
   if (mem.customFacts) {
     Object.entries(mem.customFacts).forEach(([k, v]) => {
-      out.push(`User: Remember that ${k} is ${v}.`);
-      out.push(`Cipher: Understood — ${k} is ${v}.`);
+      out.push(`Remember: ${k} is ${v}.`);
     });
   }
 
-  return out.join("\n");
+  if (out.length === 0) return "";
+
+  return `
+You have long-term memory about the user.  
+Here are the relevant details you should keep in mind while answering:
+
+${out.join("\n")}
+
+When responding, be natural and conversational.  
+Do NOT repeat the memory directly unless asked.  
+Instead, use the memory naturally when relevant.
+`;
 }
+
+/* ---------------------------------------------
+   MAIN HANDLER
+--------------------------------------------- */
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -99,29 +99,37 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Guard unsafe input
-    const safeMessage = await runGuard(message);
+    // 1. Guard inappropriate input
+    const safeMsg = await runGuard(message);
 
-    // Build natural memory recall lines
-    const memoryLines = buildMemoryLines(memory);
+    // 2. Convert front-end memory into a natural prompt
+    const memContext = buildMemoryContext(memory);
 
-    // Compose final message to Core
-    const mergedMessage = `${memoryLines}\n\nNEW MESSAGE FROM USER:\n${safeMessage}`;
+    // 3. Build final prompt sent to Cipher Core
+    const merged = `
+${memContext}
 
-    // Run Core
+USER SAID:
+${safeMsg}
+
+Respond as Cipher — warm, supportive, emotionally intelligent,  
+and naturally aware of the user’s long-term details.
+`;
+
+    // 4. Run main reasoning model
     const reply = await runCipherCore({
-      message: mergedMessage,
-      memory: [], // localStorage memory already embedded
+      message: merged,
+      memory: [], // memory already provided in merged prompt
     });
 
-    // Save backend memory log
+    // 5. Save backend record
     await saveMemory({
       timestamp: Date.now(),
-      user: safeMessage,
+      user: safeMsg,
       cipher: reply,
     });
 
-    // Generate voice
+    // 6. Generate TTS
     const audioResponse = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
@@ -132,10 +140,12 @@ export default async function handler(req, res) {
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
     const base64Audio = audioBuffer.toString("base64");
 
+    // 7. Send reply + voice back to front-end
     return res.status(200).json({
       reply,
       voice: base64Audio,
     });
+
   } catch (err) {
     console.error("Cipher API error:", err);
     return res.status(500).json({ error: err.message });
