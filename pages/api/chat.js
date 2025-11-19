@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher 4.0 — Voice + Memory + Stable Output (Playback Helper Embedded)
+// Cipher 4.0 — Memory + Voice + Guard + Stable Output
 
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
@@ -20,46 +20,34 @@ export default async function handler(req, res) {
   if (!message) return res.status(400).json({ error: "No message provided" });
 
   try {
-    // 1. Load Cipher's memory
+    // 1. Load memory
     const memory = await loadMemory();
 
-    // 2. Run guardrails
+    // 2. Guard rails
     const safeMessage = await runGuard(message);
 
-    // 3. Generate Cipher's text response
+    // 3. Cipher core reasoning
     const reply = await runCipherCore(safeMessage, memory);
 
     // 4. Save memory
     const memoryUsed = await saveMemory(message, reply);
 
-    // 5. Generate VOICE
+    // 5. Generate voice response
     const audioResponse = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "verse",
+      voice: "verse",   // <-- change this later if you want other voices
       input: reply,
       format: "mp3"
     });
 
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
     const base64Audio = audioBuffer.toString("base64");
-    const voiceUrl = `data:audio/mp3;base64,${base64Audio}`;
 
-
-    // 6. Return everything (including embedded helper)
+    // 6. Send output
     return res.status(200).json({
       reply,
-      voice: base64Audio,
-      voiceUrl,
-      memoryUsed,
-
-      // 🚀 **You asked to embed the helper directly in chat.js response**
-      playVoiceInstructions: `
-        // AUTO-PLAY CIPHER VOICE
-        if (data.voiceUrl) {
-          const audio = new Audio(data.voiceUrl);
-          audio.play().catch(err => console.log("Audio play error:", err));
-        }
-      `
+      voice: `data:audio/mp3;base64,${base64Audio}`,  // browser-ready
+      memoryUsed
     });
 
   } catch (err) {
