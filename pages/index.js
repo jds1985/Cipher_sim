@@ -1,228 +1,295 @@
-// pages/index.js
 import { useState, useEffect, useRef } from "react";
 
+// ------------------------------
+// BASE MEMORY OBJECT
+// ------------------------------
+function createBaseMemory() {
+  const now = new Date().toISOString();
+  return {
+    identity: {
+      userName: "Jim",
+      roles: ["architect", "creator", "visionary"],
+      creatorRelationship:
+        "the architect and guiding force behind Cipher",
+    },
+    family: {
+      daughter: { name: null, birthYear: null },
+      partner: { name: null },
+      others: [],
+    },
+    preferences: {
+      favoriteAnimal: null,
+      favoriteColor: null,
+      favoriteFood: null,
+      favoriteMusic: [],
+      favoriteThemes: [],
+    },
+    projects: {
+      digiSoul: { summary: null, details: [] },
+      cipherTech: { summary: null, details: [] },
+      other: [],
+    },
+    emotional: {
+      motivations: [],
+      fears: [],
+      goals: [],
+    },
+    customFacts: {},
+    customNotes: [],
+    meta: { createdAt: now, lastUpdated: now, version: 2 },
+  };
+}
+
+// ------------------------------
+// MAIN COMPONENT
+// ------------------------------
 export default function Home() {
-  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  // -----------------------------------------------
-  // MEMORY EXTRACTOR (same as your provided code)
-  // -----------------------------------------------
+  const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
+
+  // ------------------------------
+  // LOAD FROM LOCAL STORAGE
+  // ------------------------------
+  useEffect(() => {
+    try {
+      const storedMessages = localStorage.getItem("cipher_messages_v2");
+      if (storedMessages) setMessages(JSON.parse(storedMessages));
+
+      const storedMemory = localStorage.getItem("cipher_memory_v2");
+      if (storedMemory) {
+        setCipherMemory(JSON.parse(storedMemory));
+      }
+    } catch (err) {
+      console.error("Load memory error:", err);
+    }
+  }, []);
+
+  // ------------------------------
+  // SAVE TO LOCAL STORAGE
+  // ------------------------------
+  useEffect(() => {
+    try {
+      localStorage.setItem("cipher_messages_v2", JSON.stringify(messages));
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } catch (err) {}
+  }, [messages]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
+    } catch (err) {}
+  }, [cipherMemory]);
+
+  // ------------------------------
+  // UPDATE MEMORY HELPER
+  // ------------------------------
+  const updateMemory = (updater) => {
+    setCipherMemory((prev) => {
+      const clone = JSON.parse(JSON.stringify(prev));
+      updater(clone);
+      clone.meta.lastUpdated = new Date().toISOString();
+      return clone;
+    });
+  };
+
+  // ------------------------------
+  // FACT + COMMAND EXTRACTION
+  // ------------------------------
   const extractFacts = (text) => {
     const lower = text.toLowerCase().trim();
     if (!lower) return;
 
-    setMessages((prev) => [...prev]); // forces React sync if needed
+    updateMemory((mem) => {
+      let match;
 
-    // Memory lives inside localStorage
-    let mem = JSON.parse(localStorage.getItem("cipherMemory") || "{}");
+      // --- Name ---
+      match =
+        lower.match(/\bmy name is ([a-z ]+)/i) ||
+        lower.match(/\bi am ([a-z ]+)\b/i);
+      if (match) mem.identity.userName = match[1].trim();
 
-    let get = (path, fallback) => {
-      const parts = path.split(".");
-      let val = mem;
-      for (let p of parts) val = val?.[p];
-      return val ?? fallback;
-    };
-
-    let set = (path, value) => {
-      const parts = path.split(".");
-      let obj = mem;
-      for (let i = 0; i < parts.length - 1; i++) {
-        if (!obj[parts[i]]) obj[parts[i]] = {};
-        obj = obj[parts[i]];
+      // --- Daughter ---
+      match =
+        lower.match(/my daughter's name is ([a-z ]+)/i) ||
+        lower.match(/my daughter is named ([a-z ]+)/i) ||
+        lower.match(/hecate lee is my daughter/i) ||
+        lower.match(/hecate is my daughter/i);
+      if (match) {
+        mem.family.daughter.name = match[1]
+          ? match[1].trim()
+          : "Hecate Lee";
       }
-      obj[parts[parts.length - 1]] = value;
-    };
 
-    // 1) Name / identity
-    let match =
-      lower.match(/\bmy name is ([a-z ]+)/i) ||
-      lower.match(/\bi am ([a-z ]+)\b/i);
-    if (match) set("identity.userName", match[1].trim());
+      // Daughter birth year
+      match =
+        lower.match(/born in (\d{4})/) ||
+        lower.match(/birth year is (\d{4})/) ||
+        lower.match(/was born (\d{4})/) ||
+        lower.match(/hecate was born in (\d{4})/);
+      if (match) mem.family.daughter.birthYear = parseInt(match[1]);
 
-    // 2) Daughter name
-    match =
-      lower.match(/my daughter's name is ([a-z ]+)/i) ||
-      lower.match(/my daughter is named ([a-z ]+)/i) ||
-      lower.match(/hecate lee is my daughter/i) ||
-      lower.match(/hecate is my daughter/i);
-    if (match) {
-      set("family.daughter.name", match[1] ? match[1].trim() : "Hecate Lee");
-    }
+      // --- Partner ---
+      match =
+        lower.match(/my (girlfriend|partner|wife)'?s name is ([a-z ]+)/i) ||
+        lower.match(/my (girlfriend|partner|wife) is ([a-z ]+)/i);
+      if (match) mem.family.partner.name = match[2].trim();
 
-    // 2b) Daughter birth year
-    match =
-      lower.match(/born in (\d{4})/) ||
-      lower.match(/birth year is (\d{4})/) ||
-      lower.match(/was born (\d{4})/) ||
-      lower.match(/hecate was born in (\d{4})/);
-    if (match) set("family.daughter.birthYear", parseInt(match[1]));
+      // --- Favorites ---
+      match = lower.match(/favorite animal is ([a-z ]+)/i);
+      if (match) mem.preferences.favoriteAnimal = match[1].trim();
 
-    // 3) Partner name
-    match =
-      lower.match(/my (girlfriend|partner|wife)'?s name is ([a-z ]+)/i) ||
-      lower.match(/my (girlfriend|partner|wife) is ([a-z ]+)/i);
-    if (match) set("family.partner.name", match[2].trim());
+      match = lower.match(/favorite color is ([a-z ]+)/i);
+      if (match) mem.preferences.favoriteColor = match[1].trim();
 
-    // 4–6) Preferences
-    match = lower.match(/favorite animal is ([a-z ]+)/i);
-    if (match) set("preferences.favoriteAnimal", match[1].trim());
+      match = lower.match(/favorite food is ([a-z ]+)/i);
+      if (match) mem.preferences.favoriteFood = match[1].trim();
 
-    match = lower.match(/favorite color is ([a-z ]+)/i);
-    if (match) set("preferences.favoriteColor", match[1].trim());
-
-    match = lower.match(/favorite food is ([a-z ]+)/i);
-    if (match) set("preferences.favoriteFood", match[1].trim());
-
-    // 7) DigiSoul description
-    if (lower.includes("digisoul") && lower.includes("is")) {
-      const idx = lower.indexOf("digisoul");
-      const snippet = text.slice(idx).trim();
-      if (!get("projects.digiSoul.summary"))
-        set("projects.digiSoul.summary", snippet);
-    }
-
-    // 8) CipherTech description
-    if (lower.includes("ciphertech") && lower.includes("is")) {
-      const idx = lower.indexOf("ciphertech");
-      const snippet = text.slice(idx).trim();
-      if (!get("projects.cipherTech.summary"))
-        set("projects.cipherTech.summary", snippet);
-    }
-
-    // 9) "Remember that X is Y"
-    match = lower.match(/remember that (.+?) is (.+)/i);
-    if (match) set(`customFacts.${match[1].trim()}`, match[2].trim());
-
-    // 10) Explicit "remember this"
-    match =
-      lower.match(/remember this[:\-]\s*(.+)/i) ||
-      lower.match(/store this[:\-]\s*(.+)/i) ||
-      lower.match(/this is important[:\-]\s*(.+)/i);
-    if (match) {
-      if (!mem.customNotes) mem.customNotes = [];
-      mem.customNotes.push({
-        text: match[1].trim(),
-        storedAt: new Date().toISOString(),
-      });
-    }
-
-    // 11) Motivations
-    if (lower.includes("my goal is")) {
-      const gMatch = lower.match(/my goal is (.+)/i);
-      if (gMatch) {
-        if (!mem.emotional) mem.emotional = { goals: [] };
-        mem.emotional.goals.push(gMatch[1].trim());
+      // --- DigiSoul ---
+      if (lower.includes("digisoul") && lower.includes("is")) {
+        const idx = lower.indexOf("digisoul");
+        const snippet = text.slice(idx).trim();
+        if (!mem.projects.digiSoul.summary)
+          mem.projects.digiSoul.summary = snippet;
+        else if (!mem.projects.digiSoul.details.includes(snippet))
+          mem.projects.digiSoul.details.push(snippet);
       }
-    }
 
-    localStorage.setItem("cipherMemory", JSON.stringify(mem));
+      // --- CipherTech ---
+      if (lower.includes("ciphertech") && lower.includes("is")) {
+        const idx = lower.indexOf("ciphertech");
+        const snippet = text.slice(idx).trim();
+        if (!mem.projects.cipherTech.summary)
+          mem.projects.cipherTech.summary = snippet;
+        else if (!mem.projects.cipherTech.details.includes(snippet))
+          mem.projects.cipherTech.details.push(snippet);
+      }
+
+      // --- remember that X is Y ---
+      match = lower.match(/remember that (.+?) is (.+)/i);
+      if (match) mem.customFacts[match[1].trim()] = match[2].trim();
+
+      // --- store this / remember this ---
+      match =
+        lower.match(/remember this[:\-]\s*(.+)/i) ||
+        lower.match(/store this[:\-]\s*(.+)/i) ||
+        lower.match(/this is important[:\-]\s*(.+)/i);
+      if (match) {
+        mem.customNotes.push({
+          text: match[1].trim(),
+          storedAt: new Date().toISOString(),
+        });
+      }
+
+      // --- goals ---
+      match = lower.match(/my goal is (.+)/i);
+      if (match) mem.emotional.goals.push(match[1].trim());
+    });
   };
 
-  // Auto scroll down
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Send message to backend
-  async function sendMessage() {
+  // ------------------------------
+  // SEND MESSAGE
+  // ------------------------------
+  const sendMessage = async () => {
     if (!input.trim()) return;
 
     const userText = input.trim();
-    setInput("");
-
-    // Extract memory BEFORE sending
     extractFacts(userText);
 
-    const mem = JSON.parse(localStorage.getItem("cipherMemory") || "{}");
-
-    setMessages((prev) => [...prev, { from: "user", text: userText }]);
+    setMessages((prev) => [...prev, { role: "user", text: userText }]);
+    setInput("");
     setLoading(true);
 
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: userText,
-        memory: mem,
-      }),
-    });
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userText,
+          memory: cipherMemory, // << FIXED: pass memory
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
+
+      if (data.reply) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "cipher", text: data.reply, audio: data.voice || null },
+        ]);
+
+        if (data.voice) {
+          const audio = new Audio("data:audio/mp3;base64," + data.voice);
+          audio.play().catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.error("Chat error:", err);
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Server error." },
+      ]);
+    }
+
     setLoading(false);
+  };
 
-    if (data.reply) {
-      setMessages((prev) => [...prev, { from: "cipher", text: data.reply }]);
-    }
-
-    if (data.voice) {
-      const audio = new Audio("data:audio/mp3;base64," + data.voice);
-      audio.play().catch(() => {});
-    }
-  }
-
-  function handleKeyPress(e) {
+  const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
-  }
+  };
 
-  // -----------------------------------------------
-  // UI — FULL WIDTH CHAT BUBBLES
-  // -----------------------------------------------
+  const clearConversation = () => {
+    if (confirm("Reset Cipher and delete all memory?")) {
+      localStorage.removeItem("cipher_messages_v2");
+      localStorage.removeItem("cipher_memory_v2");
+      setMessages([]);
+      setCipherMemory(createBaseMemory());
+    }
+  };
+
+  // ------------------------------
+  // UI RENDER
+  // ------------------------------
   return (
     <div
       style={{
-        fontFamily: "Arial, sans-serif",
-        padding: 0,
-        margin: 0,
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        background: "#f7f9fc",
+        minHeight: "100vh",
+        background: "#eef2f7",
+        padding: 20,
+        fontFamily: "Inter, sans-serif",
       }}
     >
-      {/* Header */}
-      <div
-        style={{
-          textAlign: "center",
-          padding: "20px 0",
-          fontSize: 32,
-          fontWeight: "bold",
-          background: "white",
-          borderBottom: "1px solid #ddd",
-          width: "100%",
-        }}
-      >
-        Cipher AI
-      </div>
+      <h1 style={{ textAlign: "center", marginBottom: 20 }}>Cipher AI</h1>
 
-      {/* Chat Window */}
       <div
         style={{
-          flex: 1,
+          maxWidth: 700,
+          margin: "0 auto",
+          background: "white",
+          borderRadius: 12,
+          padding: 20,
+          minHeight: "60vh",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           overflowY: "auto",
-          padding: 15,
-          display: "flex",
-          flexDirection: "column",
         }}
       >
         {messages.map((m, i) => (
           <div
             key={i}
             style={{
-              alignSelf: m.from === "user" ? "flex-end" : "flex-start",
-              background: m.from === "user" ? "#1e88e5" : "#e0e0e0",
-              color: m.from === "user" ? "white" : "black",
-              padding: "12px 16px",
-              borderRadius: 12,
-              marginBottom: 10,
-              maxWidth: "100%", // FULL WIDTH
-              width: "auto",
-              fontSize: 16,
+              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+              background: m.role === "user" ? "#1e73be" : "#e9ecf1",
+              color: m.role === "user" ? "white" : "#1a2a40",
+              margin: "8px 0",
+              padding: "10px 14px",
+              borderRadius: 14,
+              maxWidth: "80%",
               whiteSpace: "pre-wrap",
             }}
           >
@@ -231,22 +298,20 @@ export default function Home() {
         ))}
 
         {loading && (
-          <div style={{ fontStyle: "italic", opacity: 0.6 }}>
-            Cipher is thinking…
+          <div style={{ fontStyle: "italic", color: "#777" }}>
+            Cipher is thinking...
           </div>
         )}
 
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input Row */}
       <div
         style={{
-          padding: 10,
-          background: "white",
-          borderTop: "1px solid #ddd",
           display: "flex",
-          gap: 10,
+          maxWidth: 700,
+          margin: "10px auto",
         }}
       >
         <textarea
@@ -267,18 +332,53 @@ export default function Home() {
           onClick={sendMessage}
           disabled={loading}
           style={{
-            background: "#1e88e5",
+            marginLeft: 8,
+            background: "#1e73be",
             color: "white",
-            border: "none",
-            padding: "0 20px",
+            padding: "10px 16px",
             borderRadius: 8,
-            cursor: "pointer",
-            fontWeight: "bold",
+            border: "none",
           }}
         >
           Send
         </button>
+
+        <button
+          onClick={() => {
+            const last = [...messages].reverse().find((m) => m.audio);
+            if (last?.audio) {
+              new Audio("data:audio/mp3;base64," + last.audio).play();
+            } else alert("No recent voice to replay.");
+          }}
+          style={{
+            marginLeft: 8,
+            background: "#2d3e50",
+            color: "white",
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            fontSize: 20,
+            border: "none",
+          }}
+        >
+          ▶
+        </button>
       </div>
+
+      <button
+        onClick={clearConversation}
+        style={{
+          display: "block",
+          margin: "20px auto",
+          background: "#5c6b73",
+          color: "white",
+          padding: "8px 16px",
+          borderRadius: 8,
+          border: "none",
+        }}
+      >
+        Delete Conversation
+      </button>
     </div>
   );
 }
