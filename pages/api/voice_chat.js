@@ -140,13 +140,13 @@ export default async function handler(req, res) {
       source: "voice",
     });
 
-    // 6) TTS reply
-    const tts = await client.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "verse",
-      input: reply,
-      format: "mp3",
-    });
+    // 1. Transcribe audio using Whisper-1 (most stable)
+const transcriptResponse = await client.audio.transcriptions.create({
+  file: audioBlob,          // the uploaded audio blob
+  model: "whisper-1",       // FIXED MODEL
+  response_format: "json"
+});
+
 
     const ttsBuffer = Buffer.from(await tts.arrayBuffer());
     const base64Voice = ttsBuffer.toString("base64");
