@@ -1,5 +1,5 @@
 // pages/api/vision_chat.js
-// Cipher Vision — Single Image Analysis
+// Cipher Vision — Image + Memory + Voice
 
 import OpenAI from "openai";
 
@@ -7,46 +7,33 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "10mb",
-    },
-  },
-};
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const { image } = req.body; // base64 (no data: prefix)
+    const { image, memory } = req.body;
 
     if (!image) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    const imageUrl = `data:image/jpeg;base64,${image}`;
-
-    const completion = await client.chat.completions.create({
+    // Send image to GPT-4o Vision
+    const visionResult = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "You are Cipher, a grounded AI assistant. You can see the user's photo. Describe what you see and respond in a helpful, calm way.",
+            "You are Cipher. Analyze the image and respond naturally but clearly.",
         },
         {
           role: "user",
           content: [
             {
-              type: "text",
-              text: "Look at this image and tell me what you see, then talk to me about it as Cipher.",
-            },
-            {
-              type: "image_url",
-              image_url: { url: imageUrl },
+              type: "input_image",
+              image_url: `data:image/jpeg;base64,${image}`,
             },
           ],
         },
@@ -54,12 +41,26 @@ export default async function handler(req, res) {
     });
 
     const reply =
-      completion.choices?.[0]?.message?.content?.trim() ||
-      "I saw the image, but I couldn't make sense of it.";
+      visionResult.choices?.[0]?.message?.content ||
+      "I analyzed the image, but something seems off.";
 
-    return res.status(200).json({ reply });
+    // Create voice output
+    const audioResponse = await client.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "verse",
+      input: reply,
+      format: "mp3",
+    });
+
+    const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+    const base64Audio = audioBuffer.toString("base64");
+
+    return res.status(200).json({
+      reply,
+      voice: base64Audio,
+    });
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({ error: "Vision processing failed." });
+    return res.status(500).json({ error: err.message });
   }
 }
