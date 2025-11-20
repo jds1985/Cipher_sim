@@ -1,25 +1,21 @@
 // pages/api/voice_chat.js
-// FINAL FIX — WebM → Whisper using formdata-node (Vercel compatible)
+// Cipher 5.0 — Voice Input → Whisper → Core → TTS
 
 import OpenAI from "openai";
 import { runGuard } from "../../cipher_core/guard";
 import { runCipherCore } from "../../cipher_core/core";
-import { saveMemory } from "../../cipher_core/memory";
 
 import { FormData, File } from "formdata-node";
-import { fileFromPath } from "formdata-node/file-from-path";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "30mb",
-    },
-  },
-};
+// Helper: convert base64 → File
+function base64ToFile(base64String, filename) {
+  const buffer = Buffer.from(base64String, "base64");
+  return new File([buffer], filename, { type: "audio/webm" });
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -30,81 +26,79 @@ export default async function handler(req, res) {
     const { audio, memory } = req.body;
 
     if (!audio) {
-      return res.status(400).json({ error: "Missing audio" });
+      return res.status(400).json({ error: "No audio data received" });
     }
 
-    // Convert base64 → buffer
-    const audioBuffer = Buffer.from(audio, "base64");
+    // Convert base64 audio to File
+    const audioFile = base64ToFile(audio, "input.webm");
 
-    // Build server-side multipart form-data
+    // ---------------------------
+    // 1. TRANSCRIBE WITH WHISPER
+    // ---------------------------
     const form = new FormData();
-    form.set("model", "whisper-1");
-
-    const audioFile = new File([audioBuffer], "cipher_audio.webm", {
-      type: "audio/webm",
-    });
-
     form.set("file", audioFile);
+    form.set("model", "gpt-4o-mini-tts"); // whisper-compatible
+    form.set("response_format", "json");
 
-    // Send real file upload to OpenAI
-    const transcriptResponse = await fetch(
-      "https://api.openai.com/v1/audio/transcriptions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: form,
-      }
-    );
-
-    const transcriptJson = await transcriptResponse.json();
-
-    if (!transcriptJson.text) {
-      console.error("Transcription error:", transcriptJson);
+    let transcriptText = "";
+    try {
+      const whisperResponse = await client.audio.transcriptions.create(form);
+      transcriptText = whisperResponse.text || "";
+    } catch (err) {
+      console.error("Whisper error:", err);
       return res.status(500).json({
-        error: "Transcription failed",
-        detail: transcriptJson,
+        error: "Whisper failed",
       });
     }
 
-    const transcript = transcriptJson.text;
+    // Safety check
+    const safeText = await runGuard(transcriptText);
 
-    // run guard + core
-    const safeMessage = await runGuard(transcript);
+    // If Whisper hears nothing, don't continue
+    if (!safeText.trim()) {
+      return res.status(200).json({
+        transcript: "",
+        reply: "I couldn't hear anything — please try again.",
+        voice: null,
+      });
+    }
+
+    // -------------------------------------
+    // 2. RUN THROUGH CIPHER CORE
+    // -------------------------------------
     const reply = await runCipherCore({
-      message: safeMessage,
-      memory: memory || {},
+      message: safeText,
+      memory: memory || [],
     });
 
-    // save memory
-    saveMemory({
-      timestamp: Date.now(),
-      user: safeMessage,
-      cipher: reply,
-      source: "voice",
-    }).catch(() => {});
+    // -------------------------------------
+    // 3. TTS (Voice Output)
+    // -------------------------------------
+    let base64Voice = null;
+    try {
+      const speech = await client.audio.speech.create({
+        model: "gpt-4o-mini-tts",
+        voice: "verse",
+        input: reply,
+        format: "mp3",
+      });
 
-    // Generate TTS
-    const tts = await client.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      input: reply,
-      voice: "verse",
-      format: "mp3",
-    });
+      const speechBuf = Buffer.from(await speech.arrayBuffer());
+      base64Voice = speechBuf.toString("base64");
+    } catch (err) {
+      console.error("TTS error:", err);
+    }
 
-    const mp3Buffer = Buffer.from(await tts.arrayBuffer());
-
+    // ---------------------------
+    // 4. SEND BACK TO FRONTEND
+    // ---------------------------
     return res.status(200).json({
-      transcript,
+      transcript: safeText,
       reply,
-      voice: mp3Buffer.toString("base64"),
+      voice: base64Voice,
     });
   } catch (err) {
-    console.error("Voice chat crashed:", err);
-    return res.status(500).json({
-      error: "Voice chat failed",
-      detail: err.message,
-    });
+    console.error("VoiceChat global error:", err);
+    return res.status(500).json({ error: "Voice processing failed" });
   }
 }
