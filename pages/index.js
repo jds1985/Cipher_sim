@@ -1,3 +1,4 @@
+// pages/index.js
 import { useState, useEffect, useRef } from "react";
 
 // ------------------------------
@@ -214,7 +215,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
-          memory: cipherMemory, // pass full memory object
+          memory: cipherMemory, // pass full memory object (will be one turn behind by design)
         }),
       });
 
@@ -407,6 +408,8 @@ export default function Home() {
           minHeight: "60vh",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         {messages.map((m, i) => (
@@ -455,6 +458,7 @@ export default function Home() {
             borderRadius: 8,
             padding: 10,
             border: "1px solid #ccc",
+            resize: "none",
           }}
         />
 
