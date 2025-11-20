@@ -1,7 +1,10 @@
 // pages/api/vision_chat.js
-// Cipher Vision — Image + Memory + Voice
+// CIPHER VISION — Image input + description + voice reply
 
 import OpenAI from "openai";
+import { runCipherCore } from "../../cipher_core/core";
+import { runGuard } from "../../cipher_core/guard";
+import { saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -12,55 +15,70 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const { image, memory } = req.body;
+
+  if (!image) {
+    return res.status(400).json({ error: "No image provided" });
+  }
+
   try {
-    const { image, memory } = req.body;
-
-    if (!image) {
-      return res.status(400).json({ error: "No image provided" });
-    }
-
-    // Send image to GPT-4o Vision
-    const visionResult = await client.chat.completions.create({
+    // 1. Describe the image
+    const vision = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content:
-            "You are Cipher. Analyze the image and respond naturally but clearly.",
+          content: "Describe the image in a friendly helpful way."
         },
         {
           role: "user",
           content: [
+            { type: "input_text", text: "Please describe this image." },
             {
               type: "input_image",
-              image_url: `data:image/jpeg;base64,${image}`,
-            },
-          ],
-        },
-      ],
+              image_url: `data:image/jpeg;base64,${image}`
+            }
+          ]
+        }
+      ]
     });
 
-    const reply =
-      visionResult.choices?.[0]?.message?.content ||
-      "I analyzed the image, but something seems off.";
+    const description =
+      vision.choices?.[0]?.message?.content ||
+      "I saw the picture but couldn't describe it.";
 
-    // Create voice output
+    // 2. Run through Cipher Core to generate a conversational reply
+    const cleanDesc = await runGuard(description);
+
+    const reply = await runCipherCore({
+      message: `The user sent an image. Image description: ${cleanDesc}`,
+      memory: memory || []
+    });
+
+    // 3. Store memory
+    await saveMemory({
+      timestamp: Date.now(),
+      user: "[Image sent]",
+      cipher: reply
+    });
+
+    // 4. Create voice
     const audioResponse = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
       input: reply,
-      format: "mp3",
+      format: "mp3"
     });
 
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
     const base64Audio = audioBuffer.toString("base64");
 
-    return res.status(200).json({
-      reply,
-      voice: base64Audio,
+    res.status(200).json({
+      description: reply,
+      voice: base64Audio
     });
   } catch (err) {
-    console.error("Vision API error:", err);
-    return res.status(500).json({ error: err.message });
+    console.error("VISION ERROR:", err);
+    res.status(500).json({ error: err.message });
   }
 }
