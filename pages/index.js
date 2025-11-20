@@ -56,8 +56,9 @@ export default function Home() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Camera / image input
+  // Camera state
   const fileInputRef = useRef(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   // ------------------------------
   // LOAD FROM LOCAL STORAGE
@@ -375,66 +376,67 @@ export default function Home() {
   };
 
   // ------------------------------
-  // CAMERA / IMAGE HANDLER
+  // CAMERA HELPERS
   // ------------------------------
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
+  const handleImageSelected = async (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
-    setLoading(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const dataUrl = reader.result; // data:image/...;base64,....
+        setImagePreview(dataUrl);
 
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      try {
-        const result = reader.result; // "data:image/...;base64,xxxx"
-        const base64 = String(result).split(",")[1];
-
-        // Show a placeholder "photo sent" message
+        // show in chat that an image was sent
         setMessages((prev) => [
           ...prev,
-          { role: "user", text: "[Photo sent 📷]" },
+          { role: "user", text: "[Image sent]" },
         ]);
 
-        const res = await fetch("/api/vision_chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            image: base64,
-          }),
-        });
+        setLoading(true);
+        try {
+          const res = await fetch("/api/camera_chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              image: dataUrl,
+              memory: cipherMemory,
+            }),
+          });
 
-        const data = await res.json();
+          const data = await res.json();
 
-        if (data.reply) {
+          if (data.reply) {
+            setMessages((prev) => [
+              ...prev,
+              { role: "cipher", text: data.reply },
+            ]);
+          } else {
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "cipher",
+                text: "I couldn't process that image.",
+              },
+            ]);
+          }
+        } catch (err) {
+          console.error("Camera chat error:", err);
           setMessages((prev) => [
             ...prev,
-            { role: "cipher", text: data.reply },
-          ]);
-        } else {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "cipher",
-              text: "I saw the image but couldn't process it properly.",
-            },
+            { role: "cipher", text: "Error looking at that image." },
           ]);
         }
-      } catch (err) {
-        console.error("Vision error:", err);
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "cipher",
-            text: "There was an error looking at that image.",
-          },
-        ]);
-      } finally {
         setLoading(false);
-        e.target.value = "";
-      }
-    };
-
-    reader.readAsDataURL(file);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Image read error:", err);
+    } finally {
+      // reset input so same image can be chosen again if needed
+      event.target.value = "";
+    }
   };
 
   // ------------------------------
@@ -446,6 +448,7 @@ export default function Home() {
       localStorage.removeItem("cipher_memory_v2");
       setMessages([]);
       setCipherMemory(createBaseMemory());
+      setImagePreview(null);
     }
   };
 
@@ -494,7 +497,7 @@ export default function Home() {
         ))}
 
         {loading && (
-          <div style={{ fontStyle: "italic", color: "#777", marginTop: 4 }}>
+          <div style={{ fontStyle: "italic", color: "#777" }}>
             Cipher is thinking...
           </div>
         )}
@@ -502,13 +505,38 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
+      {/* Optional image preview (small) */}
+      {imagePreview && (
+        <div
+          style={{
+            maxWidth: 700,
+            margin: "10px auto",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              display: "inline-block",
+              borderRadius: 8,
+              overflow: "hidden",
+              border: "1px solid #ccc",
+            }}
+          >
+            <img
+              src={imagePreview}
+              alt="Last captured"
+              style={{ maxWidth: 200, maxHeight: 200, display: "block" }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Input Row */}
       <div
         style={{
           display: "flex",
           maxWidth: 700,
           margin: "10px auto",
-          alignItems: "center",
         }}
       >
         <textarea
@@ -540,7 +568,7 @@ export default function Home() {
           Send
         </button>
 
-        {/* Mic button: tap to start/stop recording */}
+        {/* Mic button */}
         <button
           onClick={toggleRecording}
           disabled={loading}
@@ -576,20 +604,19 @@ export default function Home() {
           📷
         </button>
 
-        {/* Hidden file input for camera/gallery */}
         <input
           type="file"
           accept="image/*"
           capture="environment"
           ref={fileInputRef}
           style={{ display: "none" }}
-          onChange={handleImageChange}
+          onChange={handleImageSelected}
         />
       </div>
 
       <button
         onClick={clearConversation}
-        style({
+        style={{
           display: "block",
           margin: "20px auto",
           background: "#5c6b73",
