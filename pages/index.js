@@ -1,4 +1,3 @@
-// pages/index.js
 import { useState, useEffect, useRef } from "react";
 
 // ------------------------------
@@ -10,8 +9,7 @@ function createBaseMemory() {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
-      creatorRelationship:
-        "the architect and guiding force behind Cipher",
+      creatorRelationship: "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
@@ -56,6 +54,9 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+
+  // Camera state (simple one-shot capture)
+  const fileInputRef = useRef(null);
 
   // ------------------------------
   // LOAD FROM LOCAL STORAGE
@@ -215,7 +216,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
-          memory: cipherMemory, // pass full memory object (will be one turn behind by design)
+          memory: cipherMemory, // pass full memory object
         }),
       });
 
@@ -373,6 +374,79 @@ export default function Home() {
   };
 
   // ------------------------------
+  // CAMERA HANDLERS (Option A)
+  // ------------------------------
+  const handleCameraClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleImageSelected = (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const dataUrl = reader.result; // "data:image/..;base64,xxxx"
+      const base64 = dataUrl.split(",")[1];
+
+      setLoading(true);
+      try {
+        const res = await fetch("/api/camera_chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            image: base64,
+            memory: cipherMemory,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.description) {
+          // Feed any text into memory
+          extractFacts(data.description);
+          setMessages((prev) => [
+            ...prev,
+            { role: "user", text: "[Image sent]" },
+          ]);
+        }
+
+        if (data.reply) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "cipher",
+              text: data.reply,
+              audio: data.voice || null,
+            },
+          ]);
+        }
+
+        if (data.voice) {
+          const audio = new Audio("data:audio/mp3;base64," + data.voice);
+          audio.play().catch(() => {});
+        }
+      } catch (err) {
+        console.error("Camera chat error:", err);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "cipher",
+            text: "I had trouble processing that image.",
+          },
+        ]);
+      }
+      setLoading(false);
+      // reset input so you can send another photo
+      event.target.value = "";
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  // ------------------------------
   // CLEAR EVERYTHING
   // ------------------------------
   const clearConversation = () => {
@@ -408,8 +482,6 @@ export default function Home() {
           minHeight: "60vh",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
         }}
       >
         {messages.map((m, i) => (
@@ -445,6 +517,7 @@ export default function Home() {
           display: "flex",
           maxWidth: 700,
           margin: "10px auto",
+          alignItems: "center",
         }}
       >
         <textarea
@@ -458,7 +531,6 @@ export default function Home() {
             borderRadius: 8,
             padding: 10,
             border: "1px solid #ccc",
-            resize: "none",
           }}
         />
 
@@ -494,6 +566,34 @@ export default function Home() {
         >
           {isRecording ? "■" : "🎤"}
         </button>
+
+        {/* Camera button: tap -> open native camera/gallery */}
+        <button
+          onClick={handleCameraClick}
+          disabled={loading}
+          style={{
+            marginLeft: 8,
+            background: "#34495e",
+            color: "white",
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            fontSize: 20,
+            border: "none",
+          }}
+        >
+          📷
+        </button>
+
+        {/* Hidden file input for camera / gallery */}
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          onChange={handleImageSelected}
+        />
       </div>
 
       <button
