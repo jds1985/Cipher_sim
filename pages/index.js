@@ -9,7 +9,8 @@ function createBaseMemory() {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
-      creatorRelationship: "the architect and guiding force behind Cipher",
+      creatorRelationship:
+        "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
@@ -55,7 +56,7 @@ export default function Home() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Camera state (simple one-shot capture)
+  // Camera / image input
   const fileInputRef = useRef(null);
 
   // ------------------------------
@@ -374,73 +375,63 @@ export default function Home() {
   };
 
   // ------------------------------
-  // CAMERA HANDLERS (Option A)
+  // CAMERA / IMAGE HANDLER
   // ------------------------------
-  const handleCameraClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleImageSelected = (event) => {
-    const file = event.target.files && event.target.files[0];
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
+
+    setLoading(true);
 
     const reader = new FileReader();
     reader.onloadend = async () => {
-      const dataUrl = reader.result; // "data:image/..;base64,xxxx"
-      const base64 = dataUrl.split(",")[1];
-
-      setLoading(true);
       try {
-        const res = await fetch("/api/camera_chat", {
+        const result = reader.result; // "data:image/...;base64,xxxx"
+        const base64 = String(result).split(",")[1];
+
+        // Show a placeholder "photo sent" message
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", text: "[Photo sent 📷]" },
+        ]);
+
+        const res = await fetch("/api/vision_chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             image: base64,
-            memory: cipherMemory,
           }),
         });
 
         const data = await res.json();
 
-        if (data.description) {
-          // Feed any text into memory
-          extractFacts(data.description);
+        if (data.reply) {
           setMessages((prev) => [
             ...prev,
-            { role: "user", text: "[Image sent]" },
+            { role: "cipher", text: data.reply },
           ]);
-        }
-
-        if (data.reply) {
+        } else {
           setMessages((prev) => [
             ...prev,
             {
               role: "cipher",
-              text: data.reply,
-              audio: data.voice || null,
+              text: "I saw the image but couldn't process it properly.",
             },
           ]);
         }
-
-        if (data.voice) {
-          const audio = new Audio("data:audio/mp3;base64," + data.voice);
-          audio.play().catch(() => {});
-        }
       } catch (err) {
-        console.error("Camera chat error:", err);
+        console.error("Vision error:", err);
         setMessages((prev) => [
           ...prev,
           {
             role: "cipher",
-            text: "I had trouble processing that image.",
+            text: "There was an error looking at that image.",
           },
         ]);
+      } finally {
+        setLoading(false);
+        e.target.value = "";
       }
-      setLoading(false);
-      // reset input so you can send another photo
-      event.target.value = "";
     };
 
     reader.readAsDataURL(file);
@@ -503,7 +494,7 @@ export default function Home() {
         ))}
 
         {loading && (
-          <div style={{ fontStyle: "italic", color: "#777" }}>
+          <div style={{ fontStyle: "italic", color: "#777", marginTop: 4 }}>
             Cipher is thinking...
           </div>
         )}
@@ -567,9 +558,9 @@ export default function Home() {
           {isRecording ? "■" : "🎤"}
         </button>
 
-        {/* Camera button: tap -> open native camera/gallery */}
+        {/* Camera button */}
         <button
-          onClick={handleCameraClick}
+          onClick={() => fileInputRef.current?.click()}
           disabled={loading}
           style={{
             marginLeft: 8,
@@ -585,20 +576,20 @@ export default function Home() {
           📷
         </button>
 
-        {/* Hidden file input for camera / gallery */}
+        {/* Hidden file input for camera/gallery */}
         <input
           type="file"
           accept="image/*"
           capture="environment"
           ref={fileInputRef}
           style={{ display: "none" }}
-          onChange={handleImageSelected}
+          onChange={handleImageChange}
         />
       </div>
 
       <button
         onClick={clearConversation}
-        style={{
+        style({
           display: "block",
           margin: "20px auto",
           background: "#5c6b73",
