@@ -1,13 +1,10 @@
 // pages/api/voice_chat.js
-import OpenAI from "openai";
-import formidable from "formidable";
-import fs from "fs";
+// Cipher voice endpoint: mic → transcript → Cipher reply → TTS
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+import OpenAI from "openai";
+import { runGuard } from "../../cipher_core/guard";
+import { runCipherCore } from "../../cipher_core/core";
+import { saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -18,78 +15,76 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const { audio, memory } = req.body;
+
+  if (!audio || typeof audio !== "string") {
+    return res.status(400).json({ error: "No audio provided" });
+  }
+
   try {
-    // -------------------------------
-    // 1. PARSE AUDIO FILE
-    // -------------------------------
-    const form = formidable({ multiples: false });
+    // 1) Decode base64 → Buffer
+    const audioBuffer = Buffer.from(audio, "base64");
 
-    const { files } = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        else resolve({ fields, files });
+    // 2) Send to transcription model
+    const transcriptResult = await client.audio.transcriptions.create({
+      model: "gpt-4o-mini-transcribe", // or "whisper-1" if you prefer
+      file: {
+        data: audioBuffer,
+        name: "cipher-voice.webm",
+      },
+      // You can tweak this prompt later if you want him more styled
+      prompt: "User is talking to Cipher, their personal AI assistant.",
+    });
+
+    const transcript =
+      typeof transcriptResult.text === "string"
+        ? transcriptResult.text
+        : String(transcriptResult.text || "");
+
+    // 3) Run the guard on the transcript
+    const safeMessage = await runGuard(transcript);
+
+    // 4) Build merged message for Cipher Core
+    const mergedMessage = `VOICE INPUT (TRANSCRIBED):\n${safeMessage}`;
+
+    const reply = await runCipherCore({
+      message: mergedMessage,
+      memory: memory || [],
+    });
+
+    // 5) Save to backend memory log
+    try {
+      await saveMemory({
+        timestamp: Date.now(),
+        user: safeMessage,
+        cipher: reply,
+        source: "voice",
       });
-    });
-
-    const audioFile = files.audio;
-    if (!audioFile) {
-      return res.status(400).json({ error: "No audio uploaded" });
+    } catch (err) {
+      console.error("saveMemory error:", err);
+      // don't fail the whole request if logging breaks
     }
 
-    // -------------------------------
-    // 2. TRANSCRIBE WITH WHISPER
-    // -------------------------------
-    const transcription = await client.audio.transcriptions.create({
-      file: fs.createReadStream(audioFile.filepath),
-      model: "whisper-1",
-    });
-
-    const userMessage = transcription.text || "";
-
-    // -------------------------------
-    // 3. RUN NORMAL CHAT PIPELINE
-    // (send text to your /api/chat logic)
-    // -------------------------------
-    const chatRes = await fetch(`${req.headers.origin}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: userMessage,
-        memory: {}, // memory handled in chat.js
-      }),
-    });
-
-    const chatData = await chatRes.json();
-    if (!chatData.reply) {
-      throw new Error("Chat response missing");
-    }
-
-    const replyText = chatData.reply;
-
-    // -------------------------------
-    // 4. TEXT → SPEECH (TTS)
-    // -------------------------------
-    const speech = await client.audio.speech.create({
+    // 6) Generate TTS reply
+    const audioResponse = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
-      input: replyText,
+      input: reply,
       format: "mp3",
     });
 
-    const audioBuffer = Buffer.from(await speech.arrayBuffer());
-    const base64Audio = audioBuffer.toString("base64");
+    const replyAudioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+    const base64ReplyAudio = replyAudioBuffer.toString("base64");
 
-    // -------------------------------
-    // 5. RETURN EVERYTHING
-    // -------------------------------
     return res.status(200).json({
-      transcript: userMessage,
-      reply: replyText,
-      voice: base64Audio,
+      transcript,
+      reply,
+      voice: base64ReplyAudio,
     });
-
   } catch (err) {
     console.error("Cipher voice API error:", err);
-    return res.status(500).json({ error: err.message });
+    return res
+      .status(500)
+      .json({ error: "Voice processing failed", detail: err.message });
   }
 }
