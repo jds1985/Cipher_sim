@@ -9,7 +9,8 @@ function createBaseMemory() {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
-      creatorRelationship: "the architect and guiding force behind Cipher",
+      creatorRelationship:
+        "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
@@ -39,21 +40,6 @@ function createBaseMemory() {
   };
 }
 
-// Small helper to read a File -> base64 (no prefix, just data)
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      // result is data:<mime>;base64,XXXX  — strip the header
-      const result = reader.result;
-      const base64 = String(result).split(",")[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 // ------------------------------
 // MAIN COMPONENT
 // ------------------------------
@@ -65,9 +51,10 @@ export default function Home() {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // NEW: refs for mic + (future) camera
-  const audioInputRef = useRef(null);
-  const imageInputRef = useRef(null);
+  // Voice state
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   // ------------------------------
   // LOAD FROM LOCAL STORAGE
@@ -166,7 +153,7 @@ export default function Home() {
       match = lower.match(/favorite food is ([a-z ]+)/i);
       if (match) mem.preferences.favoriteFood = match[1].trim();
 
-      // --- DigiSoul project text (future use, harmless here) ---
+      // --- DigiSoul ---
       if (lower.includes("digisoul") && lower.includes("is")) {
         const idx = lower.indexOf("digisoul");
         const snippet = text.slice(idx).trim();
@@ -209,10 +196,10 @@ export default function Home() {
   };
 
   // ------------------------------
-  // TEXT MESSAGE FLOW
+  // TEXT CHAT SEND
   // ------------------------------
   const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim()) return;
 
     const userText = input.trim();
     extractFacts(userText);
@@ -227,7 +214,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
-          memory: cipherMemory,
+          memory: cipherMemory, // pass full memory object
         }),
       });
 
@@ -263,79 +250,129 @@ export default function Home() {
   };
 
   // ------------------------------
-  // VOICE MESSAGE FLOW (MIC)
-//  Uses hidden <input type="file" accept="audio/*" capture="microphone">
-// ------------------------------
-  const handleAudioSelected = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = ""; // reset so same file can be chosen again
-    if (!file || loading) return;
+  // VOICE HELPERS
+  // ------------------------------
+  const blobToBase64 = (blob) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result; // "data:audio/webm;base64,...."
+        const base64 = dataUrl.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
 
+  const sendVoiceBlob = async (blob) => {
     setLoading(true);
     try {
-      const base64 = await fileToBase64(file);
+      const base64Audio = await blobToBase64(blob);
 
-      // Tell UI we got a voice message (text will be replaced when transcript arrives)
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", text: "🎤 Voice message..." },
-      ]);
-
-      const res = await fetch("/api/voice", {
+      const res = await fetch("/api/voice_chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          audio: base64,
+          audio: base64Audio,
           memory: cipherMemory,
         }),
       });
 
       const data = await res.json();
 
-      // Expect: { transcript, reply, voice }
       if (data.transcript) {
         extractFacts(data.transcript);
-
-        setMessages((prev) => {
-          const withoutPlaceholder = [...prev];
-          // Replace last "voice message..." bubble with transcript text
-          const idx = withoutPlaceholder.findIndex(
-            (m, i) =>
-              i === withoutPlaceholder.length - 1 && m.text.startsWith("🎤")
-          );
-          if (idx !== -1) {
-            withoutPlaceholder[idx] = {
-              ...withoutPlaceholder[idx],
-              text: "🎤 " + data.transcript,
-            };
-          }
-          return withoutPlaceholder;
-        });
       }
 
-      if (data.reply) {
+      if (data.transcript || data.reply) {
         setMessages((prev) => [
           ...prev,
-          { role: "cipher", text: data.reply, audio: data.voice || null },
+          ...(data.transcript
+            ? [{ role: "user", text: data.transcript }]
+            : []),
+          ...(data.reply
+            ? [
+                {
+                  role: "cipher",
+                  text: data.reply,
+                  audio: data.voice || null,
+                },
+              ]
+            : []),
         ]);
+      }
 
-        if (data.voice) {
-          const audio = new Audio("data:audio/mp3;base64," + data.voice);
-          audio.play().catch(() => {});
-        }
+      if (data.voice) {
+        const audio = new Audio("data:audio/mp3;base64," + data.voice);
+        audio.play().catch(() => {});
       }
     } catch (err) {
-      console.error("Voice error:", err);
+      console.error("Voice chat error:", err);
       setMessages((prev) => [
         ...prev,
-        { role: "cipher", text: "Voice processing error." },
+        {
+          role: "cipher",
+          text: "I had trouble processing that voice message.",
+        },
       ]);
     }
     setLoading(false);
   };
 
+  const startRecording = async () => {
+    if (isRecording) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert("Microphone not supported in this browser.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        await sendVoiceBlob(blob);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Mic access error:", err);
+      alert("Could not access microphone.");
+    }
+  };
+
+  const stopRecording = () => {
+    const mr = mediaRecorderRef.current;
+    if (mr && mr.state !== "inactive") {
+      mr.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   // ------------------------------
-  // CLEAR CONVERSATION
+  // CLEAR EVERYTHING
   // ------------------------------
   const clearConversation = () => {
     if (confirm("Reset Cipher and delete all memory?")) {
@@ -355,7 +392,7 @@ export default function Home() {
         minHeight: "100vh",
         background: "#eef2f7",
         padding: 20,
-        fontFamily: "Inter, system-ui, sans-serif",
+        fontFamily: "Inter, sans-serif",
       }}
     >
       <h1 style={{ textAlign: "center", marginBottom: 20 }}>Cipher AI</h1>
@@ -421,7 +458,6 @@ export default function Home() {
           }}
         />
 
-        {/* Send text */}
         <button
           onClick={sendMessage}
           disabled={loading}
@@ -437,14 +473,13 @@ export default function Home() {
           Send
         </button>
 
-        {/* Mic button – opens phone recorder */}
+        {/* Mic button: tap to start/stop recording */}
         <button
-          type="button"
-          onClick={() => audioInputRef.current?.click()}
+          onClick={toggleRecording}
           disabled={loading}
           style={{
             marginLeft: 8,
-            background: "#2d3e50",
+            background: isRecording ? "#c0392b" : "#2d3e50",
             color: "white",
             width: 48,
             height: 48,
@@ -453,31 +488,9 @@ export default function Home() {
             border: "none",
           }}
         >
-          🎤
+          {isRecording ? "■" : "🎤"}
         </button>
       </div>
-
-      {/* Hidden audio input for microphone capture */}
-      <input
-        ref={audioInputRef}
-        type="file"
-        accept="audio/*"
-        capture="microphone"
-        style={{ display: "none" }}
-        onChange={handleAudioSelected}
-      />
-
-      {/* Hidden image input (camera) – wired later */}
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        style={{ display: "none" }}
-        onChange={() => {
-          // camera pipeline will go here in the next step
-        }}
-      />
 
       <button
         onClick={clearConversation}
