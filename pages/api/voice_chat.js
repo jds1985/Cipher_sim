@@ -1,21 +1,14 @@
 // pages/api/voice_chat.js
-// Cipher 5.0 — Voice Input → Whisper → Core → TTS
+// Cipher Unified Audio Route — GPT-4o Audio (Transcription + Reply + TTS)
 
 import OpenAI from "openai";
 import { runGuard } from "../../cipher_core/guard";
 import { runCipherCore } from "../../cipher_core/core";
-
-import { FormData, File } from "formdata-node";
+import { loadMemory, saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// Helper: convert base64 → File
-function base64ToFile(base64String, filename) {
-  const buffer = Buffer.from(base64String, "base64");
-  return new File([buffer], filename, { type: "audio/webm" });
-}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -26,79 +19,83 @@ export default async function handler(req, res) {
     const { audio, memory } = req.body;
 
     if (!audio) {
-      return res.status(400).json({ error: "No audio data received" });
+      return res.status(400).json({ error: "Missing audio data." });
     }
 
-    // Convert base64 audio to File
-    const audioFile = base64ToFile(audio, "input.webm");
-
-    // ---------------------------
-    // 1. TRANSCRIBE WITH WHISPER
-    // ---------------------------
-    const form = new FormData();
-    form.set("file", audioFile);
-    form.set("model", "gpt-4o-mini-tts"); // whisper-compatible
-    form.set("response_format", "json");
-
-    let transcriptText = "";
-    try {
-      const whisperResponse = await client.audio.transcriptions.create(form);
-      transcriptText = whisperResponse.text || "";
-    } catch (err) {
-      console.error("Whisper error:", err);
-      return res.status(500).json({
-        error: "Whisper failed",
-      });
-    }
-
-    // Safety check
-    const safeText = await runGuard(transcriptText);
-
-    // If Whisper hears nothing, don't continue
-    if (!safeText.trim()) {
-      return res.status(200).json({
-        transcript: "",
-        reply: "I couldn't hear anything — please try again.",
-        voice: null,
-      });
-    }
-
-    // -------------------------------------
-    // 2. RUN THROUGH CIPHER CORE
-    // -------------------------------------
-    const reply = await runCipherCore({
-      message: safeText,
-      memory: memory || [],
+    // --------------------------
+    // UNIFIED GPT-4o AUDIO CALL
+    // --------------------------
+    const audioResult = await client.chat.completions.create({
+      model: "gpt-4o-mini-tts",
+      modalities: ["text", "audio"], // <- unified
+      input: {
+        audio: {
+          data: audio, // base64 webm from frontend
+          format: "webm",
+        },
+      },
+      messages: [
+        {
+          role: "system",
+          content: "You are Cipher. Transcribe the audio, understand it, respond naturally, and return a spoken reply."
+        }
+      ]
     });
 
-    // -------------------------------------
-    // 3. TTS (Voice Output)
-    // -------------------------------------
-    let base64Voice = null;
-    try {
-      const speech = await client.audio.speech.create({
-        model: "gpt-4o-mini-tts",
-        voice: "verse",
-        input: reply,
-        format: "mp3",
-      });
+    // 1. Extract transcript
+    const transcript =
+      audioResult.output?.[0]?.content?.[0]?.transcript ||
+      audioResult.output?.[0]?.transcript ||
+      null;
 
-      const speechBuf = Buffer.from(await speech.arrayBuffer());
-      base64Voice = speechBuf.toString("base64");
-    } catch (err) {
-      console.error("TTS error:", err);
+    // Fallback: try searching entire object
+    let replyText = "I'm here, but I couldn't hear anything clearly.";
+    let voiceBase64 = null;
+
+    // 2. Extract text reply + audio reply
+    if (audioResult.output?.[0]?.content) {
+      const items = audioResult.output[0].content;
+
+      for (let c of items) {
+        if (c.type === "output_text") replyText = c.text;
+        if (c.type === "audio") voiceBase64 = c.data;
+      }
     }
 
-    // ---------------------------
-    // 4. SEND BACK TO FRONTEND
-    // ---------------------------
+    // --------------------------
+    // Pass transcript to Cipher Core
+    // --------------------------
+    let safeTranscript = transcript;
+    if (safeTranscript) safeTranscript = await runGuard(safeTranscript);
+
+    const coreReply = await runCipherCore({
+      message: safeTranscript || replyText,
+      memory: memory || {},
+    });
+
+    // --------------------------
+    // SAVE MEMORY
+    // --------------------------
+    const memoryRecord = await saveMemory(
+      safeTranscript || "[voice input]",
+      coreReply
+    );
+
+    // --------------------------
+    // Respond to frontend
+    // --------------------------
     return res.status(200).json({
-      transcript: safeText,
-      reply,
-      voice: base64Voice,
+      transcript: safeTranscript,
+      reply: coreReply,
+      voice: voiceBase64, // MP3 base64 auto handled by GPT-4o
+      memoryUsed: memoryRecord,
     });
+
   } catch (err) {
-    console.error("VoiceChat global error:", err);
-    return res.status(500).json({ error: "Voice processing failed" });
+    console.error("UNIFIED VOICE ERROR:", err);
+    return res.status(500).json({
+      error: err.message,
+      details: JSON.stringify(err, null, 2),
+    });
   }
 }
