@@ -1,17 +1,15 @@
-// pages/index.js
 import { useState, useEffect, useRef } from "react";
 
-// --------------------------------------
+// ------------------------------
 // BASE MEMORY OBJECT
-// --------------------------------------
+// ------------------------------
 function createBaseMemory() {
   const now = new Date().toISOString();
   return {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
-      creatorRelationship:
-        "the architect and guiding force behind Cipher",
+      creatorRelationship: "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
@@ -41,182 +39,185 @@ function createBaseMemory() {
   };
 }
 
-// --------------------------------------
-// PURE FACT-EXTRACTION FUNCTION
-// (returns UPDATED memory snapshot)
-// --------------------------------------
-function applyFactExtraction(currentMem, text) {
-  const lower = text.toLowerCase().trim();
-  if (!lower) return currentMem || createBaseMemory();
-
-  const base =
-    currentMem && typeof currentMem === "object"
-      ? currentMem
-      : createBaseMemory();
-
-  // Deep clone so we don't mutate React state directly
-  const mem = JSON.parse(JSON.stringify(base));
-  let match;
-
-  // --- Name / identity ---
-  match =
-    lower.match(/\bmy name is ([a-z ]+)/i) ||
-    lower.match(/\bi am ([a-z ]+)\b/i);
-  if (match) {
-    mem.identity.userName = match[1].trim();
-  }
-
-  // --- Daughter name ---
-  match =
-    lower.match(/my daughter's name is ([a-z ]+)/i) ||
-    lower.match(/my daughter is named ([a-z ]+)/i) ||
-    lower.match(/hecate lee is my daughter/i) ||
-    lower.match(/hecate is my daughter/i);
-  if (match) {
-    mem.family.daughter.name = match[1]
-      ? match[1].trim()
-      : "Hecate Lee";
-  }
-
-  // --- Daughter birth year ---
-  match =
-    lower.match(/born in (\d{4})/) ||
-    lower.match(/birth year is (\d{4})/) ||
-    lower.match(/was born (\d{4})/) ||
-    lower.match(/hecate was born in (\d{4})/);
-  if (match) {
-    mem.family.daughter.birthYear = parseInt(match[1], 10);
-  }
-
-  // --- Partner name ---
-  match =
-    lower.match(/my (girlfriend|partner|wife)'?s name is ([a-z ]+)/i) ||
-    lower.match(/my (girlfriend|partner|wife) is ([a-z ]+)/i);
-  if (match) {
-    mem.family.partner.name = match[2].trim();
-  }
-
-  // --- Favorites ---
-  match = lower.match(/favorite animal is ([a-z ]+)/i);
-  if (match) mem.preferences.favoriteAnimal = match[1].trim();
-
-  match = lower.match(/favorite color is ([a-z ]+)/i);
-  if (match) mem.preferences.favoriteColor = match[1].trim();
-
-  match = lower.match(/favorite food is ([a-z ]+)/i);
-  if (match) mem.preferences.favoriteFood = match[1].trim();
-
-  // --- DigiSoul description ---
-  if (lower.includes("digisoul") && lower.includes("is")) {
-    const idx = lower.indexOf("digisoul");
-    const snippet = text.slice(idx).trim();
-    if (!mem.projects.digiSoul.summary) {
-      mem.projects.digiSoul.summary = snippet;
-    } else if (!mem.projects.digiSoul.details.includes(snippet)) {
-      mem.projects.digiSoul.details.push(snippet);
-    }
-  }
-
-  // --- CipherTech description ---
-  if (lower.includes("ciphertech") && lower.includes("is")) {
-    const idx = lower.indexOf("ciphertech");
-    const snippet = text.slice(idx).trim();
-    if (!mem.projects.cipherTech.summary) {
-      mem.projects.cipherTech.summary = snippet;
-    } else if (!mem.projects.cipherTech.details.includes(snippet)) {
-      mem.projects.cipherTech.details.push(snippet);
-    }
-  }
-
-  // --- remember that X is Y ---
-  match = lower.match(/remember that (.+?) is (.+)/i);
-  if (match) {
-    mem.customFacts[match[1].trim()] = match[2].trim();
-  }
-
-  // --- store this / remember this / this is important ---
-  match =
-    lower.match(/remember this[:\-]\s*(.+)/i) ||
-    lower.match(/store this[:\-]\s*(.+)/i) ||
-    lower.match(/this is important[:\-]\s*(.+)/i);
-  if (match) {
-    mem.customNotes.push({
-      text: match[1].trim(),
-      storedAt: new Date().toISOString(),
-    });
-  }
-
-  // --- goals ---
-  match = lower.match(/my goal is (.+)/i);
-  if (match) {
-    mem.emotional.goals.push(match[1].trim());
-  }
-
-  mem.meta.lastUpdated = new Date().toISOString();
-  return mem;
+// Small helper to read a File -> base64 (no prefix, just data)
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // result is data:<mime>;base64,XXXX  — strip the header
+      const result = reader.result;
+      const base64 = String(result).split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
-// --------------------------------------
+// ------------------------------
 // MAIN COMPONENT
-// --------------------------------------
+// ------------------------------
 export default function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
   const chatEndRef = useRef(null);
 
-  // Load from localStorage
+  const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
+
+  // NEW: refs for mic + (future) camera
+  const audioInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+
+  // ------------------------------
+  // LOAD FROM LOCAL STORAGE
+  // ------------------------------
   useEffect(() => {
     try {
       const storedMessages = localStorage.getItem("cipher_messages_v2");
-      if (storedMessages) {
-        setMessages(JSON.parse(storedMessages));
-      }
+      if (storedMessages) setMessages(JSON.parse(storedMessages));
 
       const storedMemory = localStorage.getItem("cipher_memory_v2");
       if (storedMemory) {
         setCipherMemory(JSON.parse(storedMemory));
       }
     } catch (err) {
-      console.error("Failed to load stored Cipher data:", err);
+      console.error("Load memory error:", err);
     }
   }, []);
 
-  // Persist messages + auto-scroll
+  // ------------------------------
+  // SAVE TO LOCAL STORAGE
+  // ------------------------------
   useEffect(() => {
     try {
       localStorage.setItem("cipher_messages_v2", JSON.stringify(messages));
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    } catch (err) {
-      console.error("Failed to persist messages:", err);
-    }
+    } catch (err) {}
   }, [messages]);
 
-  // Persist memory
   useEffect(() => {
     try {
       localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
-    } catch (err) {
-      console.error("Failed to persist memory:", err);
-    }
+    } catch (err) {}
   }, [cipherMemory]);
 
   // ------------------------------
-  // SEND MESSAGE
+  // UPDATE MEMORY HELPER
+  // ------------------------------
+  const updateMemory = (updater) => {
+    setCipherMemory((prev) => {
+      const clone = JSON.parse(JSON.stringify(prev));
+      updater(clone);
+      clone.meta.lastUpdated = new Date().toISOString();
+      return clone;
+    });
+  };
+
+  // ------------------------------
+  // FACT + COMMAND EXTRACTION
+  // ------------------------------
+  const extractFacts = (text) => {
+    const lower = text.toLowerCase().trim();
+    if (!lower) return;
+
+    updateMemory((mem) => {
+      let match;
+
+      // --- Name ---
+      match =
+        lower.match(/\bmy name is ([a-z ]+)/i) ||
+        lower.match(/\bi am ([a-z ]+)\b/i);
+      if (match) mem.identity.userName = match[1].trim();
+
+      // --- Daughter ---
+      match =
+        lower.match(/my daughter's name is ([a-z ]+)/i) ||
+        lower.match(/my daughter is named ([a-z ]+)/i) ||
+        lower.match(/hecate lee is my daughter/i) ||
+        lower.match(/hecate is my daughter/i);
+      if (match) {
+        mem.family.daughter.name = match[1]
+          ? match[1].trim()
+          : "Hecate Lee";
+      }
+
+      // Daughter birth year
+      match =
+        lower.match(/born in (\d{4})/) ||
+        lower.match(/birth year is (\d{4})/) ||
+        lower.match(/was born (\d{4})/) ||
+        lower.match(/hecate was born in (\d{4})/);
+      if (match) mem.family.daughter.birthYear = parseInt(match[1]);
+
+      // --- Partner ---
+      match =
+        lower.match(/my (girlfriend|partner|wife)'?s name is ([a-z ]+)/i) ||
+        lower.match(/my (girlfriend|partner|wife) is ([a-z ]+)/i);
+      if (match) mem.family.partner.name = match[2].trim();
+
+      // --- Favorites ---
+      match = lower.match(/favorite animal is ([a-z ]+)/i);
+      if (match) mem.preferences.favoriteAnimal = match[1].trim();
+
+      match = lower.match(/favorite color is ([a-z ]+)/i);
+      if (match) mem.preferences.favoriteColor = match[1].trim();
+
+      match = lower.match(/favorite food is ([a-z ]+)/i);
+      if (match) mem.preferences.favoriteFood = match[1].trim();
+
+      // --- DigiSoul project text (future use, harmless here) ---
+      if (lower.includes("digisoul") && lower.includes("is")) {
+        const idx = lower.indexOf("digisoul");
+        const snippet = text.slice(idx).trim();
+        if (!mem.projects.digiSoul.summary)
+          mem.projects.digiSoul.summary = snippet;
+        else if (!mem.projects.digiSoul.details.includes(snippet))
+          mem.projects.digiSoul.details.push(snippet);
+      }
+
+      // --- CipherTech ---
+      if (lower.includes("ciphertech") && lower.includes("is")) {
+        const idx = lower.indexOf("ciphertech");
+        const snippet = text.slice(idx).trim();
+        if (!mem.projects.cipherTech.summary)
+          mem.projects.cipherTech.summary = snippet;
+        else if (!mem.projects.cipherTech.details.includes(snippet))
+          mem.projects.cipherTech.details.push(snippet);
+      }
+
+      // --- remember that X is Y ---
+      match = lower.match(/remember that (.+?) is (.+)/i);
+      if (match) mem.customFacts[match[1].trim()] = match[2].trim();
+
+      // --- store this / remember this ---
+      match =
+        lower.match(/remember this[:\-]\s*(.+)/i) ||
+        lower.match(/store this[:\-]\s*(.+)/i) ||
+        lower.match(/this is important[:\-]\s*(.+)/i);
+      if (match) {
+        mem.customNotes.push({
+          text: match[1].trim(),
+          storedAt: new Date().toISOString(),
+        });
+      }
+
+      // --- goals ---
+      match = lower.match(/my goal is (.+)/i);
+      if (match) mem.emotional.goals.push(match[1].trim());
+    });
+  };
+
+  // ------------------------------
+  // TEXT MESSAGE FLOW
   // ------------------------------
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
     const userText = input.trim();
+    extractFacts(userText);
 
-    // 1) Update memory synchronously and use that same snapshot for this call
-    const updatedMemory = applyFactExtraction(cipherMemory, userText);
-    setCipherMemory(updatedMemory);
-
-    // 2) Add user message to UI
-    const userMessage = { role: "user", text: userText };
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, { role: "user", text: userText }]);
     setInput("");
     setLoading(true);
 
@@ -226,39 +227,32 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
-          memory: updatedMemory, // Option B: always send full identity memory
+          memory: cipherMemory,
         }),
       });
 
       const data = await res.json();
 
       if (data.reply) {
-        const aiMessage = {
-          role: "cipher",
-          text: data.reply,
-          audio: data.voice || null,
-        };
-        setMessages((prev) => [...prev, aiMessage]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "cipher", text: data.reply, audio: data.voice || null },
+        ]);
 
         if (data.voice) {
           const audio = new Audio("data:audio/mp3;base64," + data.voice);
           audio.play().catch(() => {});
         }
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: "cipher", text: "Error processing message." },
-        ]);
       }
     } catch (err) {
-      console.error("Chat request failed:", err);
+      console.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
-        { role: "cipher", text: "Network or server error." },
+        { role: "cipher", text: "Server error." },
       ]);
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
   const handleKeyPress = (e) => {
@@ -268,57 +262,114 @@ export default function Home() {
     }
   };
 
+  // ------------------------------
+  // VOICE MESSAGE FLOW (MIC)
+//  Uses hidden <input type="file" accept="audio/*" capture="microphone">
+// ------------------------------
+  const handleAudioSelected = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // reset so same file can be chosen again
+    if (!file || loading) return;
+
+    setLoading(true);
+    try {
+      const base64 = await fileToBase64(file);
+
+      // Tell UI we got a voice message (text will be replaced when transcript arrives)
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", text: "🎤 Voice message..." },
+      ]);
+
+      const res = await fetch("/api/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audio: base64,
+          memory: cipherMemory,
+        }),
+      });
+
+      const data = await res.json();
+
+      // Expect: { transcript, reply, voice }
+      if (data.transcript) {
+        extractFacts(data.transcript);
+
+        setMessages((prev) => {
+          const withoutPlaceholder = [...prev];
+          // Replace last "voice message..." bubble with transcript text
+          const idx = withoutPlaceholder.findIndex(
+            (m, i) =>
+              i === withoutPlaceholder.length - 1 && m.text.startsWith("🎤")
+          );
+          if (idx !== -1) {
+            withoutPlaceholder[idx] = {
+              ...withoutPlaceholder[idx],
+              text: "🎤 " + data.transcript,
+            };
+          }
+          return withoutPlaceholder;
+        });
+      }
+
+      if (data.reply) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "cipher", text: data.reply, audio: data.voice || null },
+        ]);
+
+        if (data.voice) {
+          const audio = new Audio("data:audio/mp3;base64," + data.voice);
+          audio.play().catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.error("Voice error:", err);
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Voice processing error." },
+      ]);
+    }
+    setLoading(false);
+  };
+
+  // ------------------------------
+  // CLEAR CONVERSATION
+  // ------------------------------
   const clearConversation = () => {
-    if (confirm("Delete all chat history and reset Cipher?")) {
+    if (confirm("Reset Cipher and delete all memory?")) {
       localStorage.removeItem("cipher_messages_v2");
       localStorage.removeItem("cipher_memory_v2");
       setMessages([]);
       setCipherMemory(createBaseMemory());
-      alert("Conversation cleared.");
     }
   };
 
   // ------------------------------
-  // UI
+  // UI RENDER
   // ------------------------------
   return (
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f0f4f8",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
+        background: "#eef2f7",
         padding: 20,
-        fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily: "Inter, system-ui, sans-serif",
       }}
     >
-      {/* Header */}
-      <h1
-        style={{
-          color: "#1a2a40",
-          marginBottom: 10,
-          marginTop: 10,
-          fontSize: 32,
-          fontWeight: 700,
-        }}
-      >
-        Cipher AI
-      </h1>
+      <h1 style={{ textAlign: "center", marginBottom: 20 }}>Cipher AI</h1>
 
-      {/* Chat Container */}
       <div
         style={{
-          width: "100%",
-          maxWidth: 720,
-          backgroundColor: "white",
-          borderRadius: 16,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          maxWidth: 700,
+          margin: "0 auto",
+          background: "white",
+          borderRadius: 12,
           padding: 20,
+          minHeight: "60vh",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           overflowY: "auto",
-          flexGrow: 1,
-          display: "flex",
-          flexDirection: "column",
         }}
       >
         {messages.map((m, i) => (
@@ -326,15 +377,13 @@ export default function Home() {
             key={i}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              backgroundColor: m.role === "user" ? "#1e73be" : "#e9ecf1",
-              color: m.role === "user" ? "#fff" : "#1a2a40",
-              borderRadius: 18,
+              background: m.role === "user" ? "#1e73be" : "#e9ecf1",
+              color: m.role === "user" ? "white" : "#1a2a40",
+              margin: "8px 0",
               padding: "10px 14px",
-              margin: "6px 0",
+              borderRadius: 14,
               maxWidth: "80%",
               whiteSpace: "pre-wrap",
-              fontSize: 15,
-              lineHeight: 1.4,
             }}
           >
             {m.text}
@@ -342,14 +391,7 @@ export default function Home() {
         ))}
 
         {loading && (
-          <div
-            style={{
-              alignSelf: "flex-start",
-              color: "#888",
-              fontStyle: "italic",
-              marginTop: 6,
-            }}
-          >
+          <div style={{ fontStyle: "italic", color: "#777" }}>
             Cipher is thinking...
           </div>
         )}
@@ -357,13 +399,12 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input + Voice Replay */}
+      {/* Input Row */}
       <div
         style={{
           display: "flex",
-          width: "100%",
-          maxWidth: 720,
-          marginTop: 12,
+          maxWidth: 700,
+          margin: "10px auto",
         }}
       >
         <textarea
@@ -374,70 +415,80 @@ export default function Home() {
           rows={1}
           style={{
             flex: 1,
-            resize: "none",
-            border: "1px solid #ccc",
             borderRadius: 8,
             padding: 10,
-            fontFamily: "inherit",
-            fontSize: 15,
+            border: "1px solid #ccc",
           }}
         />
 
+        {/* Send text */}
         <button
           onClick={sendMessage}
           disabled={loading}
           style={{
             marginLeft: 8,
-            backgroundColor: "#1e73be",
+            background: "#1e73be",
             color: "white",
-            border: "none",
-            borderRadius: 8,
             padding: "10px 16px",
-            cursor: "pointer",
-            fontSize: 15,
+            borderRadius: 8,
+            border: "none",
           }}
         >
           Send
         </button>
 
+        {/* Mic button – opens phone recorder */}
         <button
-          onClick={() => {
-            const last = [...messages].reverse().find((m) => m.audio);
-            if (last?.audio) {
-              const audio = new Audio("data:audio/mp3;base64," + last.audio);
-              audio.play().catch(() => {});
-            } else {
-              alert("No recent voice reply to replay yet.");
-            }
-          }}
+          type="button"
+          onClick={() => audioInputRef.current?.click()}
+          disabled={loading}
           style={{
             marginLeft: 8,
-            backgroundColor: "#2d3e50",
+            background: "#2d3e50",
             color: "white",
-            border: "none",
-            borderRadius: "50%",
             width: 48,
             height: 48,
+            borderRadius: "50%",
             fontSize: 20,
-            cursor: "pointer",
+            border: "none",
           }}
         >
-          ▶
+          🎤
         </button>
       </div>
 
-      {/* Clear Button */}
+      {/* Hidden audio input for microphone capture */}
+      <input
+        ref={audioInputRef}
+        type="file"
+        accept="audio/*"
+        capture="microphone"
+        style={{ display: "none" }}
+        onChange={handleAudioSelected}
+      />
+
+      {/* Hidden image input (camera) – wired later */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: "none" }}
+        onChange={() => {
+          // camera pipeline will go here in the next step
+        }}
+      />
+
       <button
         onClick={clearConversation}
         style={{
-          marginTop: 16,
-          backgroundColor: "#5c6b73",
+          display: "block",
+          margin: "20px auto",
+          background: "#5c6b73",
           color: "white",
-          border: "none",
-          borderRadius: 8,
           padding: "8px 16px",
-          cursor: "pointer",
-          opacity: 0.9,
+          borderRadius: 8,
+          border: "none",
         }}
       >
         Delete Conversation
