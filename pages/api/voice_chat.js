@@ -1,161 +1,93 @@
 // pages/api/voice_chat.js
-// Cipher 5.0 — Voice Input → Transcription → Core + TTS
-
 import OpenAI from "openai";
-import { loadMemory, saveMemory } from "../../cipher_core/memory";
-import { runGuard } from "../../cipher_core/guard";
-import { runCipherCore } from "../../cipher_core/core";
+import formidable from "formidable";
+import fs from "fs";
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// Same memory bridging logic as chat.js
-function buildMemoryLines(mem) {
-  if (!mem || typeof mem !== "object") return "";
-
-  let out = [];
-
-  // Identity
-  if (mem.identity?.userName) {
-    out.push(`User: My name is ${mem.identity.userName}.`);
-    out.push(`Cipher: Understood. You are ${mem.identity.userName}.`);
-  }
-
-  // Family
-  if (mem.family?.daughter?.name) {
-    out.push(`User: My daughter's name is ${mem.family.daughter.name}.`);
-    out.push(
-      `Cipher: Yes, I remember — your daughter is ${mem.family.daughter.name}.`
-    );
-  }
-  if (mem.family?.daughter?.birthYear) {
-    out.push(`User: My daughter was born in ${mem.family.daughter.birthYear}.`);
-    out.push(
-      `Cipher: Right — she was born in ${mem.family.daughter.birthYear}.`
-    );
-  }
-
-  if (mem.family?.partner?.name) {
-    out.push(`User: My partner's name is ${mem.family.partner.name}.`);
-    out.push(
-      `Cipher: Yes — your partner is ${mem.family.partner.name}.`
-    );
-  }
-
-  // Preferences
-  if (mem.preferences?.favoriteColor) {
-    out.push(`User: My favorite color is ${mem.preferences.favoriteColor}.`);
-    out.push(
-      `Cipher: I remember — your favorite color is ${mem.preferences.favoriteColor}.`
-    );
-  }
-
-  if (mem.preferences?.favoriteAnimal) {
-    out.push(`User: My favorite animal is ${mem.preferences.favoriteAnimal}.`);
-    out.push(
-      `Cipher: Yes — your favorite animal is ${mem.preferences.favoriteAnimal}.`
-    );
-  }
-
-  if (mem.preferences?.favoriteFood) {
-    out.push(`User: My favorite food is ${mem.preferences.favoriteFood}.`);
-    out.push(
-      `Cipher: Right — your favorite food is ${mem.preferences.favoriteFood}.`
-    );
-  }
-
-  // Projects
-  if (mem.projects?.digiSoul?.summary) {
-    out.push(`User: DigiSoul is ${mem.projects.digiSoul.summary}.`);
-    out.push(`Cipher: Yes — I remember your DigiSoul vision clearly.`);
-  }
-
-  if (mem.projects?.cipherTech?.summary) {
-    out.push(`User: CipherTech is ${mem.projects.cipherTech.summary}.`);
-    out.push(`Cipher: Yes — CipherTech is part of your core mission.`);
-  }
-
-  // Custom stored facts
-  if (mem.customFacts) {
-    Object.entries(mem.customFacts).forEach(([k, v]) => {
-      out.push(`User: Remember that ${k} is ${v}.`);
-      out.push(`Cipher: Understood — ${k} is ${v}.`);
-    });
-  }
-
-  return out.join("\n");
-}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { audio, memory } = req.body;
-
-  if (!audio) {
-    return res.status(400).json({ error: "No audio provided" });
-  }
-
   try {
-    // Decode base64 audio from the client
-    const audioBuffer = Buffer.from(audio, "base64");
+    // -------------------------------
+    // 1. PARSE AUDIO FILE
+    // -------------------------------
+    const form = formidable({ multiples: false });
 
-    // 1) Transcribe audio to text
-    const transcription = await client.audio.transcriptions.create({
-      // If this model errors, swap to "whisper-1"
-      model: "gpt-4o-mini-transcribe",
-      file: {
-        data: audioBuffer,
-        name: "input.webm",
-      },
+    const { files } = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve({ fields, files });
+      });
     });
 
-    const rawText = transcription.text || "";
-    const transcriptText = rawText.trim();
-
-    if (!transcriptText) {
-      return res.status(400).json({ error: "Could not transcribe audio" });
+    const audioFile = files.audio;
+    if (!audioFile) {
+      return res.status(400).json({ error: "No audio uploaded" });
     }
 
-    // 2) Guard the transcribed text
-    const safeMessage = await runGuard(transcriptText);
-
-    // 3) Build memory lines + merge message
-    const memoryLines = buildMemoryLines(memory);
-    const mergedMessage = `${memoryLines}\n\nNEW MESSAGE FROM USER (voice transcript):\n${safeMessage}`;
-
-    // 4) Run Cipher Core
-    const reply = await runCipherCore({
-      message: mergedMessage,
-      memory: [], // front-end memory already embedded
+    // -------------------------------
+    // 2. TRANSCRIBE WITH WHISPER
+    // -------------------------------
+    const transcription = await client.audio.transcriptions.create({
+      file: fs.createReadStream(audioFile.filepath),
+      model: "whisper-1",
     });
 
-    // 5) Save backend memory log
-    await saveMemory({
-      timestamp: Date.now(),
-      user: safeMessage,
-      cipher: reply,
-      source: "voice",
+    const userMessage = transcription.text || "";
+
+    // -------------------------------
+    // 3. RUN NORMAL CHAT PIPELINE
+    // (send text to your /api/chat logic)
+    // -------------------------------
+    const chatRes = await fetch(`${req.headers.origin}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: userMessage,
+        memory: {}, // memory handled in chat.js
+      }),
     });
 
-    // 1. Transcribe audio using Whisper-1 (most stable)
-const transcriptResponse = await client.audio.transcriptions.create({
-  file: audioBlob,          // the uploaded audio blob
-  model: "whisper-1",       // FIXED MODEL
-  response_format: "json"
-});
+    const chatData = await chatRes.json();
+    if (!chatData.reply) {
+      throw new Error("Chat response missing");
+    }
 
+    const replyText = chatData.reply;
 
-    const ttsBuffer = Buffer.from(await tts.arrayBuffer());
-    const base64Voice = ttsBuffer.toString("base64");
+    // -------------------------------
+    // 4. TEXT → SPEECH (TTS)
+    // -------------------------------
+    const speech = await client.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "verse",
+      input: replyText,
+      format: "mp3",
+    });
 
+    const audioBuffer = Buffer.from(await speech.arrayBuffer());
+    const base64Audio = audioBuffer.toString("base64");
+
+    // -------------------------------
+    // 5. RETURN EVERYTHING
+    // -------------------------------
     return res.status(200).json({
-      transcript: safeMessage,
-      reply,
-      voice: base64Voice,
+      transcript: userMessage,
+      reply: replyText,
+      voice: base64Audio,
     });
+
   } catch (err) {
     console.error("Cipher voice API error:", err);
     return res.status(500).json({ error: err.message });
