@@ -1,10 +1,13 @@
 // pages/api/voice_chat.js
-// FIXED: Proper multipart/form-data upload for WebM → OpenAI
+// FINAL FIX — WebM → Whisper using formdata-node (Vercel compatible)
 
 import OpenAI from "openai";
 import { runGuard } from "../../cipher_core/guard";
 import { runCipherCore } from "../../cipher_core/core";
 import { saveMemory } from "../../cipher_core/memory";
+
+import { FormData, File } from "formdata-node";
+import { fileFromPath } from "formdata-node/file-from-path";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -13,7 +16,7 @@ const client = new OpenAI({
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "25mb",
+      sizeLimit: "30mb",
     },
   },
 };
@@ -30,19 +33,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing audio" });
     }
 
-    // Decode base64 → Buffer
+    // Convert base64 → buffer
     const audioBuffer = Buffer.from(audio, "base64");
 
-    // Build multipart form-data manually
+    // Build server-side multipart form-data
     const form = new FormData();
-    form.append("model", "whisper-1"); // safest + stable
-    form.append(
-      "file",
-      new Blob([audioBuffer], { type: "audio/webm" }),
-      "cipher_audio.webm"
-    );
+    form.set("model", "whisper-1");
 
-    // Send to transcription endpoint
+    const audioFile = new File([audioBuffer], "cipher_audio.webm", {
+      type: "audio/webm",
+    });
+
+    form.set("file", audioFile);
+
+    // Send real file upload to OpenAI
     const transcriptResponse = await fetch(
       "https://api.openai.com/v1/audio/transcriptions",
       {
@@ -66,16 +70,14 @@ export default async function handler(req, res) {
 
     const transcript = transcriptJson.text;
 
-    // Now pass transcript to Cipher
+    // run guard + core
     const safeMessage = await runGuard(transcript);
-    const mergedMessage = `VOICE INPUT (TRANSCRIBED):\n${safeMessage}`;
-
     const reply = await runCipherCore({
-      message: mergedMessage,
+      message: safeMessage,
       memory: memory || {},
     });
 
-    // Save memory (non-blocking)
+    // save memory
     saveMemory({
       timestamp: Date.now(),
       user: safeMessage,
