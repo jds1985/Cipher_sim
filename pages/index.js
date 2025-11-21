@@ -9,7 +9,8 @@ function createBaseMemory() {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
-      creatorRelationship: "the architect and guiding force behind Cipher",
+      creatorRelationship:
+        "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
@@ -274,71 +275,68 @@ export default function Home() {
   };
 
   // ------------------------------
-  // CAMERA FUNCTIONS — FIXED
+  // CAMERA FUNCTIONS
   // ------------------------------
   const openCamera = async () => {
     try {
-      console.log("Requesting camera...");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-      });
-
-      console.log("Camera stream acquired", stream);
-
-      const video = videoRef.current;
-      if (!video) return;
-
-      video.setAttribute("playsinline", "");
-      video.setAttribute("autoplay", "");
-      video.setAttribute("muted", "");
-      video.srcObject = stream;
-
-      await new Promise((resolve) => {
-        video.onloadedmetadata = () => {
-          video.play().catch(() => {});
-          resolve();
-        };
-      });
-
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
       setCameraActive(true);
     } catch (e) {
-      console.error("CAMERA ERROR:", e);
       alert("Camera access denied.");
+      setCameraActive(false);
     }
   };
 
   const captureImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-
     if (!video || !canvas) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
 
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0);
 
     const base64Image = canvas.toDataURL("image/png").split(",")[1];
 
-    video.srcObject.getTracks().forEach((t) => t.stop());
+    // Stop camera
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+    }
     setCameraActive(false);
 
     setLoading(true);
 
-    const res = await fetch("/api/vision_chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        image: base64Image,
-        memory: cipherMemory,
-      }),
-    });
+    try {
+      const res = await fetch("/api/vision_chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: base64Image,
+          memory: cipherMemory,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.reply)
-      setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
+      if (data.reply) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "cipher", text: data.reply },
+        ]);
+      }
+    } catch (err) {
+      console.error("Vision error:", err);
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Vision processing error." },
+      ]);
+    }
 
     setLoading(false);
   };
@@ -463,13 +461,13 @@ export default function Home() {
           {isRecording ? "■" : "🎤"}
         </button>
 
-        {/* Camera Button */}
+        {/* Camera Button – NOW TURNS RED WHEN ACTIVE */}
         <button
           onClick={openCamera}
           disabled={loading}
           style={{
             marginLeft: 8,
-            background: "#6a1b9a",
+            background: cameraActive ? "#c0392b" : "#6a1b9a",
             color: "white",
             width: 48,
             height: 48,
@@ -487,9 +485,8 @@ export default function Home() {
         <div style={{ textAlign: "center", marginTop: 20 }}>
           <video
             ref={videoRef}
-            playsInline
             autoPlay
-            muted
+            playsInline
             style={{
               width: "90%",
               borderRadius: 12,
