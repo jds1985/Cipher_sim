@@ -11,7 +11,7 @@ const client = new OpenAI({
 });
 
 /* ---------------------------------------------
-   Build natural memory recall text (Option B)
+   Build natural memory recall text
 --------------------------------------------- */
 function buildMemoryContext(mem) {
   if (!mem || typeof mem !== "object") return "";
@@ -145,7 +145,6 @@ and naturally aware of the user’s long-term details.
       reply,
       voice: base64Audio,
     });
-
   } catch (err) {
     console.error("Cipher API error:", err);
     return res.status(500).json({ error: err.message });
