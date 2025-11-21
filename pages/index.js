@@ -9,8 +9,7 @@ function createBaseMemory() {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
-      creatorRelationship:
-        "the architect and guiding force behind Cipher",
+      creatorRelationship: "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
@@ -275,14 +274,35 @@ export default function Home() {
   };
 
   // ------------------------------
-  // CAMERA FUNCTIONS
+  // CAMERA FUNCTIONS — FIXED
   // ------------------------------
   const openCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      videoRef.current.srcObject = stream;
+      console.log("Requesting camera...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+      });
+
+      console.log("Camera stream acquired", stream);
+
+      const video = videoRef.current;
+      if (!video) return;
+
+      video.setAttribute("playsinline", "");
+      video.setAttribute("autoplay", "");
+      video.setAttribute("muted", "");
+      video.srcObject = stream;
+
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          video.play().catch(() => {});
+          resolve();
+        };
+      });
+
       setCameraActive(true);
     } catch (e) {
+      console.error("CAMERA ERROR:", e);
       alert("Camera access denied.");
     }
   };
@@ -291,16 +311,18 @@ export default function Home() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
+    if (!video || !canvas) return;
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const base64Image = canvas.toDataURL("image/png").split(",")[1];
 
-    setCameraActive(false);
     video.srcObject.getTracks().forEach((t) => t.stop());
+    setCameraActive(false);
 
     setLoading(true);
 
@@ -465,7 +487,9 @@ export default function Home() {
         <div style={{ textAlign: "center", marginTop: 20 }}>
           <video
             ref={videoRef}
+            playsInline
             autoPlay
+            muted
             style={{
               width: "90%",
               borderRadius: 12,
