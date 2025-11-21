@@ -15,8 +15,6 @@
     "firebase-admin": "^12.0.0",
     "openai": "^4.0.0",
     "react-force-graph": "^1.44.0",
-
-    /** 🚀 REQUIRED FOR VOICE API FIX **/
     "formdata-node": "^6.0.1"
   }
 }
