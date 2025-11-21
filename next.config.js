@@ -1,23 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  distDir: '.next',
 
-  // 🔥 REQUIRED FOR CAMERA + MICROPHONE ON VERCEL
-  experimental: {
-    serverActions: true,
-  },
-
-  // 🔥 ALLOW BROWSER TO USE CAMERA/MIC OVER HTTPS
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**",
-      },
-    ],
-  },
-
-  // 🔥 MOST IMPORTANT PART — ALLOWS CHROME/ANDROID TO USE getUserMedia
   async headers() {
     return [
       {
@@ -25,17 +10,20 @@ const nextConfig = {
         headers: [
           {
             key: "Permissions-Policy",
-            value:
-              "camera=*, microphone=*, geolocation=(self), fullscreen=*",
+            value: "camera=(self), microphone=(self)"
           },
           {
-            key: "X-Frame-Options",
-            value: "ALLOWALL",
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin"
           },
-        ],
-      },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff"
+          }
+        ]
+      }
     ];
-  },
+  }
 };
 
 export default nextConfig;
