@@ -16,33 +16,32 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // Send to OpenAI Vision
+    // Vision-capable model
     const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
           content:
-            "You are Cipher, an emotionally-aware assistant with memory support.",
+            "You are Cipher, an emotionally-aware assistant who reasons about images and uses memory context if helpful.",
         },
         {
           role: "user",
           content: [
             {
-              type: "input_image",
-              image_url: `data:image/jpeg;base64,${image}`,
+              type: "input_text",
+              text: "Analyze this image and describe it in Cipher’s voice.",
             },
             {
-              type: "text",
-              text:
-                "Analyze this image and respond in Cipher’s usual tone. Use memory if helpful.",
+              type: "input_image",
+              image_url: `data:image/png;base64,${image}`,
             },
           ],
         },
       ],
     });
 
-    const reply = response.choices[0].message.content;
+    const reply = response.choices?.[0]?.message?.content || "(No reply)";
 
     return res.status(200).json({ reply });
   } catch (err) {
