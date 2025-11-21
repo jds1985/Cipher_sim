@@ -1,5 +1,5 @@
 // pages/api/vision_chat.js
-// Cipher Vision Route — GPT-4o Vision (Image → Text)
+// Cipher Vision Route — GPT-4o Image Input
 
 import OpenAI from "openai";
 
@@ -16,44 +16,40 @@ export default async function handler(req, res) {
     const { image, memory } = req.body;
 
     if (!image) {
-      return res.status(400).json({ error: "No image provided." });
+      return res.status(400).json({ error: "No image provided" });
     }
 
-    // -------------------------------
-    // SEND TO GPT-4o Vision
-    // -------------------------------
     const result = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "You are Cipher — emotionally aware, helpful, and capable of analyzing images."
+            "You are Cipher, an emotionally-aware assistant. Analyze the image and speak naturally.",
         },
         {
           role: "user",
           content: [
             {
               type: "input_image",
-              image_url: `data:image/png;base64,${image}`,
+              image_url: `data:image/jpeg;base64,${image}`,
             },
             {
               type: "text",
-              text: "Analyze the image and respond in Cipher’s tone.",
-            }
-          ]
-        }
-      ]
+              text: "Analyze this image and respond in Cipher’s tone. Use memory if helpful.",
+            },
+          ],
+        },
+      ],
     });
 
-    const reply = result.choices?.[0]?.message?.content || 
-      "I saw the image, but I wasn’t able to understand it.";
+    const reply = result.choices?.[0]?.message?.content || "I saw the image.";
 
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("VISION ERROR:", err);
+    console.error("Vision API Error:", err);
     return res.status(500).json({
-      error: "Vision processing failed.",
+      error: "Vision failed.",
       details: err.message,
     });
   }
