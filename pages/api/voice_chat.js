@@ -1,10 +1,11 @@
 // pages/api/voice_chat.js
-// Cipher Unified Audio Route — GPT-4o Audio (Transcription + Reply + TTS)
+// Cipher Voice Route — Transcription + Core + TTS
 
 import OpenAI from "openai";
+import { File } from "formdata-node";
 import { runGuard } from "../../cipher_core/guard";
 import { runCipherCore } from "../../cipher_core/core";
-import { loadMemory, saveMemory } from "../../cipher_core/memory";
+import { saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -22,80 +23,56 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing audio data." });
     }
 
-    // --------------------------
-    // UNIFIED GPT-4o AUDIO CALL
-    // --------------------------
-    const audioResult = await client.chat.completions.create({
-      model: "gpt-4o-mini-tts",
-      modalities: ["text", "audio"], // <- unified
-      input: {
-        audio: {
-          data: audio, // base64 webm from frontend
-          format: "webm",
-        },
-      },
-      messages: [
-        {
-          role: "system",
-          content: "You are Cipher. Transcribe the audio, understand it, respond naturally, and return a spoken reply."
-        }
-      ]
+    // audio is base64 webm from the frontend
+    const buffer = Buffer.from(audio, "base64");
+    const file = new File([buffer], "input.webm", { type: "audio/webm" });
+
+    // 1) Transcribe
+    const transcriptResp = await client.audio.transcriptions.create({
+      file,
+      model: "gpt-4o-transcribe",
     });
 
-    // 1. Extract transcript
-    const transcript =
-      audioResult.output?.[0]?.content?.[0]?.transcript ||
-      audioResult.output?.[0]?.transcript ||
-      null;
+    const transcript = transcriptResp.text || "";
 
-    // Fallback: try searching entire object
-    let replyText = "I'm here, but I couldn't hear anything clearly.";
-    let voiceBase64 = null;
-
-    // 2. Extract text reply + audio reply
-    if (audioResult.output?.[0]?.content) {
-      const items = audioResult.output[0].content;
-
-      for (let c of items) {
-        if (c.type === "output_text") replyText = c.text;
-        if (c.type === "audio") voiceBase64 = c.data;
-      }
-    }
-
-    // --------------------------
-    // Pass transcript to Cipher Core
-    // --------------------------
-    let safeTranscript = transcript;
-    if (safeTranscript) safeTranscript = await runGuard(safeTranscript);
+    // 2) Guard + Core reasoning
+    const safeTranscript = await runGuard(
+      transcript.trim() || "[user sent empty voice input]"
+    );
 
     const coreReply = await runCipherCore({
-      message: safeTranscript || replyText,
+      message: safeTranscript,
       memory: memory || {},
     });
 
-    // --------------------------
-    // SAVE MEMORY
-    // --------------------------
-    const memoryRecord = await saveMemory(
-      safeTranscript || "[voice input]",
-      coreReply
-    );
-
-    // --------------------------
-    // Respond to frontend
-    // --------------------------
-    return res.status(200).json({
-      transcript: safeTranscript,
-      reply: coreReply,
-      voice: voiceBase64, // MP3 base64 auto handled by GPT-4o
-      memoryUsed: memoryRecord,
+    // 3) Store memory
+    await saveMemory({
+      timestamp: Date.now(),
+      user: safeTranscript,
+      cipher: coreReply,
     });
 
+    // 4) TTS for reply
+    const ttsResp = await client.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "verse",
+      input: coreReply,
+      format: "mp3",
+    });
+
+    const ttsBuffer = Buffer.from(await ttsResp.arrayBuffer());
+    const voiceBase64 = ttsBuffer.toString("base64");
+
+    return res.status(200).json({
+      transcript,
+      reply: coreReply,
+      voice: voiceBase64,
+    });
   } catch (err) {
-    console.error("UNIFIED VOICE ERROR:", err);
+    console.error("VOICE ERROR:", err);
     return res.status(500).json({
-      error: err.message,
-      details: JSON.stringify(err, null, 2),
+      error: "Voice route failed",
+      details: err.message,
     });
   }
 }
