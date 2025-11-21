@@ -1,45 +1,69 @@
 import { useState, useEffect, useRef } from "react";
 
-/* ============================================================
-   BASE MEMORY
-============================================================ */
+// ------------------------------
+// BASE MEMORY OBJECT
+// ------------------------------
 function createBaseMemory() {
   const now = new Date().toISOString();
   return {
-    identity: { userName: "Jim" },
+    identity: {
+      userName: "Jim",
+      roles: ["architect", "creator", "visionary"],
+      creatorRelationship:
+        "the architect and guiding force behind Cipher",
+    },
     family: {
       daughter: { name: null, birthYear: null },
       partner: { name: null },
+      others: [],
     },
     preferences: {
       favoriteAnimal: null,
       favoriteColor: null,
       favoriteFood: null,
+      favoriteMusic: [],
+      favoriteThemes: [],
+    },
+    projects: {
+      digiSoul: { summary: null, details: [] },
+      cipherTech: { summary: null, details: [] },
+      other: [],
+    },
+    emotional: {
+      motivations: [],
+      fears: [],
+      goals: [],
     },
     customFacts: {},
     customNotes: [],
-    meta: { createdAt: now, lastUpdated: now },
+    meta: { createdAt: now, lastUpdated: now, version: 2 },
   };
 }
 
-/* ============================================================
-   MAIN APP
-============================================================ */
+// ------------------------------
+// MAIN COMPONENT
+// ------------------------------
 export default function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
-  const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
   const [loading, setLoading] = useState(false);
-
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunks = useRef([]);
-
   const chatEndRef = useRef(null);
 
-  /* ============================================================
-     LOAD LOCAL MEMORY + CHAT
-  ============================================================ */
+  const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
+
+  // Voice state
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  // Camera state
+  const [cameraActive, setCameraActive] = useState(false);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  // ------------------------------
+  // LOAD SAVED MEMORY & MESSAGES
+  // ------------------------------
   useEffect(() => {
     try {
       const storedMessages = localStorage.getItem("cipher_messages_v2");
@@ -48,88 +72,108 @@ export default function Home() {
       const storedMemory = localStorage.getItem("cipher_memory_v2");
       if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
     } catch (err) {
-      console.error("Load error:", err);
+      console.error("Load memory error:", err);
     }
   }, []);
 
-  /* ============================================================
-     SAVE MEMORY + CHAT
-  ============================================================ */
   useEffect(() => {
-    localStorage.setItem("cipher_messages_v2", JSON.stringify(messages));
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    try {
+      localStorage.setItem("cipher_messages_v2", JSON.stringify(messages));
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } catch {}
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
+    try {
+      localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
+    } catch {}
   }, [cipherMemory]);
 
-  const updateMemory = (fn) => {
+  // ------------------------------
+  // MEMORY UPDATE
+  // ------------------------------
+  const updateMemory = (updater) => {
     setCipherMemory((prev) => {
-      const m = JSON.parse(JSON.stringify(prev));
-      fn(m);
-      m.meta.lastUpdated = new Date().toISOString();
-      return m;
+      const clone = JSON.parse(JSON.stringify(prev));
+      updater(clone);
+      clone.meta.lastUpdated = new Date().toISOString();
+      return clone;
     });
   };
 
-  /* ============================================================
-     FACT EXTRACTION (SHORT VERSION)
-  ============================================================ */
+  // ------------------------------
+  // FACT EXTRACTION
+  // ------------------------------
   const extractFacts = (text) => {
-    const lower = text.toLowerCase();
+    const lower = text.toLowerCase().trim();
+    if (!lower) return;
 
-    updateMemory((m) => {
+    updateMemory((mem) => {
       let match;
 
-      match = lower.match(/my name is ([a-z ]+)/i);
-      if (match) m.identity.userName = match[1].trim();
+      match =
+        lower.match(/\bmy name is ([a-z ]+)/i) ||
+        lower.match(/\bi am ([a-z ]+)\b/i);
+      if (match) mem.identity.userName = match[1].trim();
 
-      match = lower.match(/my daughter's name is ([a-z ]+)/i);
-      if (match) m.family.daughter.name = match[1].trim();
+      match =
+        lower.match(/hecate lee is my daughter/i) ||
+        lower.match(/hecate is my daughter/i);
+      if (match) mem.family.daughter.name = "Hecate Lee";
 
-      match = lower.match(/born in (\d{4})/i);
-      if (match) m.family.daughter.birthYear = parseInt(match[1]);
+      match = lower.match(/hecate was born in (\d{4})/);
+      if (match) mem.family.daughter.birthYear = parseInt(match[1]);
 
       match = lower.match(/favorite color is ([a-z ]+)/i);
-      if (match) m.preferences.favoriteColor = match[1].trim();
+      if (match) mem.preferences.favoriteColor = match[1].trim();
+
+      match = lower.match(/remember that (.+?) is (.+)/i);
+      if (match) mem.customFacts[match[1].trim()] = match[2].trim();
     });
   };
 
-  /* ============================================================
-     TEXT MESSAGE SEND
-  ============================================================ */
+  // ------------------------------
+  // SEND TEXT MESSAGE
+  // ------------------------------
   const sendMessage = async () => {
     if (!input.trim()) return;
-    const msg = input.trim();
 
-    extractFacts(msg);
+    const userText = input.trim();
+    extractFacts(userText);
 
-    setMessages((prev) => [...prev, { role: "user", text: msg }]);
-    setLoading(true);
+    setMessages((prev) => [...prev, { role: "user", text: userText }]);
     setInput("");
+    setLoading(true);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: msg,
+          message: userText,
           memory: cipherMemory,
         }),
       });
 
       const data = await res.json();
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "cipher", text: data.reply, audio: data.voice },
-      ]);
+      if (data.reply) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "cipher",
+            text: data.reply,
+            audio: data.voice || null,
+          },
+        ]);
+      }
 
       if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice).play();
+        const audio = new Audio("data:audio/mp3;base64," + data.voice);
+        audio.play().catch(() => {});
       }
     } catch (err) {
+      console.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
         { role: "cipher", text: "Server error." },
@@ -139,61 +183,19 @@ export default function Home() {
     setLoading(false);
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
-  /* ============================================================
-     MIC RECORDING
-  ============================================================ */
-  const startRecording = async () => {
-    if (isRecording) return;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream);
-
-      audioChunks.current = [];
-
-      rec.ondataavailable = (e) => audioChunks.current.push(e.data);
-
-      rec.onstop = async () => {
-        const blob = new Blob(audioChunks.current, { type: "audio/webm" });
-        await sendVoiceBlob(blob);
-        stream.getTracks().forEach((t) => t.stop());
-      };
-
-      mediaRecorderRef.current = rec;
-      rec.start();
-      setIsRecording(true);
-    } catch (err) {
-      alert("Mic permission denied.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
-    setIsRecording(false);
-  };
-
-  const toggleRecording = () => {
-    if (isRecording) stopRecording();
-    else startRecording();
-  };
-
+  // ------------------------------
+  // VOICE HELPERS
+  // ------------------------------
   const blobToBase64 = (blob) =>
-    new Promise((resolve) => {
+    new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
 
   const sendVoiceBlob = async (blob) => {
     setLoading(true);
-
     try {
       const base64 = await blobToBase64(blob);
 
@@ -208,82 +210,132 @@ export default function Home() {
 
       const data = await res.json();
 
-      if (data.transcript) {
-        extractFacts(data.transcript);
+      if (data.transcript)
         setMessages((prev) => [
           ...prev,
           { role: "user", text: data.transcript },
         ]);
-      }
 
-      if (data.reply) {
+      if (data.reply)
         setMessages((prev) => [
           ...prev,
-          { role: "cipher", text: data.reply, audio: data.voice },
+          { role: "cipher", text: data.reply },
         ]);
 
-        if (data.voice) {
-          new Audio("data:audio/mp3;base64," + data.voice).play();
-        }
+      if (data.voice) {
+        const audio = new Audio("data:audio/mp3;base64," + data.voice);
+        audio.play().catch(() => {});
       }
-    } catch (err) {}
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Voice processing error." },
+      ]);
+    }
+    setLoading(false);
+  };
+
+  const startRecording = async () => {
+    if (isRecording) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+
+      audioChunksRef.current = [];
+
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mr.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        await sendVoiceBlob(blob);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setIsRecording(true);
+    } catch {
+      alert("Microphone error.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) stopRecording();
+    else startRecording();
+  };
+
+  // ------------------------------
+  // CAMERA FUNCTIONS
+  // ------------------------------
+  const openCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      videoRef.current.srcObject = stream;
+      setCameraActive(true);
+    } catch (e) {
+      alert("Camera access denied.");
+    }
+  };
+
+  const captureImage = async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
+
+    const base64Image = canvas.toDataURL("image/png").split(",")[1];
+
+    setCameraActive(false);
+    video.srcObject.getTracks().forEach((t) => t.stop());
+
+    setLoading(true);
+
+    const res = await fetch("/api/vision_chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image: base64Image,
+        memory: cipherMemory,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.reply)
+      setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
 
     setLoading(false);
   };
 
-  /* ============================================================
-     CAMERA API CALL
-  ============================================================ */
-  const takePhoto = async () => {
-    try {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.capture = "environment";
-
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const base64 = await blobToBase64(file);
-
-        setMessages((prev) => [
-          ...prev,
-          { role: "user", text: "[📸 Photo Sent]" },
-        ]);
-
-        setLoading(true);
-
-        const res = await fetch("/api/vision_chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            image: base64,
-            memory: cipherMemory,
-          }),
-        });
-
-        const data = await res.json();
-
-        setMessages((prev) => [
-          ...prev,
-          { role: "cipher", text: data.reply, audio: data.voice },
-        ]);
-
-        if (data.voice) {
-          new Audio("data:audio/mp3;base64," + data.voice).play();
-        }
-
-        setLoading(false);
-      };
-
-      input.click();
-    } catch {}
+  // ------------------------------
+  // CLEAR EVERYTHING
+  // ------------------------------
+  const clearConversation = () => {
+    if (confirm("Reset Cipher and delete all memory?")) {
+      localStorage.removeItem("cipher_messages_v2");
+      localStorage.removeItem("cipher_memory_v2");
+      setMessages([]);
+      setCipherMemory(createBaseMemory());
+    }
   };
 
-  /* ============================================================
-     UI
-  ============================================================ */
+  // ------------------------------
+  // UI
+  // ------------------------------
   return (
     <div
       style={{
@@ -293,32 +345,32 @@ export default function Home() {
         fontFamily: "Inter, sans-serif",
       }}
     >
-      <h1 style={{ textAlign: "center" }}>Cipher AI</h1>
+      <h1 style={{ textAlign: "center", marginBottom: 20 }}>Cipher AI</h1>
 
-      {/* CHAT WINDOW */}
+      {/* Chat window */}
       <div
         style={{
           maxWidth: 700,
           margin: "0 auto",
-          padding: 20,
           background: "white",
-          minHeight: "60vh",
           borderRadius: 12,
-          overflowY: "auto",
+          padding: 20,
+          minHeight: "60vh",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          overflowY: "auto",
         }}
       >
         {messages.map((m, i) => (
           <div
             key={i}
             style={{
-              background: m.role === "user" ? "#1e73be" : "#e9ecf1",
-              color: m.role === "user" ? "white" : "black",
-              margin: "8px 0",
-              padding: 10,
-              borderRadius: 12,
-              maxWidth: "80%",
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+              background: m.role === "user" ? "#1e73be" : "#e9ecf1",
+              color: m.role === "user" ? "white" : "#1a2a40",
+              margin: "8px 0",
+              padding: "10px 14px",
+              borderRadius: 14,
+              maxWidth: "80%",
               whiteSpace: "pre-wrap",
             }}
           >
@@ -327,43 +379,43 @@ export default function Home() {
         ))}
 
         {loading && (
-          <div style={{ fontStyle: "italic", color: "#666" }}>
-            Cipher is thinking…
+          <div style={{ fontStyle: "italic", color: "#777" }}>
+            Cipher is thinking...
           </div>
         )}
 
         <div ref={chatEndRef} />
       </div>
 
-      {/* INPUT BAR */}
+      {/* Input Row */}
       <div
         style={{
+          display: "flex",
           maxWidth: 700,
           margin: "10px auto",
-          display: "flex",
-          gap: 8,
         }}
       >
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Type to Cipher…"
+          placeholder="Type to Cipher..."
           rows={1}
           style={{
             flex: 1,
-            padding: 10,
             borderRadius: 8,
+            padding: 10,
             border: "1px solid #ccc",
           }}
         />
 
         <button
           onClick={sendMessage}
+          disabled={loading}
           style={{
-            padding: "10px 16px",
+            marginLeft: 8,
             background: "#1e73be",
             color: "white",
+            padding: "10px 16px",
             borderRadius: 8,
             border: "none",
           }}
@@ -371,14 +423,17 @@ export default function Home() {
           Send
         </button>
 
+        {/* Mic Button */}
         <button
           onClick={toggleRecording}
+          disabled={loading}
           style={{
+            marginLeft: 8,
+            background: isRecording ? "#c0392b" : "#2d3e50",
+            color: "white",
             width: 48,
             height: 48,
             borderRadius: "50%",
-            background: isRecording ? "#c0392b" : "#2d3e50",
-            color: "white",
             fontSize: 20,
             border: "none",
           }}
@@ -386,14 +441,17 @@ export default function Home() {
           {isRecording ? "■" : "🎤"}
         </button>
 
+        {/* Camera Button */}
         <button
-          onClick={takePhoto}
+          onClick={openCamera}
+          disabled={loading}
           style={{
+            marginLeft: 8,
+            background: "#6a1b9a",
+            color: "white",
             width: 48,
             height: 48,
             borderRadius: "50%",
-            background: "#6b2dbf",
-            color: "white",
             fontSize: 22,
             border: "none",
           }}
@@ -401,6 +459,55 @@ export default function Home() {
           📷
         </button>
       </div>
+
+      {/* Camera Preview */}
+      {cameraActive && (
+        <div style={{ textAlign: "center", marginTop: 20 }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            style={{
+              width: "90%",
+              borderRadius: 12,
+              border: "2px solid #444",
+            }}
+          ></video>
+
+          <br />
+
+          <button
+            onClick={captureImage}
+            style={{
+              marginTop: 10,
+              padding: "10px 20px",
+              fontSize: 18,
+              background: "#1e73be",
+              color: "white",
+              borderRadius: 10,
+              border: "none",
+            }}
+          >
+            Capture
+          </button>
+
+          <canvas ref={canvasRef} style={{ display: "none" }} />
+        </div>
+      )}
+
+      <button
+        onClick={clearConversation}
+        style={{
+          display: "block",
+          margin: "20px auto",
+          background: "#5c6b73",
+          color: "white",
+          padding: "8px 16px",
+          borderRadius: 8,
+          border: "none",
+        }}
+      >
+        Delete Conversation
+      </button>
     </div>
   );
 }
