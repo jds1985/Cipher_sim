@@ -9,7 +9,8 @@ function createBaseMemory() {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
-      creatorRelationship: "the architect and guiding force behind Cipher",
+      creatorRelationship:
+        "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
@@ -50,18 +51,18 @@ export default function Home() {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // Voice recording
+  // Voice state
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Camera
+  // Camera state
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
   // ------------------------------
-  // Load memories/messages
+  // LOAD LOCAL MEMORY
   // ------------------------------
   useEffect(() => {
     try {
@@ -87,7 +88,7 @@ export default function Home() {
   }, [cipherMemory]);
 
   // ------------------------------
-  // Memory Update
+  // MEMORY UPDATE
   // ------------------------------
   const updateMemory = (fn) => {
     setCipherMemory((prev) => {
@@ -99,7 +100,7 @@ export default function Home() {
   };
 
   // ------------------------------
-  // Extract Memory Facts
+  // EXTRACT FACTS
   // ------------------------------
   const extractFacts = (text) => {
     const lower = text.toLowerCase();
@@ -125,7 +126,7 @@ export default function Home() {
   };
 
   // ------------------------------
-  // Send text message
+  // SEND TEXT MESSAGE
   // ------------------------------
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -151,7 +152,8 @@ export default function Home() {
       }
 
       if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice).play();
+        const audio = new Audio("data:audio/mp3;base64," + data.voice);
+        audio.play().catch(() => {});
       }
     } catch {
       setMessages((p) => [...p, { role: "cipher", text: "Server error." }]);
@@ -161,17 +163,18 @@ export default function Home() {
   };
 
   // ------------------------------
-  // Voice → Blob → Base64
+  // VOICE HANDLERS
   // ------------------------------
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result.split(",")[1]);
-      reader.readAsDataURL(blob);
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result.split(",")[1]);
+      r.readAsDataURL(blob);
     });
 
   const sendVoiceBlob = async (blob) => {
     setLoading(true);
+
     try {
       const base64 = await blobToBase64(blob);
 
@@ -192,34 +195,37 @@ export default function Home() {
       }
 
       if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice).play();
+        const audio = new Audio("data:audio/mp3;base64," + data.voice);
+        audio.play().catch(() => {});
       }
     } catch {
       setMessages((p) => [...p, { role: "cipher", text: "Voice error." }]);
     }
+
     setLoading(false);
   };
 
-  // ------------------------------
-  // Recording controls
-  // ------------------------------
   const startRecording = async () => {
+    if (isRecording) return;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream);
+      const recorder = new MediaRecorder(stream);
 
       audioChunksRef.current = [];
 
-      rec.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size) audioChunksRef.current.push(e.data);
+      };
 
-      rec.onstop = async () => {
+      recorder.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         await sendVoiceBlob(blob);
         stream.getTracks().forEach((t) => t.stop());
       };
 
-      mediaRecorderRef.current = rec;
-      rec.start();
+      mediaRecorderRef.current = recorder;
+      recorder.start();
       setIsRecording(true);
     } catch {
       alert("Microphone error.");
@@ -227,7 +233,9 @@ export default function Home() {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+    if (mediaRecorderRef.current?.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
     setIsRecording(false);
   };
 
@@ -235,62 +243,106 @@ export default function Home() {
     isRecording ? stopRecording() : startRecording();
 
   // ------------------------------
-  // CAMERA FIX — Correct Patch
+  // CAMERA SYSTEM
   // ------------------------------
-  const openCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" }, // <-- THIS IS THE PATCH
-      });
 
-      if (!videoRef.current) return;
+  // Effect that actually opens/closes the stream when cameraActive changes
+  useEffect(() => {
+    const setupStream = async () => {
+      if (!cameraActive) {
+        // if turning off, make sure to stop any existing tracks
+        if (videoRef.current && videoRef.current.srcObject) {
+          const tracks = videoRef.current.srcObject.getTracks();
+          tracks.forEach((t) => t.stop());
+          videoRef.current.srcObject = null;
+        }
+        return;
+      }
 
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+        });
 
-      setCameraActive(true);
-    } catch (err) {
-      console.log(err);
-      alert("Camera permission denied.");
-    }
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Camera error:", err);
+        alert("Camera denied or failed to start.");
+        setCameraActive(false);
+      }
+    };
+
+    setupStream();
+
+    // Cleanup when component unmounts
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = videoRef.current.srcObject.getTracks();
+        tracks.forEach((t) => t.stop());
+        videoRef.current.srcObject = null;
+      }
+    };
+  }, [cameraActive]);
+
+  const openCamera = () => {
+    // just flip the state; effect above will handle getUserMedia
+    setCameraActive(true);
   };
 
   const captureImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
+      alert("Camera not ready yet.");
+      return;
+    }
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    canvas.getContext("2d").drawImage(video, 0, 0);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
 
-    const base64 = canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+    const base64 = canvas.toDataURL("image/png").split(",")[1];
 
-    video.srcObject.getTracks().forEach((t) => t.stop());
-
+    // stop stream after capture
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+    }
     setCameraActive(false);
     setLoading(true);
 
-    const res = await fetch("/api/vision_chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: base64, memory: cipherMemory }),
-    });
+    try {
+      const res = await fetch("/api/vision_chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64, memory: cipherMemory }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.reply) {
-      setMessages((p) => [...p, { role: "cipher", text: data.reply }]);
+      if (data.reply) {
+        setMessages((p) => [...p, { role: "cipher", text: data.reply }]);
+      }
+    } catch {
+      setMessages((p) => [
+        ...p,
+        { role: "cipher", text: "Vision processing error." },
+      ]);
     }
 
     setLoading(false);
   };
 
   // ------------------------------
-  // Reset Conversation
+  // CLEAR
   // ------------------------------
   const clearConversation = () => {
-    if (confirm("Reset Cipher?")) {
+    if (confirm("Reset Cipher entirely?")) {
       localStorage.removeItem("cipher_messages_v2");
       localStorage.removeItem("cipher_memory_v2");
       setMessages([]);
@@ -302,7 +354,14 @@ export default function Home() {
   // UI
   // ------------------------------
   return (
-    <div style={{ minHeight: "100vh", background: "#eef2f7", padding: 20 }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#eef2f7",
+        padding: 20,
+        fontFamily: "Inter, sans-serif",
+      }}
+    >
       <h1 style={{ textAlign: "center", marginBottom: 20 }}>Cipher AI</h1>
 
       <div
@@ -328,6 +387,7 @@ export default function Home() {
               padding: "10px 14px",
               borderRadius: 14,
               maxWidth: "80%",
+              whiteSpace: "pre-wrap",
             }}
           >
             {m.text}
@@ -344,7 +404,13 @@ export default function Home() {
       </div>
 
       {/* INPUT BAR */}
-      <div style={{ display: "flex", maxWidth: 700, margin: "10px auto" }}>
+      <div
+        style={{
+          display: "flex",
+          maxWidth: 700,
+          margin: "10px auto",
+        }}
+      >
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -391,7 +457,7 @@ export default function Home() {
           {isRecording ? "■" : "🎤"}
         </button>
 
-        {/* CAMERA */}
+        {/* CAMERA (turns red when active) */}
         <button
           onClick={openCamera}
           disabled={loading}
@@ -423,6 +489,7 @@ export default function Home() {
               border: "2px solid #444",
             }}
           />
+
           <button
             onClick={captureImage}
             style={{
