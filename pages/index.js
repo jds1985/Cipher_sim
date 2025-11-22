@@ -258,21 +258,6 @@ export default function Home() {
     }
   };
 
-  // ------------------------------
-  // TEST CAMERA BUTTON (ADDED HERE)
-  // ------------------------------
-  const testCameraAccess = async () => {
-    try {
-      await navigator.mediaDevices.getUserMedia({ video: true });
-      alert("Camera works! Browser granted access.");
-    } catch (err) {
-      alert("Camera still blocked — this confirms it's a permissions issue.");
-    }
-  };
-
-  // ------------------------------
-  // CAPTURE IMAGE
-  // ------------------------------
   const captureImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -302,6 +287,21 @@ export default function Home() {
     }
 
     setLoading(false);
+  };
+
+  // ------------------------------
+  // TEST CAMERA PERMISSIONS (NEW)
+  // ------------------------------
+  const testCamera = async () => {
+    try {
+      const permissions = await navigator.permissions.query({
+        name: "camera"
+      });
+
+      alert("Camera permission state: " + permissions.state);
+    } catch {
+      alert("Camera permission not available on this browser.");
+    }
   };
 
   // ------------------------------
@@ -441,9 +441,9 @@ export default function Home() {
           📷
         </button>
 
-        {/* ▶ TEST CAMERA BUTTON (NEW) */}
+        {/* TEST CAMERA (NEW BUTTON) */}
         <button
-          onClick={testCameraAccess}
+          onClick={testCamera}
           disabled={loading}
           style={{
             marginLeft: 8,
@@ -452,7 +452,7 @@ export default function Home() {
             width: 48,
             height: 48,
             borderRadius: "50%",
-            fontSize: 18,
+            fontSize: 20,
             border: "none"
           }}
         >
