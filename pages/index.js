@@ -258,6 +258,21 @@ export default function Home() {
     }
   };
 
+  // ------------------------------
+  // TEST CAMERA BUTTON (ADDED HERE)
+  // ------------------------------
+  const testCameraAccess = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: true });
+      alert("Camera works! Browser granted access.");
+    } catch (err) {
+      alert("Camera still blocked — this confirms it's a permissions issue.");
+    }
+  };
+
+  // ------------------------------
+  // CAPTURE IMAGE
+  // ------------------------------
   const captureImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -408,7 +423,7 @@ export default function Home() {
           {isRecording ? "■" : "🎤"}
         </button>
 
-        {/* CAMERA (turns red when active) */}
+        {/* CAMERA */}
         <button
           onClick={openCamera}
           disabled={loading}
@@ -424,6 +439,24 @@ export default function Home() {
           }}
         >
           📷
+        </button>
+
+        {/* ▶ TEST CAMERA BUTTON (NEW) */}
+        <button
+          onClick={testCameraAccess}
+          disabled={loading}
+          style={{
+            marginLeft: 8,
+            background: "#34495e",
+            color: "white",
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            fontSize: 18,
+            border: "none"
+          }}
+        >
+          🧪
         </button>
       </div>
 
