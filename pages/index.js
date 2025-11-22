@@ -100,10 +100,11 @@ export default function Home() {
   };
 
   // ------------------------------
-  // FACT EXTRACTION
+  // EXTRACT FACTS
   // ------------------------------
   const extractFacts = (text) => {
     const lower = text.toLowerCase();
+
     updateMemory((mem) => {
       let m;
 
@@ -162,7 +163,7 @@ export default function Home() {
   };
 
   // ------------------------------
-  // VOICE HELPERS
+  // VOICE HANDLERS
   // ------------------------------
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
@@ -173,6 +174,7 @@ export default function Home() {
 
   const sendVoiceBlob = async (blob) => {
     setLoading(true);
+
     try {
       const base64 = await blobToBase64(blob);
 
@@ -199,6 +201,7 @@ export default function Home() {
     } catch {
       setMessages((p) => [...p, { role: "cipher", text: "Voice error." }]);
     }
+
     setLoading(false);
   };
 
@@ -207,22 +210,22 @@ export default function Home() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      const recorder = new MediaRecorder(stream);
 
       audioChunksRef.current = [];
 
-      mr.ondataavailable = (e) => {
+      recorder.ondataavailable = (e) => {
         if (e.data.size) audioChunksRef.current.push(e.data);
       };
 
-      mr.onstop = async () => {
+      recorder.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         await sendVoiceBlob(blob);
         stream.getTracks().forEach((t) => t.stop());
       };
 
-      mediaRecorderRef.current = mr;
-      mr.start();
+      mediaRecorderRef.current = recorder;
+      recorder.start();
       setIsRecording(true);
     } catch {
       alert("Microphone error.");
@@ -240,7 +243,7 @@ export default function Home() {
     isRecording ? stopRecording() : startRecording();
 
   // ------------------------------
-  // CAMERA
+  // CAMERA SYSTEM
   // ------------------------------
   const openCamera = async () => {
     try {
@@ -287,7 +290,7 @@ export default function Home() {
   };
 
   // ------------------------------
-  // CLEAR ALL
+  // CLEAR
   // ------------------------------
   const clearConversation = () => {
     if (confirm("Reset Cipher entirely?")) {
@@ -405,7 +408,7 @@ export default function Home() {
           {isRecording ? "■" : "🎤"}
         </button>
 
-        {/* CAMERA (now turns red when active) */}
+        {/* CAMERA (turns red when active) */}
         <button
           onClick={openCamera}
           disabled={loading}
