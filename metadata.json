@@ -1,0 +1,6 @@
+{
+  "permissions": {
+    "camera": true,
+    "microphone": true
+  }
+}
