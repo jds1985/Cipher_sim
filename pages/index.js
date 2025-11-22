@@ -9,34 +9,33 @@ function createBaseMemory() {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
-      creatorRelationship:
-        "the architect and guiding force behind Cipher"
+      creatorRelationship: "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
       partner: { name: null },
-      others: []
+      others: [],
     },
     preferences: {
       favoriteAnimal: null,
       favoriteColor: null,
       favoriteFood: null,
       favoriteMusic: [],
-      favoriteThemes: []
+      favoriteThemes: [],
     },
     projects: {
       digiSoul: { summary: null, details: [] },
       cipherTech: { summary: null, details: [] },
-      other: []
+      other: [],
     },
     emotional: {
       motivations: [],
       fears: [],
-      goals: []
+      goals: [],
     },
     customFacts: {},
     customNotes: [],
-    meta: { createdAt: now, lastUpdated: now, version: 2 }
+    meta: { createdAt: now, lastUpdated: now, version: 2 },
   };
 }
 
@@ -51,18 +50,18 @@ export default function Home() {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // Voice state
+  // Voice recording
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Camera state
+  // Camera
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
   // ------------------------------
-  // LOAD LOCAL MEMORY
+  // Load memories/messages
   // ------------------------------
   useEffect(() => {
     try {
@@ -88,7 +87,7 @@ export default function Home() {
   }, [cipherMemory]);
 
   // ------------------------------
-  // MEMORY UPDATE
+  // Memory Update
   // ------------------------------
   const updateMemory = (fn) => {
     setCipherMemory((prev) => {
@@ -100,7 +99,7 @@ export default function Home() {
   };
 
   // ------------------------------
-  // EXTRACT FACTS
+  // Extract Memory Facts
   // ------------------------------
   const extractFacts = (text) => {
     const lower = text.toLowerCase();
@@ -126,7 +125,7 @@ export default function Home() {
   };
 
   // ------------------------------
-  // SEND TEXT MESSAGE
+  // Send text message
   // ------------------------------
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -142,7 +141,7 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, memory: cipherMemory })
+        body: JSON.stringify({ message: text, memory: cipherMemory }),
       });
 
       const data = await res.json();
@@ -152,8 +151,7 @@ export default function Home() {
       }
 
       if (data.voice) {
-        const audio = new Audio("data:audio/mp3;base64," + data.voice);
-        audio.play().catch(() => {});
+        new Audio("data:audio/mp3;base64," + data.voice).play();
       }
     } catch {
       setMessages((p) => [...p, { role: "cipher", text: "Server error." }]);
@@ -163,25 +161,24 @@ export default function Home() {
   };
 
   // ------------------------------
-  // VOICE HANDLERS
+  // Voice → Blob → Base64
   // ------------------------------
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
-      const r = new FileReader();
-      r.onloadend = () => resolve(r.result.split(",")[1]);
-      r.readAsDataURL(blob);
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(",")[1]);
+      reader.readAsDataURL(blob);
     });
 
   const sendVoiceBlob = async (blob) => {
     setLoading(true);
-
     try {
       const base64 = await blobToBase64(blob);
 
       const res = await fetch("/api/voice_chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio: base64, memory: cipherMemory })
+        body: JSON.stringify({ audio: base64, memory: cipherMemory }),
       });
 
       const data = await res.json();
@@ -195,37 +192,34 @@ export default function Home() {
       }
 
       if (data.voice) {
-        const audio = new Audio("data:audio/mp3;base64," + data.voice);
-        audio.play().catch(() => {});
+        new Audio("data:audio/mp3;base64," + data.voice).play();
       }
     } catch {
       setMessages((p) => [...p, { role: "cipher", text: "Voice error." }]);
     }
-
     setLoading(false);
   };
 
+  // ------------------------------
+  // Recording controls
+  // ------------------------------
   const startRecording = async () => {
-    if (isRecording) return;
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const rec = new MediaRecorder(stream);
 
       audioChunksRef.current = [];
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size) audioChunksRef.current.push(e.data);
-      };
+      rec.ondataavailable = (e) => audioChunksRef.current.push(e.data);
 
-      recorder.onstop = async () => {
+      rec.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         await sendVoiceBlob(blob);
         stream.getTracks().forEach((t) => t.stop());
       };
 
-      mediaRecorderRef.current = recorder;
-      recorder.start();
+      mediaRecorderRef.current = rec;
+      rec.start();
       setIsRecording(true);
     } catch {
       alert("Microphone error.");
@@ -233,9 +227,7 @@ export default function Home() {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current?.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
+    if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
     setIsRecording(false);
   };
 
@@ -243,18 +235,23 @@ export default function Home() {
     isRecording ? stopRecording() : startRecording();
 
   // ------------------------------
-  // CAMERA SYSTEM
+  // CAMERA FIX — Correct Patch
   // ------------------------------
   const openCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true
+        video: { facingMode: "user" }, // <-- THIS IS THE PATCH
       });
 
+      if (!videoRef.current) return;
+
       videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+
       setCameraActive(true);
-    } catch {
-      alert("Camera denied.");
+    } catch (err) {
+      console.log(err);
+      alert("Camera permission denied.");
     }
   };
 
@@ -265,19 +262,19 @@ export default function Home() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0);
+    canvas.getContext("2d").drawImage(video, 0, 0);
 
-    const base64 = canvas.toDataURL("image/png").split(",")[1];
+    const base64 = canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
 
     video.srcObject.getTracks().forEach((t) => t.stop());
+
     setCameraActive(false);
     setLoading(true);
 
     const res = await fetch("/api/vision_chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: base64, memory: cipherMemory })
+      body: JSON.stringify({ image: base64, memory: cipherMemory }),
     });
 
     const data = await res.json();
@@ -290,25 +287,10 @@ export default function Home() {
   };
 
   // ------------------------------
-  // TEST CAMERA PERMISSIONS (NEW)
-  // ------------------------------
-  const testCamera = async () => {
-    try {
-      const permissions = await navigator.permissions.query({
-        name: "camera"
-      });
-
-      alert("Camera permission state: " + permissions.state);
-    } catch {
-      alert("Camera permission not available on this browser.");
-    }
-  };
-
-  // ------------------------------
-  // CLEAR
+  // Reset Conversation
   // ------------------------------
   const clearConversation = () => {
-    if (confirm("Reset Cipher entirely?")) {
+    if (confirm("Reset Cipher?")) {
       localStorage.removeItem("cipher_messages_v2");
       localStorage.removeItem("cipher_memory_v2");
       setMessages([]);
@@ -320,14 +302,7 @@ export default function Home() {
   // UI
   // ------------------------------
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#eef2f7",
-        padding: 20,
-        fontFamily: "Inter, sans-serif"
-      }}
-    >
+    <div style={{ minHeight: "100vh", background: "#eef2f7", padding: 20 }}>
       <h1 style={{ textAlign: "center", marginBottom: 20 }}>Cipher AI</h1>
 
       <div
@@ -339,7 +314,7 @@ export default function Home() {
           padding: 20,
           minHeight: "60vh",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-          overflowY: "auto"
+          overflowY: "auto",
         }}
       >
         {messages.map((m, i) => (
@@ -353,7 +328,6 @@ export default function Home() {
               padding: "10px 14px",
               borderRadius: 14,
               maxWidth: "80%",
-              whiteSpace: "pre-wrap"
             }}
           >
             {m.text}
@@ -370,13 +344,7 @@ export default function Home() {
       </div>
 
       {/* INPUT BAR */}
-      <div
-        style={{
-          display: "flex",
-          maxWidth: 700,
-          margin: "10px auto"
-        }}
-      >
+      <div style={{ display: "flex", maxWidth: 700, margin: "10px auto" }}>
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -386,7 +354,7 @@ export default function Home() {
             flex: 1,
             borderRadius: 8,
             padding: 10,
-            border: "1px solid #ccc"
+            border: "1px solid #ccc",
           }}
         />
 
@@ -399,7 +367,7 @@ export default function Home() {
             color: "white",
             padding: "10px 16px",
             borderRadius: 8,
-            border: "none"
+            border: "none",
           }}
         >
           Send
@@ -417,7 +385,7 @@ export default function Home() {
             height: 48,
             borderRadius: "50%",
             fontSize: 20,
-            border: "none"
+            border: "none",
           }}
         >
           {isRecording ? "■" : "🎤"}
@@ -435,28 +403,10 @@ export default function Home() {
             height: 48,
             borderRadius: "50%",
             fontSize: 22,
-            border: "none"
+            border: "none",
           }}
         >
           📷
-        </button>
-
-        {/* TEST CAMERA (NEW BUTTON) */}
-        <button
-          onClick={testCamera}
-          disabled={loading}
-          style={{
-            marginLeft: 8,
-            background: "#34495e",
-            color: "white",
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            fontSize: 20,
-            border: "none"
-          }}
-        >
-          🧪
         </button>
       </div>
 
@@ -466,13 +416,13 @@ export default function Home() {
           <video
             ref={videoRef}
             autoPlay
+            playsInline
             style={{
               width: "90%",
               borderRadius: 12,
-              border: "2px solid #444"
+              border: "2px solid #444",
             }}
           />
-
           <button
             onClick={captureImage}
             style={{
@@ -482,7 +432,7 @@ export default function Home() {
               color: "white",
               borderRadius: 10,
               border: "none",
-              fontSize: 18
+              fontSize: 18,
             }}
           >
             Capture
@@ -501,7 +451,7 @@ export default function Home() {
           color: "white",
           padding: "8px 16px",
           borderRadius: 8,
-          border: "none"
+          border: "none",
         }}
       >
         Delete Conversation
