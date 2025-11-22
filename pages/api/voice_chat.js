@@ -1,5 +1,5 @@
 // pages/api/voice_chat.js
-// Cipher Voice Route — Transcription + Core + TTS
+// Cipher Voice Route — Whisper Transcription + Core + TTS
 
 import OpenAI from "openai";
 import { File } from "formdata-node";
@@ -23,11 +23,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing audio data." });
     }
 
-    // audio is base64 webm from the frontend
+    // Convert base64 → file
     const buffer = Buffer.from(audio, "base64");
     const file = new File([buffer], "input.webm", { type: "audio/webm" });
 
-    // 1) Transcribe
+    // 1) Transcription (WHISPER — stable)
     const transcriptResp = await client.audio.transcriptions.create({
       file,
       model: "gpt-4o-transcribe",
@@ -45,14 +45,14 @@ export default async function handler(req, res) {
       memory: memory || {},
     });
 
-    // 3) Store memory
+    // 3) Save memory
     await saveMemory({
       timestamp: Date.now(),
       user: safeTranscript,
       cipher: coreReply,
     });
 
-    // 4) TTS for reply
+    // 4) TTS (GPT-4o-mini-tts — stable)
     const ttsResp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
