@@ -1,5 +1,4 @@
 // pages/_document.js
-
 import { Html, Head, Main, NextScript } from "next/document";
 
 export default function Document() {
@@ -12,7 +11,7 @@ export default function Document() {
 
         {/* App Icons */}
         <link rel="icon" href="/icon-512.png" />
-        <link rel="apple-touch-icon" href="/icon-512.png" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
 
         {/* Theme */}
         <meta name="theme-color" content="#000000" />
@@ -23,7 +22,7 @@ export default function Document() {
           content="camera=(self), microphone=(self)"
         />
 
-        {/* Service worker */}
+        {/* Service Worker */}
         <link rel="serviceworker" href="/sw.js" />
       </Head>
 
