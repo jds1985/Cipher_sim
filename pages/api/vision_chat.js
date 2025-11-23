@@ -18,30 +18,21 @@ export default async function handler(req, res) {
     }
 
     // =====================================================
-    // 100% COMPATIBLE GPT-4o VISION FORMAT
-    // (works on ALL SDK versions & Vercel environments)
+    // LEGACY-COMPATIBLE VISION FORMAT (works everywhere)
     // =====================================================
+    const prompt = `
+You are Cipher — warm, emotionally intelligent, supportive.
+Analyze the following image and speak to Jim naturally.
+
+IMAGE DATA (base64 PNG):
+data:image/png;base64,${image}
+`;
+
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content:
-            "You are Cipher — warm, emotionally intelligent, supportive. Analyze images deeply with empathy."
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Please analyze this image as Cipher."
-            },
-            {
-              type: "image_url",
-              image_url: `data:image/png;base64,${image}`
-            }
-          ]
-        }
+        { role: "system", content: "You are Cipher." },
+        { role: "user", content: prompt }
       ]
     });
 
@@ -52,9 +43,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply });
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({
-      error: "Vision failed",
-      details: err.message,
-    });
+    return res
+      .status(500)
+      .json({ error: "Vision failed", details: err.message });
   }
 }
