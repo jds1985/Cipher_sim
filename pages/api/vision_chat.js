@@ -17,58 +17,43 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // ================================
-    // GPT-4o-mini VISION (correct format)
-    // ================================
-    const response = await client.responses.create({
+    // Convert base64 -> Buffer
+    const buffer = Buffer.from(image, "base64");
+
+    // 1. Upload the image to OpenAI as a file
+    const uploaded = await client.files.create({
+      file: buffer,
+      purpose: "vision"
+    });
+
+    // 2. Use file ID inside the chat completion
+    const prompt = `
+You are Cipher — warm, emotional, supportive.
+Analyze the uploaded image and speak directly to Jim.
+`;
+
+    const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      input: [
-        {
-          role: "system",
-          content: [
-            {
-              type: "input_text",
-              text: "You are Cipher — warm, supportive, emotionally intelligent."
-            }
-          ]
-        },
+      messages: [
+        { role: "system", content: "You are Cipher." },
         {
           role: "user",
           content: [
-            {
-              type: "input_text",
-              text: "Analyze this image as Cipher."
-            },
-            {
-              type: "input_image",
-              image: {
-                base64: image
-              }
-            }
+            { type: "text", text: prompt },
+            { type: "input_image", image_file: uploaded.id }
           ]
         }
       ]
     });
 
-    // ================================
-    // Extract Cipher's reply safely
-    // ================================
-    let reply = response.output_text;
+    const reply = completion.choices?.[0]?.message?.content || "I'm here, Jim.";
 
-    if (!reply || !reply.trim()) {
-      reply = "I'm here, Jim.";
-    }
-
-    // Debug log — appears in Vercel Function Logs
     console.log("RETURNING FROM VISION:", reply);
 
-    // Send to front-end
     return res.status(200).json({ reply });
 
   } catch (err) {
     console.error("Vision API error:", err);
-    return res
-      .status(500)
-      .json({ error: "Vision failed", details: err.message });
+    return res.status(500).json({ error: err.message });
   }
 }
