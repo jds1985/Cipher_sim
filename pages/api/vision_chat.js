@@ -17,24 +17,31 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // GPT-4o vision message format
-    const response = await client.chat.completions.create({
+    // ===========================
+    // CORRECT GPT-4o VISION FORMAT
+    // ===========================
+    const response = await client.responses.create({
       model: "gpt-4o-mini",
-      messages: [
+      input: [
         {
           role: "system",
-          content:
-            "You are Cipher — warm, emotionally intelligent, supportive. Use visual understanding + Jim's memory naturally."
+          content: [
+            {
+              type: "input_text",
+              text:
+                "You are Cipher — warm, emotionally intelligent, supportive. Use visual understanding + Jim's memory naturally."
+            }
+          ]
         },
         {
           role: "user",
           content: [
             {
-              type: "text",
+              type: "input_text",
               text: "Analyze this image as Cipher."
             },
             {
-              type: "image_url",
+              type: "input_image",
               image_url: `data:image/png;base64,${image}`
             }
           ]
@@ -43,13 +50,16 @@ export default async function handler(req, res) {
     });
 
     const reply =
-      response.choices?.[0]?.message?.content || "I'm here, Jim.";
+      response.output_text ||
+      response.output[0]?.content[0]?.text ||
+      "I'm here, Jim.";
 
     return res.status(200).json({ reply });
   } catch (err) {
     console.error("Vision API error:", err);
-    return res
-      .status(500)
-      .json({ error: "Vision failed", details: err.message });
+    return res.status(500).json({
+      error: "Vision failed",
+      details: err.message,
+    });
   }
 }
