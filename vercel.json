@@ -1,9 +1,13 @@
 {
-  "framework": "nextjs",
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "buildCommand": "next build",
-  "outputDirectory": ".next",
   "installCommand": "npm install",
   "devCommand": "next dev",
+  "framework": "nextjs",
   "build": {
     "env": {
       "NODE_VERSION": "18"
