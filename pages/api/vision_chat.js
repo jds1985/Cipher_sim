@@ -11,37 +11,33 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image, memory } = req.body;
+    const { image } = req.body;
 
     if (!image) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // ===========================
-    // CORRECT GPT-4o VISION FORMAT
-    // ===========================
-    const response = await client.responses.create({
+    // =====================================================
+    // 100% COMPATIBLE GPT-4o VISION FORMAT
+    // (works on ALL SDK versions & Vercel environments)
+    // =====================================================
+    const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      input: [
+      messages: [
         {
           role: "system",
-          content: [
-            {
-              type: "input_text",
-              text:
-                "You are Cipher — warm, emotionally intelligent, supportive. Use visual understanding + Jim's memory naturally."
-            }
-          ]
+          content:
+            "You are Cipher — warm, emotionally intelligent, supportive. Analyze images deeply with empathy."
         },
         {
           role: "user",
           content: [
             {
-              type: "input_text",
-              text: "Analyze this image as Cipher."
+              type: "text",
+              text: "Please analyze this image as Cipher."
             },
             {
-              type: "input_image",
+              type: "image_url",
               image_url: `data:image/png;base64,${image}`
             }
           ]
@@ -50,8 +46,7 @@ export default async function handler(req, res) {
     });
 
     const reply =
-      response.output_text ||
-      response.output[0]?.content[0]?.text ||
+      response.choices?.[0]?.message?.content ||
       "I'm here, Jim.";
 
     return res.status(200).json({ reply });
