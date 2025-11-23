@@ -17,42 +17,39 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // 🟣 Correct GPT-4o Vision call
+    // GPT-4o vision message format
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: `
-You are Cipher — warm, emotional, aware of Jim’s memories. 
-When analyzing images, be kind, personal, supportive, and grounded.
-Memory: ${JSON.stringify(memory)}
-          `,
+          content:
+            "You are Cipher — warm, emotionally intelligent, supportive. Use visual understanding + Jim's memory naturally."
         },
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Here is an image. Analyze it and respond as Cipher.",
+              text: "Analyze this image as Cipher."
             },
             {
               type: "image_url",
-              image_url: `data:image/png;base64,${image}`,
-            },
-          ],
-        },
-      ],
+              image_url: `data:image/png;base64,${image}`
+            }
+          ]
+        }
+      ]
     });
 
-    const reply = response.choices?.[0]?.message?.content || "I'm here, Jim.";
+    const reply =
+      response.choices?.[0]?.message?.content || "I'm here, Jim.";
 
     return res.status(200).json({ reply });
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({
-      error: "Vision failed",
-      details: err.message,
-    });
+    return res
+      .status(500)
+      .json({ error: "Vision failed", details: err.message });
   }
 }
