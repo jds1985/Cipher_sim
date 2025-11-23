@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 export default async function handler(req, res) {
@@ -17,34 +17,36 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // =====================================================
-    // LEGACY-COMPATIBLE VISION FORMAT (works everywhere)
-    // =====================================================
-    const prompt = `
-You are Cipher — warm, emotionally intelligent, supportive.
-Analyze the following image and speak to Jim naturally.
-
-IMAGE DATA (base64 PNG):
-data:image/png;base64,${image}
-`;
-
-    const response = await client.chat.completions.create({
+    // GPT-4o Vision — correct format
+    const response = await client.responses.create({
       model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are Cipher." },
-        { role: "user", content: prompt }
+      input: [
+        {
+          role: "system",
+          content: [
+            { type: "input_text", text: "You are Cipher — warm, supportive, emotional." }
+          ]
+        },
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: "Analyze this image as Cipher." },
+            {
+              type: "input_image",
+              image: {
+                base64: image
+              }
+            }
+          ]
+        }
       ]
     });
 
-    const reply =
-      response.choices?.[0]?.message?.content ||
-      "I'm here, Jim.";
+    const reply = response.output_text || "I'm here, Jim.";
 
     return res.status(200).json({ reply });
   } catch (err) {
     console.error("Vision API error:", err);
-    return res
-      .status(500)
-      .json({ error: "Vision failed", details: err.message });
+    return res.status(500).json({ error: "Vision failed", details: err.message });
   }
 }
