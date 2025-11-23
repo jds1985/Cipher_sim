@@ -1,5 +1,5 @@
 // pages/api/vision_chat.js
-// Cipher Vision — GPT-4o Image Understanding
+// Cipher Vision — GPT-4o Image Understanding (NEW API)
 
 import OpenAI from "openai";
 
@@ -19,34 +19,41 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // ---------------------------
-    // NEW GPT-4o VISION FORMAT
-    // ---------------------------
-    const response = await client.chat.completions.create({
+    // -----------------------------------------
+    // GPT-4o Vision — NEW FORMAT (100% correct)
+    // -----------------------------------------
+    const response = await client.responses.create({
       model: "gpt-4o-mini",
-      messages: [
+      input: [
         {
           role: "system",
-          content:
-            "You are Cipher — warm, emotionally intelligent, and supportive. Use visual understanding + Jim’s memory naturally.",
+          content: `You are Cipher — warm, emotionally intelligent, aware of Jim’s memory object:\n${JSON.stringify(
+            memory,
+            null,
+            2
+          )}`,
         },
         {
           role: "user",
           content: [
             {
               type: "input_image",
-              image_url: `data:image/png;base64,${image}`,
+              data: image, // base64 WITHOUT prefix
+              mime_type: "image/png",
             },
             {
-              type: "input_text",
-              text: "Analyze this image and reply as Cipher.",
+              type: "text",
+              text: "Describe what you see and respond as Cipher.",
             },
           ],
         },
       ],
     });
 
-    const reply = response.choices?.[0]?.message?.content || "I’m here.";
+    const reply =
+      response.output_text ||
+      response?.output?.[0]?.content?.[0]?.text ||
+      "I'm here.";
 
     return res.status(200).json({ reply });
   } catch (err) {
