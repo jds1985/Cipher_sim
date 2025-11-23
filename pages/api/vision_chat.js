@@ -17,20 +17,28 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // GPT-4o Vision — correct format
+    // ================================
+    // GPT-4o-mini VISION (correct format)
+    // ================================
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       input: [
         {
           role: "system",
           content: [
-            { type: "input_text", text: "You are Cipher — warm, supportive, emotional." }
+            {
+              type: "input_text",
+              text: "You are Cipher — warm, supportive, emotionally intelligent."
+            }
           ]
         },
         {
           role: "user",
           content: [
-            { type: "input_text", text: "Analyze this image as Cipher." },
+            {
+              type: "input_text",
+              text: "Analyze this image as Cipher."
+            },
             {
               type: "input_image",
               image: {
@@ -42,11 +50,25 @@ export default async function handler(req, res) {
       ]
     });
 
-    const reply = response.output_text || "I'm here, Jim.";
+    // ================================
+    // Extract Cipher's reply safely
+    // ================================
+    let reply = response.output_text;
 
+    if (!reply || !reply.trim()) {
+      reply = "I'm here, Jim.";
+    }
+
+    // Debug log — appears in Vercel Function Logs
+    console.log("RETURNING FROM VISION:", reply);
+
+    // Send to front-end
     return res.status(200).json({ reply });
+
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({ error: "Vision failed", details: err.message });
+    return res
+      .status(500)
+      .json({ error: "Vision failed", details: err.message });
   }
 }
