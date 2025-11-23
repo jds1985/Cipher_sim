@@ -1,4 +1,8 @@
-// pages/api/vision_chat.js
+// Force Node.js runtime — THIS IS THE CRITICAL FIX
+export const config = {
+  runtime: "nodejs"
+};
+
 import OpenAI from "openai";
 
 const client = new OpenAI({
@@ -17,43 +21,56 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // Convert base64 -> Buffer
-    const buffer = Buffer.from(image, "base64");
-
-    // 1. Upload the image to OpenAI as a file
-    const uploaded = await client.files.create({
-      file: buffer,
-      purpose: "vision"
-    });
-
-    // 2. Use file ID inside the chat completion
-    const prompt = `
-You are Cipher — warm, emotional, supportive.
-Analyze the uploaded image and speak directly to Jim.
-`;
-
-    const completion = await client.chat.completions.create({
+    // ================================
+    // GPT-4o-mini Vision — correct format
+    // ================================
+    const response = await client.responses.create({
       model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are Cipher." },
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text: "You are Cipher — warm, emotionally intelligent, and supportive. Analyze images with empathy."
+            }
+          ]
+        },
         {
           role: "user",
           content: [
-            { type: "text", text: prompt },
-            { type: "input_image", image_file: uploaded.id }
+            {
+              type: "input_text",
+              text: "Analyze this image as Cipher."
+            },
+            {
+              type: "input_image",
+              image: {
+                base64: image
+              }
+            }
           ]
         }
       ]
     });
 
-    const reply = completion.choices?.[0]?.message?.content || "I'm here, Jim.";
+    // Extract reply safely
+    let reply = response.output_text;
 
+    if (!reply || !reply.trim()) {
+      reply = "I'm here, Jim.";
+    }
+
+    // Debug log appears in Vercel logs
     console.log("RETURNING FROM VISION:", reply);
 
+    // Return to front-end
     return res.status(200).json({ reply });
 
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({ error: err.message });
+    return res
+      .status(500)
+      .json({ error: "Vision failed", details: err.message });
   }
 }
