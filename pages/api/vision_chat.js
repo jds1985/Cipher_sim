@@ -1,4 +1,4 @@
-// Force Node.js runtime — THIS IS THE CRITICAL FIX
+// Force Node.js runtime — required for Vercel
 export const config = {
   runtime: "nodejs"
 };
@@ -21,8 +21,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
+    // Convert raw base64 into proper data URL
+    const dataUrl = `data:image/jpeg;base64,${image}`;
+
     // ================================
-    // GPT-4o-mini Vision — correct format
+    // GPT-4o-mini Vision (correct format)
     // ================================
     const response = await client.responses.create({
       model: "gpt-4o-mini",
@@ -45,32 +48,28 @@ export default async function handler(req, res) {
             },
             {
               type: "input_image",
-              image: {
-                base64: image
-              }
+              image_url: dataUrl
             }
           ]
         }
       ]
     });
 
-    // Extract reply safely
     let reply = response.output_text;
 
     if (!reply || !reply.trim()) {
       reply = "I'm here, Jim.";
     }
 
-    // Debug log appears in Vercel logs
-    console.log("RETURNING FROM VISION:", reply);
+    console.log("VISION RETURN:", reply);
 
-    // Return to front-end
     return res.status(200).json({ reply });
 
   } catch (err) {
     console.error("Vision API error:", err);
-    return res
-      .status(500)
-      .json({ error: "Vision failed", details: err.message });
+    return res.status(500).json({
+      error: "Vision failed",
+      details: err.message
+    });
   }
 }
