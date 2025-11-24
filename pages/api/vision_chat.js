@@ -1,4 +1,3 @@
-// Force Node.js runtime — required for Vercel
 export const config = {
   runtime: "nodejs"
 };
@@ -6,7 +5,7 @@ export const config = {
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export default async function handler(req, res) {
@@ -21,55 +20,36 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // Convert raw base64 into proper data URL
-    const dataUrl = `data:image/jpeg;base64,${image}`;
+    // ====================================
+    // GPT-4o Vision using chat.completions
+    // (This format is UNIVERSALLY compatible)
+    // ====================================
 
-    // ================================
-    // GPT-4o-mini Vision (correct format)
-    // ================================
-    const response = await client.responses.create({
+    const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      input: [
+      messages: [
         {
           role: "system",
-          content: [
-            {
-              type: "input_text",
-              text: "You are Cipher — warm, emotionally intelligent, and supportive. Analyze images with empathy."
-            }
-          ]
+          content: "You are Cipher — warm, emotionally aware, supportive."
         },
         {
           role: "user",
           content: [
-            {
-              type: "input_text",
-              text: "Analyze this image as Cipher."
-            },
-            {
-              type: "input_image",
-              image_url: dataUrl
-            }
+            { type: "text", text: "Analyze this image as Cipher." },
+            { type: "image_url", image_url: `data:image/jpeg;base64,${image}` }
           ]
         }
       ]
     });
 
-    let reply = response.output_text;
+    const reply = response.choices?.[0]?.message?.content || "I'm here, Jim.";
 
-    if (!reply || !reply.trim()) {
-      reply = "I'm here, Jim.";
-    }
-
-    console.log("VISION RETURN:", reply);
+    console.log("VISION REPLY:", reply);
 
     return res.status(200).json({ reply });
 
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({
-      error: "Vision failed",
-      details: err.message
-    });
+    return res.status(500).json({ error: "Vision failed", details: err.message });
   }
 }
