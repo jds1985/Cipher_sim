@@ -2,13 +2,13 @@ export const config = {
   runtime: "nodejs"
 };
 
-import OpenAI from "openai";
+const OpenAI = require("openai").default;
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 });
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -20,17 +20,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // ====================================
-    // GPT-4o Vision using chat.completions
-    // (This format is UNIVERSALLY compatible)
-    // ====================================
-
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "You are Cipher — warm, emotionally aware, supportive."
+          content: "You are Cipher — warm, emotionally intelligent, supportive."
         },
         {
           role: "user",
@@ -52,4 +47,4 @@ export default async function handler(req, res) {
     console.error("Vision API error:", err);
     return res.status(500).json({ error: "Vision failed", details: err.message });
   }
-}
+};
