@@ -14,15 +14,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image } = req.body;
+    const { image, memory } = req.body;
 
     if (!image) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // ---------------------------------------------------
-    // 1) VISION — describe the image with personality
-    // ---------------------------------------------------
+    // -----------------------------
+    // 1) VISION: describe the image
+    // -----------------------------
     const visionResponse = await client.responses.create({
       model: "gpt-4o-mini",
       input: [
@@ -45,36 +45,43 @@ export default async function handler(req, res) {
       ],
     });
 
-    // Extract text from response
     let text = visionResponse.output_text;
 
-    if (!text || !text.trim()) {
-      // Fallback extraction path
-      try {
-        text =
-          visionResponse.output?.[0]?.content?.[0]?.text ||
-          "I saw the image but couldn't form a clear description.";
-      } catch {
-        text =
-          "I saw the image but couldn't form a clear description.";
-      }
+    // Fallback in case output_text is missing
+    if (
+      (!text || !text.trim()) &&
+      Array.isArray(visionResponse.output) &&
+      visionResponse.output[0] &&
+      visionResponse.output[0].content &&
+      visionResponse.output[0].content[0] &&
+      visionResponse.output[0].content[0].text
+    ) {
+      text = visionResponse.output[0].content[0].text;
     }
 
-    // ---------------------------------------------------
-    // 2) SAVE MEMORY
-    // ---------------------------------------------------
+    if (!text || !text.trim()) {
+      text =
+        "I saw the image, but I wasn't able to generate a clear description. You can tell me what it is, and we can talk about it together.";
+    }
+
+    // -----------------------------
+    // 2) SAVE TO MEMORY
+    // -----------------------------
     await saveMemory({
       timestamp: Date.now(),
       user: "[vision_input]",
       cipher: text,
     });
 
-    // ---------------------------------------------------
-    // 3) HUMAN-LIKE TTS
-    // ---------------------------------------------------
+    // -----------------------------
+    // 3) TTS: speak the description
+    //    (match or tweak to taste)
+    // -----------------------------
     const audioResponse = await client.audio.speech.create({
-      model: "gpt-4o-tts",     // human-quality TTS
-      voice: "ballad",         // “verse” and “cove” are also human-like
+      // If your /api/voice_chat uses a different model/voice,
+      // copy those values here so they sound identical.
+      model: "gpt-4o-mini-tts",
+      voice: "ballad", // try "ballad" or "verse" for more human pacing
       input: text,
       format: "mp3",
     });
@@ -82,18 +89,17 @@ export default async function handler(req, res) {
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
     const voiceBase64 = audioBuffer.toString("base64");
 
-    // ---------------------------------------------------
-    // 4) RETURN TEXT + AUDIO
-    // ---------------------------------------------------
+    // -----------------------------
+    // 4) RETURN text + voice
+    // -----------------------------
     return res.status(200).json({
       reply: text,
       voice: voiceBase64,
     });
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({
-      error: "Vision failure",
-      details: err.message,
-    });
+    return res
+      .status(500)
+      .json({ error: "Vision failure", details: err.message });
   }
 }
