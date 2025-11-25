@@ -137,7 +137,7 @@ and aware of the user’s long-term details.
     // 6. Generate TTS
     const audioResp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "cove",
+      voice: "verse",
       input: reply,
       format: "mp3",
     });
