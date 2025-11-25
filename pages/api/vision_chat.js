@@ -1,8 +1,10 @@
 // pages/api/vision_chat.js
+// Cipher Vision Route — GPT-4o Vision + Core + TTS
 
 import OpenAI from "openai";
-import { loadMemory, saveMemory } from "../../cipher_core/memory";
-import { db } from "../../firebaseAdmin";
+import { runGuard } from "../../cipher_core/guard";
+import { runCipherCore } from "../../cipher_core/core";
+import { saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,48 +19,81 @@ export default async function handler(req, res) {
     const { image, memory } = req.body;
 
     if (!image) {
-      return res.status(400).json({ error: "No image provided" });
+      return res.status(400).json({ error: "Missing image data." });
     }
 
-    const visionResponse = await client.responses.create({
+    // ------------------------------------
+    // 1) Prepare image blob
+    // ------------------------------------
+    const buffer = Buffer.from(image, "base64");
+
+    // ------------------------------------
+    // 2) Vision → caption text
+    // ------------------------------------
+    const visionResp = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      input: [
+      messages: [
         {
           role: "user",
           content: [
+            { type: "text", text: "Describe this image in detail." },
             {
-              type: "input_image",
-              image_url: `data:image/png;base64,${image}`,
-            },
-            {
-              type: "input_text",
-              text: "Explain what you see.",
-            },
+              type: "image_url",
+              image_url: "data:image/png;base64," + image,
+            }
           ],
-        },
+        }
       ],
     });
 
-    const text = visionResponse.output_text || "I saw something.";
+    const description =
+      visionResp.choices?.[0]?.message?.content || "I saw something, but I'm not sure what.";
 
-    // save to memory
-    await saveMemory("vision_input", text);
+    // ------------------------------------
+    // 3) Send description through Cipher Core
+    // ------------------------------------
+    const safeText = await runGuard(description);
+    const cipherReply = await runCipherCore({
+      message: safeText,
+      memory: memory || {},
+    });
 
-    // Now synthesize voice
-    const audioResponse = await client.audio.speech.create({
+    // ------------------------------------
+    // 4) Save memory
+    // ------------------------------------
+    await saveMemory({
+      timestamp: Date.now(),
+      user: "[vision input]",
+      cipher: cipherReply,
+    });
+
+    // ------------------------------------
+    // 5) Convert reply → speech
+    // ------------------------------------
+    const ttsResp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "alloy",
-      input: text,
+      voice: "verse",
+      input: cipherReply,
       format: "mp3",
     });
 
-    return res.json({
-      reply: text,
-      voice: audioResponse.base64,
+    const mp3Buffer = Buffer.from(await ttsResp.arrayBuffer());
+    const voiceBase64 = mp3Buffer.toString("base64");
+
+    // ------------------------------------
+    // 6) Return result
+    // ------------------------------------
+    return res.status(200).json({
+      reply: cipherReply,
+      voice: voiceBase64,
+      rawVision: description,
     });
 
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({ error: "Vision failure", details: err.message });
+    return res.status(500).json({
+      error: "Vision route failed",
+      details: err.message,
+    });
   }
 }
