@@ -10,6 +10,11 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Remove undefined fields to avoid Firestore errors
+function cleanFirestoreObject(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 /* ---------------------------------------------
    Build natural memory recall text
 --------------------------------------------- */
@@ -122,12 +127,14 @@ and naturally aware of the user’s long-term details.
       memory: [], // memory already provided in merged prompt
     });
 
-    // 5. Save backend record
-    await saveMemory({
-      timestamp: Date.now(),
-      user: safeMsg,
-      cipher: reply,
-    });
+    // 5. Save backend record (no undefined allowed)
+    await saveMemory(
+      cleanFirestoreObject({
+        timestamp: Date.now(),
+        user: safeMsg,
+        cipher: reply || null,
+      })
+    );
 
     // 6. Generate TTS
     const audioResponse = await client.audio.speech.create({
