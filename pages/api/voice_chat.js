@@ -1,5 +1,5 @@
 // pages/api/voice_chat.js
-// Cipher Voice Route — FINAL FIX (Base64 → OpenAI Audio Messages)
+// Cipher Voice Route — Whisper + Core + TTS
 
 import OpenAI from "openai";
 import { runGuard } from "../../cipher_core/guard";
@@ -10,6 +10,11 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// --- IMPORTANT ---
+// Node 18+ provides native Blob + File.
+// Vercel also supports these natively.
+// ------------------
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -19,41 +24,27 @@ export default async function handler(req, res) {
     const { audio, memory } = req.body;
 
     if (!audio) {
-      return res.status(400).json({ error: "Missing audio base64." });
+      return res.status(400).json({ error: "Missing audio data" });
     }
 
-    // ---------------------------------------------------
-    // 1) Whisper via NEW GPT-4o Audio Input Format
-    // ---------------------------------------------------
-    const whisperResp = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_audio",
-              input_audio: {
-                data: audio,       // base64
-                format: "webm",    // matches your MediaRecorder output
-              },
-            },
-            {
-              type: "text",
-              text: "Transcribe this audio.",
-            },
-          ],
-        },
-      ],
+    // Convert base64 → ArrayBuffer → Blob
+    const buffer = Buffer.from(audio, "base64");
+    const blob = new Blob([buffer], { type: "audio/webm" });
+
+    // Convert blob → File (OPENAI REQUIRES A FILE)
+    const file = new File([blob], "audio.webm", { type: "audio/webm" });
+
+    // 1) Whisper Transcription
+    const transcriptResp = await client.audio.transcriptions.create({
+      file,
+      model: "gpt-4o-transcribe",
     });
 
-    const transcript = whisperResp.choices?.[0]?.message?.content?.[0]?.text || "";
+    const transcript = transcriptResp.text || "";
 
-    // ---------------------------------------------------
-    // 2) Guard + Core
-    // ---------------------------------------------------
+    // 2) Process through your guard + core
     const safeTranscript = await runGuard(
-      transcript.trim() || "[user sent empty voice input]"
+      transcript.trim() || "[empty voice input]"
     );
 
     const coreReply = await runCipherCore({
@@ -61,18 +52,14 @@ export default async function handler(req, res) {
       memory: memory || {},
     });
 
-    // ---------------------------------------------------
-    // 3) Save memory
-    // ---------------------------------------------------
+    // 3) Save memory to Firestore
     await saveMemory({
       timestamp: Date.now(),
-      user: safeTranscript,
-      cipher: coreReply,
+      message: safeTranscript,
+      cipherReply: coreReply,
     });
 
-    // ---------------------------------------------------
-    // 4) Text → Speech (TTS)
-    // ---------------------------------------------------
+    // 4) Generate TTS output
     const ttsResp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
@@ -80,23 +67,17 @@ export default async function handler(req, res) {
       format: "mp3",
     });
 
-    const ttsBuffer = Buffer.from(await ttsResp.arrayBuffer());
-    const voiceBase64 = ttsBuffer.toString("base64");
+    const voiceBase64 = Buffer.from(await ttsResp.arrayBuffer()).toString(
+      "base64"
+    );
 
-    // ---------------------------------------------------
-    // 5) Return final response
-    // ---------------------------------------------------
     return res.status(200).json({
       transcript,
       reply: coreReply,
       voice: voiceBase64,
     });
-
   } catch (err) {
     console.error("VOICE ERROR:", err);
-    return res.status(500).json({
-      error: "Voice route failed",
-      details: err.message,
-    });
+    return res.status(500).json({ error: "Voice route failed", details: err+" " });
   }
 }
