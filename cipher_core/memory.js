@@ -1,11 +1,13 @@
 // cipher_core/memory.js
-// Firestore-backed memory for Cipher 4.3
+// Firestore-backed memory for Cipher 5.x (safe & stable)
 
 import { db } from "../firebaseAdmin";
 
 const COLLECTION = "cipher_memory";
 
-// Load recent memory (optional: newest → oldest)
+// ----------------------------------------------------
+// LOAD MEMORY (returns newest → oldest)
+// ----------------------------------------------------
 export async function loadMemory(limit = 20) {
   try {
     const snapshot = await db
@@ -14,22 +16,26 @@ export async function loadMemory(limit = 20) {
       .limit(limit)
       .get();
 
-    const items = snapshot.docs.map((doc) => doc.data());
-    return items.reverse(); // oldest → newest
+    return snapshot.docs.map((doc) => doc.data());
   } catch (err) {
     console.error("loadMemory error:", err);
     return [];
   }
 }
 
-// Save memory entry
-export async function saveMemory(message, cipherReply) {
+// ----------------------------------------------------
+// SAVE MEMORY (safe, ignores undefined, prevents crash)
+// ----------------------------------------------------
+export async function saveMemory(entry) {
   try {
-    await db.collection(COLLECTION).add({
-      message,
-      cipherReply,
-      timestamp: Date.now(),
-    });
+    // prevent Firestore from breaking on undefined values
+    const cleaned = JSON.parse(
+      JSON.stringify(entry, (_key, value) =>
+        value === undefined ? null : value
+      )
+    );
+
+    await db.collection(COLLECTION).add(cleaned);
 
     return true;
   } catch (err) {
