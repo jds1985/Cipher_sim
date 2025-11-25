@@ -1,7 +1,8 @@
 // pages/api/vision_chat.js
-// Cipher Vision — Updated for NEW OpenAI v5 API (Nov 24)
 
 import OpenAI from "openai";
+import { loadMemory, saveMemory } from "../../cipher_core/memory";
+import { db } from "../../firebaseAdmin";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -19,45 +20,45 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    const memText =
-      typeof memory === "string" && memory.trim().length > 0
-        ? memory
-        : "Jim is the user. You are Cipher.";
-
-    const prompt = `
-You are Cipher. Describe the image clearly and naturally.
-
-Memory:
-${memText}
-`;
-
-    // ⛔ No more input_text / input_image
-    // ✅ Unified role/content format
-    const response = await client.responses.create({
+    const visionResponse = await client.responses.create({
       model: "gpt-4o-mini",
       input: [
         {
           role: "user",
-          content: prompt,
-        },
-        {
-          role: "user",
-          image: `data:image/png;base64,${image}`,
+          content: [
+            {
+              type: "input_image",
+              image_url: `data:image/png;base64,${image}`,
+            },
+            {
+              type: "input_text",
+              text: "Explain what you see.",
+            },
+          ],
         },
       ],
     });
 
-    const text =
-      response.output_text ||
-      response.output?.[0]?.content?.[0]?.text ||
-      "I saw the image but couldn’t describe it.";
+    const text = visionResponse.output_text || "I saw something.";
 
-    return res.status(200).json({ reply: text.trim() });
+    // save to memory
+    await saveMemory("vision_input", text);
+
+    // Now synthesize voice
+    const audioResponse = await client.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      input: text,
+      format: "mp3",
+    });
+
+    return res.json({
+      reply: text,
+      voice: audioResponse.base64,
+    });
+
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({
-      error: "Vision API failed",
-      details: err.message,
-    });
+    return res.status(500).json({ error: "Vision failure", details: err.message });
   }
 }
