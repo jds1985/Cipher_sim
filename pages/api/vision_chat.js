@@ -13,17 +13,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image, memory } = req.body;
+    const { image } = req.body;
 
     if (!image) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // Force memory to always be a string
-    const prompt =
-      typeof memory === "string" && memory.trim().length > 0
-        ? memory
-        : "Describe this image as Cipher.";
+    // We ignore memory for now to avoid sending objects as text.
+    // You can always add a short string summary later if you want.
 
     const response = await client.responses.create({
       model: "gpt-4o-mini",
@@ -33,28 +30,44 @@ export default async function handler(req, res) {
           content: [
             {
               type: "input_text",
-              text: prompt,
+              // <-- ALWAYS a string; this is what fixed your 400 error
+              text:
+                "You are Cipher, Jim's AI. Describe this image in detail and talk to him directly.",
             },
             {
               type: "input_image",
-              image_url: image, // base64 string or URL
+              // Your front-end sends just the base64 chunk, so we wrap it
+              // as a proper data URL here:
+              image_url: `data:image/png;base64,${image}`,
             },
           ],
         },
       ],
     });
 
-    const text =
-      response.output_text ||
-      response.output?.[0]?.content?.[0]?.text ||
-      "I saw the image but couldn't generate a description.";
+    // Try to pull the text out in a safe way
+    let text = "I saw the image but couldn't generate a description.";
+
+    if (response.output_text && typeof response.output_text === "string") {
+      text = response.output_text;
+    } else if (Array.isArray(response.output) && response.output.length > 0) {
+      const first = response.output[0];
+      const firstContent = first?.content?.[0];
+      if (
+        firstContent &&
+        firstContent.type === "output_text" &&
+        typeof firstContent.text === "string"
+      ) {
+        text = firstContent.text;
+      }
+    }
 
     return res.status(200).json({ reply: text });
   } catch (err) {
     console.error("Vision API error:", err);
     return res.status(500).json({
       error: "Vision API failed",
-      details: err.message,
+      details: err.message || String(err),
     });
   }
 }
