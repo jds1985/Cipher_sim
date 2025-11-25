@@ -1,11 +1,7 @@
 // pages/api/voice_chat.js
-// Cipher Voice Route — Whisper → Guard → Core → TTS (Stable Version)
 
 import OpenAI from "openai";
-import { File } from "formdata-node";
-import { runGuard } from "../../cipher_core/guard";
-import { runCipherCore } from "../../cipher_core/core";
-import { saveMemory } from "../../cipher_core/memory";
+import { loadMemory, saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -20,64 +16,43 @@ export default async function handler(req, res) {
     const { audio, memory } = req.body;
 
     if (!audio) {
-      return res.status(400).json({ error: "Missing audio data." });
+      return res.status(400).json({ error: "No audio provided" });
     }
 
-    // Convert base64 → File
-    const buffer = Buffer.from(audio, "base64");
-    const file = new File([buffer], "input.webm", { type: "audio/webm" });
-
-    // 1) Transcription
-    const transcriptResp = await client.audio.transcriptions.create({
-      file,
+    // 1. Transcribe
+    const transcriptRes = await client.audio.transcriptions.create({
+      file: audio,
       model: "gpt-4o-transcribe",
     });
 
-    const transcript = transcriptResp.text || "";
+    const transcript = transcriptRes.text || "(silent audio)";
 
-    // 2) Guard + reasoning
-    const safeText =
-      (await runGuard(transcript.trim() || "[empty voice input]")) || "";
-
-    let cipherReply = await runCipherCore({
-      message: safeText,
-      memory: memory || {},
+    // 2. Chat response
+    const chatRes = await client.responses.create({
+      model: "gpt-4o-mini",
+      input: transcript,
     });
 
-    // 🔥 HARD FIX: prevent undefined
-    if (!cipherReply || typeof cipherReply !== "string") {
-      cipherReply =
-        "I heard you, but the reasoning chain was disrupted. Try again and I’ll listen.";
-    }
+    const reply = chatRes.output_text;
 
-    // 3) Save memory
-    await saveMemory({
-      timestamp: Date.now(),
-      user: safeText,
-      cipher: cipherReply,
-    });
+    await saveMemory(transcript, reply);
 
-    // 4) TTS
-    const ttsResp = await client.audio.speech.create({
+    // 3. Voice output
+    const voiceRes = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "verse",
-      input: cipherReply,
+      voice: "alloy",
+      input: reply,
       format: "mp3",
     });
 
-    const ttsBuffer = Buffer.from(await ttsResp.arrayBuffer());
-    const voiceBase64 = ttsBuffer.toString("base64");
-
-    return res.status(200).json({
+    res.json({
       transcript,
-      reply: cipherReply,
-      voice: voiceBase64,
+      reply,
+      voice: voiceRes.base64,
     });
+
   } catch (err) {
     console.error("VOICE ERROR:", err);
-    return res.status(500).json({
-      error: "Voice route failed",
-      details: err.message,
-    });
+    res.status(500).json({ error: "Voice failure", details: err.message });
   }
 }
