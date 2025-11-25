@@ -1,5 +1,5 @@
 // pages/api/vision_chat.js
-// Cipher Vision — OpenAI Responses API (correct v5 format)
+// Cipher Vision — Updated for NEW OpenAI v5 API (Nov 24)
 
 import OpenAI from "openai";
 
@@ -19,37 +19,40 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    const memTxt =
+    const memText =
       typeof memory === "string" && memory.trim().length > 0
         ? memory
         : "Jim is the user. You are Cipher.";
 
     const prompt = `
-You are Cipher. Describe the image warmly and naturally.
-Use memory if helpful, but do not repeat it verbatim.
+You are Cipher. Describe the image clearly and naturally.
 
 Memory:
-${memTxt}
-`.trim();
+${memText}
+`;
 
-    // 🚨 CORRECT OpenAI v5 format — no roles, no content arrays
+    // ⛔ No more input_text / input_image
+    // ✅ Unified role/content format
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       input: [
-        { type: "input_text", text: prompt },
         {
-          type: "input_image",
-          image_url: `data:image/png;base64,${image}`,
+          role: "user",
+          content: prompt,
+        },
+        {
+          role: "user",
+          image: `data:image/png;base64,${image}`,
         },
       ],
     });
 
-    const out =
+    const text =
       response.output_text ||
       response.output?.[0]?.content?.[0]?.text ||
       "I saw the image but couldn’t describe it.";
 
-    return res.status(200).json({ reply: out.trim() });
+    return res.status(200).json({ reply: text.trim() });
   } catch (err) {
     console.error("Vision API error:", err);
     return res.status(500).json({
