@@ -1,8 +1,7 @@
 // pages/api/voice_chat.js
-// Cipher Voice Route — Updated for new OpenAI SDK (Nov 2024+)
+// Cipher Voice Route — FINAL FIX (Base64 → OpenAI Audio Messages)
 
 import OpenAI from "openai";
-import { File } from "formdata-node";
 import { runGuard } from "../../cipher_core/guard";
 import { runCipherCore } from "../../cipher_core/core";
 import { saveMemory } from "../../cipher_core/memory";
@@ -20,53 +19,60 @@ export default async function handler(req, res) {
     const { audio, memory } = req.body;
 
     if (!audio) {
-      console.error("VOICE ERROR: Missing audio");
-      return res.status(400).json({ error: "Audio missing" });
+      return res.status(400).json({ error: "Missing audio base64." });
     }
 
-    // ------------------------------
-    // 1) Base64 → WebM File
-    // ------------------------------
-    const buffer = Buffer.from(audio, "base64");
-    const file = new File([buffer], "input.webm", {
-      type: "audio/webm",
+    // ---------------------------------------------------
+    // 1) Whisper via NEW GPT-4o Audio Input Format
+    // ---------------------------------------------------
+    const whisperResp = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_audio",
+              input_audio: {
+                data: audio,       // base64
+                format: "webm",    // matches your MediaRecorder output
+              },
+            },
+            {
+              type: "text",
+              text: "Transcribe this audio.",
+            },
+          ],
+        },
+      ],
     });
 
-    // ------------------------------
-    // 2) TRANSCRIBE
-    // ------------------------------
-    const transcriptResp = await client.audio.transcriptions.create({
-      file,
-      model: "gpt-4o-transcribe",
-    });
+    const transcript = whisperResp.choices?.[0]?.message?.content?.[0]?.text || "";
 
-    const transcript = transcriptResp.text || "";
-    console.log("TRANSCRIPT:", transcript);
+    // ---------------------------------------------------
+    // 2) Guard + Core
+    // ---------------------------------------------------
+    const safeTranscript = await runGuard(
+      transcript.trim() || "[user sent empty voice input]"
+    );
 
-    // ------------------------------
-    // 3) GUARD + CORE
-    // ------------------------------
-    const safeTranscript =
-      transcript.trim() || "[user sent empty voice input]";
-
-    const guarded = await runGuard(safeTranscript);
     const coreReply = await runCipherCore({
-      message: guarded,
+      message: safeTranscript,
       memory: memory || {},
     });
 
-    // ------------------------------
-    // 4) MEMORY SAVE
-    // ------------------------------
+    // ---------------------------------------------------
+    // 3) Save memory
+    // ---------------------------------------------------
     await saveMemory({
-      message: safeTranscript,
-      cipherReply: coreReply,
       timestamp: Date.now(),
+      user: safeTranscript,
+      cipher: coreReply,
     });
 
-    // ------------------------------
-    // 5) TTS OUTPUT (mp3)
-    // ------------------------------
+    // ---------------------------------------------------
+    // 4) Text → Speech (TTS)
+    // ---------------------------------------------------
     const ttsResp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
@@ -77,14 +83,15 @@ export default async function handler(req, res) {
     const ttsBuffer = Buffer.from(await ttsResp.arrayBuffer());
     const voiceBase64 = ttsBuffer.toString("base64");
 
-    // ------------------------------
-    // 6) RETURN FULL RESPONSE
-    // ------------------------------
+    // ---------------------------------------------------
+    // 5) Return final response
+    // ---------------------------------------------------
     return res.status(200).json({
       transcript,
       reply: coreReply,
       voice: voiceBase64,
     });
+
   } catch (err) {
     console.error("VOICE ERROR:", err);
     return res.status(500).json({
