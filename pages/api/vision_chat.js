@@ -19,19 +19,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // -------------------------
-    // V5: USE responses.create()
-    // -------------------------
+    // V5: use responses.create()
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       input: [
         {
           role: "user",
           content: [
-            { type: "input_text", text: memory || "Describe this image." },
+            {
+              type: "input_text",
+              text: memory || "Describe this image as Cipher.",
+            },
             {
               type: "input_image",
-              image_url: image,
+              image_url: image, // can be data URL or URL
             },
           ],
         },
@@ -46,6 +47,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply: text });
   } catch (err) {
     console.error("Vision API error:", err);
-    return res.status(500).json({ error: "Vision API failed", details: err });
+    return res
+      .status(500)
+      .json({ error: "Vision API failed", details: err.message });
   }
 }
