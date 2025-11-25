@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     // 4) Generate TTS output
     const ttsResp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "verse",
+      voice: "cove",
       input: coreReply,
       format: "mp3",
     });
