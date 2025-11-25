@@ -1,5 +1,5 @@
 // pages/api/vision_chat.js
-// Cipher Vision Route — GPT-4o Vision + Core + TTS
+// Cipher Vision Route — Image → Description → Voice Response
 
 import OpenAI from "openai";
 import { runGuard } from "../../cipher_core/guard";
@@ -19,78 +19,74 @@ export default async function handler(req, res) {
     const { image, memory } = req.body;
 
     if (!image) {
-      return res.status(400).json({ error: "Missing image data." });
+      return res.status(400).json({ error: "No image provided." });
     }
 
-    // ------------------------------------
-    // 1) Prepare image blob
-    // ------------------------------------
-    const buffer = Buffer.from(image, "base64");
-
-    // ------------------------------------
-    // 2) Vision → caption text
-    // ------------------------------------
+    // --------------------------------------
+    // 1) VISION — Convert Base64 → Prompt
+    // --------------------------------------
     const visionResp = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "user",
           content: [
-            { type: "text", text: "Describe this image in detail." },
+            { type: "input_text", text: "Describe this image in detail." },
             {
-              type: "image_url",
-              image_url: "data:image/png;base64," + image,
-            }
+              type: "input_image",
+              image_url: `data:image/png;base64,${image}`,
+            },
           ],
-        }
+        },
       ],
     });
 
-    const description =
-      visionResp.choices?.[0]?.message?.content || "I saw something, but I'm not sure what.";
+    const rawVisionText =
+      visionResp.choices?.[0]?.message?.content ||
+      "I saw the image, but couldn’t describe it.";
 
-    // ------------------------------------
-    // 3) Send description through Cipher Core
-    // ------------------------------------
-    const safeText = await runGuard(description);
-    const cipherReply = await runCipherCore({
+    // --------------------------------------
+    // 2) Guard + Send to Core
+    // --------------------------------------
+    const safeText = await runGuard(rawVisionText);
+
+    const coreReply = await runCipherCore({
       message: safeText,
       memory: memory || {},
     });
 
-    // ------------------------------------
-    // 4) Save memory
-    // ------------------------------------
+    // --------------------------------------
+    // 3) Save Memory
+    // --------------------------------------
     await saveMemory({
       timestamp: Date.now(),
-      user: "[vision input]",
-      cipher: cipherReply,
+      imageSummary: safeText,
+      cipher: coreReply,
     });
 
-    // ------------------------------------
-    // 5) Convert reply → speech
-    // ------------------------------------
+    // --------------------------------------
+    // 4) TTS — Voice Response
+    // --------------------------------------
     const ttsResp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
-      input: cipherReply,
+      input: coreReply,
       format: "mp3",
     });
 
-    const mp3Buffer = Buffer.from(await ttsResp.arrayBuffer());
-    const voiceBase64 = mp3Buffer.toString("base64");
+    const audioBuffer = Buffer.from(await ttsResp.arrayBuffer());
+    const voiceBase64 = audioBuffer.toString("base64");
 
-    // ------------------------------------
-    // 6) Return result
-    // ------------------------------------
+    // --------------------------------------
+    // 5) Return everything to the app
+    // --------------------------------------
     return res.status(200).json({
-      reply: cipherReply,
+      reply: coreReply,
+      visionText: safeText,
       voice: voiceBase64,
-      rawVision: description,
     });
-
   } catch (err) {
-    console.error("Vision API error:", err);
+    console.error("VISION ERROR:", err);
     return res.status(500).json({
       error: "Vision route failed",
       details: err.message,
