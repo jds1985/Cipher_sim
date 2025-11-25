@@ -81,7 +81,7 @@ export default async function handler(req, res) {
       // If your /api/voice_chat uses a different model/voice,
       // copy those values here so they sound identical.
       model: "gpt-4o-mini-tts",
-      voice: "ballad", // try "ballad" or "verse" for more human pacing
+      voice: "cove", // try "ballad" or "verse" for more human pacing
       input: text,
       format: "mp3",
     });
