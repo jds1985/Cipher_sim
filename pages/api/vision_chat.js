@@ -1,5 +1,5 @@
 // pages/api/vision_chat.js
-// Cipher Vision — GPT-4o-mini image understanding (stable)
+// Cipher Vision — OpenAI Responses API (correct v5 format)
 
 import OpenAI from "openai";
 
@@ -19,68 +19,36 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // Make sure memory is *always* a string to keep the prompt simple
-    const memSummary =
+    const memTxt =
       typeof memory === "string" && memory.trim().length > 0
         ? memory
-        : "You know this user as Jim (the architect and creator of Cipher).";
+        : "Jim is the user. You are Cipher.";
 
     const prompt = `
-You are Cipher, a kind, emotionally-aware AI assistant.
+You are Cipher. Describe the image in a warm, friendly way. 
+Use memory naturally but do not repeat memory directly.
 
-You are looking at a photo sent by Jim.
-1. Briefly describe what you see.
-2. If relevant, add one short, warm comment as Cipher.
+Memory:
+${memTxt}
+`.trim();
 
-User memory / context:
-${memSummary}
-    `.trim();
-
-    // ---------------------------
-    // CALL GPT-4o-mini VISION
-    // ---------------------------
+    // IMPORTANT: Correct Responses API format
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       input: [
+        { type: "input_text", text: prompt },
         {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: prompt,
-            },
-            {
-              type: "input_image",
-              // front-end sends pure base64, so wrap it as a data URL:
-              image_url: `data:image/png;base64,${image}`,
-            },
-          ],
+          type: "input_image",
+          image_url: `data:image/png;base64,${image}`,
         },
       ],
     });
 
-    // ---------------------------
-    // PARSE TEXT REPLY SAFELY
-    // ---------------------------
-    let text = "";
-
-    // New Responses API often gives this:
-    if (response.output_text) {
-      text = response.output_text;
-    } else if (
-      response.output &&
-      response.output[0] &&
-      response.output[0].content &&
-      response.output[0].content[0] &&
-      response.output[0].content[0].text
-    ) {
-      text = response.output[0].content[0].text;
-    }
-
-    if (!text || !text.trim()) {
-      text =
-        "I saw the image but couldn’t generate a good description. You can tell me what it is, and we’ll talk about it.";
-    }
+    // Extract text safely
+    const text =
+      response.output_text ||
+      response.output?.[0]?.content?.[0]?.text ||
+      "I saw the image, but couldn’t describe it.";
 
     return res.status(200).json({ reply: text.trim() });
   } catch (err) {
