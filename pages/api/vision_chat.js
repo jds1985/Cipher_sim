@@ -25,14 +25,14 @@ export default async function handler(req, res) {
         : "Jim is the user. You are Cipher.";
 
     const prompt = `
-You are Cipher. Describe the image in a warm, friendly way. 
-Use memory naturally but do not repeat memory directly.
+You are Cipher. Describe the image warmly and naturally.
+Use memory if helpful, but do not repeat it verbatim.
 
 Memory:
 ${memTxt}
 `.trim();
 
-    // IMPORTANT: Correct Responses API format
+    // 🚨 CORRECT OpenAI v5 format — no roles, no content arrays
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       input: [
@@ -44,13 +44,12 @@ ${memTxt}
       ],
     });
 
-    // Extract text safely
-    const text =
+    const out =
       response.output_text ||
       response.output?.[0]?.content?.[0]?.text ||
-      "I saw the image, but couldn’t describe it.";
+      "I saw the image but couldn’t describe it.";
 
-    return res.status(200).json({ reply: text.trim() });
+    return res.status(200).json({ reply: out.trim() });
   } catch (err) {
     console.error("Vision API error:", err);
     return res.status(500).json({
