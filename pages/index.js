@@ -246,11 +246,9 @@ export default function Home() {
   // CAMERA SYSTEM
   // ------------------------------
 
-  // Effect that actually opens/closes the stream when cameraActive changes
   useEffect(() => {
     const setupStream = async () => {
       if (!cameraActive) {
-        // if turning off, make sure to stop any existing tracks
         if (videoRef.current && videoRef.current.srcObject) {
           const tracks = videoRef.current.srcObject.getTracks();
           tracks.forEach((t) => t.stop());
@@ -276,7 +274,6 @@ export default function Home() {
 
     setupStream();
 
-    // Cleanup when component unmounts
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const tracks = videoRef.current.srcObject.getTracks();
@@ -287,7 +284,6 @@ export default function Home() {
   }, [cameraActive]);
 
   const openCamera = () => {
-    // just flip the state; effect above will handle getUserMedia
     setCameraActive(true);
   };
 
@@ -308,7 +304,6 @@ export default function Home() {
 
     const base64 = canvas.toDataURL("image/png").split(",")[1];
 
-    // stop stream after capture
     if (video.srcObject) {
       video.srcObject.getTracks().forEach((t) => t.stop());
       video.srcObject = null;
@@ -328,6 +323,16 @@ export default function Home() {
       if (data.reply) {
         setMessages((p) => [...p, { role: "cipher", text: data.reply }]);
       }
+
+      // ------------------------------
+      // 🔊 ADDED: PLAY VOICE FOR VISION
+      // ------------------------------
+      if (data.voice) {
+        const audio = new Audio("data:audio/mp3;base64," + data.voice);
+        audio.play().catch(() => {});
+      }
+      // ------------------------------
+
     } catch {
       setMessages((p) => [
         ...p,
@@ -457,7 +462,7 @@ export default function Home() {
           {isRecording ? "■" : "🎤"}
         </button>
 
-        {/* CAMERA (turns red when active) */}
+        {/* CAMERA */}
         <button
           onClick={openCamera}
           disabled={loading}
