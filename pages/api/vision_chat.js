@@ -19,7 +19,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // V5: use responses.create()
+    // Force memory to always be a string
+    const prompt =
+      typeof memory === "string" && memory.trim().length > 0
+        ? memory
+        : "Describe this image as Cipher.";
+
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       input: [
@@ -28,11 +33,11 @@ export default async function handler(req, res) {
           content: [
             {
               type: "input_text",
-              text: memory || "Describe this image as Cipher.",
+              text: prompt,
             },
             {
               type: "input_image",
-              image_url: image, // can be data URL or URL
+              image_url: image, // base64 string or URL
             },
           ],
         },
@@ -47,8 +52,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply: text });
   } catch (err) {
     console.error("Vision API error:", err);
-    return res
-      .status(500)
-      .json({ error: "Vision API failed", details: err.message });
+    return res.status(500).json({
+      error: "Vision API failed",
+      details: err.message,
+    });
   }
 }
