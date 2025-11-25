@@ -78,10 +78,15 @@ export default async function handler(req, res) {
     // 3) TTS: speak the description
     // -----------------------------
     const audioResponse = await client.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "alloy",
-      input: text,
-      format: "mp3",
+  model: "gpt-4o-tts",  // <-- Use full TTS model for human-like voice
+  voice: "ballad",      // <-- OR "verse" / "cove"
+  input: text,
+  format: "mp3",
+});
+      
+      
+      
+  
     });
 
     const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
