@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// CIPHER 5.1 — Natural Memory Recall Engine + Voice
+// CIPHER 5.1 — Natural Memory Recall Engine + Voice (Stable Version)
 
 import OpenAI from "openai";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
@@ -9,11 +9,6 @@ import { runCipherCore } from "../../cipher_core/core";
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// Remove undefined fields to avoid Firestore errors
-function cleanFirestoreObject(obj) {
-  return JSON.parse(JSON.stringify(obj));
-}
 
 /* ---------------------------------------------
    Build natural memory recall text
@@ -77,21 +72,20 @@ function buildMemoryContext(mem) {
   if (out.length === 0) return "";
 
   return `
-You have long-term memory about the user.  
-Here are the relevant details you should keep in mind while answering:
+You have long-term memory of the user.  
+Here are the relevant details:
 
 ${out.join("\n")}
 
 When responding, be natural and conversational.  
-Do NOT repeat the memory directly unless asked.  
-Instead, use the memory naturally when relevant.
+Do NOT repeat these memories unless asked.  
+Use them subtly and naturally when relevant.
 `;
 }
 
 /* ---------------------------------------------
-   MAIN HANDLER
+   MAIN ROUTE
 --------------------------------------------- */
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -104,56 +98,63 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Guard inappropriate input
+    // 1. Guard
     const safeMsg = await runGuard(message);
 
-    // 2. Convert front-end memory into a natural prompt
+    // 2. Construct memory context
     const memContext = buildMemoryContext(memory);
 
-    // 3. Build final prompt sent to Cipher Core
+    // 3. Final user prompt
     const merged = `
 ${memContext}
 
 USER SAID:
 ${safeMsg}
 
-Respond as Cipher — warm, supportive, emotionally intelligent,  
-and naturally aware of the user’s long-term details.
+Respond as Cipher — warm, emotionally intelligent,  
+and aware of the user’s long-term details.
 `;
 
-    // 4. Run main reasoning model
-    const reply = await runCipherCore({
+    // 4. Run main Cipher Core reasoning
+    let reply = await runCipherCore({
       message: merged,
-      memory: [], // memory already provided in merged prompt
+      memory: [],
     });
 
-    // 5. Save backend record (no undefined allowed)
-    await saveMemory(
-      cleanFirestoreObject({
-        timestamp: Date.now(),
-        user: safeMsg,
-        cipher: reply || null,
-      })
-    );
+    // 🔥 HARD FIX: prevent undefined from breaking Firestore
+    if (!reply || typeof reply !== "string") {
+      reply =
+        "I'm here — something went wrong in my reasoning chain, but I'm still with you.";
+    }
+
+    // 5. Save chat record
+    await saveMemory({
+      timestamp: Date.now(),
+      user: safeMsg,
+      cipher: reply,
+    });
 
     // 6. Generate TTS
-    const audioResponse = await client.audio.speech.create({
+    const audioResp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
       input: reply,
       format: "mp3",
     });
 
-    const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-    const base64Audio = audioBuffer.toString("base64");
+    const buffer = Buffer.from(await audioResp.arrayBuffer());
+    const base64Audio = buffer.toString("base64");
 
-    // 7. Send reply + voice back to front-end
+    // 7. Return result
     return res.status(200).json({
       reply,
       voice: base64Audio,
     });
   } catch (err) {
-    console.error("Cipher API error:", err);
-    return res.status(500).json({ error: err.message });
+    console.error("CHAT ERROR:", err);
+    return res.status(500).json({
+      error: "Chat route failed",
+      details: err.message,
+    });
   }
 }
