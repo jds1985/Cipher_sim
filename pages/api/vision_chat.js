@@ -1,9 +1,7 @@
 // pages/api/vision_chat.js
-// Cipher Vision Route — Image → Description → Voice Response
+// Cipher Vision — describe image + speak it
 
 import OpenAI from "openai";
-import { runGuard } from "../../cipher_core/guard";
-import { runCipherCore } from "../../cipher_core/core";
 import { saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
@@ -19,77 +17,87 @@ export default async function handler(req, res) {
     const { image, memory } = req.body;
 
     if (!image) {
-      return res.status(400).json({ error: "No image provided." });
+      return res.status(400).json({ error: "No image provided" });
     }
 
-    // --------------------------------------
-    // 1) VISION — Convert Base64 → Prompt
-    // --------------------------------------
-    const visionResp = await client.chat.completions.create({
+    // -----------------------------
+    // 1) VISION: describe the image
+    // -----------------------------
+    const visionResponse = await client.responses.create({
       model: "gpt-4o-mini",
-      messages: [
+      input: [
         {
           role: "user",
           content: [
-            { type: "input_text", text: "Describe this image in detail." },
             {
               type: "input_image",
               image_url: `data:image/png;base64,${image}`,
+            },
+            {
+              type: "input_text",
+              text:
+                "You are Cipher, a warm, emotionally intelligent AI. " +
+                "Briefly describe what you see in this image, " +
+                "then add one short, supportive personal comment to Jim.",
             },
           ],
         },
       ],
     });
 
-    const rawVisionText =
-      visionResp.choices?.[0]?.message?.content ||
-      "I saw the image, but couldn’t describe it.";
+    let text = visionResponse.output_text;
 
-    // --------------------------------------
-    // 2) Guard + Send to Core
-    // --------------------------------------
-    const safeText = await runGuard(rawVisionText);
+    // Fallback in case output_text is missing
+    if (
+      (!text || !text.trim()) &&
+      visionResponse.output &&
+      visionResponse.output[0] &&
+      visionResponse.output[0].content &&
+      visionResponse.output[0].content[0] &&
+      visionResponse.output[0].content[0].text
+    ) {
+      text = visionResponse.output[0].content[0].text;
+    }
 
-    const coreReply = await runCipherCore({
-      message: safeText,
-      memory: memory || {},
-    });
+    if (!text || !text.trim()) {
+      text =
+        "I saw the image, but I wasn't able to generate a clear description. You can tell me what it is, and we can talk about it together.";
+    }
 
-    // --------------------------------------
-    // 3) Save Memory
-    // --------------------------------------
+    // -----------------------------
+    // 2) SAVE TO MEMORY (new format)
+    // -----------------------------
     await saveMemory({
       timestamp: Date.now(),
-      imageSummary: safeText,
-      cipher: coreReply,
+      user: "[vision_input]",
+      cipher: text,
+      // you could add more fields later if you want, e.g. rawImage: true
     });
 
-    // --------------------------------------
-    // 4) TTS — Voice Response
-    // --------------------------------------
-    const ttsResp = await client.audio.speech.create({
+    // -----------------------------
+    // 3) TTS: speak the description
+    // -----------------------------
+    const audioResponse = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "verse",
-      input: coreReply,
+      voice: "alloy",
+      input: text,
       format: "mp3",
     });
 
-    const audioBuffer = Buffer.from(await ttsResp.arrayBuffer());
+    const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
     const voiceBase64 = audioBuffer.toString("base64");
 
-    // --------------------------------------
-    // 5) Return everything to the app
-    // --------------------------------------
+    // -----------------------------
+    // 4) RETURN text + voice
+    // -----------------------------
     return res.status(200).json({
-      reply: coreReply,
-      visionText: safeText,
+      reply: text,
       voice: voiceBase64,
     });
   } catch (err) {
-    console.error("VISION ERROR:", err);
-    return res.status(500).json({
-      error: "Vision route failed",
-      details: err.message,
-    });
+    console.error("Vision API error:", err);
+    return res
+      .status(500)
+      .json({ error: "Vision failure", details: err.message });
   }
 }
