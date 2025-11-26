@@ -1,5 +1,5 @@
 // cipher_core/core.js
-// CIPHER 6.2 — Soul Hash Tree Read/Write Core (Steps 9 + 10)
+// CIPHER 6.3 — Soul Hash Tree Read/Write Core + Metadata Support
 
 import OpenAI from "openai";
 import { db } from "../firebaseAdmin";
@@ -34,6 +34,9 @@ async function loadSoulTree() {
       summary += `  hash: ${n.hash}\n`;
       summary += `  value: ${JSON.stringify(n.value).slice(0, 300)}\n`;
       summary += `  timestamp: ${n.timestamp}\n`;
+      if (n.meta) {
+        summary += `  meta: ${JSON.stringify(n.meta).slice(0, 200)}\n`;
+      }
     });
 
     return summary.slice(0, 1200);
@@ -45,6 +48,7 @@ async function loadSoulTree() {
 
 /* -------------------------------------------------------
    STEP 10 — Soul Node Hashing + Writeback (200-node cap)
+   + Metadata channel for future expansion
 ------------------------------------------------------- */
 
 // Hash a soul node's value so each node has a unique, stable fingerprint
@@ -56,7 +60,7 @@ function hashSoulNode(value) {
 }
 
 // Append a new node to cipher_branches/main and trim to last 200 nodes
-async function appendSoulNode({ userMessage, cipherReply }) {
+async function appendSoulNode({ userMessage, cipherReply, meta = {} }) {
   try {
     const ref = db.collection("cipher_branches").doc("main");
     const snap = await ref.get();
@@ -70,8 +74,14 @@ async function appendSoulNode({ userMessage, cipherReply }) {
     };
 
     const node = {
-      hash: hashSoulNode(value),
+      hash: hashSoulNode({ value, meta }),
       value,
+      meta: {
+        source: meta.source || "cipher_app", // default channel
+        mode: meta.mode || "chat",
+        userId: meta.userId || null,
+        timestamp: Date.now(),
+      },
       timestamp: Date.now(),
     };
 
@@ -98,6 +108,7 @@ export async function runCipherCore({
   message = "",
   memory = {},
   model = "gpt-4o-mini",
+  meta = {}, // optional metadata: { userId, source, mode, ... }
 }) {
   // Normalize the incoming message
   if (typeof message !== "string") {
@@ -165,9 +176,13 @@ ${message}
 
   /* ---------------------------------------
      6. Write new Soul Node (Step 10)
-        (Non-blocking for experience; failures are logged only)
+        (Non-blocking; failures are logged only)
   --------------------------------------- */
-  await appendSoulNode({ userMessage: message, cipherReply: reply });
+  await appendSoulNode({
+    userMessage: message,
+    cipherReply: reply,
+    meta,
+  });
 
   return reply;
 }
