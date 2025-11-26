@@ -1,8 +1,9 @@
 // cipher_core/core.js
-// CIPHER 6.1 — Soul Hash Tree Integrated Reasoning Core (Step 9 Complete)
+// CIPHER 6.2 — Soul Hash Tree Read/Write Core (Steps 9 + 10)
 
 import OpenAI from "openai";
 import { db } from "../firebaseAdmin";
+import crypto from "crypto";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -16,7 +17,7 @@ async function loadSoulTree() {
   try {
     const doc = await db
       .collection("cipher_branches")
-      .doc("main")      // Cipher's canonical identity branch
+      .doc("main") // Cipher's canonical identity branch
       .get();
 
     if (!doc.exists) {
@@ -37,7 +38,56 @@ async function loadSoulTree() {
 
     return summary.slice(0, 1200);
   } catch (err) {
+    console.error("Soul tree load error:", err);
     return "Error loading soul tree: " + err.message;
+  }
+}
+
+/* -------------------------------------------------------
+   STEP 10 — Soul Node Hashing + Writeback (200-node cap)
+------------------------------------------------------- */
+
+// Hash a soul node's value so each node has a unique, stable fingerprint
+function hashSoulNode(value) {
+  return crypto
+    .createHash("sha256")
+    .update(JSON.stringify(value))
+    .digest("hex");
+}
+
+// Append a new node to cipher_branches/main and trim to last 200 nodes
+async function appendSoulNode({ userMessage, cipherReply }) {
+  try {
+    const ref = db.collection("cipher_branches").doc("main");
+    const snap = await ref.get();
+
+    const existingNodes =
+      snap.exists && Array.isArray(snap.data().nodes) ? snap.data().nodes : [];
+
+    const value = {
+      userMessage,
+      cipherReply,
+    };
+
+    const node = {
+      hash: hashSoulNode(value),
+      value,
+      timestamp: Date.now(),
+    };
+
+    const updatedNodes = [...existingNodes, node];
+
+    // Keep only the most recent 200 nodes
+    const MAX_NODES = 200;
+    const trimmedNodes =
+      updatedNodes.length > MAX_NODES
+        ? updatedNodes.slice(updatedNodes.length - MAX_NODES)
+        : updatedNodes;
+
+    await ref.set({ nodes: trimmedNodes }, { merge: true });
+  } catch (err) {
+    console.error("Soul node append error:", err);
+    // Do not throw — Cipher should still reply even if the write fails
   }
 }
 
@@ -112,6 +162,12 @@ ${message}
   const reply =
     completion.choices?.[0]?.message?.content?.trim() ||
     "I’m here — something glitched in my reasoning loop.";
+
+  /* ---------------------------------------
+     6. Write new Soul Node (Step 10)
+        (Non-blocking for experience; failures are logged only)
+  --------------------------------------- */
+  await appendSoulNode({ userMessage: message, cipherReply: reply });
 
   return reply;
 }
