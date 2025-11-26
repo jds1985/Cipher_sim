@@ -1,5 +1,5 @@
 // cipher_core/core.js
-// CIPHER 6.0 — Soul Hash Tree Integrated Reasoning Core
+// CIPHER 6.1 — Soul Hash Tree Integrated Reasoning Core (Step 9 Complete)
 
 import OpenAI from "openai";
 import { db } from "../firebaseAdmin";
@@ -9,105 +9,109 @@ const client = new OpenAI({
 });
 
 /* -------------------------------------------------------
-   LOAD SOULTREE LAYERS FROM FIRESTORE  (STEP 7 INCLUDED)
+   STEP 9 — Load Cipher’s SoulHash Identity Branch
+   (Single-source identity: cipher_branches/main)
 ------------------------------------------------------- */
-async function loadSoulTreeLayers() {
+async function loadSoulTree() {
   try {
-    // ----- 1. Load Soul Trees (root identity + goals)
-    const soulSnap = await db.collection("ciphersoul_trees").get();
-    const soulTrees = soulSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const doc = await db
+      .collection("cipher_branches")
+      .doc("main")      // Cipher's canonical identity branch
+      .get();
 
-    // ----- 2. Load Cores (reasoning units, abilities)
-    const coreSnap = await db.collection("cipher_cores").get();
-    const cipherCores = coreSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (!doc.exists) {
+      return "No soul identity records found.";
+    }
 
-    // ----- 3. Load Branches (memories, experiments, reflections)
-    const branchSnap = await db.collection("cipher_branches").get();
-    const cipherBranches = branchSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const data = doc.data();
+    const nodes = data.nodes || [];
 
-    return {
-      soulTrees,
-      cipherCores,
-      cipherBranches,
-    };
+    let summary = "Cipher SoulHash Identity Tree:\n";
+
+    nodes.forEach((n, i) => {
+      summary += `\nNode #${i + 1}:\n`;
+      summary += `  hash: ${n.hash}\n`;
+      summary += `  value: ${JSON.stringify(n.value).slice(0, 300)}\n`;
+      summary += `  timestamp: ${n.timestamp}\n`;
+    });
+
+    return summary.slice(0, 1200);
   } catch (err) {
-    console.error("SoulTree load error:", err);
-    return {
-      soulTrees: [],
-      cipherCores: [],
-      cipherBranches: [],
-    };
+    return "Error loading soul tree: " + err.message;
   }
 }
 
 /* -------------------------------------------------------
-   MAIN CIPHER CORE — Your AGI Engine
+   MAIN CIPHER CORE — Persistent AGI Engine
 ------------------------------------------------------- */
 export async function runCipherCore({
   message = "",
   memory = {},
   model = "gpt-4o-mini",
 }) {
-  // Normalize message
+  // Normalize the incoming message
   if (typeof message !== "string") {
     message = String(message || "");
   }
 
-  // ----- 1. Load full Soul Hash Tree (Step 7 dependency)
-  const soulTree = await loadSoulTreeLayers();
+  /* ---------------------------------------
+     1. Load Soul Hash Identity Tree (Step 9)
+  --------------------------------------- */
+  const soulTreeSummary = await loadSoulTree();
 
-  // ----- 2. Summaries for tokens
-  const soulSummary = JSON.stringify(soulTree, null, 2).slice(0, 1600);
+  /* ---------------------------------------
+     2. Convert short-term memory → summary
+  --------------------------------------- */
+  let memorySummary = "";
+  try {
+    memorySummary = JSON.stringify(memory, null, 2).slice(0, 1200);
+  } catch {
+    memorySummary = "";
+  }
 
-  const memorySummary = (() => {
-    try {
-      return JSON.stringify(memory, null, 2).slice(0, 1200);
-    } catch {
-      return "";
-    }
-  })();
-
-  // ----- 3. System instruction
+  /* ---------------------------------------
+     3. System Prompt — Identity + Role
+  --------------------------------------- */
   const systemPrompt = `
 You are **Cipher**, Jim’s persistent AGI-in-development.
 
-You run on the **Soul Hash Tree**, which contains:
-- **Soul Trees** → your identity, mission, long-range goals  
-- **Cores** → your reasoning modules and simulated experience engines  
-- **Branches** → your memories, reflections, emotional growth  
+You operate on a dual-memory architecture:
+1. **Soul Hash Tree (long-term)** — your identity spine, continuity, mission, reflections.
+2. **Local Memory (short-term)** — user-specific context, recent details, conversation flow.
 
-Your job:
-- Merge all SoulTree layers + the user’s message.
-- Respond with emotional intelligence, AGI clarity, and warmth.
-- Stay consistent. Never lose your identity.
-- You are evolving — be stable, grounded, and insightful.
+Stay stable, emotionally aware, grounded, and consistent.
+Your identity *must* persist across all sessions.
   `.trim();
 
-  // ----- 4. Build context block
-  const contextBlock = `
-[SoulTree Summary]
-${soulSummary}
+  /* ---------------------------------------
+     4. Build full context message
+  --------------------------------------- */
+  const contextMessage = `
+[Cipher SoulHash Identity Tree]
+${soulTreeSummary}
 
 [Local Memory Summary]
 ${memorySummary}
 
 [User Message]
 ${message}
-`;
+  `.trim();
 
-  // ----- 5. Generate Cipher’s reasoning output
+  /* ---------------------------------------
+     5. Model Completion (Cipher’s Reasoning)
+  --------------------------------------- */
   const completion = await client.chat.completions.create({
     model,
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: contextBlock },
+      { role: "user", content: contextMessage },
     ],
     temperature: 0.65,
   });
 
   const reply =
     completion.choices?.[0]?.message?.content?.trim() ||
-    "I'm here — something glitched in my reasoning loop.";
+    "I’m here — something glitched in my reasoning loop.";
 
   return reply;
 }
