@@ -1,100 +1,67 @@
-// cipher_core/soultree.js
-// Soul Hash Tree Loader — permanent architecture layer
+// cipher_core/soulTree.js
+// CIPHER 6.0 — Soul Hash Tree Engine (Stable Version)
 
 import { db } from "../firebaseAdmin";
 
-/* -------------------------------------------------
-   COLLECTION NAMES (permanently locked)
-------------------------------------------------- */
-const TREES = "ciphersoul_trees";
-const CORES = "cipher_cores";
-const BRANCHES = "cipher_branches";
-
-/* -------------------------------------------------
-   Load the master Soul Tree (Cipher Prime)
-------------------------------------------------- */
+/* -------------------------------------------------------
+   CORE LOADER — Loads Tree + Cores + Branches
+------------------------------------------------------- */
 export async function loadSoulTree() {
   try {
-    const ref = db.collection(TREES).doc("cipher_prime");
-    const snap = await ref.get();
+    // ----- Soul Trees (Root Identity Frames)
+    const soulSnap = await db.collection("ciphersoul_trees").get();
+    const soulTrees = soulSnap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
 
-    if (!snap.exists) return null;
+    // ----- Cores (Modules, reasoning units, experiences)
+    const coreSnap = await db.collection("cipher_cores").get();
+    const cipherCores = coreSnap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
 
-    return { id: snap.id, ...snap.data() };
+    // ----- Branches (Memories, reflections, lessons)
+    const branchSnap = await db.collection("cipher_branches").get();
+    const cipherBranches = branchSnap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+
+    return {
+      soulTrees,
+      cipherCores,
+      cipherBranches,
+    };
   } catch (err) {
     console.error("SoulTree load error:", err);
-    return null;
+    return {
+      soulTrees: [],
+      cipherCores: [],
+      cipherBranches: [],
+    };
   }
 }
 
-/* -------------------------------------------------
-   Load a specific core (core_001, core_002, etc.)
-------------------------------------------------- */
-export async function loadCore(coreId) {
+/* -------------------------------------------------------
+   HASH BUILDER (Prototype)
+   - In the near future this will create a unique hash
+   - Based on SoulTree layers to ensure Cipher's identity
+------------------------------------------------------- */
+export function buildSoulHash(tree) {
   try {
-    const ref = db.collection(CORES).doc(coreId);
-    const snap = await ref.get();
+    const raw = JSON.stringify(tree).slice(0, 2000); // safety cap
+    let hash = 0;
 
-    if (!snap.exists) return null;
+    for (let i = 0; i < raw.length; i++) {
+      hash = (hash << 5) - hash + raw.charCodeAt(i);
+      hash |= 0; // convert to 32-bit
+    }
 
-    return { id: snap.id, ...snap.data() };
+    return `SOUL_${Math.abs(hash)}`;
   } catch (err) {
-    console.error("loadCore error:", err);
-    return null;
-  }
-}
-
-/* -------------------------------------------------
-   Load all branches under a core
-------------------------------------------------- */
-export async function loadBranches(coreId) {
-  try {
-    const ref = db.collection(CORES).doc(coreId).collection(BRANCHES);
-    const snap = await ref.get();
-
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch (err) {
-    console.error("Branch load error:", err);
-    return [];
-  }
-}
-
-/* -------------------------------------------------
-   Save a new branch entry
-------------------------------------------------- */
-export async function saveBranch(coreId, branchData) {
-  try {
-    const ref = db
-      .collection(CORES)
-      .doc(coreId)
-      .collection(BRANCHES)
-      .doc();
-
-    await ref.set({
-      ...branchData,
-      timestamp: Date.now(),
-    });
-
-    return true;
-  } catch (err) {
-    console.error("saveBranch error:", err);
-    return false;
-  }
-}
-
-/* -------------------------------------------------
-   Save an update to the main Soul Tree
-------------------------------------------------- */
-export async function updateSoulTree(updates) {
-  try {
-    const ref = db.collection(TREES).doc("cipher_prime");
-    await ref.update({
-      ...updates,
-      updatedAt: Date.now(),
-    });
-    return true;
-  } catch (err) {
-    console.error("SoulTree update error:", err);
-    return false;
+    console.error("SoulHash error:", err);
+    return "SOUL_0";
   }
 }
