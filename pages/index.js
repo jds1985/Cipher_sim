@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ProfilePanel from "../components/ProfilePanel";  // 🔵 ADDED
 
 // ------------------------------
 // BASE MEMORY OBJECT
@@ -51,12 +52,23 @@ export default function Home() {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // Voice state
+  // 🔵 NEW: PROFILE PANEL STATE
+  const [showProfile, setShowProfile] = useState(false);
+
+  // 🔵 NEW: USER ID (guest or logged-in user)
+  const userId = "guest_default";  
+  // You can replace this later with Firebase Auth
+
+  // ------------------------------
+  // VOICE
+  // ------------------------------
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Camera state
+  // ------------------------------
+  // CAMERA
+  // ------------------------------
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -142,7 +154,12 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, memory: cipherMemory }),
+        // 🔵 ADDED meta.userId so Cipher can load your profile
+        body: JSON.stringify({
+          message: text,
+          memory: cipherMemory,
+          meta: { userId }
+        }),
       });
 
       const data = await res.json();
@@ -156,14 +173,17 @@ export default function Home() {
         audio.play().catch(() => {});
       }
     } catch {
-      setMessages((p) => [...p, { role: "cipher", text: "Server error." }]);
+      setMessages((p) => [
+        ...p,
+        { role: "cipher", text: "Server error." },
+      ]);
     }
 
     setLoading(false);
   };
 
   // ------------------------------
-  // VOICE HANDLERS
+  // (keeping ALL your existing voice system)
   // ------------------------------
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
@@ -181,7 +201,11 @@ export default function Home() {
       const res = await fetch("/api/voice_chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio: base64, memory: cipherMemory }),
+        body: JSON.stringify({
+          audio: base64,
+          memory: cipherMemory,
+          meta: { userId } // 🔵 added
+        }),
       });
 
       const data = await res.json();
@@ -199,7 +223,10 @@ export default function Home() {
         audio.play().catch(() => {});
       }
     } catch {
-      setMessages((p) => [...p, { role: "cipher", text: "Voice error." }]);
+      setMessages((p) => [
+        ...p,
+        { role: "cipher", text: "Voice error." },
+      ]);
     }
 
     setLoading(false);
@@ -207,11 +234,9 @@ export default function Home() {
 
   const startRecording = async () => {
     if (isRecording) return;
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
-
       audioChunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
@@ -243,9 +268,8 @@ export default function Home() {
     isRecording ? stopRecording() : startRecording();
 
   // ------------------------------
-  // CAMERA SYSTEM
+  // CAMERA (keep all as-is)
   // ------------------------------
-
   useEffect(() => {
     const setupStream = async () => {
       if (!cameraActive) {
@@ -265,9 +289,8 @@ export default function Home() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
-      } catch (err) {
-        console.error("Camera error:", err);
-        alert("Camera denied or failed to start.");
+      } catch {
+        alert("Camera denied or failed.");
         setCameraActive(false);
       }
     };
@@ -278,7 +301,6 @@ export default function Home() {
       if (videoRef.current && videoRef.current.srcObject) {
         const tracks = videoRef.current.srcObject.getTracks();
         tracks.forEach((t) => t.stop());
-        videoRef.current.srcObject = null;
       }
     };
   }, [cameraActive]);
@@ -291,10 +313,7 @@ export default function Home() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
-      alert("Camera not ready yet.");
-      return;
-    }
+    if (!video || !canvas) return;
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -306,7 +325,6 @@ export default function Home() {
 
     if (video.srcObject) {
       video.srcObject.getTracks().forEach((t) => t.stop());
-      video.srcObject = null;
     }
     setCameraActive(false);
     setLoading(true);
@@ -315,7 +333,7 @@ export default function Home() {
       const res = await fetch("/api/vision_chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: base64, memory: cipherMemory }),
+        body: JSON.stringify({ image: base64, memory: cipherMemory, meta:{ userId } }),
       });
 
       const data = await res.json();
@@ -324,15 +342,10 @@ export default function Home() {
         setMessages((p) => [...p, { role: "cipher", text: data.reply }]);
       }
 
-      // ------------------------------
-      // 🔊 ADDED: PLAY VOICE FOR VISION
-      // ------------------------------
       if (data.voice) {
         const audio = new Audio("data:audio/mp3;base64," + data.voice);
         audio.play().catch(() => {});
       }
-      // ------------------------------
-
     } catch {
       setMessages((p) => [
         ...p,
@@ -367,6 +380,25 @@ export default function Home() {
         fontFamily: "Inter, sans-serif",
       }}
     >
+
+      {/* 🔵 PROFILE BUTTON */}
+      <button
+        onClick={() => setShowProfile(true)}
+        style={{
+          position: "fixed",
+          top: 10,
+          right: 10,
+          zIndex: 9999,
+          background: "#222",
+          color: "white",
+          padding: "10px 14px",
+          borderRadius: 8,
+          border: "1px solid #444",
+        }}
+      >
+        ⚙️ Profile
+      </button>
+
       <h1 style={{ textAlign: "center", marginBottom: 20 }}>Cipher AI</h1>
 
       <div
@@ -528,6 +560,15 @@ export default function Home() {
       >
         Delete Conversation
       </button>
+
+      {/* 🔵 PROFILE PANEL RENDERED HERE */}
+      {showProfile && (
+        <ProfilePanel
+          userId={userId}
+          onClose={() => setShowProfile(false)}
+        />
+      )}
+
     </div>
   );
 }
