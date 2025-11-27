@@ -1,5 +1,6 @@
+// pages/index.js
 import { useState, useEffect, useRef } from "react";
-import ProfilePanel from "../components/ProfilePanel";  // 🔵 ADDED
+import ProfilePanel from "../components/ProfilePanel";
 
 // ------------------------------
 // BASE MEMORY OBJECT
@@ -10,8 +11,7 @@ function createBaseMemory() {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
-      creatorRelationship:
-        "the architect and guiding force behind Cipher",
+      creatorRelationship: "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
@@ -52,29 +52,23 @@ export default function Home() {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // 🔵 NEW: PROFILE PANEL STATE
-  const [showProfile, setShowProfile] = useState(false);
-
-  // 🔵 NEW: USER ID (guest or logged-in user)
-  const userId = "guest_default";  
-  // You can replace this later with Firebase Auth
-
-  // ------------------------------
-  // VOICE
-  // ------------------------------
+  // Voice state
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // ------------------------------
-  // CAMERA
-  // ------------------------------
+  // Camera state
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
+  // Profile / menu state
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+
   // ------------------------------
-  // LOAD LOCAL MEMORY
+  // LOAD LOCAL MEMORY + MESSAGES
   // ------------------------------
   useEffect(() => {
     try {
@@ -98,6 +92,43 @@ export default function Home() {
       localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
     } catch {}
   }, [cipherMemory]);
+
+  // ------------------------------
+  // LOAD PROFILE FROM API
+  // ------------------------------
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch("/api/profile");
+        const data = await res.json();
+        if (data?.profile) {
+          setProfile(data.profile);
+        }
+      } catch (err) {
+        console.error("Profile load error:", err);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  // ------------------------------
+  // UPDATE PROFILE (front-end + API)
+  // ------------------------------
+  const updateProfile = async (updates) => {
+    setProfile((prev) => ({ ...(prev || {}), ...updates }));
+
+    try {
+      await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+    } catch (err) {
+      console.error("Profile save error:", err);
+    }
+  };
 
   // ------------------------------
   // MEMORY UPDATE
@@ -154,12 +185,7 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // 🔵 ADDED meta.userId so Cipher can load your profile
-        body: JSON.stringify({
-          message: text,
-          memory: cipherMemory,
-          meta: { userId }
-        }),
+        body: JSON.stringify({ message: text, memory: cipherMemory }),
       });
 
       const data = await res.json();
@@ -173,17 +199,14 @@ export default function Home() {
         audio.play().catch(() => {});
       }
     } catch {
-      setMessages((p) => [
-        ...p,
-        { role: "cipher", text: "Server error." },
-      ]);
+      setMessages((p) => [...p, { role: "cipher", text: "Server error." }]);
     }
 
     setLoading(false);
   };
 
   // ------------------------------
-  // (keeping ALL your existing voice system)
+  // VOICE HANDLERS
   // ------------------------------
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
@@ -201,11 +224,7 @@ export default function Home() {
       const res = await fetch("/api/voice_chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          audio: base64,
-          memory: cipherMemory,
-          meta: { userId } // 🔵 added
-        }),
+        body: JSON.stringify({ audio: base64, memory: cipherMemory }),
       });
 
       const data = await res.json();
@@ -223,10 +242,7 @@ export default function Home() {
         audio.play().catch(() => {});
       }
     } catch {
-      setMessages((p) => [
-        ...p,
-        { role: "cipher", text: "Voice error." },
-      ]);
+      setMessages((p) => [...p, { role: "cipher", text: "Voice error." }]);
     }
 
     setLoading(false);
@@ -234,9 +250,11 @@ export default function Home() {
 
   const startRecording = async () => {
     if (isRecording) return;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
+
       audioChunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
@@ -268,7 +286,7 @@ export default function Home() {
     isRecording ? stopRecording() : startRecording();
 
   // ------------------------------
-  // CAMERA (keep all as-is)
+  // CAMERA SYSTEM
   // ------------------------------
   useEffect(() => {
     const setupStream = async () => {
@@ -289,8 +307,9 @@ export default function Home() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
-      } catch {
-        alert("Camera denied or failed.");
+      } catch (err) {
+        console.error("Camera error:", err);
+        alert("Camera denied or failed to start.");
         setCameraActive(false);
       }
     };
@@ -301,6 +320,7 @@ export default function Home() {
       if (videoRef.current && videoRef.current.srcObject) {
         const tracks = videoRef.current.srcObject.getTracks();
         tracks.forEach((t) => t.stop());
+        videoRef.current.srcObject = null;
       }
     };
   }, [cameraActive]);
@@ -313,7 +333,10 @@ export default function Home() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    if (!video || !canvas) return;
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
+      alert("Camera not ready yet.");
+      return;
+    }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -325,6 +348,7 @@ export default function Home() {
 
     if (video.srcObject) {
       video.srcObject.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
     }
     setCameraActive(false);
     setLoading(true);
@@ -333,7 +357,7 @@ export default function Home() {
       const res = await fetch("/api/vision_chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: base64, memory: cipherMemory, meta:{ userId } }),
+        body: JSON.stringify({ image: base64, memory: cipherMemory }),
       });
 
       const data = await res.json();
@@ -375,41 +399,53 @@ export default function Home() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#eef2f7",
+        background: "#050816",
         padding: 20,
         fontFamily: "Inter, sans-serif",
+        color: "#e5e7eb",
       }}
     >
-
-      {/* 🔵 PROFILE BUTTON */}
-      <button
-        onClick={() => setShowProfile(true)}
+      {/* Top bar with title + Menu */}
+      <div
         style={{
-          position: "fixed",
-          top: 10,
-          right: 10,
-          zIndex: 9999,
-          background: "#222",
-          color: "white",
-          padding: "10px 14px",
-          borderRadius: 8,
-          border: "1px solid #444",
+          maxWidth: 700,
+          margin: "0 auto 10px auto",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
-        ⚙️ Profile
-      </button>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Cipher AI</h1>
 
-      <h1 style={{ textAlign: "center", marginBottom: 20 }}>Cipher AI</h1>
+        <button
+          onClick={() => setMenuOpen(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 12px",
+            borderRadius: 999,
+            border: "1px solid rgba(148,163,184,0.7)",
+            background:
+              "radial-gradient(circle at 0 0, rgba(59,130,246,0.35), rgba(15,23,42,0.95))",
+            color: "#e5e7eb",
+            fontSize: 13,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>⚙</span>
+          <span>Menu</span>
+        </button>
+      </div>
 
       <div
         style={{
           maxWidth: 700,
           margin: "0 auto",
-          background: "white",
+          background: "#111827",
           borderRadius: 12,
           padding: 20,
           minHeight: "60vh",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          boxShadow: "0 4px 30px rgba(15,23,42,0.9)",
           overflowY: "auto",
         }}
       >
@@ -418,8 +454,8 @@ export default function Home() {
             key={i}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              background: m.role === "user" ? "#1e73be" : "#e9ecf1",
-              color: m.role === "user" ? "white" : "#1a2a40",
+              background: m.role === "user" ? "#1d4ed8" : "#1f2937",
+              color: "#e5e7eb",
               margin: "8px 0",
               padding: "10px 14px",
               borderRadius: 14,
@@ -432,7 +468,7 @@ export default function Home() {
         ))}
 
         {loading && (
-          <div style={{ fontStyle: "italic", color: "#777" }}>
+          <div style={{ fontStyle: "italic", color: "#9ca3af" }}>
             Cipher is thinking...
           </div>
         )}
@@ -457,7 +493,9 @@ export default function Home() {
             flex: 1,
             borderRadius: 8,
             padding: 10,
-            border: "1px solid #ccc",
+            border: "1px solid #4b5563",
+            background: "#020617",
+            color: "#e5e7eb",
           }}
         />
 
@@ -466,7 +504,7 @@ export default function Home() {
           disabled={loading}
           style={{
             marginLeft: 8,
-            background: "#1e73be",
+            background: "#1d4ed8",
             color: "white",
             padding: "10px 16px",
             borderRadius: 8,
@@ -482,7 +520,7 @@ export default function Home() {
           disabled={loading}
           style={{
             marginLeft: 8,
-            background: isRecording ? "#c0392b" : "#2d3e50",
+            background: isRecording ? "#b91c1c" : "#374151",
             color: "white",
             width: 48,
             height: 48,
@@ -500,7 +538,7 @@ export default function Home() {
           disabled={loading}
           style={{
             marginLeft: 8,
-            background: cameraActive ? "#c0392b" : "#6a1b9a",
+            background: cameraActive ? "#b91c1c" : "#7c3aed",
             color: "white",
             width: 48,
             height: 48,
@@ -523,7 +561,7 @@ export default function Home() {
             style={{
               width: "90%",
               borderRadius: 12,
-              border: "2px solid #444",
+              border: "2px solid #4b5563",
             }}
           />
 
@@ -532,7 +570,7 @@ export default function Home() {
             style={{
               marginTop: 10,
               padding: "10px 20px",
-              background: "#1e73be",
+              background: "#1d4ed8",
               color: "white",
               borderRadius: 10,
               border: "none",
@@ -551,7 +589,7 @@ export default function Home() {
         style={{
           display: "block",
           margin: "20px auto",
-          background: "#5c6b73",
+          background: "#4b5563",
           color: "white",
           padding: "8px 16px",
           borderRadius: 8,
@@ -561,14 +599,29 @@ export default function Home() {
         Delete Conversation
       </button>
 
-      {/* 🔵 PROFILE PANEL RENDERED HERE */}
-      {showProfile && (
+      {/* optional tiny status */}
+      {profileLoading ? (
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: 11,
+            color: "#6b7280",
+            marginTop: 8,
+          }}
+        >
+          Loading profile…
+        </div>
+      ) : null}
+
+      {/* Cipher Menu Panel */}
+      {menuOpen && (
         <ProfilePanel
-          userId={userId}
-          onClose={() => setShowProfile(false)}
+          profile={profile}
+          loading={profileLoading}
+          onClose={() => setMenuOpen(false)}
+          onProfileChange={updateProfile}
         />
       )}
-
     </div>
   );
 }
