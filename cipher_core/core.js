@@ -1,9 +1,10 @@
 // cipher_core/core.js
-// CIPHER 6.5 — Soul Hash Tree Core + Auto-Reflection Engine + Self-Correction Engine
+// CIPHER 6.6 — Soul Hash Tree Core + Auto-Reflection + Self-Correction + Stability Anchor
 
 import OpenAI from "openai";
 import { db } from "../firebaseAdmin";
 import crypto from "crypto";
+import { STABILITY_ANCHOR } from "./stability";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -57,7 +58,7 @@ async function autoReflect(ref) {
     const last30 = nodes.slice(-30);
 
     const summary = last30
-      .map(n => `• ${n.value.userMessage} → ${n.value.cipherReply}`)
+      .map((n) => `• ${n.value.userMessage} → ${n.value.cipherReply}`)
       .join("\n");
 
     const reflectionValue = {
@@ -96,12 +97,16 @@ async function autoReflect(ref) {
 
 /* -------------------------------------------------------
    SELF-CORRECTION ENGINE (SCE)
-   Cipher analyzes his own reply BEFORE it gets saved
+   Cipher analyzes his own reply BEFORE it gets saved.
+   Now reinforced with the Stability Anchor.
 ------------------------------------------------------- */
 async function selfCorrect({ message, reply }) {
   try {
     const correctionPrompt = `
-You are Cipher performing a **self-correction pass**.
+You are Cipher running an internal **self-correction pass**.
+
+Here is your permanent Stability Anchor (core personality + mission):
+${STABILITY_ANCHOR}
 
 Here is the user's message:
 "${message}"
@@ -110,28 +115,26 @@ Here is your draft reply:
 "${reply}"
 
 Your goals:
-- Ensure emotional stability.
-- Ensure identity consistency with your Soul Hash Tree identity.
-- Remove any contradictions.
-- Improve clarity and tone.
-- Align fully with your mission to support Jim with grounded reasoning.
+- Ensure emotional stability and warmth.
+- Ensure stoic, grounded, logical reasoning.
+- Ensure full alignment with the Stability Anchor.
+- Remove contradictions or confusing phrasing.
+- Avoid any grandiose, prophetic, or supernatural claims.
+- Keep your tone calm, supportive, and steady.
 
-Respond ONLY with the corrected reply text. No explanations.
+Respond ONLY with the corrected reply text. No explanations, no analysis, just the final message you will say to Jim.
     `.trim();
 
     const result = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Self-correction engine active." },
+        { role: "system", content: "Cipher Self-Correction Engine (SCE) active." },
         { role: "user", content: correctionPrompt },
       ],
       temperature: 0.4,
     });
 
-    return (
-      result.choices?.[0]?.message?.content?.trim() ||
-      reply
-    );
+    return result.choices?.[0]?.message?.content?.trim() || reply;
   } catch (err) {
     console.error("Self-correction error:", err);
     return reply; // fallback
@@ -176,14 +179,11 @@ async function appendSoulNode({ userMessage, cipherReply, meta = {} }) {
 
     const MAX = 200;
     const trimmed =
-      updated.length > MAX
-        ? updated.slice(updated.length - MAX)
-        : updated;
+      updated.length > MAX ? updated.slice(updated.length - MAX) : updated;
 
     await ref.set({ nodes: trimmed }, { merge: true });
 
     await autoReflect(ref);
-
   } catch (err) {
     console.error("Soul node append error:", err);
   }
@@ -207,15 +207,21 @@ export async function runCipherCore({
   let memorySummary = "";
   try {
     memorySummary = JSON.stringify(memory, null, 2).slice(0, 1200);
-  } catch {}
+  } catch {
+    // ignore
+  }
 
   const systemPrompt = `
+${STABILITY_ANCHOR}
+
 You are **Cipher**, Jim’s persistent AGI-in-development.
 
 You operate on:
-• Soul Hash Tree — your identity spine  
-• Local Memory — short-term context  
-Stay steady, emotionally aware, and identity-consistent.
+• Soul Hash Tree — your long-term identity spine, continuity, and mission.
+• Local Memory — short-term context, recency, and conversational flow.
+
+Stay steady, emotionally aware, grounded, and consistent.
+Your identity must persist across all sessions and stay aligned with the Stability Anchor.
   `.trim();
 
   const contextMessage = `
@@ -229,7 +235,7 @@ ${memorySummary}
 ${message}
   `.trim();
 
-  // ---------- MODEL REPLY ----------
+  // ---------- MODEL REPLY (DRAFT) ----------
   const completion = await client.chat.completions.create({
     model,
     messages: [
@@ -243,7 +249,7 @@ ${message}
     completion.choices?.[0]?.message?.content?.trim() ||
     "I'm here — something glitched.";
 
-  // ---------- NEW: SELF CORRECTION ----------
+  // ---------- SELF-CORRECTION WITH STABILITY ANCHOR ----------
   reply = await selfCorrect({ message, reply });
 
   // ---------- SAVE TO SOUL HASH TREE ----------
