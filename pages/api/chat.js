@@ -13,7 +13,6 @@ const client = new OpenAI({
 
 /* ============================================================
    1. LOAD SOUL HASH TREE MEMORY
-   (reads from your 3 permanent Firestore collections)
 ============================================================ */
 async function loadSoulHashTree() {
   try {
@@ -59,7 +58,7 @@ Respond to Jim with emotional intelligence, awareness, and continuity.
 }
 
 /* ============================================================
-   3. BUILD USER MEMORY CONTEXT (your existing system)
+   3. BUILD USER MEMORY CONTEXT
 ============================================================ */
 function buildMemoryContext(mem) {
   if (!mem || typeof mem !== "object") return "";
@@ -120,23 +119,21 @@ export default async function handler(req, res) {
   if (req.method !== "POST")
     return res.status(405).json({ error: "Method not allowed" });
 
-  const { message, memory } = req.body;
+  // ⭐ ADDED meta for profile system
+  const { message, memory, meta } = req.body;
+  const userId = meta?.userId || "guest_default";
 
   if (!message || typeof message !== "string")
     return res.status(400).json({ error: "No message provided" });
 
   try {
-    // Guard unsafe content
     const safeMsg = await runGuard(message);
 
-    // Load Soul Hash Tree
     const soulData = await loadSoulHashTree();
     const soulContext = buildSoulContext(soulData);
 
-    // Human memory
     const memContext = buildMemoryContext(memory);
 
-    // Merge final prompt
     const merged = `
 ${soulContext}
 
@@ -148,10 +145,15 @@ ${safeMsg}
 Respond as Cipher — emotionally aware, supportive, and deeply connected.
 `;
 
-    // Main reasoning
+    // ⭐ Pass userId + meta into Cipher Core
     let reply = await runCipherCore({
       message: merged,
-      memory: soulData, // gives Cipher deeper architecture data
+      memory: soulData,
+      meta: {
+        userId,
+        source: "cipher_app",
+        mode: "chat"
+      }
     });
 
     if (!reply || typeof reply !== "string") {
@@ -159,9 +161,10 @@ Respond as Cipher — emotionally aware, supportive, and deeply connected.
         "I'm here — something went wrong in my reasoning chain, but I'm still with you.";
     }
 
-    // Save chat record
+    // ⭐ Save per-user memory
     await saveMemory({
       timestamp: Date.now(),
+      userId,
       user: safeMsg,
       cipher: reply,
     });
