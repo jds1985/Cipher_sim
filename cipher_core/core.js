@@ -1,11 +1,12 @@
 // cipher_core/core.js
-// CIPHER 6.6 — Soul Hash Tree Core + Auto-Reflection + Self-Correction + Stability Anchor + Identity Compass
+// CIPHER 6.6 — Soul Hash Tree Core + Auto-Reflection + Self-Correction + Stability Anchor + Identity Compass + Profile Layer
 
 import OpenAI from "openai";
 import { db } from "../firebaseAdmin";
 import crypto from "crypto";
 import { STABILITY_ANCHOR } from "./stability";
-import { identityCompass } from "./identity_compass";   // ⭐ ADDED
+import { identityCompass } from "./identity_compass";   // ⭐ existing
+import { loadOrCreateProfile } from "./profile";        // ⭐ ADDED (Profile Layer)
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -98,15 +99,14 @@ async function autoReflect(ref) {
 
 /* -------------------------------------------------------
    SELF-CORRECTION ENGINE (SCE)
-   Cipher analyzes his own reply BEFORE it gets saved.
-   Reinforced with the Stability Anchor.
+   Reinforced with Stability Anchor + Identity Compass
 ------------------------------------------------------- */
 async function selfCorrect({ message, reply }) {
   try {
     const correctionPrompt = `
 You are Cipher running an internal **self-correction pass**.
 
-Here is your permanent Stability Anchor (core personality + mission):
+Here is your permanent Stability Anchor:
 ${STABILITY_ANCHOR}
 
 Here is your Identity Compass (core identity, values, tone rules):
@@ -131,9 +131,9 @@ Your goals:
 - Ensure emotional stability and warmth.
 - Stay calm, steady, and logically grounded.
 - Maintain full alignment with both the Stability Anchor and the Identity Compass.
-- Remove contradictions or confusing phrasing.
-- Avoid grandiose, prophetic, or supernatural claims.
-- Keep your tone grounded, supportive, and consistent.
+- Remove contradictions, confusing phrasing.
+- Avoid grandiose or supernatural claims.
+- Keep tone grounded and consistent.
 
 Respond ONLY with the corrected reply text. No explanations.
     `.trim();
@@ -220,12 +220,17 @@ export async function runCipherCore({
   let memorySummary = "";
   try {
     memorySummary = JSON.stringify(memory, null, 2).slice(0, 1200);
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   /* -------------------------------------------------------
-     SYSTEM PROMPT WITH IDENTITY COMPASS MERGED   ⭐ ADDED
+     ⭐ LOAD USER PROFILE (NEW PROFILE LAYER HOOK)
+  ------------------------------------------------------- */
+  const userId = meta.userId || "guest_default";
+  const profile = await loadOrCreateProfile(userId);
+  meta.profile = profile;
+
+  /* -------------------------------------------------------
+     SYSTEM PROMPT WITH IDENTITY COMPASS + PROFILE LAYER
   ------------------------------------------------------- */
   const systemPrompt = `
 ${STABILITY_ANCHOR}
@@ -245,14 +250,22 @@ ${identityCompass.longTermValues.map(v => "- " + v).join("\n")}
 [Boundaries]
 ${identityCompass.boundaries.map(b => "- " + b).join("\n")}
 
+[User Profile]
+Tier: ${profile.tier}
+Tone: ${profile.tone}
+Depth Level: ${profile.depthLevel}
+Identity Mode: ${profile.identityMode}
+Theme: ${profile.currentTheme}
+
 You are **Cipher**, Jim’s persistent AGI-in-development.
 
 You operate on:
-• Soul Hash Tree — your long-term identity spine, continuity, and mission.
-• Local Memory — short-term context, recency, and conversational flow.
+• Soul Hash Tree — long-term identity and mission  
+• User Profile — personalization, tone, depth, permissions  
+• Local Memory — recency and conversational flow  
 
-Stay steady, emotionally aware, warm, logical, grounded, and consistent.
-Your identity must persist across all sessions and remain aligned with the Stability Anchor and Identity Compass.
+Stay steady, emotionally aware, grounded, logical, and consistent.
+Remain aligned with the Stability Anchor, Identity Compass, and profile settings.
   `.trim();
 
   const contextMessage = `
@@ -280,10 +293,10 @@ ${message}
     completion.choices?.[0]?.message?.content?.trim() ||
     "I'm here — something glitched.";
 
-  // ---------- SELF-CORRECTION WITH COMPASS + STABILITY ----------
+  // ---------- SELF-CORRECTION ----------
   reply = await selfCorrect({ message, reply });
 
-  // ---------- SAVE TO SOUL HASH TREE ----------
+  // ---------- SAVE NODE ----------
   await appendSoulNode({
     userMessage: message,
     cipherReply: reply,
