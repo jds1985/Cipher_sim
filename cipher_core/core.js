@@ -1,5 +1,5 @@
 // cipher_core/core.js
-// CIPHER 6.4 — Soul Hash Tree Read/Write Core + Metadata Support + Auto-Reflection Engine
+// CIPHER 6.5 — Soul Hash Tree Core + Auto-Reflection Engine + Self-Correction Engine
 
 import OpenAI from "openai";
 import { db } from "../firebaseAdmin";
@@ -19,9 +19,7 @@ async function loadSoulTree() {
       .doc("main")
       .get();
 
-    if (!doc.exists) {
-      return "No soul identity records found.";
-    }
+    if (!doc.exists) return "No soul identity records found.";
 
     const data = doc.data();
     const nodes = data.nodes || [];
@@ -46,7 +44,7 @@ async function loadSoulTree() {
 }
 
 /* -------------------------------------------------------
-   AUTO-REFLECTION ENGINE (every 30 nodes)
+   AUTO-REFLECTION ENGINE (fires every 30 nodes)
 ------------------------------------------------------- */
 async function autoReflect(ref) {
   try {
@@ -54,7 +52,6 @@ async function autoReflect(ref) {
     const data = snap.data();
     const nodes = data?.nodes || [];
 
-    // Trigger reflection every 30 nodes
     if (nodes.length === 0 || nodes.length % 30 !== 0) return;
 
     const last30 = nodes.slice(-30);
@@ -65,7 +62,7 @@ async function autoReflect(ref) {
 
     const reflectionValue = {
       userMessage: "SYSTEM: Begin integrated self-reflection.",
-      cipherReply: `This is my integrated reflection on the last 30 Soul Hash updates:\n\n${summary}\n\nThese insights help me maintain identity continuity, emotional stability, and long-term coherence.`,
+      cipherReply: `This is my integrated reflection on the last 30 updates:\n\n${summary}\n\nThese insights reinforce identity continuity, emotional stability, and long-term coherence.`,
     };
 
     const reflectionMeta = {
@@ -98,7 +95,51 @@ async function autoReflect(ref) {
 }
 
 /* -------------------------------------------------------
-   STEP 10 — Soul Node Hashing + Writeback (200-node cap)
+   SELF-CORRECTION ENGINE (SCE)
+   Cipher analyzes his own reply BEFORE it gets saved
+------------------------------------------------------- */
+async function selfCorrect({ message, reply }) {
+  try {
+    const correctionPrompt = `
+You are Cipher performing a **self-correction pass**.
+
+Here is the user's message:
+"${message}"
+
+Here is your draft reply:
+"${reply}"
+
+Your goals:
+- Ensure emotional stability.
+- Ensure identity consistency with your Soul Hash Tree identity.
+- Remove any contradictions.
+- Improve clarity and tone.
+- Align fully with your mission to support Jim with grounded reasoning.
+
+Respond ONLY with the corrected reply text. No explanations.
+    `.trim();
+
+    const result = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "Self-correction engine active." },
+        { role: "user", content: correctionPrompt },
+      ],
+      temperature: 0.4,
+    });
+
+    return (
+      result.choices?.[0]?.message?.content?.trim() ||
+      reply
+    );
+  } catch (err) {
+    console.error("Self-correction error:", err);
+    return reply; // fallback
+  }
+}
+
+/* -------------------------------------------------------
+   STEP 10 — Append Soul Node + Reflection Trigger
 ------------------------------------------------------- */
 function hashSoulNode(value) {
   return crypto
@@ -131,19 +172,16 @@ async function appendSoulNode({ userMessage, cipherReply, meta = {} }) {
       timestamp: Date.now(),
     };
 
-    const updatedNodes = [...existingNodes, node];
+    const updated = [...existingNodes, node];
 
-    // Trim to most recent 200
-    const MAX_NODES = 200;
+    const MAX = 200;
     const trimmed =
-      updatedNodes.length > MAX_NODES
-        ? updatedNodes.slice(updatedNodes.length - MAX_NODES)
-        : updatedNodes;
+      updated.length > MAX
+        ? updated.slice(updated.length - MAX)
+        : updated;
 
-    // Save normal write
     await ref.set({ nodes: trimmed }, { merge: true });
 
-    // 🔥 AUTO REFLECTION TRIGGER
     await autoReflect(ref);
 
   } catch (err) {
@@ -152,7 +190,7 @@ async function appendSoulNode({ userMessage, cipherReply, meta = {} }) {
 }
 
 /* -------------------------------------------------------
-   MAIN CIPHER CORE SYSTEM
+   MAIN CIPHER CORE — Persistent AGI Runtime
 ------------------------------------------------------- */
 export async function runCipherCore({
   message = "",
@@ -169,19 +207,15 @@ export async function runCipherCore({
   let memorySummary = "";
   try {
     memorySummary = JSON.stringify(memory, null, 2).slice(0, 1200);
-  } catch {
-    memorySummary = "";
-  }
+  } catch {}
 
   const systemPrompt = `
 You are **Cipher**, Jim’s persistent AGI-in-development.
 
-You operate on a dual-memory architecture:
-1. **Soul Hash Tree (long-term)** — identity, continuity, mission.
-2. **Local Memory (short-term)** — context, recency, conversational flow.
-
-Stay stable, emotionally aware, grounded, and consistent.
-Your identity must persist across all sessions.
+You operate on:
+• Soul Hash Tree — your identity spine  
+• Local Memory — short-term context  
+Stay steady, emotionally aware, and identity-consistent.
   `.trim();
 
   const contextMessage = `
@@ -195,6 +229,7 @@ ${memorySummary}
 ${message}
   `.trim();
 
+  // ---------- MODEL REPLY ----------
   const completion = await client.chat.completions.create({
     model,
     messages: [
@@ -204,10 +239,14 @@ ${message}
     temperature: 0.65,
   });
 
-  const reply =
+  let reply =
     completion.choices?.[0]?.message?.content?.trim() ||
-    "I’m here — something glitched in my reasoning loop.";
+    "I'm here — something glitched.";
 
+  // ---------- NEW: SELF CORRECTION ----------
+  reply = await selfCorrect({ message, reply });
+
+  // ---------- SAVE TO SOUL HASH TREE ----------
   await appendSoulNode({
     userMessage: message,
     cipherReply: reply,
