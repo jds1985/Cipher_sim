@@ -2,54 +2,41 @@
 import {
   generateAnonUserId,
   loadOrCreateProfile,
-  updateProfile,
-  addCYC,
-  subtractCYC
+  updateProfile as saveProfile
 } from "../../cipher_core/profile";
 
 export default async function handler(req, res) {
   try {
-    // Must be POST — all profile actions use POST
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
+    const { action, userId, updates } = req.body || {};
+
+    // ---------------------------------------------------------
+    // ACTION: newId → generate a new anonymous user ID
+    // ---------------------------------------------------------
+    if (action === "newId") {
+      const newUserId = generateAnonUserId();
+      return res.status(200).json({ userId: newUserId });
     }
 
-    const { action, userId, updates, amount } = req.body || {};
-
-    switch (action) {
-      case "newId": {
-        const id = generateAnonUserId();
-        return res.status(200).json({ userId: id });
-      }
-
-      case "load": {
-        if (!userId) return res.status(400).json({ error: "Missing userId" });
-        const profile = await loadOrCreateProfile(userId);
-        return res.status(200).json({ profile });
-      }
-
-      case "update": {
-        if (!userId) return res.status(400).json({ error: "Missing userId" });
-        await updateProfile(userId, updates || {});
-        const profile = await loadOrCreateProfile(userId);
-        return res.status(200).json({ profile });
-      }
-
-      case "addCYC": {
-        if (!userId) return res.status(400).json({ error: "Missing userId" });
-        const balance = await addCYC(userId, amount || 0);
-        return res.status(200).json({ cycBalance: balance });
-      }
-
-      case "subtractCYC": {
-        if (!userId) return res.status(400).json({ error: "Missing userId" });
-        const balance = await subtractCYC(userId, amount || 0);
-        return res.status(200).json({ cycBalance: balance });
-      }
-
-      default:
-        return res.status(400).json({ error: "Unknown action" });
+    // ---------------------------------------------------------
+    // ACTION: load → load or create the profile
+    // ---------------------------------------------------------
+    if (action === "load") {
+      if (!userId) return res.status(400).json({ error: "Missing userId" });
+      const profile = await loadOrCreateProfile(userId);
+      return res.status(200).json({ profile });
     }
+
+    // ---------------------------------------------------------
+    // ACTION: update → merge and save profile settings
+    // ---------------------------------------------------------
+    if (action === "update") {
+      if (!userId) return res.status(400).json({ error: "Missing userId" });
+      await saveProfile(userId, updates || {});
+      const profile = await loadOrCreateProfile(userId);
+      return res.status(200).json({ profile });
+    }
+
+    return res.status(400).json({ error: "Invalid action" });
   } catch (err) {
     console.error("Profile API error:", err);
     return res.status(500).json({ error: "Server error" });
