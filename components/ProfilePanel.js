@@ -1,5 +1,5 @@
 // components/ProfilePanel.js
-// Cipher Menu / Profile Panel (Full Fix + Theme Support)
+// Cipher Menu / Profile Editor — Final Working Version
 
 export default function ProfilePanel({
   profile,
@@ -20,6 +20,7 @@ export default function ProfilePanel({
           justifyContent: "center",
           alignItems: "center",
           color: "#fff",
+          fontSize: 20,
         }}
       >
         Loading…
@@ -124,7 +125,7 @@ export default function ProfilePanel({
         />
       </div>
 
-      {/* TONE SELECTOR */}
+      {/* CIPHER TONE */}
       <div style={{ marginBottom: 22 }}>
         <label style={{ fontSize: 13, opacity: 0.7 }}>CIPHER TONE</label>
         <select
@@ -161,7 +162,7 @@ export default function ProfilePanel({
         />
       </div>
 
-      {/* CREATIVITY LEVEL */}
+      {/* CREATIVITY */}
       <div style={{ marginBottom: 22 }}>
         <label style={{ fontSize: 13, opacity: 0.7 }}>CREATIVITY</label>
         <input
@@ -176,12 +177,15 @@ export default function ProfilePanel({
         />
       </div>
 
-      {/* ⭐ THEME SELECTOR (THIS IS THE IMPORTANT FIX) */}
+      {/* ⭐ VISUAL THEME — IMPORTANT PART */}
       <div style={{ marginBottom: 22 }}>
         <label style={{ fontSize: 13, opacity: 0.7 }}>VISUAL THEME</label>
+
         <select
-          value={profile.currentTheme || "cipher_core"}   // <— FIXED
-          onChange={(e) => onProfileChange({ currentTheme: e.target.value })} // <— FIXED
+          value={profile.currentTheme || "cipher_core"}
+          onChange={(e) =>
+            onProfileChange({ currentTheme: e.target.value })
+          }
           style={{
             width: "100%",
             marginTop: 8,
@@ -204,6 +208,7 @@ export default function ProfilePanel({
         <label style={{ fontSize: 13, opacity: 0.7 }}>
           GROUNDING / STRICTNESS
         </label>
+
         <input
           type="range"
           min={1}
@@ -214,6 +219,7 @@ export default function ProfilePanel({
           }
           style={{ width: "100%", marginTop: 10 }}
         />
+
         <div style={{ fontSize: 12, opacity: 0.5, marginTop: 4 }}>
           Higher values keep Cipher more cautious and stabilizing.
         </div>
