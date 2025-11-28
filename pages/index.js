@@ -1,6 +1,7 @@
 // pages/index.js
 import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
+import StorePanel from "../components/StorePanel";
 
 /* ============================================================
    THEME ENGINE (UPGRADED)
@@ -16,46 +17,42 @@ const themeStyles = {
     buttonBg: "#1d4ed8",
     deleteBg: "#4b5563",
     textColor: "#e5e7eb",
-    glow: "0 0 18px rgba(59,130,246,0.45)",
   },
 
   nebula_purple: {
     background: "radial-gradient(circle at 20% 20%, #3a0ca3, #240046 80%)",
-    panelBg: "rgba(30,0,60,0.8)",
-    userBubble: "rgba(150,80,255,0.55)",
-    cipherBubble: "rgba(60,20,110,0.75)",
-    inputBg: "rgba(20,0,40,0.9)",
-    inputBorder: "rgba(192,132,252,0.9)",
+    panelBg: "rgba(30,0,60,0.7)",
+    userBubble: "rgba(150,80,255,0.45)",
+    cipherBubble: "rgba(70,20,120,0.7)",
+    inputBg: "rgba(20,0,40,0.8)",
+    inputBorder: "rgba(180,100,255,0.8)",
     buttonBg: "#8b5cf6",
     deleteBg: "#6d28d9",
     textColor: "#f5e9ff",
-    glow: "0 0 22px rgba(168,85,247,0.75)",
   },
 
   midnight_glass: {
     background: "linear-gradient(160deg, #0a0f14 0%, #111a22 100%)",
-    panelBg: "rgba(14,24,34,0.8)",
-    userBubble: "rgba(50,130,180,0.45)",
-    cipherBubble: "rgba(20,35,50,0.55)",
-    inputBg: "rgba(10,20,30,0.9)",
-    inputBorder: "rgba(96,165,250,0.85)",
-    buttonBg: "rgba(56,189,248,0.9)",
-    deleteBg: "rgba(75,85,99,0.8)",
+    panelBg: "rgba(14,24,34,0.65)",
+    userBubble: "rgba(50,130,180,0.35)",
+    cipherBubble: "rgba(20,35,50,0.5)",
+    inputBg: "rgba(10,20,30,0.7)",
+    inputBorder: "rgba(50,150,200,0.8)",
+    buttonBg: "rgba(50,150,200,0.9)",
+    deleteBg: "rgba(80,90,100,0.7)",
     textColor: "#d8f2ff",
-    glow: "0 0 20px rgba(59,130,246,0.65)",
   },
 
   sunset_amber: {
     background: "linear-gradient(180deg, #3a1c00 0%, #120800 100%)",
-    panelBg: "rgba(40,15,0,0.85)",
-    userBubble: "rgba(255,140,40,0.6)",
-    cipherBubble: "rgba(120,45,15,0.65)",
-    inputBg: "rgba(30,10,0,0.9)",
-    inputBorder: "rgba(251,191,36,0.85)",
+    panelBg: "rgba(40,15,0,0.7)",
+    userBubble: "rgba(255,140,40,0.45)",
+    cipherBubble: "rgba(110,45,15,0.55)",
+    inputBg: "rgba(30,10,0,0.7)",
+    inputBorder: "rgba(255,180,60,0.7)",
     buttonBg: "#f59e0b",
     deleteBg: "#b45309",
     textColor: "#ffe9c7",
-    glow: "0 0 20px rgba(251,191,36,0.7)",
   },
 };
 
@@ -107,7 +104,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Local memory system
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
   // Voice
@@ -120,10 +116,13 @@ export default function Home() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Profile + theme
+  // Profile & panels
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [storeOpen, setStoreOpen] = useState(false);
+
+  // Theme
   const [theme, setTheme] = useState(themeStyles.cipher_core);
 
   /* ============================================================
@@ -136,37 +135,30 @@ export default function Home() {
 
       const storedMemory = localStorage.getItem("cipher_memory_v2");
       if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, []);
 
   useEffect(() => {
     try {
       localStorage.setItem("cipher_messages_v2", JSON.stringify(messages));
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [messages]);
 
   useEffect(() => {
     try {
       localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [cipherMemory]);
 
   /* ============================================================
-     LOAD PROFILE (POST action API)
+     LOAD PROFILE (matches action-based /api/profile.js)
   ============================================================ */
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        // 1 — get or create userId
+        // Get or create userId
         let userId = localStorage.getItem("cipher_userId");
-
         if (!userId) {
           const newRes = await fetch("/api/profile", {
             method: "POST",
@@ -178,7 +170,7 @@ export default function Home() {
           localStorage.setItem("cipher_userId", userId);
         }
 
-        // 2 — load profile
+        // Load profile
         const loadRes = await fetch("/api/profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -186,7 +178,9 @@ export default function Home() {
         });
 
         const data = await loadRes.json();
-        if (data.profile) setProfile(data.profile);
+        if (data.profile) {
+          setProfile(data.profile);
+        }
       } catch (err) {
         console.error("Profile load error:", err);
       } finally {
@@ -205,6 +199,8 @@ export default function Home() {
 
     try {
       const userId = localStorage.getItem("cipher_userId");
+      if (!userId) return;
+
       await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -223,11 +219,21 @@ export default function Home() {
      LIVE THEME ENGINE
   ============================================================ */
   useEffect(() => {
-    if (!profile?.currentTheme) return;
-    const next =
-      themeStyles[profile.currentTheme] || themeStyles.cipher_core;
-    setTheme(next);
+    if (!profile?.currentTheme) {
+      setTheme(themeStyles.cipher_core);
+      return;
+    }
+    setTheme(themeStyles[profile.currentTheme] || themeStyles.cipher_core);
   }, [profile?.currentTheme]);
+
+  // Store live preview (doesn't save)
+  const previewTheme = (themeKey) => {
+    setTheme(themeStyles[themeKey] || themeStyles.cipher_core);
+  };
+
+  const applyTheme = (themeKey) => {
+    updateProfile({ currentTheme: themeKey });
+  };
 
   /* ============================================================
      MEMORY EXTRACTION
@@ -246,6 +252,7 @@ export default function Home() {
 
     updateMemory((mem) => {
       let m;
+
       m = lower.match(/\bmy name is ([a-z ]+)/i);
       if (m) mem.identity.userName = m[1].trim();
 
@@ -264,7 +271,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     TEXT CHAT
+     CHAT — TEXT
   ============================================================ */
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -286,17 +293,16 @@ export default function Home() {
       const data = await res.json();
 
       if (data.reply) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "cipher", text: data.reply },
-        ]);
+        setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
       }
+
       if (data.voice) {
         new Audio("data:audio/mp3;base64," + data.voice)
           .play()
           .catch(() => {});
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
       setMessages((prev) => [
         ...prev,
         { role: "cipher", text: "Server error." },
@@ -307,7 +313,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     VOICE HANDLERS
+     VOICE — RECORDING HANDLERS
   ============================================================ */
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
@@ -318,7 +324,6 @@ export default function Home() {
 
   const sendVoiceBlob = async (blob) => {
     setLoading(true);
-
     try {
       const base64 = await blobToBase64(blob);
 
@@ -349,13 +354,13 @@ export default function Home() {
           .play()
           .catch(() => {});
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
       setMessages((prev) => [
         ...prev,
         { role: "cipher", text: "Voice error." },
       ]);
     }
-
     setLoading(false);
   };
 
@@ -363,9 +368,7 @@ export default function Home() {
     if (isRecording) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
 
       audioChunksRef.current = [];
@@ -375,9 +378,7 @@ export default function Home() {
       };
 
       recorder.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         await sendVoiceBlob(blob);
         stream.getTracks().forEach((t) => t.stop());
       };
@@ -385,7 +386,8 @@ export default function Home() {
       mediaRecorderRef.current = recorder;
       recorder.start();
       setIsRecording(true);
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("Microphone error.");
     }
   };
@@ -398,7 +400,8 @@ export default function Home() {
   };
 
   const toggleRecording = () => {
-    isRecording ? stopRecording() : startRecording();
+    if (isRecording) stopRecording();
+    else startRecording();
   };
 
   /* ============================================================
@@ -419,7 +422,6 @@ export default function Home() {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
         });
-
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
@@ -488,7 +490,8 @@ export default function Home() {
           .play()
           .catch(() => {});
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
       setMessages((prev) => [
         ...prev,
         { role: "cipher", text: "Vision processing error." },
@@ -502,11 +505,10 @@ export default function Home() {
      CLEAR
   ============================================================ */
   const clearConversation = () => {
-    if (!confirm("Reset Cipher chat and local memory?")) return;
-    setMessages([]);
-    setCipherMemory(createBaseMemory());
-    localStorage.removeItem("cipher_messages_v2");
-    localStorage.removeItem("cipher_memory_v2");
+    if (confirm("Reset Cipher conversation?")) {
+      setMessages([]);
+      localStorage.removeItem("cipher_messages_v2");
+    }
   };
 
   /* ============================================================
@@ -541,13 +543,13 @@ export default function Home() {
             display: "flex",
             alignItems: "center",
             gap: 6,
-            padding: "6px 14px",
+            padding: "6px 12px",
             borderRadius: 999,
             border: `1px solid ${theme.inputBorder}`,
             background: theme.panelBg,
             color: theme.textColor,
             fontSize: 13,
-            boxShadow: theme.glow,
+            boxShadow: "0 0 18px rgba(148,163,184,0.4)",
           }}
         >
           <span style={{ fontSize: 14 }}>⚙</span>
@@ -561,10 +563,10 @@ export default function Home() {
           maxWidth: 700,
           margin: "0 auto",
           background: theme.panelBg,
-          borderRadius: 16,
+          borderRadius: 12,
           padding: 20,
           minHeight: "60vh",
-          boxShadow: theme.glow,
+          boxShadow: `0 4px 30px ${theme.inputBorder}`,
           transition: "background 0.3s ease",
           overflowY: "auto",
         }}
@@ -573,6 +575,7 @@ export default function Home() {
           <div
             key={i}
             style={{
+              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
               background:
                 m.role === "user" ? theme.userBubble : theme.cipherBubble,
               color: theme.textColor,
@@ -582,7 +585,6 @@ export default function Home() {
               maxWidth: "80%",
               whiteSpace: "pre-wrap",
               transition: "background 0.3s ease",
-              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
             }}
           >
             {m.text}
@@ -590,7 +592,7 @@ export default function Home() {
         ))}
 
         {loading && (
-          <div style={{ fontStyle: "italic", opacity: 0.7 }}>
+          <div style={{ fontStyle: "italic", color: theme.textColor }}>
             Cipher is thinking...
           </div>
         )}
@@ -598,103 +600,12 @@ export default function Home() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* INPUT + CONTROLS */}
-      <div
-        style={{
-          maxWidth: 700,
-          margin: "16px auto 0 auto",
-        }}
-      >
-        {/* TEXTAREA (full width) */}
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type to Cipher…"
-          rows={3}
-          style={{
-            width: "100%",
-            borderRadius: 12,
-            padding: "10px 14px",
-            border: `1px solid ${theme.inputBorder}`,
-            background: theme.inputBg,
-            color: theme.textColor,
-            outline: "none",
-            boxShadow: theme.glow,
-            resize: "none",
-          }}
-        />
-
-        {/* SEND BUTTON (full width under input) */}
-        <button
-          onClick={sendMessage}
-          disabled={loading}
-          style={{
-            width: "100%",
-            marginTop: 10,
-            background: theme.buttonBg,
-            color: "#fff",
-            padding: "10px 16px",
-            borderRadius: 999,
-            border: "none",
-            fontWeight: 600,
-            letterSpacing: 0.4,
-            boxShadow: theme.glow,
-          }}
-        >
-          Send
-        </button>
-
-        {/* MIC + CAMERA ROW */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 10,
-            marginTop: 10,
-          }}
-        >
-          <button
-            onClick={toggleRecording}
-            disabled={loading}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: "50%",
-              border: "none",
-              background: isRecording ? "#b91c1c" : theme.cipherBubble,
-              color: "#fff",
-              fontSize: 20,
-              boxShadow: theme.glow,
-            }}
-          >
-            {isRecording ? "■" : "🎤"}
-          </button>
-
-          <button
-            onClick={openCamera}
-            disabled={loading}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: "50%",
-              border: "none",
-              background: cameraActive ? "#b91c1c" : theme.userBubble,
-              color: "#fff",
-              fontSize: 20,
-              boxShadow: theme.glow,
-            }}
-          >
-            📷
-          </button>
-        </div>
-      </div>
-
       {/* CAMERA PREVIEW */}
       {cameraActive && (
         <div
           style={{
             maxWidth: 700,
-            margin: "18px auto 0 auto",
+            margin: "16px auto 0 auto",
             textAlign: "center",
           }}
         >
@@ -704,30 +615,118 @@ export default function Home() {
             playsInline
             style={{
               width: "100%",
-              borderRadius: 16,
-              border: `1px solid ${theme.inputBorder}`,
-              boxShadow: theme.glow,
+              borderRadius: 12,
+              border: `2px solid ${theme.inputBorder}`,
             }}
           />
-
           <button
             onClick={captureImage}
             style={{
               marginTop: 10,
               padding: "10px 20px",
               background: theme.buttonBg,
-              color: "#fff",
-              borderRadius: 999,
+              color: "white",
+              borderRadius: 10,
               border: "none",
-              boxShadow: theme.glow,
+              fontSize: 16,
             }}
           >
-            Capture & Send to Cipher
+            Capture
           </button>
-
           <canvas ref={canvasRef} style={{ display: "none" }} />
         </div>
       )}
+
+      {/* INPUT BAR — FULL WIDTH, BUTTONS BELOW */}
+      <div
+        style={{
+          maxWidth: 700,
+          margin: "16px auto 0 auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type to Cipher..."
+          rows={2}
+          style={{
+            width: "100%",
+            borderRadius: 10,
+            padding: "10px 14px",
+            border: `1px solid ${theme.inputBorder}`,
+            background: theme.inputBg,
+            color: theme.textColor,
+            boxShadow: "0 0 16px rgba(15,23,42,0.8)",
+          }}
+        />
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          {/* Send — takes most of the width */}
+          <button
+            onClick={sendMessage}
+            disabled={loading}
+            style={{
+              flex: 1,
+              background: theme.buttonBg,
+              color: "white",
+              padding: "10px 16px",
+              borderRadius: 999,
+              border: "none",
+              fontWeight: 600,
+              boxShadow: "0 0 20px rgba(59,130,246,0.6)",
+            }}
+          >
+            Send
+          </button>
+
+          {/* MIC */}
+          <button
+            onClick={toggleRecording}
+            disabled={loading}
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: "50%",
+              border: "none",
+              background: isRecording ? "#b91c1c" : theme.cipherBubble,
+              color: "#fff",
+              fontSize: 20,
+              boxShadow: isRecording
+                ? "0 0 16px rgba(248,113,113,0.9)"
+                : "0 0 10px rgba(148,163,184,0.5)",
+            }}
+          >
+            {isRecording ? "■" : "🎤"}
+          </button>
+
+          {/* CAMERA */}
+          <button
+            onClick={openCamera}
+            disabled={loading}
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: "50%",
+              border: "none",
+              background: cameraActive ? "#b91c1c" : theme.userBubble,
+              color: "#fff",
+              fontSize: 22,
+              boxShadow: "0 0 14px rgba(96,165,250,0.8)",
+            }}
+          >
+            📷
+          </button>
+        </div>
+      </div>
 
       {/* DELETE */}
       <button
@@ -745,13 +744,27 @@ export default function Home() {
         Delete Conversation
       </button>
 
-      {/* PROFILE / MENU PANEL */}
+      {/* MENU PANEL */}
       {menuOpen && (
         <ProfilePanel
           profile={profile}
           loading={profileLoading}
           onClose={() => setMenuOpen(false)}
           onProfileChange={updateProfile}
+          onOpenStore={() => {
+            setMenuOpen(false);
+            setStoreOpen(true);
+          }}
+        />
+      )}
+
+      {/* STORE PANEL */}
+      {storeOpen && (
+        <StorePanel
+          currentThemeKey={profile?.currentTheme || "cipher_core"}
+          onClose={() => setStoreOpen(false)}
+          onPreviewTheme={previewTheme}
+          onApplyTheme={applyTheme}
         />
       )}
     </div>
