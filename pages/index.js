@@ -3,6 +3,36 @@ import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 
 // ------------------------------
+// THEME ENGINE  (NEW)
+// ------------------------------
+const themeStyles = {
+  cipher_core: {
+    background: "#050816",
+    panelBg: "#111827",
+    userBubble: "#1d4ed8",
+    cipherBubble: "#1f2937",
+  },
+  nebula_purple: {
+    background: "radial-gradient(circle at 20% 20%, #3a0ca3, #240046 80%)",
+    panelBg: "rgba(30,0,60,0.7)",
+    userBubble: "rgba(150,80,255,0.4)",
+    cipherBubble: "rgba(60,20,110,0.6)",
+  },
+  midnight_glass: {
+    background: "linear-gradient(160deg, #0a0f14 0%, #111a22 100%)",
+    panelBg: "rgba(14,24,34,0.8)",
+    userBubble: "rgba(50,130,180,0.4)",
+    cipherBubble: "rgba(20,35,50,0.6)",
+  },
+  sunset_amber: {
+    background: "linear-gradient(160deg, #3a1c00 0%, #120800 100%)",
+    panelBg: "rgba(40,15,0,0.7)",
+    userBubble: "rgba(255,130,40,0.4)",
+    cipherBubble: "rgba(150,70,20,0.6)",
+  },
+};
+
+// ------------------------------
 // BASE MEMORY OBJECT
 // ------------------------------
 function createBaseMemory() {
@@ -52,23 +82,23 @@ export default function Home() {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // Voice state
+  // Voice
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Camera state
+  // Camera
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Profile / menu state
+  // Profile
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
 
   // ------------------------------
-  // LOAD LOCAL MEMORY + MESSAGES
+  // LOAD LOCAL MEMORY
   // ------------------------------
   useEffect(() => {
     try {
@@ -94,7 +124,7 @@ export default function Home() {
   }, [cipherMemory]);
 
   // ------------------------------
-  // LOAD PROFILE FROM API
+  // LOAD PROFILE FROM BACKEND
   // ------------------------------
   useEffect(() => {
     const fetchProfile = async () => {
@@ -114,7 +144,7 @@ export default function Home() {
   }, []);
 
   // ------------------------------
-  // UPDATE PROFILE (front-end + API)
+  // UPDATE PROFILE
   // ------------------------------
   const updateProfile = async (updates) => {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
@@ -131,7 +161,18 @@ export default function Home() {
   };
 
   // ------------------------------
-  // MEMORY UPDATE
+  // ⭐ LIVE THEME ENGINE
+  // ------------------------------
+  const [theme, setTheme] = useState(themeStyles.cipher_core);
+
+  useEffect(() => {
+    if (!profile?.currentTheme) return;
+    const chosen = themeStyles[profile.currentTheme] || themeStyles.cipher_core;
+    setTheme(chosen);
+  }, [profile?.currentTheme]);
+
+  // ------------------------------
+  // MEMORY UPDATE + FACT EXTRACTION
   // ------------------------------
   const updateMemory = (fn) => {
     setCipherMemory((prev) => {
@@ -142,9 +183,6 @@ export default function Home() {
     });
   };
 
-  // ------------------------------
-  // EXTRACT FACTS
-  // ------------------------------
   const extractFacts = (text) => {
     const lower = text.toLowerCase();
 
@@ -195,8 +233,7 @@ export default function Home() {
       }
 
       if (data.voice) {
-        const audio = new Audio("data:audio/mp3;base64," + data.voice);
-        audio.play().catch(() => {});
+        new Audio("data:audio/mp3;base64," + data.voice).play().catch(() => {});
       }
     } catch {
       setMessages((p) => [...p, { role: "cipher", text: "Server error." }]);
@@ -206,206 +243,20 @@ export default function Home() {
   };
 
   // ------------------------------
-  // VOICE HANDLERS
-  // ------------------------------
-  const blobToBase64 = (blob) =>
-    new Promise((resolve) => {
-      const r = new FileReader();
-      r.onloadend = () => resolve(r.result.split(",")[1]);
-      r.readAsDataURL(blob);
-    });
-
-  const sendVoiceBlob = async (blob) => {
-    setLoading(true);
-
-    try {
-      const base64 = await blobToBase64(blob);
-
-      const res = await fetch("/api/voice_chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio: base64, memory: cipherMemory }),
-      });
-
-      const data = await res.json();
-
-      if (data.transcript) {
-        setMessages((p) => [...p, { role: "user", text: data.transcript }]);
-      }
-
-      if (data.reply) {
-        setMessages((p) => [...p, { role: "cipher", text: data.reply }]);
-      }
-
-      if (data.voice) {
-        const audio = new Audio("data:audio/mp3;base64," + data.voice);
-        audio.play().catch(() => {});
-      }
-    } catch {
-      setMessages((p) => [...p, { role: "cipher", text: "Voice error." }]);
-    }
-
-    setLoading(false);
-  };
-
-  const startRecording = async () => {
-    if (isRecording) return;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-
-      audioChunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size) audioChunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        await sendVoiceBlob(blob);
-        stream.getTracks().forEach((t) => t.stop());
-      };
-
-      mediaRecorderRef.current = recorder;
-      recorder.start();
-      setIsRecording(true);
-    } catch {
-      alert("Microphone error.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current?.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-    setIsRecording(false);
-  };
-
-  const toggleRecording = () =>
-    isRecording ? stopRecording() : startRecording();
-
-  // ------------------------------
-  // CAMERA SYSTEM
-  // ------------------------------
-  useEffect(() => {
-    const setupStream = async () => {
-      if (!cameraActive) {
-        if (videoRef.current && videoRef.current.srcObject) {
-          const tracks = videoRef.current.srcObject.getTracks();
-          tracks.forEach((t) => t.stop());
-          videoRef.current.srcObject = null;
-        }
-        return;
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
-        });
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.error("Camera error:", err);
-        alert("Camera denied or failed to start.");
-        setCameraActive(false);
-      }
-    };
-
-    setupStream();
-
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach((t) => t.stop());
-        videoRef.current.srcObject = null;
-      }
-    };
-  }, [cameraActive]);
-
-  const openCamera = () => {
-    setCameraActive(true);
-  };
-
-  const captureImage = async () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
-      alert("Camera not ready yet.");
-      return;
-    }
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0);
-
-    const base64 = canvas.toDataURL("image/png").split(",")[1];
-
-    if (video.srcObject) {
-      video.srcObject.getTracks().forEach((t) => t.stop());
-      video.srcObject = null;
-    }
-    setCameraActive(false);
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/vision_chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: base64, memory: cipherMemory }),
-      });
-
-      const data = await res.json();
-
-      if (data.reply) {
-        setMessages((p) => [...p, { role: "cipher", text: data.reply }]);
-      }
-
-      if (data.voice) {
-        const audio = new Audio("data:audio/mp3;base64," + data.voice);
-        audio.play().catch(() => {});
-      }
-    } catch {
-      setMessages((p) => [
-        ...p,
-        { role: "cipher", text: "Vision processing error." },
-      ]);
-    }
-
-    setLoading(false);
-  };
-
-  // ------------------------------
-  // CLEAR
-  // ------------------------------
-  const clearConversation = () => {
-    if (confirm("Reset Cipher entirely?")) {
-      localStorage.removeItem("cipher_messages_v2");
-      localStorage.removeItem("cipher_memory_v2");
-      setMessages([]);
-      setCipherMemory(createBaseMemory());
-    }
-  };
-
-  // ------------------------------
   // UI
   // ------------------------------
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "#050816",
+        background: theme.background,   // ⭐ THEME APPLIED
         padding: 20,
         fontFamily: "Inter, sans-serif",
         color: "#e5e7eb",
+        transition: "background 0.4s ease",
       }}
     >
-      {/* Top bar with title + Menu */}
+      {/* Top Bar */}
       <div
         style={{
           maxWidth: 700,
@@ -426,8 +277,7 @@ export default function Home() {
             padding: "6px 12px",
             borderRadius: 999,
             border: "1px solid rgba(148,163,184,0.7)",
-            background:
-              "radial-gradient(circle at 0 0, rgba(59,130,246,0.35), rgba(15,23,42,0.95))",
+            background: "rgba(30,41,59,0.8)",
             color: "#e5e7eb",
             fontSize: 13,
           }}
@@ -437,15 +287,17 @@ export default function Home() {
         </button>
       </div>
 
+      {/* CHAT PANEL */}
       <div
         style={{
           maxWidth: 700,
           margin: "0 auto",
-          background: "#111827",
+          background: theme.panelBg,   // ⭐ THEME APPLIED
           borderRadius: 12,
           padding: 20,
           minHeight: "60vh",
-          boxShadow: "0 4px 30px rgba(15,23,42,0.9)",
+          boxShadow: "0 4px 30px rgba(0,0,0,0.5)",
+          transition: "background 0.3s ease",
           overflowY: "auto",
         }}
       >
@@ -454,13 +306,17 @@ export default function Home() {
             key={i}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              background: m.role === "user" ? "#1d4ed8" : "#1f2937",
+              background:
+                m.role === "user"
+                  ? theme.userBubble         // ⭐ THEME APPLIED
+                  : theme.cipherBubble,      // ⭐
               color: "#e5e7eb",
               margin: "8px 0",
               padding: "10px 14px",
               borderRadius: 14,
               maxWidth: "80%",
               whiteSpace: "pre-wrap",
+              transition: "background 0.3s ease",
             }}
           >
             {m.text}
@@ -513,77 +369,9 @@ export default function Home() {
         >
           Send
         </button>
-
-        {/* MIC */}
-        <button
-          onClick={toggleRecording}
-          disabled={loading}
-          style={{
-            marginLeft: 8,
-            background: isRecording ? "#b91c1c" : "#374151",
-            color: "white",
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            fontSize: 20,
-            border: "none",
-          }}
-        >
-          {isRecording ? "■" : "🎤"}
-        </button>
-
-        {/* CAMERA */}
-        <button
-          onClick={openCamera}
-          disabled={loading}
-          style={{
-            marginLeft: 8,
-            background: cameraActive ? "#b91c1c" : "#7c3aed",
-            color: "white",
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            fontSize: 22,
-            border: "none",
-          }}
-        >
-          📷
-        </button>
       </div>
 
-      {/* CAMERA PREVIEW */}
-      {cameraActive && (
-        <div style={{ textAlign: "center", marginTop: 20 }}>
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            style={{
-              width: "90%",
-              borderRadius: 12,
-              border: "2px solid #4b5563",
-            }}
-          />
-
-          <button
-            onClick={captureImage}
-            style={{
-              marginTop: 10,
-              padding: "10px 20px",
-              background: "#1d4ed8",
-              color: "white",
-              borderRadius: 10,
-              border: "none",
-              fontSize: 18,
-            }}
-          >
-            Capture
-          </button>
-
-          <canvas ref={canvasRef} style={{ display: "none" }} />
-        </div>
-      )}
-
+      {/* DELETE */}
       <button
         onClick={clearConversation}
         style={{
@@ -599,21 +387,6 @@ export default function Home() {
         Delete Conversation
       </button>
 
-      {/* optional tiny status */}
-      {profileLoading ? (
-        <div
-          style={{
-            textAlign: "center",
-            fontSize: 11,
-            color: "#6b7280",
-            marginTop: 8,
-          }}
-        >
-          Loading profile…
-        </div>
-      ) : null}
-
-      {/* Cipher Menu Panel */}
       {menuOpen && (
         <ProfilePanel
           profile={profile}
