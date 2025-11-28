@@ -103,29 +103,26 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Local memory system
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // Voice
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-
-  // Camera
-  const [cameraActive, setCameraActive] = useState(false);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-
-  // Profile
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // THEME
   const [theme, setTheme] = useState(themeStyles.cipher_core);
 
   /* ============================================================
-     LOAD LOCAL MEMORY + MESSAGES
+     CLEAR CONVERSATION (MISSING IN YOUR FILE)
+  ============================================================ */
+  const clearConversation = () => {
+    setMessages([]);
+    try {
+      localStorage.removeItem("cipher_messages_v2");
+    } catch {}
+  };
+
+  /* ============================================================
+     LOAD LOCAL MEMORY + CHAT
   ============================================================ */
   useEffect(() => {
     try {
@@ -144,30 +141,41 @@ export default function Home() {
     } catch {}
   }, [messages]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
-    } catch {}
-  }, [cipherMemory]);
-
   /* ============================================================
-     LOAD PROFILE FROM BACKEND
+     🔥 FIXED PROFILE LOADING
   ============================================================ */
   useEffect(() => {
-    const fetchProfile = async () => {
+    const loadProfile = async () => {
       try {
-        const res = await fetch("/api/profile");
-        const data = await res.json();
-        if (data?.profile) {
-          setProfile(data.profile);
+        let storedUserId = localStorage.getItem("cipher_userId");
+
+        if (!storedUserId) {
+          const createRes = await fetch("/api/profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "newId" }),
+          });
+          const idData = await createRes.json();
+          storedUserId = idData.userId;
+          localStorage.setItem("cipher_userId", storedUserId);
         }
+
+        const loadRes = await fetch("/api/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "load", userId: storedUserId }),
+        });
+
+        const data = await loadRes.json();
+        setProfile(data.profile);
       } catch (err) {
         console.error("Profile load error:", err);
       } finally {
         setProfileLoading(false);
       }
     };
-    fetchProfile();
+
+    loadProfile();
   }, []);
 
   /* ============================================================
@@ -177,10 +185,15 @@ export default function Home() {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
 
     try {
+      const userId = localStorage.getItem("cipher_userId");
       await fetch("/api/profile", {
-        method: "PATCH",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          action: "update",
+          userId,
+          updates,
+        }),
       });
     } catch (err) {
       console.error("Profile save error:", err);
@@ -188,7 +201,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     ⭐ LIVE THEME ENGINE
+     LIVE THEME ENGINE
   ============================================================ */
   useEffect(() => {
     if (!profile?.currentTheme) return;
@@ -199,7 +212,7 @@ export default function Home() {
   /* ============================================================
      MEMORY EXTRACTION
   ============================================================ */
-  const updateMemory = (fn) => {
+  const updateMemoryBlock = (fn) => {
     setCipherMemory((prev) => {
       const clone = structuredClone(prev);
       fn(clone);
@@ -211,7 +224,7 @@ export default function Home() {
   const extractFacts = (text) => {
     const lower = text.toLowerCase();
 
-    updateMemory((mem) => {
+    updateMemoryBlock((mem) => {
       let m;
 
       m = lower.match(/\bmy name is ([a-z ]+)/i);
@@ -225,9 +238,6 @@ export default function Home() {
 
       m = lower.match(/favorite color is ([a-z ]+)/i);
       if (m) mem.preferences.favoriteColor = m[1].trim();
-
-      m = lower.match(/remember that (.+?) is (.+)/i);
-      if (m) mem.customFacts[m[1].trim()] = m[2].trim();
     });
   };
 
@@ -248,7 +258,10 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, memory: cipherMemory }),
+        body: JSON.stringify({
+          message: text,
+          memory: cipherMemory,
+        }),
       });
 
       const data = await res.json();
@@ -258,9 +271,7 @@ export default function Home() {
       }
 
       if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice)
-          .play()
-          .catch(() => {});
+        new Audio("data:audio/mp3;base64," + data.voice).play();
       }
     } catch {
       setMessages((p) => [...p, { role: "cipher", text: "Server error." }]);
@@ -280,53 +291,45 @@ export default function Home() {
         padding: 20,
         fontFamily: "Inter, sans-serif",
         color: theme.textColor,
-        transition: "background 0.4s ease, color 0.4s ease",
+        transition: "0.3s ease",
       }}
     >
-      {/* Top Bar */}
+      {/* TOP BAR */}
       <div
         style={{
           maxWidth: 700,
           margin: "0 auto 10px auto",
           display: "flex",
-          alignItems: "center",
           justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Cipher AI</h1>
+        <h1 style={{ margin: 0 }}>Cipher AI</h1>
 
         <button
           onClick={() => setMenuOpen(true)}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
             padding: "6px 12px",
             borderRadius: 999,
             border: `1px solid ${theme.inputBorder}`,
             background: theme.panelBg,
             color: theme.textColor,
-            fontSize: 13,
-            transition: "0.3s ease",
           }}
         >
-          <span style={{ fontSize: 14 }}>⚙</span>
-          <span>Menu</span>
+          ⚙ Menu
         </button>
       </div>
 
-      {/* CHAT PANEL */}
+      {/* CHAT */}
       <div
         style={{
           maxWidth: 700,
           margin: "0 auto",
           background: theme.panelBg,
-          borderRadius: 12,
           padding: 20,
+          borderRadius: 12,
           minHeight: "60vh",
           boxShadow: `0 4px 30px ${theme.inputBorder}`,
-          transition: "background 0.3s ease",
-          overflowY: "auto",
         }}
       >
         {messages.map((m, i) => (
@@ -334,15 +337,12 @@ export default function Home() {
             key={i}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              background:
-                m.role === "user" ? theme.userBubble : theme.cipherBubble,
-              color: theme.textColor,
-              margin: "8px 0",
+              background: m.role === "user" ? theme.userBubble : theme.cipherBubble,
               padding: "10px 14px",
+              margin: "8px 0",
               borderRadius: 14,
+              color: theme.textColor,
               maxWidth: "80%",
-              whiteSpace: "pre-wrap",
-              transition: "background 0.3s ease",
             }}
           >
             {m.text}
@@ -350,49 +350,45 @@ export default function Home() {
         ))}
 
         {loading && (
-          <div style={{ fontStyle: "italic", color: theme.textColor }}>
-            Cipher is thinking...
+          <div style={{ opacity: 0.6, fontStyle: "italic" }}>
+            Cipher is thinking…
           </div>
         )}
 
         <div ref={chatEndRef} />
       </div>
 
-      {/* INPUT BAR */}
+      {/* INPUT */}
       <div
         style={{
-          display: "flex",
           maxWidth: 700,
           margin: "10px auto",
+          display: "flex",
         }}
       >
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type to Cipher..."
-          rows={1}
           style={{
             flex: 1,
-            borderRadius: 8,
             padding: 10,
-            border: `1px solid ${theme.inputBorder}`,
+            borderRadius: 8,
             background: theme.inputBg,
+            border: `1px solid ${theme.inputBorder}`,
             color: theme.textColor,
-            transition: "0.3s ease",
           }}
         />
 
         <button
           onClick={sendMessage}
-          disabled={loading}
           style={{
             marginLeft: 8,
             background: theme.buttonBg,
-            color: "white",
+            color: "#fff",
             padding: "10px 16px",
             borderRadius: 8,
             border: "none",
-            transition: "0.3s ease",
           }}
         >
           Send
@@ -406,17 +402,16 @@ export default function Home() {
           display: "block",
           margin: "20px auto",
           background: theme.deleteBg,
-          color: "white",
+          color: "#fff",
           padding: "8px 16px",
           borderRadius: 8,
           border: "none",
-          transition: "0.3s ease",
         }}
       >
         Delete Conversation
       </button>
 
-      {/* MENU PANEL */}
+      {/* MENU */}
       {menuOpen && (
         <ProfilePanel
           profile={profile}
