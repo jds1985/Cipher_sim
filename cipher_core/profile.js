@@ -28,7 +28,7 @@ function defaultProfile(userId) {
 
     // Aesthetic
     themesOwned: [],
-    currentTheme: "default",
+    currentTheme: "cipher_core",
 
     // Permissions
     allowVisionTraining: false,
