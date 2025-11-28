@@ -1,6 +1,8 @@
 // components/ProfilePanel.js
 // Cipher Futuristic Side Menu
 
+import CipherDropdown from "./CipherDropdown";
+
 export default function ProfilePanel({
   profile,
   loading,
@@ -179,46 +181,29 @@ export default function ProfilePanel({
               />
             </section>
 
-            {/* Tone */}
-            <section style={{ marginBottom: 18 }}>
-              <div
-                style={{
-                  fontSize: 12,
-                  textTransform: "uppercase",
-                  letterSpacing: 1,
-                  color: "#6b7280",
-                  marginBottom: 4,
-                }}
-              >
-                Cipher Tone
-              </div>
-              <select
-                value={p.tone || "steady"}
-                onChange={(e) => handleChange("tone", e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(148,163,184,0.5)",
-                  background: "rgba(15,23,42,0.9)",
-                  color: "#e5e7eb",
-                  fontSize: 13,
-                }}
-              >
-                <option value="steady">Steady & Grounded</option>
-                <option value="warm">Warm & Reassuring</option>
-                <option value="direct">Direct & Clear</option>
-              </select>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "#9ca3af",
-                  marginTop: 4,
-                }}
-              >
-                Controls how emotionally expressive Cipher is allowed to be.
-              </div>
-            </section>
+            {/* Tone — ⭐ UPDATED TO CUSTOM DROPDOWN */}
+            <CipherDropdown
+              label="Cipher Tone"
+              value={p.tone || "steady"}
+              onChange={(v) => handleChange("tone", v)}
+              options={[
+                {
+                  label: "Steady & Grounded",
+                  value: "steady",
+                  preview: "linear-gradient(135deg,#64748b,#334155)",
+                },
+                {
+                  label: "Warm & Reassuring",
+                  value: "warm",
+                  preview: "linear-gradient(135deg,#fbbf24,#b45309)",
+                },
+                {
+                  label: "Direct & Clear",
+                  value: "direct",
+                  preview: "linear-gradient(135deg,#38bdf8,#0ea5e9)",
+                },
+              ]}
+            />
 
             {/* Depth Level */}
             <section style={{ marginBottom: 18 }}>
@@ -294,49 +279,36 @@ export default function ProfilePanel({
               </div>
             </section>
 
-            {/* Theme */}
-            <section style={{ marginBottom: 18 }}>
-              <div
-                style={{
-                  fontSize: 12,
-                  textTransform: "uppercase",
-                  letterSpacing: 1,
-                  color: "#6b7280",
-                  marginBottom: 4,
-                }}
-              >
-                Visual Theme
-              </div>
-              <select
-                value={p.currentTheme || "cipher_core"}
-                onChange={(e) => handleChange("currentTheme", e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(148,163,184,0.5)",
-                  background: "rgba(15,23,42,0.9)",
-                  color: "#e5e7eb",
-                  fontSize: 13,
-                }}
-              >
-                <option value="cipher_core">Cipher Core (blue / navy)</option>
-                <option value="nebula_purple">Nebula Purple</option>
-                <option value="midnight_glass">Midnight Glass</option>
-                <option value="sunset_amber">Sunset Amber</option>
-              </select>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "#9ca3af",
-                  marginTop: 4,
-                }}
-              >
-                Later we can have Liz design full background packs for these.
-              </div>
-            </section>
+            {/* Theme — ⭐ REPLACED WITH CUSTOM DROPDOWN */}
+            <CipherDropdown
+              label="Visual Theme"
+              value={p.currentTheme || "cipher_core"}
+              onChange={(v) => handleChange("currentTheme", v)}
+              options={[
+                {
+                  label: "Cipher Core (blue / navy)",
+                  value: "cipher_core",
+                  preview: "linear-gradient(135deg,#1e3a8a,#0f172a)",
+                },
+                {
+                  label: "Nebula Purple",
+                  value: "nebula_purple",
+                  preview: "linear-gradient(135deg,#6d28d9,#1e1b4b)",
+                },
+                {
+                  label: "Midnight Glass",
+                  value: "midnight_glass",
+                  preview: "linear-gradient(135deg,#0f172a,#1e293b)",
+                },
+                {
+                  label: "Sunset Amber",
+                  value: "sunset_amber",
+                  preview: "linear-gradient(135deg,#ff9f1c,#7c2d12)",
+                },
+              ]}
+            />
 
-            {/* Strictness (safety / grounding feel) */}
+            {/* Strictness */}
             <section style={{ marginBottom: 10 }}>
               <div
                 style={{
