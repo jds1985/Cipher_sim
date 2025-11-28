@@ -2,39 +2,62 @@
 import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 
-// ------------------------------
-// THEME ENGINE  (NEW)
-// ------------------------------
+/* ============================================================
+   THEME ENGINE (UPGRADED)
+============================================================ */
 const themeStyles = {
   cipher_core: {
     background: "#050816",
     panelBg: "#111827",
     userBubble: "#1d4ed8",
     cipherBubble: "#1f2937",
+    inputBg: "#020617",
+    inputBorder: "#4b5563",
+    buttonBg: "#1d4ed8",
+    deleteBg: "#4b5563",
+    textColor: "#e5e7eb",
   },
+
   nebula_purple: {
     background: "radial-gradient(circle at 20% 20%, #3a0ca3, #240046 80%)",
     panelBg: "rgba(30,0,60,0.7)",
-    userBubble: "rgba(150,80,255,0.4)",
-    cipherBubble: "rgba(60,20,110,0.6)",
+    userBubble: "rgba(150,80,255,0.45)",
+    cipherBubble: "rgba(70,20,120,0.7)",
+    inputBg: "rgba(20,0,40,0.8)",
+    inputBorder: "rgba(180,100,255,0.8)",
+    buttonBg: "#8b5cf6",
+    deleteBg: "#6d28d9",
+    textColor: "#f5e9ff",
   },
+
   midnight_glass: {
     background: "linear-gradient(160deg, #0a0f14 0%, #111a22 100%)",
-    panelBg: "rgba(14,24,34,0.8)",
-    userBubble: "rgba(50,130,180,0.4)",
-    cipherBubble: "rgba(20,35,50,0.6)",
+    panelBg: "rgba(14,24,34,0.65)",
+    userBubble: "rgba(50,130,180,0.35)",
+    cipherBubble: "rgba(20,35,50,0.5)",
+    inputBg: "rgba(10,20,30,0.7)",
+    inputBorder: "rgba(50,150,200,0.8)",
+    buttonBg: "rgba(50,150,200,0.9)",
+    deleteBg: "rgba(80,90,100,0.7)",
+    textColor: "#d8f2ff",
   },
+
   sunset_amber: {
-    background: "linear-gradient(160deg, #3a1c00 0%, #120800 100%)",
+    background: "linear-gradient(180deg, #3a1c00 0%, #120800 100%)",
     panelBg: "rgba(40,15,0,0.7)",
-    userBubble: "rgba(255,130,40,0.4)",
-    cipherBubble: "rgba(150,70,20,0.6)",
+    userBubble: "rgba(255,140,40,0.45)",
+    cipherBubble: "rgba(110,45,15,0.55)",
+    inputBg: "rgba(30,10,0,0.7)",
+    inputBorder: "rgba(255,180,60,0.7)",
+    buttonBg: "#f59e0b",
+    deleteBg: "#b45309",
+    textColor: "#ffe9c7",
   },
 };
 
-// ------------------------------
-// BASE MEMORY OBJECT
-// ------------------------------
+/* ============================================================
+   BASE MEMORY OBJECT
+============================================================ */
 function createBaseMemory() {
   const now = new Date().toISOString();
   return {
@@ -71,15 +94,16 @@ function createBaseMemory() {
   };
 }
 
-// ------------------------------
-// MAIN COMPONENT
-// ------------------------------
+/* ============================================================
+   MAIN COMPONENT
+============================================================ */
 export default function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
 
+  // Local memory system
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
   // Voice
@@ -97,9 +121,12 @@ export default function Home() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // ------------------------------
-  // LOAD LOCAL MEMORY
-  // ------------------------------
+  // THEME
+  const [theme, setTheme] = useState(themeStyles.cipher_core);
+
+  /* ============================================================
+     LOAD LOCAL MEMORY + MESSAGES
+  ============================================================ */
   useEffect(() => {
     try {
       const storedMessages = localStorage.getItem("cipher_messages_v2");
@@ -123,9 +150,9 @@ export default function Home() {
     } catch {}
   }, [cipherMemory]);
 
-  // ------------------------------
-  // LOAD PROFILE FROM BACKEND
-  // ------------------------------
+  /* ============================================================
+     LOAD PROFILE FROM BACKEND
+  ============================================================ */
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -143,9 +170,9 @@ export default function Home() {
     fetchProfile();
   }, []);
 
-  // ------------------------------
-  // UPDATE PROFILE
-  // ------------------------------
+  /* ============================================================
+     UPDATE PROFILE
+  ============================================================ */
   const updateProfile = async (updates) => {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
 
@@ -160,20 +187,18 @@ export default function Home() {
     }
   };
 
-  // ------------------------------
-  // ⭐ LIVE THEME ENGINE
-  // ------------------------------
-  const [theme, setTheme] = useState(themeStyles.cipher_core);
-
+  /* ============================================================
+     ⭐ LIVE THEME ENGINE
+  ============================================================ */
   useEffect(() => {
     if (!profile?.currentTheme) return;
     const chosen = themeStyles[profile.currentTheme] || themeStyles.cipher_core;
     setTheme(chosen);
   }, [profile?.currentTheme]);
 
-  // ------------------------------
-  // MEMORY UPDATE + FACT EXTRACTION
-  // ------------------------------
+  /* ============================================================
+     MEMORY EXTRACTION
+  ============================================================ */
   const updateMemory = (fn) => {
     setCipherMemory((prev) => {
       const clone = structuredClone(prev);
@@ -206,9 +231,9 @@ export default function Home() {
     });
   };
 
-  // ------------------------------
-  // SEND TEXT MESSAGE
-  // ------------------------------
+  /* ============================================================
+     SEND TEXT MESSAGE
+  ============================================================ */
   const sendMessage = async () => {
     if (!input.trim()) return;
 
@@ -233,7 +258,9 @@ export default function Home() {
       }
 
       if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice).play().catch(() => {});
+        new Audio("data:audio/mp3;base64," + data.voice)
+          .play()
+          .catch(() => {});
       }
     } catch {
       setMessages((p) => [...p, { role: "cipher", text: "Server error." }]);
@@ -242,18 +269,18 @@ export default function Home() {
     setLoading(false);
   };
 
-  // ------------------------------
-  // UI
-  // ------------------------------
+  /* ============================================================
+     UI
+  ============================================================ */
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: theme.background,   // ⭐ THEME APPLIED
+        background: theme.background,
         padding: 20,
         fontFamily: "Inter, sans-serif",
-        color: "#e5e7eb",
-        transition: "background 0.4s ease",
+        color: theme.textColor,
+        transition: "background 0.4s ease, color 0.4s ease",
       }}
     >
       {/* Top Bar */}
@@ -276,10 +303,11 @@ export default function Home() {
             gap: 6,
             padding: "6px 12px",
             borderRadius: 999,
-            border: "1px solid rgba(148,163,184,0.7)",
-            background: "rgba(30,41,59,0.8)",
-            color: "#e5e7eb",
+            border: `1px solid ${theme.inputBorder}`,
+            background: theme.panelBg,
+            color: theme.textColor,
             fontSize: 13,
+            transition: "0.3s ease",
           }}
         >
           <span style={{ fontSize: 14 }}>⚙</span>
@@ -292,11 +320,11 @@ export default function Home() {
         style={{
           maxWidth: 700,
           margin: "0 auto",
-          background: theme.panelBg,   // ⭐ THEME APPLIED
+          background: theme.panelBg,
           borderRadius: 12,
           padding: 20,
           minHeight: "60vh",
-          boxShadow: "0 4px 30px rgba(0,0,0,0.5)",
+          boxShadow: `0 4px 30px ${theme.inputBorder}`,
           transition: "background 0.3s ease",
           overflowY: "auto",
         }}
@@ -307,10 +335,8 @@ export default function Home() {
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
               background:
-                m.role === "user"
-                  ? theme.userBubble         // ⭐ THEME APPLIED
-                  : theme.cipherBubble,      // ⭐
-              color: "#e5e7eb",
+                m.role === "user" ? theme.userBubble : theme.cipherBubble,
+              color: theme.textColor,
               margin: "8px 0",
               padding: "10px 14px",
               borderRadius: 14,
@@ -324,7 +350,7 @@ export default function Home() {
         ))}
 
         {loading && (
-          <div style={{ fontStyle: "italic", color: "#9ca3af" }}>
+          <div style={{ fontStyle: "italic", color: theme.textColor }}>
             Cipher is thinking...
           </div>
         )}
@@ -349,9 +375,10 @@ export default function Home() {
             flex: 1,
             borderRadius: 8,
             padding: 10,
-            border: "1px solid #4b5563",
-            background: "#020617",
-            color: "#e5e7eb",
+            border: `1px solid ${theme.inputBorder}`,
+            background: theme.inputBg,
+            color: theme.textColor,
+            transition: "0.3s ease",
           }}
         />
 
@@ -360,11 +387,12 @@ export default function Home() {
           disabled={loading}
           style={{
             marginLeft: 8,
-            background: "#1d4ed8",
+            background: theme.buttonBg,
             color: "white",
             padding: "10px 16px",
             borderRadius: 8,
             border: "none",
+            transition: "0.3s ease",
           }}
         >
           Send
@@ -377,16 +405,18 @@ export default function Home() {
         style={{
           display: "block",
           margin: "20px auto",
-          background: "#4b5563",
+          background: theme.deleteBg,
           color: "white",
           padding: "8px 16px",
           borderRadius: 8,
           border: "none",
+          transition: "0.3s ease",
         }}
       >
         Delete Conversation
       </button>
 
+      {/* MENU PANEL */}
       {menuOpen && (
         <ProfilePanel
           profile={profile}
