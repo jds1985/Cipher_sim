@@ -1,135 +1,100 @@
-/* ===========================================================
-   GLOBAL RESET / BASE STYLES
-=========================================================== */
-* {
-  box-sizing: border-box;
-}
-
-html, body {
+/* ============================================
+   GLOBAL RESET
+============================================ */
+body {
   margin: 0;
   padding: 0;
-  height: 100%;
-  background: #0b0f17;
-  color: #e5e7eb;
-  font-family: "Inter", sans-serif;
-  -webkit-font-smoothing: antialiased;
 }
 
-/* Smooth transitions everywhere */
-body, select, input, button, div {
-  transition: background 0.25s ease, color 0.25s ease;
+/* ============================================
+   DEFAULT THEME VARIABLES
+============================================ */
+:root {
+  --theme-bg: #050816;
+  --theme-panel: #111827;
+  --theme-accent: #1d4ed8;
+  --theme-text: #e5e7eb;
+  --theme-border: rgba(148,163,184,0.5);
+
+  --bubble-user: #1d4ed8;
+  --bubble-cipher: #1f2937;
+  --button-bg: #1d4ed8;
+  --button-text: #ffffff;
+
+  --input-bg: #020617;
+  --input-border: #4b5563;
 }
 
-/* Hide scrollbars (mobile-safe) */
-::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+/* ============================================
+   THEME: CIPHER CORE
+============================================ */
+.theme-cipher-core {
+  --theme-bg: #050816;
+  --theme-panel: #111827;
+  --theme-accent: #1d4ed8;
+  --theme-text: #e5e7eb;
+  --theme-border: rgba(148,163,184,0.5);
+
+  --bubble-user: #1d4ed8;
+  --bubble-cipher: #1f2937;
+  --button-bg: #1d4ed8;
+
+  --input-bg: #020617;
+  --input-border: #4b5563;
 }
 
-/* ===========================================================
-   DARK DROPDOWNS (THE NEW MENU POP-UP FIX)
-=========================================================== */
-
-select {
-  background: rgba(15, 23, 42, 0.9) !important;
-  color: #e5e7eb !important;
-  border: 1px solid rgba(148, 163, 184, 0.55);
-}
-
-option {
-  background: #0f172a !important;
-  color: #e5e7eb !important;
-  padding: 10px;
-}
-
-/* Android dropdown panel override */
-select::-ms-expand {
-  display: none;
-}
-
-/* ===========================================================
-   THEME ENGINE — BODY CLASSES
-   These apply instantly when the user changes theme
-=========================================================== */
-
-/* ---------- Default (Cipher Core) ---------- */
-.theme-cipher_core {
-  background: linear-gradient(160deg, #0a0f1d 0%, #0d1627 35%, #13203a 100%);
-  color: #e5e7eb;
-}
-
-/* ---------- Nebula Purple ---------- */
+/* ============================================
+   THEME: NEBULA PURPLE
+============================================ */
 .theme-nebula_purple {
-  background: radial-gradient(circle at 20% 20%, #3b0b68 0%, #1b0e3f 60%, #120926 100%);
-  color: #e8d9ff;
+  --theme-bg: #0b0318;
+  --theme-panel: #1a1030;
+  --theme-accent: #8b5cf6;
+  --theme-text: #f5e9ff;
+  --theme-border: rgba(168,85,247,0.45);
+
+  --bubble-user: #8b5cf6;
+  --bubble-cipher: #2a1a45;
+  --button-bg: #8b5cf6;
+
+  --input-bg: #140a26;
+  --input-border: #8b5cf6;
 }
 
-/* ---------- Midnight Glass ---------- */
+/* ============================================
+   THEME: MIDNIGHT GLASS
+============================================ */
 .theme-midnight_glass {
-  background: linear-gradient(145deg, #0c101a 0%, #0a0d14 30%, #0f1828 100%);
-  color: #d6dee8;
+  --theme-bg: #020617;
+  --theme-panel: rgba(15,23,42,0.7);
+  --theme-accent: #38bdf8;
+  --theme-text: #e0f7ff;
+  --theme-border: rgba(56,189,248,0.4);
+
+  --bubble-user: #38bdf8;
+  --bubble-cipher: rgba(30,41,59,0.75);
+  --button-bg: #38bdf8;
+
+  --input-bg: rgba(2,6,23,0.75);
+  --input-border: #38bdf8;
+
+  backdrop-filter: blur(14px);
 }
 
-/* ---------- Sunset Amber ---------- */
+/* ============================================
+   THEME: SUNSET AMBER
+============================================ */
 .theme-sunset_amber {
-  background: linear-gradient(155deg, #2c0a00 0%, #4a1b00 40%, #6b2e00 100%);
-  color: #ffd9b0;
-}
+  --theme-bg: #1f0a00;
+  --theme-panel: #331400;
+  --theme-accent: #f59e0b;
+  --theme-text: #ffe9c7;
+  --theme-border: rgba(245,158,11,0.35);
 
-/* ===========================================================
-   CARD / PANEL ENHANCEMENTS
-=========================================================== */
+  --bubble-user: #f59e0b;
+  --bubble-cipher: #331400;
+  --button-bg: #f59e0b;
 
-.panel {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(148,163,184,0.3);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-  padding: 16px;
-  transition: background 0.25s ease;
-}
-
-/* ===========================================================
-   BUTTONS
-=========================================================== */
-
-button {
-  cursor: pointer;
-  transition: background 0.25s ease, transform 0.15s ease;
-}
-
-button:active {
-  transform: scale(0.96);
-}
-
-/* ===========================================================
-   CHAT BUBBLES
-=========================================================== */
-
-.chat-bubble-user {
-  background: #1e73be;
-  color: white;
-  border-radius: 14px;
-  padding: 10px 14px;
-  max-width: 80%;
-}
-
-.chat-bubble-cipher {
-  background: #e9ecf1;
-  color: #1a2a40;
-  border-radius: 14px;
-  padding: 10px 14px;
-  max-width: 80%;
-}
-
-/* ===========================================================
-   PROFILE DROPDOWN OVERLAY
-=========================================================== */
-
-.dropdown-sheet {
-  background: rgba(10, 15, 25, 0.95) !important;
-  border-top-left-radius: 18px;
-  border-top-right-radius: 18px;
-  padding: 16px;
-  color: #e5e7eb !important;
+  --input-bg: #190900;
+  --input-border: #f59e0b;
 }
