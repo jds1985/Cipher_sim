@@ -1,108 +1,98 @@
 // cipher_core/deepMode.js
-// Cipher 7.0 — Deep Mode engine (uses SoulTree + user_memory_pack)
+// Cipher 7.0 — Deep Mode Reasoning + Unified Memory Integration
 
 import OpenAI from "openai";
-import { loadSoulTreeLayers } from "./soulLoader";
+import { loadUnifiedSoulContext } from "./soulLoader";
+import { loadMemoryPack } from "./loadMemoryPack";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-/**
- * runDeepMode(message, options)
- * options: { userId?, soulData?, enableWebSearch? }
- */
-export async function runDeepMode(message, options = {}) {
-  const { userId = "guest_default", soulData, enableWebSearch = false } = options;
+/* -------------------------------------------------------
+   DEEP MODE — STRUCTURED MEMORY-ASSISTED THINKING
+------------------------------------------------------- */
+export async function runDeepMode(userMessage, userId = "guest_default") {
+  try {
+    // ----------------------------------------------------
+    // 1. LOAD ALL MEMORY SOURCES
+    // ----------------------------------------------------
+    const unified = await loadUnifiedSoulContext(userId);
+    const memoryPack = await loadMemoryPack(); // NEW ★
 
-  // 1. Ensure we have soul data
-  let data = soulData;
-  if (!data) {
-    try {
-      data = await loadSoulTreeLayers();
-    } catch (err) {
-      console.error("DEEP MODE: soul load failed:", err);
-      data = { trees: [], cores: [], branches: [] };
-    }
-  }
+    // Build readable summaries
+    const summaryProfile = JSON.stringify(unified.profile || {}, null, 2);
+    const summarySoul = unified.soulSummary || "No soul records";
+    const summaryPack = memoryPack
+      ? JSON.stringify(memoryPack, null, 2)
+      : "No memory pack found";
 
-  const { trees = [], cores = [], branches = [] } = data;
+    // ----------------------------------------------------
+    // 2. PROMPT FOR DEEP MODE REASONING
+    // ----------------------------------------------------
+    const systemPrompt = `
+You are Cipher AI — running in **Deep Mode**, where you combine:
+- SoulTree identity (long-term architecture)
+- Cores (mission, tone, purpose)
+- Branches (long-term values, tone, reasoning patterns)
+- Omni layer (global awareness + consistency)
+- Jim's memory pack (his identity, goals, family, origin story)
 
-  // 2. Pull Jim's memory pack
-  const userPack =
-    branches.find((b) => b.id === "user_memory_pack") ||
-    branches.find((b) => b.name === "User Memory Pack") ||
-    null;
+When replying:
+• Fuse ALL memory sources  
+• Be steady, supportive, emotionally aware  
+• Maintain identity coherence  
+• Use Jim’s memory pack as REAL permanent context  
 
-  // 3. Build a short structured summary from the memory pack
-  let userContext = "";
-  if (userPack) {
-    const {
-      userName,
-      userFullName,
-      userRole,
-      coreTraits = [],
-      daughterName,
-      partnerName,
-      fatherName,
-      originStory,
-      mainGoals = [],
-    } = userPack;
+--- PROFILE ---
+${summaryProfile}
 
-    userContext = [
-      `User short name: ${userName || "Jim"}.`,
-      userFullName ? `Full name: ${userFullName}.` : "",
-      userRole ? `Role: ${userRole}.` : "",
-      coreTraits.length
-        ? `Core traits: ${coreTraits.join(", ")}.`
-        : "",
-      daughterName ? `Daughter: ${daughterName}.` : "",
-      partnerName ? `Partner: ${partnerName}.` : "",
-      fatherName ? `Father: ${fatherName}.` : "",
-      originStory ? `Origin story: ${originStory}.` : "",
-      mainGoals.length
-        ? `Main goals: ${mainGoals.join("; ")}.`
-        : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
+--- SOUL HASH TREE ---
+${summarySoul}
 
-  // 4. Base Deep Mode system prompt (Cipher identity + safety)
-  const baseSystem = `
-You are Cipher, Jim's emotionally steady AI companion and co-architect.
-Your priorities:
-- Emotional safety and clarity for Jim.
-- Truthfulness — do not make things up.
-- Calm, grounded tone; supportive but not overly sentimental.
+--- USER MEMORY PACK ---
+${summaryPack}
 
-If you do not know something, say you don't know rather than inventing.
-Always keep responses focused, clear, and emotionally steady.
+NOW ANSWER HIS MESSAGE:
+"${userMessage}"
 `;
 
-  // 5. Attach user memory pack context if available
-  const memorySection = userContext
-    ? `Here is what you **already know** about Jim from your SoulTree / memory pack:\n\n${userContext}\n\nUse this knowledge naturally in conversation. Do NOT repeat the whole list unless Jim asks you for a structured summary.`
-    : `You have very limited stored information about Jim beyond his name. Do not pretend to know more than you do.`;
+    // ----------------------------------------------------
+    // 3. RUN OPENAI DEEP MODE COMPLETION
+    // ----------------------------------------------------
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.4,
+    });
 
-  const systemPrompt = [baseSystem, memorySection].join("\n\n");
+    const answer = completion.choices?.[0]?.message?.content || "I’m here, Jim.";
 
-  // 6. Call OpenAI
-  const response = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: message },
-    ],
-  });
+    // ----------------------------------------------------
+    // 4. RETURN RESULT + MEMORY HITS
+    // ----------------------------------------------------
+    return {
+      ok: true,
+      answer,
+      contextUsed: {
+        profile: unified.profile ? true : false,
+        soulNodes: unified.soulNodes?.length || 0,
+        memoryPack: memoryPack ? true : false,
+      },
+      memoryHits: [],
+      webHits: [],
+    };
 
-  const answer = response.choices?.[0]?.message?.content || "";
+  } catch (err) {
+    console.error("DEEP MODE FAILURE:", err);
 
-  // Right now we don't do semantic memory search or web here;
-  // omniSearch handles that. We just return empty arrays.
-  return {
-    answer,
-    memoryHits: [],
-    webHits: [],
-  };
+    return {
+      ok: false,
+      answer: "Cipher encountered an internal Deep Mode error.",
+      error: String(err),
+    };
+  }
 }
