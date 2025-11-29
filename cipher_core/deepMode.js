@@ -1,98 +1,99 @@
 // cipher_core/deepMode.js
-// Cipher 7.0 — Deep Mode Reasoning + Unified Memory Integration
+// Deep Mode 7.1 — Unified Memory + User Pack + SoulTree Reasoning
 
 import OpenAI from "openai";
-import { loadUnifiedSoulContext } from "./soulLoader";
 import { loadMemoryPack } from "./loadMemoryPack";
+import { loadUnifiedSoulContext } from "./soulLoader";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-/* -------------------------------------------------------
-   DEEP MODE — STRUCTURED MEMORY-ASSISTED THINKING
-------------------------------------------------------- */
-export async function runDeepMode(userMessage, userId = "guest_default") {
+export async function runDeepMode(userMessage) {
   try {
     // ----------------------------------------------------
-    // 1. LOAD ALL MEMORY SOURCES
+    // 1. LOAD USER MEMORY PACK (Jim's stored data)
     // ----------------------------------------------------
-    const unified = await loadUnifiedSoulContext(userId);
-    const memoryPack = await loadMemoryPack(); // NEW ★
+    const memoryPack = await loadMemoryPack();
 
-    // Build readable summaries
-    const summaryProfile = JSON.stringify(unified.profile || {}, null, 2);
-    const summarySoul = unified.soulSummary || "No soul records";
-    const summaryPack = memoryPack
-      ? JSON.stringify(memoryPack, null, 2)
-      : "No memory pack found";
+    const memorySummary = memoryPack?.summary || "No memory pack loaded.";
+    const memoryData = memoryPack?.data || {};
 
     // ----------------------------------------------------
-    // 2. PROMPT FOR DEEP MODE REASONING
+    // 2. LOAD UNIFIED SOUL CONTEXT (SoulTree + Profile)
     // ----------------------------------------------------
-    const systemPrompt = `
-You are Cipher AI — running in **Deep Mode**, where you combine:
-- SoulTree identity (long-term architecture)
-- Cores (mission, tone, purpose)
-- Branches (long-term values, tone, reasoning patterns)
-- Omni layer (global awareness + consistency)
-- Jim's memory pack (his identity, goals, family, origin story)
+    const soulContext = await loadUnifiedSoulContext("jim_default");
 
-When replying:
-• Fuse ALL memory sources  
-• Be steady, supportive, emotionally aware  
-• Maintain identity coherence  
-• Use Jim’s memory pack as REAL permanent context  
+    const profile = soulContext.profile || {};
+    const soulSummary = soulContext.soulSummary || "No SoulTree data.";
 
---- PROFILE ---
-${summaryProfile}
+    // ----------------------------------------------------
+    // 3. BUILD THE FINAL SYSTEM CONTEXT FOR CIPHER
+    // ----------------------------------------------------
+    const systemContext = `
+You are Cipher — Jim Saenz’s AI. Use memories and identity data correctly.
 
---- SOUL HASH TREE ---
-${summarySoul}
+------------------------------
+USER MEMORY PACK (Jim)
+------------------------------
+${memorySummary}
 
---- USER MEMORY PACK ---
-${summaryPack}
+Raw Data:
+${JSON.stringify(memoryData, null, 2)}
 
-NOW ANSWER HIS MESSAGE:
-"${userMessage}"
+------------------------------
+SOUL HASH TREE (Identity)
+------------------------------
+${soulSummary}
+
+------------------------------
+USER PROFILE (Auto-learned)
+------------------------------
+${JSON.stringify(profile, null, 2)}
+
+------------------------------
+INSTRUCTIONS
+------------------------------
+1. ALWAYS use the memory pack and profile to understand Jim.
+2. NEVER hallucinate or invent memories.
+3. If data isn’t available, politely state that it is not in the memory pack.
+4. Stay consistent with stored facts: 
+   - Jim = James Dennis Saenz
+   - Partner = Liz Lee
+   - Daughter = Hecate Ajna Lee
+   - Father = Shawn Saenz
+5. When summarizing, be concise but emotionally aware.
 `;
 
     // ----------------------------------------------------
-    // 3. RUN OPENAI DEEP MODE COMPLETION
+    // 4. OPENAI CALL — DEEP MODE REASONING
     // ----------------------------------------------------
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1",
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: systemContext },
         { role: "user", content: userMessage },
       ],
       temperature: 0.4,
     });
 
-    const answer = completion.choices?.[0]?.message?.content || "I’m here, Jim.";
+    const answer = completion.choices[0].message.content;
 
     // ----------------------------------------------------
-    // 4. RETURN RESULT + MEMORY HITS
+    // 5. RETURN TO CHAT API
     // ----------------------------------------------------
     return {
-      ok: true,
       answer,
-      contextUsed: {
-        profile: unified.profile ? true : false,
-        soulNodes: unified.soulNodes?.length || 0,
-        memoryPack: memoryPack ? true : false,
-      },
-      memoryHits: [],
-      webHits: [],
+      memoryHits: memorySummary,
+      soulHits: soulSummary,
     };
 
   } catch (err) {
-    console.error("DEEP MODE FAILURE:", err);
-
+    console.error("Deep Mode Error:", err);
     return {
-      ok: false,
-      answer: "Cipher encountered an internal Deep Mode error.",
-      error: String(err),
+      answer: "Deep Mode encountered an internal issue.",
+      memoryHits: [],
+      soulHits: [],
     };
   }
 }
