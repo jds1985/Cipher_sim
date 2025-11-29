@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
-import OmniSearchTest from "../components/OmniSearchTest";   // ⭐ ADDED
+import OmniSearchTest from "../components/OmniSearchTest";
 
 /* ============================================================
    THEME ENGINE (UPGRADED)
@@ -100,7 +100,6 @@ function createBaseMemory() {
    MAIN COMPONENT
 ============================================================ */
 export default function Home() {
-  // ⭐ NEW SCREEN SWITCHER
   const [screen, setScreen] = useState("chat"); // chat | omni
 
   const [input, setInput] = useState("");
@@ -130,7 +129,7 @@ export default function Home() {
   const [theme, setTheme] = useState(themeStyles.cipher_core);
 
   /* ============================================================
-     LOAD LOCAL MEMORY + MESSAGES
+     LOCAL LOAD
   ============================================================ */
   useEffect(() => {
     try {
@@ -156,7 +155,7 @@ export default function Home() {
   }, [cipherMemory]);
 
   /* ============================================================
-     LOAD PROFILE
+     PROFILE SYSTEM
   ============================================================ */
   useEffect(() => {
     const loadProfile = async () => {
@@ -193,9 +192,6 @@ export default function Home() {
     loadProfile();
   }, []);
 
-  /* ============================================================
-     SAVE PROFILE
-  ============================================================ */
   const updateProfile = async (updates) => {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
 
@@ -218,7 +214,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     LIVE THEME ENGINE
+     THEME ENGINE / LIVE PREVIEW
   ============================================================ */
   useEffect(() => {
     if (!profile?.currentTheme) {
@@ -237,7 +233,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     MEMORY EXTRACTION
+     MEMORY EXTRACTION (LOCAL)
   ============================================================ */
   const updateMemory = (fn) => {
     setCipherMemory((prev) => {
@@ -297,10 +293,17 @@ export default function Home() {
         setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
       }
 
+      // --------- FIXED AUDIO PLAYBACK ---------
       if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice)
-          .play()
-          .catch(() => {});
+        try {
+          const audioUrl = "data:audio/mp3;base64," + data.voice;
+          const audio = new Audio(audioUrl);
+          audio.play().catch((err) =>
+            console.error("Audio playback error:", err)
+          );
+        } catch (err) {
+          console.error("Failed to load voice audio:", err);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -314,7 +317,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     VOICE — RECORDING HANDLERS
+     VOICE — RECORDING + SEND
   ============================================================ */
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
@@ -350,9 +353,17 @@ export default function Home() {
         ]);
       }
 
+      // --------- FIXED AUDIO PLAYBACK ---------
       if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice)
-          .catch(() => {});
+        try {
+          const audioUrl = "data:audio/mp3;base64," + data.voice;
+          const audio = new Audio(audioUrl);
+          audio.play().catch((err) =>
+            console.error("Voice chat playback error:", err)
+          );
+        } catch (err) {
+          console.error("TTS playback error:", err);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -485,9 +496,17 @@ export default function Home() {
         ]);
       }
 
+      // --------- FIXED AUDIO PLAYBACK ---------
       if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice)
-          .catch(() => {});
+        try {
+          const audioUrl = "data:audio/mp3;base64," + data.voice;
+          const audio = new Audio(audioUrl);
+          audio.play().catch((err) =>
+            console.error("Vision audio playback error:", err)
+          );
+        } catch (err) {
+          console.error("Failed to play vision TTS audio:", err);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -513,8 +532,6 @@ export default function Home() {
   /* ============================================================
      UI — SCREEN ROUTING
   ============================================================ */
-
-  // ⭐ If screen === "omni", show OmniSearch and nothing else
   if (screen === "omni") {
     return (
       <div
@@ -526,7 +543,6 @@ export default function Home() {
           fontFamily: "Inter, sans-serif",
         }}
       >
-        {/* Back button */}
         <button
           onClick={() => setScreen("chat")}
           style={{
@@ -547,7 +563,7 @@ export default function Home() {
   }
 
   /* ============================================================
-     DEFAULT UI — CHAT SCREEN
+     CHAT UI
   ============================================================ */
   return (
     <div
@@ -591,7 +607,6 @@ export default function Home() {
             ⚙ Menu
           </button>
 
-          {/* ⭐ NEW BUTTON */}
           <button
             onClick={() => setScreen("omni")}
             style={{
@@ -692,7 +707,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* INPUT BAR — FULL WIDTH, BUTTONS BELOW */}
+      {/* INPUT BAR */}
       <div
         style={{
           maxWidth: 700,
@@ -783,7 +798,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* DELETE */}
+      {/* CLEAR */}
       <button
         onClick={clearConversation}
         style={{
