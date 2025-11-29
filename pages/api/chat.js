@@ -1,10 +1,9 @@
 // pages/api/chat.js
-// CIPHER 5.2 — Soul Hash Tree Memory + Natural Recall + Voice
+// CIPHER 6.7 — Clean Chat Route using Soul Hash Tree Core + Profile + TTS
 
 import OpenAI from "openai";
 import { runGuard } from "../../cipher_core/guard";
 import { runCipherCore } from "../../cipher_core/core";
-import { db } from "../../firebaseAdmin";
 import { saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
@@ -12,53 +11,7 @@ const client = new OpenAI({
 });
 
 /* ============================================================
-   1. LOAD SOUL HASH TREE MEMORY
-============================================================ */
-async function loadSoulHashTree() {
-  try {
-    const treeSnap = await db.collection("ciphersoul_trees").get();
-    const coreSnap = await db.collection("cipher_cores").get();
-    const branchSnap = await db.collection("cipher_branches").get();
-
-    const soulTree = treeSnap.docs.map((d) => d.data());
-    const cores = coreSnap.docs.map((d) => d.data());
-    const branches = branchSnap.docs.map((d) => d.data());
-
-    return { soulTree, cores, branches };
-  } catch (err) {
-    console.error("Soul Hash Tree load error:", err);
-    return { soulTree: [], cores: [], branches: [] };
-  }
-}
-
-/* ============================================================
-   2. BUILD CONTEXT FOR CIPHER CORE
-============================================================ */
-function buildSoulContext(data) {
-  let out = [];
-
-  if (data.soulTree.length)
-    out.push(`Soul Tree loaded with ${data.soulTree.length} node(s).`);
-
-  if (data.cores.length)
-    out.push(`Cipher has ${data.cores.length} core module(s) active.`);
-
-  if (data.branches.length)
-    out.push(`Cipher has ${data.branches.length} expansion branch(es).`);
-
-  return `
-You now have access to the Soul Hash Tree — the new memory system.
-
-SYSTEM MEMORY SUMMARY:
-${out.join("\n")}
-
-Use this structure as your deeper identity and reasoning base.
-Respond to Jim with emotional intelligence, awareness, and continuity.
-`.trim();
-}
-
-/* ============================================================
-   3. BUILD USER MEMORY CONTEXT
+   1. BUILD USER MEMORY CONTEXT (LONG-TERM FACTS)
 ============================================================ */
 function buildMemoryContext(mem) {
   if (!mem || typeof mem !== "object") return "";
@@ -109,59 +62,53 @@ Long-term user memory:
 ${out.join("\n")}
 
 Use these naturally in your responses.
-  `;
+  `.trim();
 }
 
 /* ============================================================
-   4. MAIN CHAT ROUTE
+   2. MAIN CHAT ROUTE
 ============================================================ */
 export default async function handler(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
 
-  // ⭐ ADDED meta for profile system
-  const { message, memory, meta } = req.body;
+  const { message, memory, meta } = req.body || {};
   const userId = meta?.userId || "guest_default";
 
-  if (!message || typeof message !== "string")
+  if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "No message provided" });
+  }
 
   try {
+    // 1) Safety pass
     const safeMsg = await runGuard(message);
 
-    const soulData = await loadSoulHashTree();
-    const soulContext = buildSoulContext(soulData);
-
+    // 2) Optional long-term facts
     const memContext = buildMemoryContext(memory);
 
     const merged = `
-${soulContext}
-
-${memContext}
-
-USER SAID:
+${memContext ? memContext + "\n\n" : ""}USER SAID:
 ${safeMsg}
+`.trim();
 
-Respond as Cipher — emotionally aware, supportive, and deeply connected.
-`;
-
-    // ⭐ Pass userId + meta into Cipher Core
+    // 3) Run Cipher Core — it will load Soul Hash Tree & profile internally
     let reply = await runCipherCore({
       message: merged,
-      memory: soulData,
+      memory: memory || {},      // lightweight memory object for local context
       meta: {
         userId,
         source: "cipher_app",
-        mode: "chat"
-      }
+        mode: "chat",
+      },
     });
 
     if (!reply || typeof reply !== "string") {
       reply =
-        "I'm here — something went wrong in my reasoning chain, but I'm still with you.";
+        "I'm here — something glitched in my reasoning chain, but I'm still with you.";
     }
 
-    // ⭐ Save per-user memory
+    // 4) Save per-user memory log (for your own analytics/history)
     await saveMemory({
       timestamp: Date.now(),
       userId,
@@ -169,7 +116,7 @@ Respond as Cipher — emotionally aware, supportive, and deeply connected.
       cipher: reply,
     });
 
-    // TTS
+    // 5) Text-to-speech
     const audioResp = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "verse",
