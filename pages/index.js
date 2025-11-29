@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
+import OmniSearchTest from "../components/OmniSearchTest";   // ⭐ ADDED
 
 /* ============================================================
    THEME ENGINE (UPGRADED)
@@ -99,6 +100,9 @@ function createBaseMemory() {
    MAIN COMPONENT
 ============================================================ */
 export default function Home() {
+  // ⭐ NEW SCREEN SWITCHER
+  const [screen, setScreen] = useState("chat"); // chat | omni
+
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -152,12 +156,11 @@ export default function Home() {
   }, [cipherMemory]);
 
   /* ============================================================
-     LOAD PROFILE (matches action-based /api/profile.js)
+     LOAD PROFILE
   ============================================================ */
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        // Get or create userId
         let userId = localStorage.getItem("cipher_userId");
         if (!userId) {
           const newRes = await fetch("/api/profile", {
@@ -170,7 +173,6 @@ export default function Home() {
           localStorage.setItem("cipher_userId", userId);
         }
 
-        // Load profile
         const loadRes = await fetch("/api/profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -226,7 +228,6 @@ export default function Home() {
     setTheme(themeStyles[profile.currentTheme] || themeStyles.cipher_core);
   }, [profile?.currentTheme]);
 
-  // Store live preview (doesn't save)
   const previewTheme = (themeKey) => {
     setTheme(themeStyles[themeKey] || themeStyles.cipher_core);
   };
@@ -351,7 +352,6 @@ export default function Home() {
 
       if (data.voice) {
         new Audio("data:audio/mp3;base64," + data.voice)
-          .play()
           .catch(() => {});
       }
     } catch (err) {
@@ -487,7 +487,6 @@ export default function Home() {
 
       if (data.voice) {
         new Audio("data:audio/mp3;base64," + data.voice)
-          .play()
           .catch(() => {});
       }
     } catch (err) {
@@ -512,7 +511,43 @@ export default function Home() {
   };
 
   /* ============================================================
-     UI
+     UI — SCREEN ROUTING
+  ============================================================ */
+
+  // ⭐ If screen === "omni", show OmniSearch and nothing else
+  if (screen === "omni") {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: theme.background,
+          padding: 20,
+          color: theme.textColor,
+          fontFamily: "Inter, sans-serif",
+        }}
+      >
+        {/* Back button */}
+        <button
+          onClick={() => setScreen("chat")}
+          style={{
+            marginBottom: 20,
+            padding: "8px 14px",
+            borderRadius: 10,
+            border: "none",
+            background: theme.userBubble,
+            color: theme.textColor,
+          }}
+        >
+          ← Back to Chat
+        </button>
+
+        <OmniSearchTest />
+      </div>
+    );
+  }
+
+  /* ============================================================
+     DEFAULT UI — CHAT SCREEN
   ============================================================ */
   return (
     <div
@@ -537,24 +572,44 @@ export default function Home() {
       >
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Cipher AI</h1>
 
-        <button
-          onClick={() => setMenuOpen(true)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "6px 12px",
-            borderRadius: 999,
-            border: `1px solid ${theme.inputBorder}`,
-            background: theme.panelBg,
-            color: theme.textColor,
-            fontSize: 13,
-            boxShadow: "0 0 18px rgba(148,163,184,0.4)",
-          }}
-        >
-          <span style={{ fontSize: 14 }}>⚙</span>
-          <span>Menu</span>
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={() => setMenuOpen(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: `1px solid ${theme.inputBorder}`,
+              background: theme.panelBg,
+              color: theme.textColor,
+              fontSize: 13,
+              boxShadow: "0 0 18px rgba(148,163,184,0.4)",
+            }}
+          >
+            ⚙ Menu
+          </button>
+
+          {/* ⭐ NEW BUTTON */}
+          <button
+            onClick={() => setScreen("omni")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: `1px solid ${theme.inputBorder}`,
+              background: theme.panelBg,
+              color: theme.textColor,
+              fontSize: 13,
+              boxShadow: "0 0 18px rgba(148,163,184,0.4)",
+            }}
+          >
+            🔍 Omni
+          </button>
+        </div>
       </div>
 
       {/* CHAT PANEL */}
@@ -670,7 +725,7 @@ export default function Home() {
             gap: 8,
           }}
         >
-          {/* Send — takes most of the width */}
+          {/* Send */}
           <button
             onClick={sendMessage}
             disabled={loading}
