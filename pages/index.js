@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
 import OmniSearchTest from "../components/OmniSearchTest";
+import DevicePanel from "../components/DevicePanel";
 
 /* ============================================================
    THEME ENGINE (UPGRADED)
@@ -100,7 +101,8 @@ function createBaseMemory() {
    MAIN COMPONENT
 ============================================================ */
 export default function Home() {
-  const [screen, setScreen] = useState("chat"); // chat | omni
+  // Screen switcher: chat | omni
+  const [screen, setScreen] = useState("chat");
 
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -125,11 +127,14 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
 
+  // ⭐ Device panel
+  const [deviceOpen, setDeviceOpen] = useState(false);
+
   // Theme
   const [theme, setTheme] = useState(themeStyles.cipher_core);
 
   /* ============================================================
-     LOCAL LOAD
+     LOAD LOCAL MEMORY + MESSAGES
   ============================================================ */
   useEffect(() => {
     try {
@@ -155,7 +160,7 @@ export default function Home() {
   }, [cipherMemory]);
 
   /* ============================================================
-     PROFILE SYSTEM
+     LOAD PROFILE
   ============================================================ */
   useEffect(() => {
     const loadProfile = async () => {
@@ -192,6 +197,9 @@ export default function Home() {
     loadProfile();
   }, []);
 
+  /* ============================================================
+     SAVE PROFILE
+  ============================================================ */
   const updateProfile = async (updates) => {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
 
@@ -214,7 +222,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     THEME ENGINE / LIVE PREVIEW
+     LIVE THEME ENGINE
   ============================================================ */
   useEffect(() => {
     if (!profile?.currentTheme) {
@@ -233,7 +241,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     MEMORY EXTRACTION (LOCAL)
+     MEMORY EXTRACTION
   ============================================================ */
   const updateMemory = (fn) => {
     setCipherMemory((prev) => {
@@ -293,17 +301,10 @@ export default function Home() {
         setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
       }
 
-      // --------- FIXED AUDIO PLAYBACK ---------
       if (data.voice) {
-        try {
-          const audioUrl = "data:audio/mp3;base64," + data.voice;
-          const audio = new Audio(audioUrl);
-          audio.play().catch((err) =>
-            console.error("Audio playback error:", err)
-          );
-        } catch (err) {
-          console.error("Failed to load voice audio:", err);
-        }
+        new Audio("data:audio/mp3;base64," + data.voice)
+          .play()
+          .catch(() => {});
       }
     } catch (err) {
       console.error(err);
@@ -317,7 +318,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     VOICE — RECORDING + SEND
+     VOICE — RECORDING HANDLERS
   ============================================================ */
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
@@ -353,17 +354,10 @@ export default function Home() {
         ]);
       }
 
-      // --------- FIXED AUDIO PLAYBACK ---------
       if (data.voice) {
-        try {
-          const audioUrl = "data:audio/mp3;base64," + data.voice;
-          const audio = new Audio(audioUrl);
-          audio.play().catch((err) =>
-            console.error("Voice chat playback error:", err)
-          );
-        } catch (err) {
-          console.error("TTS playback error:", err);
-        }
+        new Audio("data:audio/mp3;base64," + data.voice)
+          .play()
+          .catch(() => {});
       }
     } catch (err) {
       console.error(err);
@@ -496,17 +490,10 @@ export default function Home() {
         ]);
       }
 
-      // --------- FIXED AUDIO PLAYBACK ---------
       if (data.voice) {
-        try {
-          const audioUrl = "data:audio/mp3;base64," + data.voice;
-          const audio = new Audio(audioUrl);
-          audio.play().catch((err) =>
-            console.error("Vision audio playback error:", err)
-          );
-        } catch (err) {
-          console.error("Failed to play vision TTS audio:", err);
-        }
+        new Audio("data:audio/mp3;base64," + data.voice)
+          .play()
+          .catch(() => {});
       }
     } catch (err) {
       console.error(err);
@@ -530,7 +517,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     UI — SCREEN ROUTING
+     UI — OMNI SCREEN
   ============================================================ */
   if (screen === "omni") {
     return (
@@ -563,7 +550,7 @@ export default function Home() {
   }
 
   /* ============================================================
-     CHAT UI
+     DEFAULT UI — CHAT SCREEN
   ============================================================ */
   return (
     <div
@@ -588,7 +575,7 @@ export default function Home() {
       >
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Cipher AI</h1>
 
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => setMenuOpen(true)}
             style={{
@@ -623,6 +610,25 @@ export default function Home() {
             }}
           >
             🔍 Omni
+          </button>
+
+          {/* 📱 Device Button */}
+          <button
+            onClick={() => setDeviceOpen(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: `1px solid ${theme.inputBorder}`,
+              background: theme.panelBg,
+              color: theme.textColor,
+              fontSize: 13,
+              boxShadow: "0 0 18px rgba(148,163,184,0.4)",
+            }}
+          >
+            📱 Device
           </button>
         </div>
       </div>
@@ -707,7 +713,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* INPUT BAR */}
+      {/* INPUT BAR — FULL WIDTH */}
       <div
         style={{
           maxWidth: 700,
@@ -798,7 +804,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* CLEAR */}
+      {/* DELETE */}
       <button
         onClick={clearConversation}
         style={{
@@ -835,6 +841,14 @@ export default function Home() {
           onClose={() => setStoreOpen(false)}
           onPreviewTheme={previewTheme}
           onApplyTheme={applyTheme}
+        />
+      )}
+
+      {/* DEVICE PANEL */}
+      {deviceOpen && (
+        <DevicePanel
+          onClose={() => setDeviceOpen(false)}
+          theme={theme}
         />
       )}
     </div>
