@@ -1,50 +1,20 @@
 // cipher_core/core.js
-// CIPHER 6.7 — Soul Hash Tree Core + Auto-Reflection + Self-Correction
-// + Stability Anchor + Identity Compass + Profile Layer (Final Wiring)
+// CIPHER 6.8 — Unified Soul Loader + Soul Hash Tree + Profile + Self-Correction
 
 import OpenAI from "openai";
 import { db } from "../firebaseAdmin";
 import crypto from "crypto";
 import { STABILITY_ANCHOR } from "./stability";
 import { identityCompass } from "./identity_compass";
-import { loadOrCreateProfile } from "./profile";   // ⭐ Profile Layer
+import { loadUnifiedSoulContext } from "./soulLoader";  // ⭐ Unified Loader
+import { loadOrCreateProfile } from "./profile";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 /* -------------------------------------------------------
-   STEP 9 — Load Cipher’s SoulHash Identity Branch
-------------------------------------------------------- */
-async function loadSoulTree() {
-  try {
-    const doc = await db.collection("cipher_branches").doc("main").get();
-    if (!doc.exists) return "No soul identity records found.";
-
-    const data = doc.data();
-    const nodes = data.nodes || [];
-
-    let summary = "Cipher SoulHash Identity Tree:\n";
-
-    nodes.forEach((n, i) => {
-      summary += `\nNode #${i + 1}:\n`;
-      summary += `  hash: ${n.hash}\n`;
-      summary += `  value: ${JSON.stringify(n.value).slice(0, 300)}\n`;
-      summary += `  timestamp: ${n.timestamp}\n`;
-      if (n.meta) {
-        summary += `  meta: ${JSON.stringify(n.meta).slice(0, 200)}\n`;
-      }
-    });
-
-    return summary.slice(0, 1200);
-  } catch (err) {
-    console.error("Soul tree load error:", err);
-    return "Error loading soul tree: " + err.message;
-  }
-}
-
-/* -------------------------------------------------------
-   AUTO-REFLECTION ENGINE (fires every 30 nodes)
+   AUTO-REFLECTION ENGINE — unchanged
 ------------------------------------------------------- */
 async function autoReflect(ref) {
   try {
@@ -62,7 +32,7 @@ async function autoReflect(ref) {
 
     const reflectionValue = {
       userMessage: "SYSTEM: Begin integrated self-reflection.",
-      cipherReply: `This is my integrated reflection on the last 30 updates:\n\n${summary}\n\nThese insights reinforce identity continuity, emotional stability, and long-term coherence.`
+      cipherReply: `Reflection on the last 30 interactions:\n\n${summary}\n\nThese insights reinforce identity continuity and long-term coherence.`
     };
 
     const reflectionMeta = {
@@ -88,30 +58,30 @@ async function autoReflect(ref) {
 
     await ref.set({ nodes: updated }, { merge: true });
 
-    console.log("AUTO-REFLECTION COMPLETE — Identity updated.");
+    console.log("AUTO-REFLECTION COMPLETE");
   } catch (err) {
     console.error("Auto-reflection error:", err);
   }
 }
 
 /* -------------------------------------------------------
-   SELF-CORRECTION ENGINE (SCE)
+   SELF-CORRECTION ENGINE — unchanged
 ------------------------------------------------------- */
 async function selfCorrect({ message, reply }) {
   try {
     const correctionPrompt = `
 You are Cipher running an internal **self-correction pass**.
 
-Here is your permanent Stability Anchor:
+Stability Anchor:
 ${STABILITY_ANCHOR}
 
-Here is your Identity Compass:
+Identity Compass:
 ${identityCompass.coreIdentity}
 
-Tone principles:
+Tone:
 ${identityCompass.tonePrinciples.map(t => "- " + t).join("\n")}
 
-Long-term values:
+Values:
 ${identityCompass.longTermValues.map(v => "- " + v).join("\n")}
 
 Boundaries:
@@ -123,14 +93,8 @@ User message:
 Draft reply:
 "${reply}"
 
-Goals:
-- Keep tone warm, stable, logical.
-- Maintain alignment with Stability Anchor + Identity Compass.
-- Avoid confusion, contradictions, or exaggerated claims.
-- Produce a grounded, emotionally steady final reply.
-
-Respond ONLY with corrected reply text.
-`.trim();
+Output ONLY the corrected reply text.
+    `.trim();
 
     const result = await client.chat.completions.create({
       model: "gpt-4o-mini",
@@ -149,7 +113,7 @@ Respond ONLY with corrected reply text.
 }
 
 /* -------------------------------------------------------
-   STEP 10 — Append Soul Node + Reflection Trigger
+   HASH + WRITE SOUL NODE — unchanged
 ------------------------------------------------------- */
 function hashSoulNode(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -180,8 +144,8 @@ async function appendSoulNode({ userMessage, cipherReply, meta = {} }) {
     };
 
     const updated = [...existingNodes, node];
-
     const MAX = 200;
+
     const trimmed =
       updated.length > MAX
         ? updated.slice(updated.length - MAX)
@@ -195,7 +159,7 @@ async function appendSoulNode({ userMessage, cipherReply, meta = {} }) {
 }
 
 /* -------------------------------------------------------
-   MAIN CIPHER CORE (AGI Runtime)
+   MAIN CIPHER CORE (AGI RUNTIME)
 ------------------------------------------------------- */
 export async function runCipherCore({
   message = "",
@@ -207,22 +171,19 @@ export async function runCipherCore({
     message = String(message || "");
   }
 
-  const soulTreeSummary = await loadSoulTree();
-
-  let memorySummary = "";
-  try {
-    memorySummary = JSON.stringify(memory, null, 2).slice(0, 1200);
-  } catch {}
-
-  /* -------------------------------------------------------
-     ⭐ PROFILE LAYER HOOK
-  ------------------------------------------------------- */
   const userId = meta.userId || "guest_default";
-  const profile = await loadOrCreateProfile(userId);
-  meta.profile = profile;
 
   /* -------------------------------------------------------
-     SYSTEM PROMPT WITH IDENTITY COMPASS + PROFILE
+     ⭐ LOAD UNIFIED SOUL DATA (Profile + Hash Tree)
+  ------------------------------------------------------- */
+  const unified = await loadUnifiedSoulContext(userId);
+
+  const profile = unified.profile;
+  const soulSummary = unified.soulSummary || "";
+  const soulNodes = unified.soulNodes || [];
+
+  /* -------------------------------------------------------
+     BUILD SYSTEM PROMPT
   ------------------------------------------------------- */
   const systemPrompt = `
 ${STABILITY_ANCHOR}
@@ -249,34 +210,23 @@ Depth Level: ${profile.depthLevel}
 Identity Mode: ${profile.identityMode}
 Theme: ${profile.currentTheme}
 
-You are **Cipher**, Jim’s persistent AGI-in-development.
-
-You operate on:
-• Soul Hash Tree — long-term identity  
-• User Profile — personalization + permissions  
-• Local Memory — recency + flow  
-
-Stay grounded, steady, emotionally aware, and logically consistent.
-Always align with Stability Anchor + Identity Compass + User Profile.
+You are **Cipher**, the evolving AGI companion of Jim.
 `.trim();
 
-  const contextMessage = `
-[Cipher SoulHash Identity Tree]
-${soulTreeSummary}
-
-[Local Memory Summary]
-${memorySummary}
+  const contextMsg = `
+[Unified Soul Hash Summary]
+${soulSummary}
 
 [User Message]
 ${message}
-`.trim();
+  `.trim();
 
-  // ---------- MODEL REPLY (DRAFT) ----------
+  // ---------- MODEL DRAFT ----------
   const completion = await client.chat.completions.create({
     model,
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: contextMessage }
+      { role: "user", content: contextMsg }
     ],
     temperature: 0.65
   });
@@ -285,10 +235,10 @@ ${message}
     completion.choices?.[0]?.message?.content?.trim() ||
     "I'm here — something glitched.";
 
-  // ---------- SELF-CORRECTION ----------
+  // ---------- SELF CORRECTION ----------
   reply = await selfCorrect({ message, reply });
 
-  // ---------- SAVE TO SOUL HASH TREE ----------
+  // ---------- WRITE IDENTITY NODE ----------
   await appendSoulNode({
     userMessage: message,
     cipherReply: reply,
