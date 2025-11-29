@@ -1,5 +1,5 @@
 // cipher_core/omniSearch.js
-// CIPHER OmniSearch — Soul Hash Tree + Web Search (Brave)
+// CIPHER OmniSearch — Soul Hash Tree + Smart-Mode Web Search (OpenAI Browsing)
 
 import OpenAI from "openai";
 import { loadSoulHashNodes } from "./soulLoader";
@@ -37,7 +37,6 @@ export async function runMemorySearch({ query, limit = 5 }) {
     return { hits: [] };
   }
 
-  // Turn each node into a searchable text snippet
   const texts = nodes.map((n) => {
     const v = n.value || {};
     const userMessage = v.userMessage || "";
@@ -45,7 +44,6 @@ export async function runMemorySearch({ query, limit = 5 }) {
     return `${userMessage}\n${cipherReply}`.trim();
   });
 
-  // Get embeddings for query + all node texts in one batch
   const embResp = await client.embeddings.create({
     model: "text-embedding-3-small",
     input: [query, ...texts],
@@ -55,7 +53,6 @@ export async function runMemorySearch({ query, limit = 5 }) {
   const queryEmbedding = allEmbeddings[0];
   const nodeEmbeddings = allEmbeddings.slice(1);
 
-  // Score each node against the query
   const scored = nodeEmbeddings.map((emb, idx) => {
     const score = cosineSimilarity(queryEmbedding, emb);
     return {
@@ -65,7 +62,6 @@ export async function runMemorySearch({ query, limit = 5 }) {
     };
   });
 
-  // Sort by similarity
   scored.sort((a, b) => b.score - a.score);
 
   const top = scored.slice(0, limit);
@@ -82,57 +78,87 @@ export async function runMemorySearch({ query, limit = 5 }) {
 }
 
 /* -------------------------------------------------------
-   2. WEB SEARCH — Brave Search API
+   2. SMART-MODE WEB SEARCH — OpenAI Browsing
 ------------------------------------------------------- */
-export async function runWebSearch({ query, count = 5 }) {
-  const apiKey = process.env.BRAVE_SEARCH_API_KEY;
 
-  // If no key configured, fail softly
-  if (!apiKey) {
-    console.warn("BRAVE_SEARCH_API_KEY not set — web search disabled.");
-    return {
-      results: [],
-      warning: "Web search is not configured (missing BRAVE_SEARCH_API_KEY).",
-    };
-  }
+function shouldDeepBrowse(query) {
+  const q = query.toLowerCase();
 
-  const url = new URL("https://api.search.brave.com/res/v1/web/search");
-  url.searchParams.set("q", query);
-  url.searchParams.set("count", String(count));
-  url.searchParams.set("country", "us");
-  url.searchParams.set("search_lang", "en");
+  const deepKeywords = [
+    "compare", "analysis", "analyze", "latest",
+    "news", "summaries", "summarize", "research",
+    "trends", "update", "explain", "evaluate",
+    "versus", "vs", "review",
+  ];
+
+  if (q.length > 120) return true;
+  return deepKeywords.some((k) => q.includes(k));
+}
+
+export async function runWebSearch({ query }) {
+  const useDeep = shouldDeepBrowse(query);
 
   try {
-    const resp = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip",
-        "X-Subscription-Token": apiKey,
-      },
+    // ---------- LIGHTWEIGHT LOOKUP ----------
+    const lightweight = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      browser: true,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Search the web for: "${query}". Return 3–5 short results with titles, URLs, and summaries.`,
+            },
+          ],
+        },
+      ],
+      temperature: 0.2,
     });
 
-    if (!resp.ok) {
-      console.error("Brave web search error:", resp.status, await resp.text());
-      return {
-        results: [],
-        warning: `Web search failed with status ${resp.status}`,
-      };
+    const lightResults =
+      lightweight.choices?.[0]?.message?.content || "No lightweight results.";
+
+    // ---------- DEEP BROWSING IF NEEDED ----------
+    let deepResults = null;
+
+    if (useDeep) {
+      const deep = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        browser: true,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Perform a deep multi-site analysis of: "${query}". 
+Open multiple pages, read content, follow links if needed, and extract detailed information. 
+Return a synthesized report.`,
+              },
+            ],
+          },
+        ],
+        temperature: 0.2,
+      });
+
+      deepResults = deep.choices?.[0]?.message?.content || null;
     }
 
-    const data = await resp.json();
-
-    const results = (data.web?.results || []).map((r) => ({
-      title: r.title,
-      url: r.url,
-      snippet: r.description || r.snippet || "",
-    }));
-
-    return { results };
-  } catch (err) {
-    console.error("Brave web search error:", err);
     return {
-      results: [],
-      warning: "Web search threw an error",
+      lightweight: lightResults,
+      deep: deepResults,
+      usedDeep: useDeep,
+      warning: null,
+    };
+  } catch (err) {
+    console.error("OpenAI web search error:", err);
+    return {
+      lightweight: null,
+      deep: null,
+      usedDeep: false,
+      warning: "Web search failed.",
     };
   }
 }
@@ -144,13 +170,11 @@ export async function runOmniSearch({ query, userId = "guest_default" }) {
   // Run memory + web in parallel
   const [memory, web] = await Promise.all([
     runMemorySearch({ query, limit: 5 }),
-    runWebSearch({ query, count: 5 }),
+    runWebSearch({ query }),
   ]);
 
   const memoryHits = memory.hits || [];
-  const webHits = web.results || [];
 
-  // Build compact context strings
   const memoryContext = memoryHits
     .map((h, i) => {
       const date = h.timestamp ? new Date(h.timestamp).toISOString() : "unknown";
@@ -160,13 +184,12 @@ Cipher: ${h.cipherReply}`;
     })
     .join("\n\n");
 
-  const webContext = webHits
-    .map((r, i) => {
-      return `#${i + 1}: ${r.title}
-${r.snippet}
-${r.url}`;
-    })
-    .join("\n\n");
+  const webContext = `
+[LIGHT RESULTS]
+${web.lightweight || "None"}
+
+${web.deep ? "\n\n[DEEP ANALYSIS]\n" + web.deep : ""}
+  `.trim();
 
   const answerPrompt = `
 You are Cipher's OmniSearch engine.
@@ -177,14 +200,15 @@ User query:
 [INTERNAL MEMORY HITS]
 ${memoryHits.length ? memoryContext : "No strong internal matches."}
 
-[WEB SEARCH HITS]
-${webHits.length ? webContext : "No web results available."}
+[WEB SEARCH CONTEXT]
+${webContext}
 
 Task:
 - Synthesize a clear, helpful answer to the query.
-- If relevant, reference both internal memories and web knowledge.
-- Keep it grounded and honest. If something is uncertain or speculative, say so.
-- You may mention that results come from Cipher's memory and the web, but do NOT fabricate URLs.
+- If relevant, reference both internal memories and the web results.
+- Keep it honest. If something is uncertain, say so.
+- Do NOT fabricate URLs.
+- Prefer the deep analysis if available.
 
 Respond with a natural language answer only.
   `.trim();
@@ -205,12 +229,16 @@ Respond with a natural language answer only.
   return {
     answer,
     memoryHits,
-    webHits,
+    webHits: {
+      lightweight: web.lightweight,
+      deep: web.deep,
+      usedDeep: web.usedDeep,
+    },
     meta: {
       query,
       userId,
       memoryCount: memoryHits.length,
-      webCount: webHits.length,
+      usedDeep: web.usedDeep,
       webWarning: web.warning || null,
     },
   };
