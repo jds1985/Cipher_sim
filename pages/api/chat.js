@@ -1,11 +1,9 @@
 // pages/api/chat.js
-// Cipher 7.0 — Full Deep Mode Chat API (Memory Pack + Soul Tree + Safety)
+// Cipher 7.0 — Deep Mode Chat API (Unified Memory + SoulTree + Memory Pack)
 
 import OpenAI from "openai";
 import { runDeepMode } from "../../cipher_core/deepMode";
 import { saveMemory } from "../../cipher_core/memory";
-import { loadSoulTreeLayers } from "../../cipher_core/soulLoader";
-import { db } from "../../firebaseAdmin";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -13,63 +11,61 @@ const client = new OpenAI({
 
 export default async function handler(req, res) {
   try {
+    // ------------------------------------------
+    // VALIDATE METHOD
+    // ------------------------------------------
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { message, userId = "guest_default", web = false } = req.body;
+    // ------------------------------------------
+    // EXTRACT INPUT
+    // ------------------------------------------
+    const { message, userId = "guest_default" } = req.body;
 
     if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "Invalid message" });
+      return res.status(400).json({ error: "Invalid or missing message." });
     }
 
-    // ----------------------------------------------------
-    // 1. LOAD SOUL TREE + MEMORY PACKS
-    // ----------------------------------------------------
-    let soulData;
-    try {
-      soulData = await loadSoulTreeLayers();
-    } catch (err) {
-      console.error("SOUL LOAD ERROR:", err);
-      soulData = { trees: [], cores: [], branches: [] };
+    // ------------------------------------------
+    // 1. RUN DEEP MODE (primary brain)
+    // ------------------------------------------
+    const deep = await runDeepMode(message, userId);
+
+    if (!deep.ok) {
+      console.error("Deep Mode Failure:", deep.error);
     }
 
-    // ----------------------------------------------------
-    // 2. RUN DEEP MODE ENGINE
-    // ----------------------------------------------------
-    const deepResult = await runDeepMode(message, {
-      userId,
-      soulData,
-      enableWebSearch: web, // optional
-    });
+    const reply = deep.answer || "I'm here, Jim — something glitched.";
 
-    // ----------------------------------------------------
-    // 3. SAVE MEMORY (non-blocking)
-    // ----------------------------------------------------
+    // ------------------------------------------
+    // 2. SAVE MEMORY EVENT
+    // ------------------------------------------
     try {
       await saveMemory({
         userId,
         userMessage: message,
-        cipherReply: deepResult.answer,
+        cipherReply: reply,
         meta: {
+          mode: "deep_chat",
           source: "cipher_app",
-          mode: "chat",
           timestamp: Date.now(),
         },
       });
-    } catch (err) {
-      console.error("MEMORY SAVE ERROR:", err); // silent fail
+    } catch (memErr) {
+      console.error("MEMORY SAVE ERROR:", memErr);
+      // Do not block — memory save failure should be silent
     }
 
-    // ----------------------------------------------------
-    // 4. SEND FULL RESPONSE TO CLIENT
-    // ----------------------------------------------------
+    // ------------------------------------------
+    // 3. RETURN TO FRONTEND
+    // ------------------------------------------
     return res.status(200).json({
       ok: true,
-      answer: deepResult.answer,
-      memoryHits: deepResult.memoryHits || [],
-      soulUsed: soulData || null,
-      webHits: deepResult.webHits || [],
+      answer: reply,
+      memoryUsed: deep.contextUsed || {},
+      memoryHits: deep.memoryHits || [],
+      webHits: deep.webHits || [],
     });
 
   } catch (err) {
