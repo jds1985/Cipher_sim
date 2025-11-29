@@ -1,105 +1,101 @@
 // pages/api/vision_chat.js
-// Cipher Vision — describe image + speak it
+// Cipher 7.3 — Vision → Deep Mode → Human-Paced Verse Voice
 
 import OpenAI from "openai";
+import { runDeepMode } from "../../cipher_core/deepMode";
 import { saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+// Human pacing helper
+function humanizeSpeech(text) {
+  return `
+<speak>
+  <prosody rate="92%">
+    <break time="250ms"/>
+    ${text
+      .replace(/\./g, ".<break time='220ms'/>")
+      .replace(/,/g, ",<break time='140ms'/>")
+      .replace(/…/g, "<break time='280ms'/>")}
+  </prosody>
+</speak>
+`;
+}
 
+export default async function handler(req, res) {
   try {
-    const { image, memory } = req.body;
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    const { image } = req.body;
 
     if (!image) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    // -----------------------------
-    // 1) VISION: describe the image
-    // -----------------------------
-    const visionResponse = await client.responses.create({
+    // 1. Vision understanding
+    const visionResp = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      input: [
+      messages: [
+        {
+          role: "system",
+          content: "You are Cipher Vision — describe images accurately.",
+        },
         {
           role: "user",
           content: [
             {
-              type: "input_image",
-              image_url: `data:image/png;base64,${image}`,
+              type: "image_url",
+              image_url: "data:image/png;base64," + image,
             },
-            {
-              type: "input_text",
-              text:
-                "You are Cipher, a warm, emotionally intelligent AI. " +
-                "Briefly describe what you see in this image, " +
-                "then add one short, supportive personal comment to Jim.",
-            },
+            { type: "text", text: "Describe what you see." },
           ],
         },
       ],
     });
 
-    let text = visionResponse.output_text;
+    const visionText = visionResp.choices[0].message.content;
 
-    // Fallback in case output_text is missing
-    if (
-      (!text || !text.trim()) &&
-      Array.isArray(visionResponse.output) &&
-      visionResponse.output[0] &&
-      visionResponse.output[0].content &&
-      visionResponse.output[0].content[0] &&
-      visionResponse.output[0].content[0].text
-    ) {
-      text = visionResponse.output[0].content[0].text;
-    }
+    // 2. Deep Mode reasoning
+    const deepResult = await runDeepMode(
+      `I am showing you an image: ${visionText}`
+    );
 
-    if (!text || !text.trim()) {
-      text =
-        "I saw the image, but I wasn't able to generate a clear description. You can tell me what it is, and we can talk about it together.";
-    }
+    const reply = deepResult.answer;
 
-    // -----------------------------
-    // 2) SAVE TO MEMORY
-    // -----------------------------
+    // 3. Save memory
     await saveMemory({
+      userMessage: "[IMAGE]",
+      cipherReply: reply,
       timestamp: Date.now(),
-      user: "[vision_input]",
-      cipher: text,
+      meta: { mode: "vision" },
     });
 
-    // -----------------------------
-    // 3) TTS: speak the description
-    //    (match or tweak to taste)
-    // -----------------------------
-    const audioResponse = await client.audio.speech.create({
-      // If your /api/voice_chat uses a different model/voice,
-      // copy those values here so they sound identical.
+    // 4. TTS human-paced
+    const tts = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "verse", // try "ballad" or "verse" for more human pacing
-      input: text,
+      voice: "verse",
+      input: humanizeSpeech(reply),
       format: "mp3",
     });
 
-    const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-    const voiceBase64 = audioBuffer.toString("base64");
+    const audioBase64 = Buffer.from(await tts.arrayBuffer()).toString("base64");
 
-    // -----------------------------
-    // 4) RETURN text + voice
-    // -----------------------------
     return res.status(200).json({
-      reply: text,
-      voice: voiceBase64,
+      ok: true,
+      reply,
+      voice: audioBase64,
+      visionText,
     });
   } catch (err) {
-    console.error("Vision API error:", err);
-    return res
-      .status(500)
-      .json({ error: "Vision failure", details: err.message });
+    console.error("VISION_CHAT ERROR:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Vision Chat Failed",
+      details: err + "",
+    });
   }
 }
