@@ -1,5 +1,5 @@
 // pages/api/voice_chat.js
-// Cipher Voice Route — Whisper + DeepMode + TTS
+// Cipher 7.3 — Whisper STT → Deep Mode → Human-Paced Verse Voice
 
 import OpenAI from "openai";
 import { runDeepMode } from "../../cipher_core/deepMode";
@@ -9,7 +9,21 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Node 18+ native Blob + File
+// Human pacing helper
+function humanizeSpeech(text) {
+  return `
+<speak>
+  <prosody rate="92%">
+    <break time="250ms"/>
+    ${text
+      .replace(/\./g, ".<break time='220ms'/>")
+      .replace(/,/g, ",<break time='140ms'/>")
+      .replace(/…/g, "<break time='280ms'/>")}
+  </prosody>
+</speak>
+`;
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
@@ -17,76 +31,56 @@ export default async function handler(req, res) {
     }
 
     const { audio } = req.body;
+
     if (!audio) {
       return res.status(400).json({ error: "Missing audio data" });
     }
 
-    // ----------------------------------------------------
-    // 1. BASE64 → Blob → File
-    // ----------------------------------------------------
+    // Convert base64 → buffer → blob → file
     const buffer = Buffer.from(audio, "base64");
     const blob = new Blob([buffer], { type: "audio/webm" });
-    const file = new File([blob], "input.webm", { type: "audio/webm" });
+    const file = new File([blob], "voice.webm", { type: "audio/webm" });
 
-    // ----------------------------------------------------
-    // 2. TRANSCRIBE USING WHISPER
-    // ----------------------------------------------------
-    const transcriptResp = await client.audio.transcriptions.create({
+    // 1. Transcribe voice
+    const transcription = await client.audio.transcriptions.create({
       file,
       model: "gpt-4o-transcribe",
     });
 
-    const transcript =
-      transcriptResp?.text ||
-      (typeof transcriptResp === "string" ? transcriptResp : "");
+    const text =
+      transcription?.text ||
+      (typeof transcription === "string" ? transcription : "");
 
-    // ----------------------------------------------------
-    // 3. RUN THROUGH DEEP MODE
-    // ----------------------------------------------------
-    const deepResult = await runDeepMode(transcript.trim() || "");
+    // 2. Deep Mode reasoning
+    const deepResult = await runDeepMode(text);
+    const reply = deepResult.answer;
 
-    const replyText =
-      deepResult.answer || "I heard you, but I couldn’t form a reply.";
-
-    // ----------------------------------------------------
-    // 4. TTS OUTPUT
-    // ----------------------------------------------------
-    let voiceBase64 = null;
-
-    try {
-      const tts = await client.audio.speech.create({
-        model: "gpt-4o-mini-tts",
-        voice: "verse",
-        input: replyText,
-        format: "mp3",
-      });
-
-      voiceBase64 = Buffer.from(await tts.arrayBuffer()).toString("base64");
-    } catch (err) {
-      console.error("TTS ERROR (voice_chat):", err);
-    }
-
-    // ----------------------------------------------------
-    // 5. SAVE MEMORY
-    // ----------------------------------------------------
-    saveMemory({
+    // 3. Save memory
+    await saveMemory({
+      userMessage: text,
+      cipherReply: reply,
       timestamp: Date.now(),
-      message: transcript,
-      cipherReply: replyText,
-    }).catch((e) => console.error("Memory save error:", e));
+      meta: { mode: "voice" },
+    });
 
-    // ----------------------------------------------------
-    // 6. RETURN
-    // ----------------------------------------------------
+    // 4. TTS human-paced
+    const tts = await client.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "verse",
+      input: humanizeSpeech(reply),
+      format: "mp3",
+    });
+
+    const audioBase64 = Buffer.from(await tts.arrayBuffer()).toString("base64");
+
     return res.status(200).json({
-      transcript,
-      reply: replyText,
-      voice: voiceBase64,
+      ok: true,
+      transcript: text,
+      reply,
+      voice: audioBase64,
     });
   } catch (err) {
-    console.error("VOICE ERROR:", err);
-    return res
-      .status(500)
-      .json({ error: "Voice route failed", details: String(err) });
+    console.error("VOICE_CHAT ERROR:", err);
+    return res.status(500).json({ error: "Voice Chat Failed", details: err+"" });
   }
 }
