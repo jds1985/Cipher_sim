@@ -1,5 +1,5 @@
 // cipher_core/deepMode.js
-// Deep Mode 7.1 — Unified Memory + User Pack + SoulTree Reasoning
+// Deep Mode 7.2 — Unified Memory + User Pack + SoulTree Reasoning
 
 import OpenAI from "openai";
 import { loadMemoryPack } from "./loadMemoryPack";
@@ -16,8 +16,21 @@ export async function runDeepMode(userMessage) {
     // ----------------------------------------------------
     const memoryPack = await loadMemoryPack();
 
-    const memorySummary = memoryPack?.summary || "No memory pack loaded.";
-    const memoryData = memoryPack?.data || {};
+    // Build dynamic summary
+    let memorySummary = "Memory Pack Loaded:\n";
+    let memoryData = {};
+
+    if (memoryPack) {
+      memoryData = memoryPack;
+
+      for (const key of Object.keys(memoryPack)) {
+        memorySummary += `- ${key}: ${JSON.stringify(
+          memoryPack[key]
+        ).slice(0, 100)}\n`;
+      }
+    } else {
+      memorySummary = "No memory pack found.";
+    }
 
     // ----------------------------------------------------
     // 2. LOAD UNIFIED SOUL CONTEXT (SoulTree + Profile)
