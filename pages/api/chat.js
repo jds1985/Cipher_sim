@@ -1,9 +1,10 @@
 // pages/api/chat.js
-// Cipher 7.0 — Deep Mode Chat API
+// Cipher 7.0 — Full Deep Mode Chat API (Memory Pack + Soul Tree + Safety)
 
 import OpenAI from "openai";
 import { runDeepMode } from "../../cipher_core/deepMode";
 import { saveMemory } from "../../cipher_core/memory";
+import { loadSoulTreeLayers } from "../../cipher_core/soulLoader";
 import { db } from "../../firebaseAdmin";
 
 const client = new OpenAI({
@@ -16,19 +17,34 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { message, userId = "guest_default" } = req.body;
+    const { message, userId = "guest_default", web = false } = req.body;
 
     if (!message || typeof message !== "string") {
       return res.status(400).json({ error: "Invalid message" });
     }
 
     // ----------------------------------------------------
-    // 1. RUN DEEP MODE
+    // 1. LOAD SOUL TREE + MEMORY PACKS
     // ----------------------------------------------------
-    const deepResult = await runDeepMode(message);
+    let soulData;
+    try {
+      soulData = await loadSoulTreeLayers();
+    } catch (err) {
+      console.error("SOUL LOAD ERROR:", err);
+      soulData = { trees: [], cores: [], branches: [] };
+    }
 
     // ----------------------------------------------------
-    // 2. SAVE MEMORY HIT (Cipher's reply + user message)
+    // 2. RUN DEEP MODE ENGINE
+    // ----------------------------------------------------
+    const deepResult = await runDeepMode(message, {
+      userId,
+      soulData,
+      enableWebSearch: web, // optional
+    });
+
+    // ----------------------------------------------------
+    // 3. SAVE MEMORY (non-blocking)
     // ----------------------------------------------------
     try {
       await saveMemory({
@@ -42,23 +58,22 @@ export default async function handler(req, res) {
         },
       });
     } catch (err) {
-      console.error("MEMORY SAVE ERROR:", err);
-      // Do NOT block the user — memory errors should be silent
+      console.error("MEMORY SAVE ERROR:", err); // silent fail
     }
 
     // ----------------------------------------------------
-    // 3. RETURN FULL DEEP MODE RESULT
+    // 4. SEND FULL RESPONSE TO CLIENT
     // ----------------------------------------------------
     return res.status(200).json({
       ok: true,
       answer: deepResult.answer,
       memoryHits: deepResult.memoryHits || [],
+      soulUsed: soulData || null,
       webHits: deepResult.webHits || [],
     });
 
   } catch (err) {
     console.error("CHAT API ERROR:", err);
-
     return res.status(500).json({
       ok: false,
       error: "Cipher encountered an internal error.",
