@@ -1,9 +1,10 @@
 // pages/api/chat.js
-// Cipher 7.1 — Deep Mode Unified Chat API
+// Cipher 7.2 — Deep Mode + Memory Pack Chat API
 
 import OpenAI from "openai";
 import { runDeepMode } from "../../cipher_core/deepMode";
 import { saveMemory } from "../../cipher_core/memory";
+import { db } from "../../firebaseAdmin";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -18,56 +19,51 @@ export default async function handler(req, res) {
     const { message, userId = "jim_default" } = req.body;
 
     if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "Invalid message format" });
+      return res.status(400).json({ error: "Invalid message" });
     }
 
     // ----------------------------------------------------
-    // 1. RUN DEEP MODE 7.1
+    // 1. RUN DEEP MODE
     // ----------------------------------------------------
-    let deepResult;
-    try {
-      deepResult = await runDeepMode(message);
-    } catch (err) {
-      console.error("Deep Mode Failure:", err);
-      throw new Error("Deep Mode failed internally.");
-    }
+    const deepResult = await runDeepMode(message);
+
+    const finalText = deepResult.answer || "No response.";
 
     // ----------------------------------------------------
-    // 2. SAVE MEMORY ENTRY (non-blocking)
+    // 2. SAVE MEMORY (Safe, non-blocking)
     // ----------------------------------------------------
     try {
       await saveMemory({
         userId,
         userMessage: message,
-        cipherReply: deepResult.answer,
+        cipherReply: finalText,
         meta: {
           source: "cipher_app",
-          mode: "deep_chat",
+          mode: "deep_mode",
           timestamp: Date.now(),
         },
       });
     } catch (err) {
-      // Never block the user if Firestore save fails
-      console.error("Memory Save Error:", err);
+      console.error("MEMORY SAVE ERROR:", err);
     }
 
     // ----------------------------------------------------
-    // 3. RETURN DEEP MODE DATA TO UI
+    // 3. RETURN FORMAT FOR FRONTEND
+    // (the frontend expects `reply`)
     // ----------------------------------------------------
     return res.status(200).json({
       ok: true,
-      answer: deepResult.answer,
-      memoryHits: deepResult.memoryHits || [],
-      soulHits: deepResult.soulHits || [],
+      reply: finalText,
+      memoryHits: deepResult.memoryHits,
+      soulHits: deepResult.soulHits,
     });
 
   } catch (err) {
     console.error("CHAT API ERROR:", err);
-
     return res.status(500).json({
       ok: false,
       error: "Cipher encountered an internal error.",
-      details: err.message,
+      details: String(err),
     });
   }
 }
