@@ -4,7 +4,6 @@
 import OpenAI from "openai";
 import { runDeepMode } from "../../cipher_core/deepMode";
 import { saveMemory } from "../../cipher_core/memory";
-import { db } from "../../firebaseAdmin";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -26,34 +25,45 @@ export default async function handler(req, res) {
     // 1. RUN DEEP MODE
     // ----------------------------------------------------
     const deepResult = await runDeepMode(message);
-
     const finalText = deepResult.answer || "No response.";
 
     // ----------------------------------------------------
-    // 2. SAVE MEMORY (Safe, non-blocking)
+    // 2. OPTIONAL TTS FOR TEXT CHAT
     // ----------------------------------------------------
+    let voiceBase64 = null;
     try {
-      await saveMemory({
-        userId,
-        userMessage: message,
-        cipherReply: finalText,
-        meta: {
-          source: "cipher_app",
-          mode: "deep_mode",
-          timestamp: Date.now(),
-        },
+      const tts = await client.audio.speech.create({
+        model: "gpt-4o-mini-tts",
+        voice: "alloy",
+        input: finalText,
+        format: "mp3",
       });
+
+      voiceBase64 = Buffer.from(await tts.arrayBuffer()).toString("base64");
     } catch (err) {
-      console.error("MEMORY SAVE ERROR:", err);
+      console.error("TTS ERROR (chat.js):", err);
     }
 
     // ----------------------------------------------------
-    // 3. RETURN FORMAT FOR FRONTEND
-    // (the frontend expects `reply`)
+    // 3. SAVE MEMORY (Non-blocking)
+    // ----------------------------------------------------
+    saveMemory({
+      userId,
+      userMessage: message,
+      cipherReply: finalText,
+      meta: {
+        mode: "deep_mode",
+        timestamp: Date.now(),
+      },
+    }).catch((e) => console.error("MEMORY SAVE ERROR:", e));
+
+    // ----------------------------------------------------
+    // 4. RETURN TO FRONTEND
     // ----------------------------------------------------
     return res.status(200).json({
       ok: true,
       reply: finalText,
+      voice: voiceBase64,
       memoryHits: deepResult.memoryHits,
       soulHits: deepResult.soulHits,
     });
@@ -62,7 +72,7 @@ export default async function handler(req, res) {
     console.error("CHAT API ERROR:", err);
     return res.status(500).json({
       ok: false,
-      error: "Cipher encountered an internal error.",
+      error: "Cipher encountered an internal server issue.",
       details: String(err),
     });
   }
