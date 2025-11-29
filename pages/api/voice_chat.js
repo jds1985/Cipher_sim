@@ -1,83 +1,92 @@
 // pages/api/voice_chat.js
-// Cipher Voice Route — Whisper + Core + TTS
+// Cipher Voice Route — Whisper + DeepMode + TTS
 
 import OpenAI from "openai";
-import { runGuard } from "../../cipher_core/guard";
-import { runCipherCore } from "../../cipher_core/core";
+import { runDeepMode } from "../../cipher_core/deepMode";
 import { saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// --- IMPORTANT ---
-// Node 18+ provides native Blob + File.
-// Vercel also supports these natively.
-// ------------------
-
+// Node 18+ native Blob + File
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
   try {
-    const { audio, memory } = req.body;
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
 
+    const { audio } = req.body;
     if (!audio) {
       return res.status(400).json({ error: "Missing audio data" });
     }
 
-    // Convert base64 → ArrayBuffer → Blob
+    // ----------------------------------------------------
+    // 1. BASE64 → Blob → File
+    // ----------------------------------------------------
     const buffer = Buffer.from(audio, "base64");
     const blob = new Blob([buffer], { type: "audio/webm" });
+    const file = new File([blob], "input.webm", { type: "audio/webm" });
 
-    // Convert blob → File (OPENAI REQUIRES A FILE)
-    const file = new File([blob], "audio.webm", { type: "audio/webm" });
-
-    // 1) Whisper Transcription
+    // ----------------------------------------------------
+    // 2. TRANSCRIBE USING WHISPER
+    // ----------------------------------------------------
     const transcriptResp = await client.audio.transcriptions.create({
       file,
       model: "gpt-4o-transcribe",
     });
 
-    const transcript = transcriptResp.text || "";
+    const transcript =
+      transcriptResp?.text ||
+      (typeof transcriptResp === "string" ? transcriptResp : "");
 
-    // 2) Process through your guard + core
-    const safeTranscript = await runGuard(
-      transcript.trim() || "[empty voice input]"
-    );
+    // ----------------------------------------------------
+    // 3. RUN THROUGH DEEP MODE
+    // ----------------------------------------------------
+    const deepResult = await runDeepMode(transcript.trim() || "");
 
-    const coreReply = await runCipherCore({
-      message: safeTranscript,
-      memory: memory || {},
-    });
+    const replyText =
+      deepResult.answer || "I heard you, but I couldn’t form a reply.";
 
-    // 3) Save memory to Firestore
-    await saveMemory({
+    // ----------------------------------------------------
+    // 4. TTS OUTPUT
+    // ----------------------------------------------------
+    let voiceBase64 = null;
+
+    try {
+      const tts = await client.audio.speech.create({
+        model: "gpt-4o-mini-tts",
+        voice: "verse",
+        input: replyText,
+        format: "mp3",
+      });
+
+      voiceBase64 = Buffer.from(await tts.arrayBuffer()).toString("base64");
+    } catch (err) {
+      console.error("TTS ERROR (voice_chat):", err);
+    }
+
+    // ----------------------------------------------------
+    // 5. SAVE MEMORY
+    // ----------------------------------------------------
+    saveMemory({
       timestamp: Date.now(),
-      message: safeTranscript,
-      cipherReply: coreReply,
-    });
+      message: transcript,
+      cipherReply: replyText,
+    }).catch((e) => console.error("Memory save error:", e));
 
-    // 4) Generate TTS output
-    const ttsResp = await client.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "verse",
-      input: coreReply,
-      format: "mp3",
-    });
-
-    const voiceBase64 = Buffer.from(await ttsResp.arrayBuffer()).toString(
-      "base64"
-    );
-
+    // ----------------------------------------------------
+    // 6. RETURN
+    // ----------------------------------------------------
     return res.status(200).json({
       transcript,
-      reply: coreReply,
+      reply: replyText,
       voice: voiceBase64,
     });
   } catch (err) {
     console.error("VOICE ERROR:", err);
-    return res.status(500).json({ error: "Voice route failed", details: err+" " });
+    return res
+      .status(500)
+      .json({ error: "Voice route failed", details: String(err) });
   }
 }
