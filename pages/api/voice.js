@@ -1,5 +1,5 @@
 // pages/api/voice.js
-// Cipher 7.2 — Voice Endpoint (STT → Deep Mode → TTS)
+// Cipher 7.3 — Android-Safe Voice Endpoint (WEBM → Deep Mode → MP3)
 
 import OpenAI from "openai";
 import { runDeepMode } from "../../cipher_core/deepMode";
@@ -21,12 +21,12 @@ export default async function handler(req, res) {
     }
 
     // ----------------------------------------------------
-    // 1. CONVERT BASE64 → BUFFER
+    // 1. Decode Android WEBM base64 → Buffer
     // ----------------------------------------------------
     const audioBuffer = Buffer.from(audio, "base64");
 
     // ----------------------------------------------------
-    // 2. TRANSCRIBE SPEECH → TEXT
+    // 2. Transcribe using GPT-4o Transcribe
     // ----------------------------------------------------
     const transcription = await client.audio.transcriptions.create({
       file: {
@@ -41,32 +41,33 @@ export default async function handler(req, res) {
       (typeof transcription === "string" ? transcription : "");
 
     // ----------------------------------------------------
-    // 3. RUN DEEP MODE WITH THE USER'S SPOKEN TEXT
+    // 3. Deep Mode Reasoning
     // ----------------------------------------------------
     const deepResult = await runDeepMode(userText);
 
-    const replyText = deepResult.answer || "I could not generate a response.";
+    const replyText = deepResult.answer || "I couldn't generate a response.";
 
     // ----------------------------------------------------
-    // 4. GENERATE TTS (VOICE) FOR THE REPLY
+    // 4. TTS OUTPUT (MP3 — required for Android)
     // ----------------------------------------------------
     const tts = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "alloy", // or verse, nova
+      voice: "alloy", 
       input: replyText,
-      format: "wav",
+      format: "mp3",   // IMPORTANT FIX
     });
 
-    const audioOut = Buffer.from(await tts.arrayBuffer());
-    const base64Audio = audioOut.toString("base64");
+    const outBuffer = Buffer.from(await tts.arrayBuffer());
+    const base64Audio = outBuffer.toString("base64");
 
     // ----------------------------------------------------
-    // 5. RETURN EVERYTHING
+    // 5. Return to UI
     // ----------------------------------------------------
     return res.status(200).json({
       transcript: userText,
       reply: replyText,
       audio: base64Audio,
+      format: "mp3",
     });
 
   } catch (err) {
