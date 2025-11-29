@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     try {
       const tts = await client.audio.speech.create({
         model: "gpt-4o-mini-tts",
-        voice: "verse",
+        voice: "ally",
         input: finalText,
         format: "mp3",
       });
