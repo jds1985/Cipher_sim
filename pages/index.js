@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
-import OmniSearchTest from "../components/OmniSearchTest"; // ⭐ Omni test
+import OmniSearchTest from "../components/OmniSearchTest";
+import DevicePanel from "../components/DevicePanel"; // ⭐ ADDED
 
 /* ============================================================
    THEME ENGINE (UPGRADED)
@@ -100,8 +101,7 @@ function createBaseMemory() {
    MAIN COMPONENT
 ============================================================ */
 export default function Home() {
-  // ⭐ NEW SCREEN SWITCHER
-  const [screen, setScreen] = useState("chat"); // chat | omni
+  const [screen, setScreen] = useState("chat"); // chat | omni | device
 
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -120,7 +120,7 @@ export default function Home() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Profile & panels
+  // Profile
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -128,17 +128,6 @@ export default function Home() {
 
   // Theme
   const [theme, setTheme] = useState(themeStyles.cipher_core);
-
-  // ⭐ NEW: DEVICE INFO (for live context + future UI use)
-  const [deviceInfo, setDeviceInfo] = useState({
-    batteryLevel: null,
-    charging: null,
-    online: null,
-    networkType: null,
-    orientation: null,
-    platform: null,
-    lastUpdated: null,
-  });
 
   /* ============================================================
      LOAD LOCAL MEMORY + MESSAGES
@@ -205,16 +194,8 @@ export default function Home() {
   }, []);
 
   /* ============================================================
-     LIVE THEME ENGINE
+     SAVE PROFILE
   ============================================================ */
-  useEffect(() => {
-    if (!profile?.currentTheme) {
-      setTheme(themeStyles.cipher_core);
-      return;
-    }
-    setTheme(themeStyles[profile.currentTheme] || themeStyles.cipher_core);
-  }, [profile?.currentTheme]);
-
   const updateProfile = async (updates) => {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
 
@@ -235,6 +216,17 @@ export default function Home() {
       console.error("Profile save error:", err);
     }
   };
+
+  /* ============================================================
+     LIVE THEME ENGINE
+  ============================================================ */
+  useEffect(() => {
+    if (!profile?.currentTheme) {
+      setTheme(themeStyles.cipher_core);
+      return;
+    }
+    setTheme(themeStyles[profile.currentTheme] || themeStyles.cipher_core);
+  }, [profile?.currentTheme]);
 
   const previewTheme = (themeKey) => {
     setTheme(themeStyles[themeKey] || themeStyles.cipher_core);
@@ -296,7 +288,7 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, memory: cipherMemory }),
       });
 
       const data = await res.json();
@@ -305,7 +297,9 @@ export default function Home() {
         setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
       }
 
-      // (Deep Mode chat currently returns text only — no TTS here)
+      if (data.voice) {
+        new Audio("data:audio/mp3;base64," + data.voice).play().catch(() => {});
+      }
     } catch (err) {
       console.error(err);
       setMessages((prev) => [
@@ -416,8 +410,10 @@ export default function Home() {
     const setupStream = async () => {
       if (!cameraActive) {
         if (videoRef.current && videoRef.current.srcObject) {
-          const tracks = videoRef.current.srcObject.getTracks();
-          tracks.forEach((t) => t.stop());
+          const tracks =
+            videoRef.current.srcObject &&
+            videoRef.current.srcObject.getTracks();
+          tracks?.forEach((t) => t.stop());
           videoRef.current.srcObject = null;
         }
         return;
@@ -507,92 +503,6 @@ export default function Home() {
   };
 
   /* ============================================================
-     DEVICE CONTEXT LOOP — every 5s
-  ============================================================ */
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let cancelled = false;
-    let batteryRef = null;
-
-    const getBatteryInfo = async () => {
-      try {
-        if (!navigator.getBattery) return null;
-        if (!batteryRef) {
-          batteryRef = await navigator.getBattery();
-        }
-        return {
-          level: batteryRef.level,
-          charging: batteryRef.charging,
-        };
-      } catch {
-        return null;
-      }
-    };
-
-    const sampleDevice = async () => {
-      if (cancelled) return;
-
-      try {
-        const online = navigator.onLine;
-        const connection =
-          navigator.connection ||
-          navigator.mozConnection ||
-          navigator.webkitConnection;
-        const networkType = connection?.effectiveType || null;
-
-        let orientation = null;
-        if (window.screen?.orientation?.type) {
-          orientation = window.screen.orientation.type;
-        } else if (window.orientation !== undefined) {
-          orientation =
-            window.orientation === 0 || window.orientation === 180
-              ? "portrait"
-              : "landscape";
-        }
-
-        const battery = await getBatteryInfo();
-
-        const next = {
-          batteryLevel:
-            battery?.level != null ? Math.round(battery.level * 100) : null,
-          charging: battery?.charging ?? null,
-          online,
-          networkType,
-          orientation,
-          platform: navigator.userAgent || null,
-          lastUpdated: new Date().toISOString(),
-        };
-
-        setDeviceInfo(next);
-
-        // Send to backend (non-blocking fire-and-forget)
-        fetch("/api/device_context", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: "jim_default",
-            device: {
-              ...next,
-              timestamp: Date.now(),
-            },
-          }),
-        }).catch(() => {});
-      } catch (err) {
-        console.error("Device context sample failed:", err);
-      }
-    };
-
-    const id = setInterval(sampleDevice, 5000); // ⭐ every 5 seconds
-    sampleDevice(); // initial snapshot
-
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
-  /* ============================================================
      CLEAR
   ============================================================ */
   const clearConversation = () => {
@@ -603,10 +513,20 @@ export default function Home() {
   };
 
   /* ============================================================
-     UI — SCREEN ROUTING
+     SCREEN ROUTING
   ============================================================ */
 
-  // ⭐ Omni screen
+  // ⭐ DEVICE SCREEN
+  if (screen === "device") {
+    return (
+      <DevicePanel
+        theme={theme}
+        onClose={() => setScreen("chat")}
+      />
+    );
+  }
+
+  // ⭐ OMNI SCREEN
   if (screen === "omni") {
     return (
       <div
@@ -638,7 +558,7 @@ export default function Home() {
   }
 
   /* ============================================================
-     DEFAULT UI — CHAT SCREEN
+     DEFAULT — CHAT UI
   ============================================================ */
   return (
     <div
@@ -664,6 +584,7 @@ export default function Home() {
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Cipher AI</h1>
 
         <div style={{ display: "flex", gap: 10 }}>
+          {/* Menu */}
           <button
             onClick={() => setMenuOpen(true)}
             style={{
@@ -682,6 +603,7 @@ export default function Home() {
             ⚙ Menu
           </button>
 
+          {/* Omni */}
           <button
             onClick={() => setScreen("omni")}
             style={{
@@ -698,6 +620,25 @@ export default function Home() {
             }}
           >
             🔍 Omni
+          </button>
+
+          {/* ⭐ DEVICE BUTTON */}
+          <button
+            onClick={() => setScreen("device")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: `1px solid ${theme.inputBorder}`,
+              background: theme.panelBg,
+              color: theme.textColor,
+              fontSize: 13,
+              boxShadow: "0 0 18px rgba(148,163,184,0.4)",
+            }}
+          >
+            📱 Device
           </button>
         </div>
       </div>
@@ -889,7 +830,7 @@ export default function Home() {
         Delete Conversation
       </button>
 
-      {/* MENU PANEL */}
+      {/* PANELS */}
       {menuOpen && (
         <ProfilePanel
           profile={profile}
@@ -903,7 +844,6 @@ export default function Home() {
         />
       )}
 
-      {/* STORE PANEL */}
       {storeOpen && (
         <StorePanel
           currentThemeKey={profile?.currentTheme || "cipher_core"}
