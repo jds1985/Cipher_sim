@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
 import OmniSearchTest from "../components/OmniSearchTest";
-import DevicePanel from "../components/DevicePanel";
+import DevicePanel from "../components/DevicePanel"; // ⭐ ADDED
 
 /* ============================================================
    THEME ENGINE (UPGRADED)
@@ -98,6 +98,28 @@ function createBaseMemory() {
 }
 
 /* ============================================================
+   DEVICE SNAPSHOT LOADER (for soft context)
+============================================================ */
+function loadDeviceSnapshot() {
+  if (typeof window === "undefined") return null;
+
+  // Prefer the saved snapshot from Device Link screen
+  try {
+    const raw = window.localStorage.getItem("cipher_device_snapshot");
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore parse errors
+  }
+
+  // Fallback: if DevicePanel put a live snapshot on window
+  if (typeof window !== "undefined" && window.__cipherDeviceSnapshot) {
+    return window.__cipherDeviceSnapshot;
+  }
+
+  return null;
+}
+
+/* ============================================================
    MAIN COMPONENT
 ============================================================ */
 export default function Home() {
@@ -110,10 +132,7 @@ export default function Home() {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // Voice toggle (for text chat TTS)
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-
-  // Voice recording
+  // Voice
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -142,11 +161,6 @@ export default function Home() {
 
       const storedMemory = localStorage.getItem("cipher_memory_v2");
       if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
-
-      const storedVoice = localStorage.getItem("cipher_voice_enabled");
-      if (storedVoice === "false") {
-        setVoiceEnabled(false);
-      }
     } catch {}
   }, []);
 
@@ -162,15 +176,6 @@ export default function Home() {
       localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
     } catch {}
   }, [cipherMemory]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        "cipher_voice_enabled",
-        voiceEnabled ? "true" : "false"
-      );
-    } catch {}
-  }, [voiceEnabled]);
 
   /* ============================================================
      LOAD PROFILE
@@ -301,6 +306,9 @@ export default function Home() {
     setInput("");
     setLoading(true);
 
+    // 🔹 Load latest device snapshot for soft context
+    const deviceContext = loadDeviceSnapshot();
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -308,7 +316,7 @@ export default function Home() {
         body: JSON.stringify({
           message: text,
           memory: cipherMemory,
-          voice: voiceEnabled, // ask backend for TTS when enabled
+          deviceContext,
         }),
       });
 
@@ -318,8 +326,7 @@ export default function Home() {
         setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
       }
 
-      // Only play if user has voice enabled and backend returned audio
-      if (voiceEnabled && data.voice) {
+      if (data.voice) {
         new Audio("data:audio/mp3;base64," + data.voice)
           .play()
           .catch(() => {});
@@ -540,17 +547,12 @@ export default function Home() {
      SCREEN ROUTING
   ============================================================ */
 
-  // DEVICE SCREEN
+  // ⭐ DEVICE SCREEN
   if (screen === "device") {
-    return (
-      <DevicePanel
-        theme={theme}
-        onClose={() => setScreen("chat")}
-      />
-    );
+    return <DevicePanel theme={theme} onClose={() => setScreen("chat")} />;
   }
 
-  // OMNI SCREEN
+  // ⭐ OMNI SCREEN
   if (screen === "omni") {
     return (
       <div
@@ -859,8 +861,6 @@ export default function Home() {
         <ProfilePanel
           profile={profile}
           loading={profileLoading}
-          voiceEnabled={voiceEnabled}
-          onToggleVoice={() => setVoiceEnabled((v) => !v)}
           onClose={() => setMenuOpen(false)}
           onProfileChange={updateProfile}
           onOpenStore={() => {
