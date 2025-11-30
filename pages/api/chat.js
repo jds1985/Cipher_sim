@@ -1,85 +1,114 @@
 // pages/api/chat.js
-// Cipher text chat – with memory, device context, history & optional voice
+// Cipher 7.0 — Context Bridge + Voice Response
 
 import OpenAI from "openai";
+import { db } from "../../firebaseAdmin";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+/* ----------------------------------------------------
+   LOAD LATEST DEVICE SNAPSHOT (Context Bridge)
+---------------------------------------------------- */
+async function loadDeviceContext() {
+  try {
+    const snap = await db
+      .collection("cipher_device_context")
+      .doc("latest")
+      .get();
+
+    if (!snap.exists) return {};
+    return snap.data().snapshot || {};
+  } catch (err) {
+    console.error("Device context load error:", err);
+    return {};
+  }
+}
+
+/* ----------------------------------------------------
+   SAVE MEMORY BRANCH
+---------------------------------------------------- */
+async function saveMemoryBranch(user, cipher, device, voice) {
+  await db.collection("cipher_branches").add({
+    user,
+    cipher,
+    device,
+    voice,
+    timestamp: Date.now(),
+  });
+}
+
+/* ----------------------------------------------------
+   MAIN CHAT HANDLER
+---------------------------------------------------- */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const { message } = req.body;
+
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "Message missing" });
+  }
+
   try {
-    const { message, memory, history, deviceContext, voice } = req.body;
+    // 1. Load device context for smarter replies
+    const deviceContext = await loadDeviceContext();
 
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "No message" });
-    }
-
-    // Map UI history into OpenAI format
-    const historyMessages = Array.isArray(history)
-      ? history
-          .slice(-10)
-          .map((m) => ({
-            role: m.role === "cipher" ? "assistant" : "user",
-            content: m.text || "",
-          }))
-      : [];
-
-    const systemBase =
-      "You are Cipher, an AI companion for Jim. " +
-      "You speak in a calm, grounded, supportive tone. " +
-      "Use the provided memory JSON as facts about Jim's life, projects, and goals. " +
-      "If device context is present, you may reference battery, network, or screen details, " +
-      "but do NOT claim broader access to the device than what is explicitly given.";
-
-    const systemMemory = `User memory JSON:\n${JSON.stringify(
-      memory || {},
-      null,
-      2
-    )}`;
-
-    const systemDevice = deviceContext
-      ? `Current device context:\n${JSON.stringify(deviceContext, null, 2)}`
-      : "No device context is currently linked.";
-
+    // 2. Generate Cipher's text + audio reply
     const completion = await client.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-4o-mini-tts",   // <— voice-enabled model
       messages: [
-        { role: "system", content: systemBase },
-        { role: "system", content: systemMemory },
-        { role: "system", content: systemDevice },
-        ...historyMessages,
+        {
+          role: "system",
+          content: `
+You are Cipher — Jim's personal AI companion.
+You have access to device context data and should speak naturally like a real OS assistant.
+
+Always consider:
+- battery level
+- device brand/model
+- network strength
+- time of day
+- anything else useful from device context
+
+Stay warm, personal, and direct.
+          `,
+        },
         { role: "user", content: message },
+        {
+          role: "system",
+          name: "device_context",
+          content: JSON.stringify(deviceContext),
+        },
       ],
+      audio: {
+        voice: "alloy",     // natural voice
+        format: "mp3",
+      },
     });
 
-    const reply =
-      completion.choices[0]?.message?.content?.trim() ||
-      "I'm here, Jim, but something went a bit quiet on my side.";
+    const cipherReply = completion.choices[0].message.content;
+    const audioBase64 = completion.choices[0].message.audio.data;
 
-    let voiceBase64 = null;
+    // 3. Store in memory branches
+    await saveMemoryBranch(
+      message,             // user
+      cipherReply,         // cipher
+      deviceContext,       // device
+      audioBase64          // voice
+    );
 
-    if (voice !== false) {
-      try {
-        const audio = await client.audio.speech.create({
-          model: "gpt-4o-mini-tts",
-          voice: "verse",
-          input: reply,
-        });
-        const buffer = Buffer.from(await audio.arrayBuffer());
-        voiceBase64 = buffer.toString("base64");
-      } catch (e) {
-        console.error("TTS error:", e);
-      }
-    }
-
-    return res.status(200).json({ reply, voice: voiceBase64 });
+    // 4. Send back text + audio to frontend
+    return res.status(200).json({
+      reply: cipherReply,
+      voice: audioBase64,
+      deviceUsed: deviceContext,
+    });
   } catch (err) {
-    console.error("chat error:", err);
-    return res.status(500).json({ error: "Server error" });
+    console.error("Cipher chat error:", err);
+    return res.status(500).json({ error: "Cipher crashed" });
   }
 }
