@@ -1,179 +1,109 @@
-import { useEffect, useState } from "react";
+// components/DevicePanel.js
+import { useState, useEffect } from "react";
 
 export default function DevicePanel({ theme, onClose }) {
-  const [info, setInfo] = useState({});
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [snapshot, setSnapshot] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // -----------------------------
-  // GET FULL SNAPSHOT
-  // -----------------------------
-  const getSnapshot = async () => {
+  const loadSnapshot = async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/device_snapshot", {
+      const res = await fetch("/api/device_context", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
       });
+
       const data = await res.json();
-      setInfo(data);
-      setLastUpdated(new Date().toLocaleTimeString());
+      setSnapshot(data.context || {});
     } catch (err) {
-      console.error("Snapshot error:", err);
+      console.error("Device context error:", err);
+      setSnapshot({ error: "Failed to load device context." });
     }
+    setLoading(false);
   };
 
   useEffect(() => {
-    getSnapshot();
+    loadSnapshot();
   }, []);
 
-  // -----------------------------
-  // CONTEXT BRIDGE — LIVE DEVICE LISTENERS
-  // -----------------------------
-  useEffect(() => {
-    const sendDelta = (delta) => {
-      fetch("/api/context_delta", {
+  const saveToCipher = async () => {
+    try {
+      await fetch("/api/device_context", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          delta,
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    };
-
-    // BATTERY LISTENER
-    navigator.getBattery?.().then((battery) => {
-      const batteryHandler = () => {
-        sendDelta({
-          type: "battery",
-          level: Math.round(battery.level * 100),
-          charging: battery.charging,
-        });
-      };
-
-      battery.addEventListener("levelchange", batteryHandler);
-      battery.addEventListener("chargingchange", batteryHandler);
-      batteryHandler();
-    });
-
-    // NETWORK LISTENER
-    const net =
-      navigator.connection ||
-      navigator.webkitConnection ||
-      navigator.mozConnection;
-
-    if (net) {
-      const netHandler = () => {
-        sendDelta({
-          type: "network",
-          effectiveType: net.effectiveType,
-          downlink: net.downlink,
-          rtt: net.rtt,
-          online: navigator.onLine,
-        });
-      };
-      net.addEventListener("change", netHandler);
-      netHandler();
+          action: "save",
+          snapshot
+        })
+      });
+      alert("Saved to Cipher's memory.");
+    } catch (err) {
+      console.error(err);
+      alert("Error saving snapshot.");
     }
-
-    // ONLINE / OFFLINE LISTENER
-    const onlineHandler = () =>
-      sendDelta({ type: "online", online: navigator.onLine });
-
-    window.addEventListener("online", onlineHandler);
-    window.addEventListener("offline", onlineHandler);
-
-    // ORIENTATION LISTENER
-    const orientHandler = () =>
-      sendDelta({
-        type: "orientation",
-        orientation: screen.orientation?.type || "unknown",
-      });
-
-    screen.orientation?.addEventListener("change", orientHandler);
-    orientHandler();
-
-    // VISIBILITY LISTENER
-    const visHandler = () =>
-      sendDelta({
-        type: "visibility",
-        state: document.visibilityState,
-      });
-
-    document.addEventListener("visibilitychange", visHandler);
-
-    // CLEANUP
-    return () => {
-      window.removeEventListener("online", onlineHandler);
-      window.removeEventListener("offline", onlineHandler);
-      document.removeEventListener("visibilitychange", visHandler);
-    };
-  }, []);
+  };
 
   return (
     <div
       style={{
-        background: theme.background,
-        minHeight: "100vh",
         padding: 20,
+        background: theme.background,
         color: theme.textColor,
-        fontFamily: "Inter, sans-serif",
+        minHeight: "100vh",
+        fontFamily: "Inter, sans-serif"
       }}
     >
       <button
         onClick={onClose}
         style={{
           padding: "8px 14px",
-          borderRadius: 12,
           background: theme.userBubble,
-          border: "none",
+          borderRadius: 10,
+          fontSize: 14,
+          color: "white",
           marginBottom: 20,
-          color: theme.textColor,
+          border: "none"
         }}
       >
         ← Back to Chat
       </button>
 
-      <h1 style={{ fontSize: 28, marginBottom: 10 }}>Device Link</h1>
-      <p style={{ opacity: 0.8, marginBottom: 20 }}>
-        Cipher reads your device conditions so he can act more like a real OS
-        companion.
+      <h1 style={{ marginBottom: 10 }}>Device Link</h1>
+      <p style={{ opacity: 0.7, marginBottom: 20 }}>
+        Cipher reads your device conditions so he can act more like a real OS companion.
       </p>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
         <button
-          onClick={getSnapshot}
+          onClick={loadSnapshot}
           style={{
             padding: "10px 16px",
             background: theme.buttonBg,
-            color: "white",
-            borderRadius: 10,
             border: "none",
+            borderRadius: 10,
+            color: "white"
           }}
         >
           Refresh Snapshot
         </button>
 
         <button
-          onClick={() => {
-            fetch("/api/save_snapshot", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ snapshot: info }),
-            });
-          }}
+          onClick={saveToCipher}
           style={{
             padding: "10px 16px",
             background: theme.cipherBubble,
-            color: "white",
-            borderRadius: 10,
             border: "none",
+            borderRadius: 10,
+            color: "white"
           }}
         >
           Save Snapshot to Cipher
         </button>
       </div>
 
-      <p style={{ opacity: 0.6, marginBottom: 20 }}>
-        Last updated: {lastUpdated || "Loading..."}
+      <p style={{ marginBottom: 10 }}>
+        Last updated: {loading ? "Loading..." : new Date().toLocaleTimeString()}
       </p>
 
       <pre
@@ -181,11 +111,10 @@ export default function DevicePanel({ theme, onClose }) {
           background: theme.panelBg,
           padding: 20,
           borderRadius: 12,
-          whiteSpace: "pre-wrap",
-          lineHeight: "1.4em",
+          overflowX: "auto"
         }}
       >
-        {JSON.stringify(info, null, 2)}
+        {snapshot ? JSON.stringify(snapshot, null, 2) : "{}"}
       </pre>
     </div>
   );
