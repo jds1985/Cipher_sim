@@ -1,123 +1,85 @@
 // pages/api/chat.js
-// Cipher 7.3 — Deep Mode + Memory Pack + Device Context + TTS
+// Cipher text chat – with memory, device context, history & optional voice
 
 import OpenAI from "openai";
-import { runDeepMode } from "../../cipher_core/deepMode";
-import { saveMemory } from "../../cipher_core/memory";
-import { db } from "../../firebaseAdmin";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 export default async function handler(req, res) {
-  try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
-    }
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-    const {
-      message,
-      userId = "jim_default",
-      memory,
-      deviceContext,
-    } = req.body || {};
+  try {
+    const { message, memory, history, deviceContext, voice } = req.body;
 
     if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "Invalid message" });
+      return res.status(400).json({ error: "No message" });
     }
 
-    // ----------------------------------------------------
-    // 1. ENRICH MESSAGE WITH SOFT DEVICE CONTEXT (MODE A)
-    // ----------------------------------------------------
-    let enrichedMessage = message;
+    // Map UI history into OpenAI format
+    const historyMessages = Array.isArray(history)
+      ? history
+          .slice(-10)
+          .map((m) => ({
+            role: m.role === "cipher" ? "assistant" : "user",
+            content: m.text || "",
+          }))
+      : [];
 
-    if (deviceContext) {
-      let safeCtx = "";
-      try {
-        safeCtx = JSON.stringify(deviceContext);
-        if (safeCtx.length > 2000) {
-          safeCtx = safeCtx.slice(0, 2000) + "...(truncated)";
-        }
-      } catch {
-        safeCtx = "[unserializable device context]";
-      }
+    const systemBase =
+      "You are Cipher, an AI companion for Jim. " +
+      "You speak in a calm, grounded, supportive tone. " +
+      "Use the provided memory JSON as facts about Jim's life, projects, and goals. " +
+      "If device context is present, you may reference battery, network, or screen details, " +
+      "but do NOT claim broader access to the device than what is explicitly given.";
 
-      enrichedMessage =
-        `You are Cipher, Jim's AI companion. ` +
-        `You are given some JSON about his current device state. ` +
-        `Use it ONLY for subtle context (e.g., battery, network, performance) ` +
-        `or if Jim directly asks about his device. ` +
-        `Do NOT dump the JSON or talk about 'deviceContext' explicitly.\n\n` +
-        `DEVICE_CONTEXT_JSON:\n${safeCtx}\n\n` +
-        `USER_MESSAGE:\n${message}`;
-    }
+    const systemMemory = `User memory JSON:\n${JSON.stringify(
+      memory || {},
+      null,
+      2
+    )}`;
 
-    // ----------------------------------------------------
-    // 2. RUN DEEP MODE
-    // ----------------------------------------------------
-    const deepResult = await runDeepMode(enrichedMessage, {
-      memory: memory || null,
-      deviceContext: deviceContext || null,
+    const systemDevice = deviceContext
+      ? `Current device context:\n${JSON.stringify(deviceContext, null, 2)}`
+      : "No device context is currently linked.";
+
+    const completion = await client.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        { role: "system", content: systemBase },
+        { role: "system", content: systemMemory },
+        { role: "system", content: systemDevice },
+        ...historyMessages,
+        { role: "user", content: message },
+      ],
     });
 
-    const finalText =
-      (deepResult && (deepResult.answer || deepResult.reply)) ||
-      "No response.";
+    const reply =
+      completion.choices[0]?.message?.content?.trim() ||
+      "I'm here, Jim, but something went a bit quiet on my side.";
 
-    // ----------------------------------------------------
-    // 3. SAVE MEMORY (NON-BLOCKING)
-    // ----------------------------------------------------
-    try {
-      await saveMemory({
-        userId,
-        userMessage: message,
-        cipherReply: finalText,
-        meta: {
-          source: "cipher_app",
-          mode: "deep_mode",
-          timestamp: Date.now(),
-          deviceContextSummary: deviceContext ? "included" : "none",
-        },
-      });
-    } catch (err) {
-      console.error("MEMORY SAVE ERROR:", err);
-    }
-
-    // ----------------------------------------------------
-    // 4. GENERATE TTS (VERSE) FOR TEXT CHAT
-    // ----------------------------------------------------
     let voiceBase64 = null;
-    try {
-      const tts = await client.audio.speech.create({
-        model: "gpt-4o-mini-tts",
-        voice: "verse", // human-like pacing you liked
-        input: finalText,
-        format: "mp3",
-      });
 
-      const buf = Buffer.from(await tts.arrayBuffer());
-      voiceBase64 = buf.toString("base64");
-    } catch (err) {
-      console.error("TTS ERROR (chat):", err);
+    if (voice !== false) {
+      try {
+        const audio = await client.audio.speech.create({
+          model: "gpt-4o-mini-tts",
+          voice: "verse",
+          input: reply,
+        });
+        const buffer = Buffer.from(await audio.arrayBuffer());
+        voiceBase64 = buffer.toString("base64");
+      } catch (e) {
+        console.error("TTS error:", e);
+      }
     }
 
-    // ----------------------------------------------------
-    // 5. RETURN FORMAT FOR FRONTEND
-    // ----------------------------------------------------
-    return res.status(200).json({
-      ok: true,
-      reply: finalText,
-      voice: voiceBase64, // <-- frontend already plays this if present
-      memoryHits: deepResult?.memoryHits || [],
-      soulHits: deepResult?.soulHits || [],
-    });
+    return res.status(200).json({ reply, voice: voiceBase64 });
   } catch (err) {
-    console.error("CHAT API ERROR:", err);
-    return res.status(500).json({
-      ok: false,
-      error: "Cipher encountered an internal error.",
-      details: String(err),
-    });
+    console.error("chat error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 }
