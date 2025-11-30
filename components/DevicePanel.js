@@ -12,71 +12,82 @@ export default function DevicePanel({ onClose, prefillMessage = "" }) {
         position: "fixed",
         top: 0,
         left: 0,
-        width: "100%",
-        height: "100%",
+        width: "100vw",
+        height: "100vh",
         background: "rgba(0,0,0,0.7)",
-        backdropFilter: "blur(4px)",
-        padding: 20,
+        backdropFilter: "blur(6px)",
+        padding: "20px 0",
         zIndex: 9999,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+        overflowY: "auto",
       }}
     >
       <div
         style={{
-          maxWidth: 600,
-          margin: "0 auto",
+          width: "92%",
+          maxWidth: 480,
           background: "#111827",
           color: "#fff",
           padding: 20,
-          borderRadius: 12,
+          borderRadius: 14,
+          boxShadow: "0 0 25px rgba(0,0,0,0.4)",
         }}
       >
-        {/* Header */}
+        {/* HEADER */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             marginBottom: 20,
+            alignItems: "center",
           }}
         >
-          <h2>📱 Cipher Device Bridge</h2>
+          <h2 style={{ margin: 0 }}>📱 Cipher Device Bridge</h2>
           <button
             onClick={onClose}
             style={{
               background: "transparent",
               color: "#fff",
               border: "none",
-              fontSize: 20,
+              fontSize: 26,
+              padding: 4,
             }}
           >
             ✖
           </button>
         </div>
 
-        {/* CALL */}
+        {/* QUICK CALL */}
         <div style={{ marginBottom: 24 }}>
           <h3>📞 Quick Call</h3>
+
           <input
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
             placeholder="Phone number"
             style={{
               width: "100%",
-              padding: 10,
-              borderRadius: 8,
-              marginBottom: 10,
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 12,
+              border: "none",
             }}
           />
+
           <button
             onClick={() => {
               if (phoneNumber) window.location.href = `tel:${phoneNumber}`;
             }}
             style={{
               width: "100%",
-              padding: 12,
-              borderRadius: 8,
+              padding: 14,
+              borderRadius: 10,
               background: "#2563eb",
               color: "#fff",
               border: "none",
+              fontWeight: 600,
             }}
           >
             Call this number
@@ -86,6 +97,7 @@ export default function DevicePanel({ onClose, prefillMessage = "" }) {
         {/* TEXT */}
         <div style={{ marginBottom: 24 }}>
           <h3>💬 Quick Text</h3>
+
           <textarea
             value={smsMessage}
             onChange={(e) => setSmsMessage(e.target.value)}
@@ -93,11 +105,13 @@ export default function DevicePanel({ onClose, prefillMessage = "" }) {
             rows={4}
             style={{
               width: "100%",
-              padding: 10,
-              borderRadius: 8,
-              marginBottom: 10,
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 12,
+              border: "none",
             }}
           />
+
           <button
             onClick={() => {
               const encoded = encodeURIComponent(smsMessage);
@@ -105,11 +119,12 @@ export default function DevicePanel({ onClose, prefillMessage = "" }) {
             }}
             style={{
               width: "100%",
-              padding: 12,
-              borderRadius: 8,
+              padding: 14,
+              borderRadius: 10,
               background: "#2563eb",
               color: "#fff",
               border: "none",
+              fontWeight: 600,
             }}
           >
             Open SMS app with this message
@@ -117,28 +132,32 @@ export default function DevicePanel({ onClose, prefillMessage = "" }) {
         </div>
 
         {/* CLIPBOARD */}
-        <div>
+        <div style={{ marginBottom: 12 }}>
           <h3>📋 Clipboard</h3>
+
           <textarea
             value={clipboard}
             onChange={(e) => setClipboard(e.target.value)}
             rows={3}
             style={{
               width: "100%",
-              padding: 10,
-              borderRadius: 8,
-              marginBottom: 10,
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 12,
+              border: "none",
             }}
           />
+
           <button
             onClick={() => navigator.clipboard.writeText(clipboard)}
             style={{
               width: "100%",
-              padding: 12,
-              borderRadius: 8,
+              padding: 14,
+              borderRadius: 10,
               background: "#2563eb",
               color: "#fff",
               border: "none",
+              fontWeight: 600,
             }}
           >
             Copy to clipboard
