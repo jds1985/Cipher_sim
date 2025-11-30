@@ -1,4 +1,5 @@
 // components/DevicePanel.js
+import { useState } from "react";
 
 export default function DevicePanel({ onClose, prefillMessage = "" }) {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -29,6 +30,7 @@ export default function DevicePanel({ onClose, prefillMessage = "" }) {
           borderRadius: 12,
         }}
       >
+        {/* Header */}
         <div
           style={{
             display: "flex",
