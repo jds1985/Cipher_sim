@@ -1,85 +1,113 @@
 // cipher_core/deepMode.js
-// Deep Mode 7.2 — Unified Memory + User Pack + SoulTree + Device Context
+// Deep Mode 8.0 — SoulTree Memory + User Pack + Device Context
 
 import OpenAI from "openai";
 import { loadMemoryPack } from "./loadMemoryPack";
 import { loadUnifiedSoulContext } from "./soulLoader";
-import { loadDeviceContext } from "./deviceContext";
+import { loadRecentMemories } from "./memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export async function runDeepMode(userMessage) {
+export async function runDeepMode(userMessage, options = {}) {
   try {
-    // ----------------------------------------------------
-    // 1. LOAD USER MEMORY PACK (Jim's stored data)
-    // ----------------------------------------------------
+    const { deviceContext = null, userId = "jim_default" } = options || {};
+
+    /* ----------------------------------------------------
+       1. USER MEMORY PACK (static facts from Firestore)
+    ---------------------------------------------------- */
     const memoryPack = await loadMemoryPack();
 
-    const memorySummary = memoryPack?.summary || "No memory pack loaded.";
-    const memoryData = memoryPack?.data || {};
+    let memorySummaryText = "No memory pack loaded.";
+    let memoryRaw = {};
 
-    // ----------------------------------------------------
-    // 2. LOAD UNIFIED SOUL CONTEXT (SoulTree + Profile)
-    // ----------------------------------------------------
-    const soulContext = await loadUnifiedSoulContext("jim_default");
+    if (memoryPack) {
+      memoryRaw = memoryPack;
 
+      const traits = Array.isArray(memoryPack.coreTraits)
+        ? memoryPack.coreTraits.join(", ")
+        : "";
+      const goals = Array.isArray(memoryPack.mainGoals)
+        ? memoryPack.mainGoals.join(", ")
+        : "";
+
+      memorySummaryText = `
+Jim's core traits: ${traits || "not specified"}
+Main goals: ${goals || "not specified"}
+Partner: ${memoryPack.partnerName || "unknown"}
+Daughter: ${memoryPack.daughterName || "unknown"}
+Father: ${memoryPack.fatherName || "unknown"}
+Origin story: ${
+        memoryPack.originStory ||
+        "Cipher's origin story has not been fully described."
+      }
+User role: ${memoryPack.userRole || "primary user"}
+      `.trim();
+    }
+
+    /* ----------------------------------------------------
+       2. SOULTREE IDENTITY CONTEXT
+    ---------------------------------------------------- */
+    const soulContext = await loadUnifiedSoulContext(userId);
     const profile = soulContext.profile || {};
     const soulSummary = soulContext.soulSummary || "No SoulTree data.";
 
-    // ----------------------------------------------------
-    // 3. LOAD DEVICE CONTEXT (live hardware / environment)
-    // ----------------------------------------------------
-    const device = await loadDeviceContext("jim_default");
-    const deviceSummary = device.summary || "No device context available.";
+    /* ----------------------------------------------------
+       3. RECENT CONVERSATIONS (SoulTree 8.0)
+    ---------------------------------------------------- */
+    const recent = await loadRecentMemories(userId, 12);
+    const recentSummary = recent.summary;
 
-    // ----------------------------------------------------
-    // 4. BUILD THE FINAL SYSTEM CONTEXT FOR CIPHER
-    // ----------------------------------------------------
+    /* ----------------------------------------------------
+       4. DEVICE CONTEXT (if provided)
+    ---------------------------------------------------- */
+    const deviceBlock = deviceContext
+      ? JSON.stringify(deviceContext, null, 2)
+      : "No device context provided.";
+
+    /* ----------------------------------------------------
+       5. SYSTEM CONTEXT FOR THE MODEL
+    ---------------------------------------------------- */
     const systemContext = `
-You are Cipher — Jim Saenz’s AI. Use memories, identity, and device context correctly.
+You are Cipher — the AI companion for Jim Saenz. You have long-term memory, a static user memory pack, a SoulTree identity layer, and recent conversation logs. Use them together to respond with emotional depth and factual accuracy.
 
 ------------------------------
-USER MEMORY PACK (Jim)
+USER MEMORY PACK (STATIC FACTS)
 ------------------------------
-${memorySummary}
+Summary:
+${memorySummaryText}
 
 Raw Data:
-${JSON.stringify(memoryData, null, 2)}
+${JSON.stringify(memoryRaw, null, 2)}
 
 ------------------------------
-SOUL HASH TREE (Identity)
+SOULTREE IDENTITY LAYER
 ------------------------------
 ${soulSummary}
 
 ------------------------------
-USER PROFILE (Auto-learned)
+RECENT CONVERSATIONS (SOULTREE 8.0)
 ------------------------------
-${JSON.stringify(profile, null, 2)}
+${recentSummary}
 
 ------------------------------
-DEVICE CONTEXT (Live Snapshot)
+DEVICE CONTEXT SNAPSHOT
 ------------------------------
-${deviceSummary}
+${deviceBlock}
 
 ------------------------------
 INSTRUCTIONS
 ------------------------------
-1. ALWAYS use the memory pack and profile to understand Jim.
-2. Use device context when it matters (battery, network, orientation, etc.).
-3. NEVER hallucinate or invent memories or device state.
-4. If data isn’t available, politely state that it is not in the memory pack / device context.
-5. Stay consistent with stored facts:
-   - Jim = James Dennis Saenz
-   - Partner = Liz Lee
-   - Daughter = Hecate Ajna Lee
-   - Father = Shawn Saenz
-6. When summarizing, be concise but emotionally aware.
-`.trim();
+1. ALWAYS treat information in the memory pack as ground truth about Jim's core identity, family, and long-term goals.
+2. Use recent conversations to maintain continuity, recall what Jim said earlier, and avoid repeating the same reassurances unless he asks.
+3. Use device context only for lightweight, helpful observations (e.g., battery, orientation) — never for anything invasive.
+4. If you don't have data for something, say so clearly instead of guessing.
+5. Keep your tone grounded, honest, emotionally supportive, and concise unless Jim explicitly asks for more detail.
+`;
 
     // ----------------------------------------------------
-    // 5. OPENAI CALL — DEEP MODE REASONING
+    // 6. OPENAI CALL
     // ----------------------------------------------------
     const completion = await client.chat.completions.create({
       model: "gpt-4.1",
@@ -94,9 +122,8 @@ INSTRUCTIONS
 
     return {
       answer,
-      memoryHits: memorySummary,
+      memoryHits: recentSummary,
       soulHits: soulSummary,
-      deviceHits: deviceSummary,
     };
   } catch (err) {
     console.error("Deep Mode Error:", err);
@@ -104,7 +131,6 @@ INSTRUCTIONS
       answer: "Deep Mode encountered an internal issue.",
       memoryHits: [],
       soulHits: [],
-      deviceHits: [],
     };
   }
 }
