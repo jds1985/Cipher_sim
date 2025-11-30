@@ -3,10 +3,10 @@ import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
 import OmniSearchTest from "../components/OmniSearchTest";
-import DevicePanel from "../components/DevicePanel"; // ⭐ ADDED
+import DevicePanel from "../components/DevicePanel";
 
 /* ============================================================
-   THEME ENGINE (UPGRADED)
+   THEME ENGINE
 ============================================================ */
 const themeStyles = {
   cipher_core: {
@@ -98,28 +98,6 @@ function createBaseMemory() {
 }
 
 /* ============================================================
-   DEVICE SNAPSHOT LOADER (for soft context)
-============================================================ */
-function loadDeviceSnapshot() {
-  if (typeof window === "undefined") return null;
-
-  // Prefer the saved snapshot from Device Link screen
-  try {
-    const raw = window.localStorage.getItem("cipher_device_snapshot");
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // ignore parse errors
-  }
-
-  // Fallback: if DevicePanel put a live snapshot on window
-  if (typeof window !== "undefined" && window.__cipherDeviceSnapshot) {
-    return window.__cipherDeviceSnapshot;
-  }
-
-  return null;
-}
-
-/* ============================================================
    MAIN COMPONENT
 ============================================================ */
 export default function Home() {
@@ -151,8 +129,11 @@ export default function Home() {
   // Theme
   const [theme, setTheme] = useState(themeStyles.cipher_core);
 
+  // Device context snapshot (shared with chat APIs)
+  const [deviceContext, setDeviceContext] = useState(null);
+
   /* ============================================================
-     LOAD LOCAL MEMORY + MESSAGES
+     LOAD LOCAL MEMORY + MESSAGES + DEVICE CONTEXT
   ============================================================ */
   useEffect(() => {
     try {
@@ -161,6 +142,9 @@ export default function Home() {
 
       const storedMemory = localStorage.getItem("cipher_memory_v2");
       if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
+
+      const storedDevice = localStorage.getItem("cipher_device_context_v1");
+      if (storedDevice) setDeviceContext(JSON.parse(storedDevice));
     } catch {}
   }, []);
 
@@ -176,6 +160,17 @@ export default function Home() {
       localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
     } catch {}
   }, [cipherMemory]);
+
+  useEffect(() => {
+    try {
+      if (deviceContext) {
+        localStorage.setItem(
+          "cipher_device_context_v1",
+          JSON.stringify(deviceContext)
+        );
+      }
+    } catch {}
+  }, [deviceContext]);
 
   /* ============================================================
      LOAD PROFILE
@@ -297,17 +292,17 @@ export default function Home() {
      CHAT — TEXT
   ============================================================ */
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
     const text = input.trim();
     extractFacts(text);
 
-    setMessages((prev) => [...prev, { role: "user", text }]);
+    const newMessages = [...messages, { role: "user", text }];
+    setMessages(newMessages);
     setInput("");
     setLoading(true);
 
-    // 🔹 Load latest device snapshot for soft context
-    const deviceContext = loadDeviceSnapshot();
+    const voiceOn = profile?.voiceEnabled !== false;
 
     try {
       const res = await fetch("/api/chat", {
@@ -316,7 +311,9 @@ export default function Home() {
         body: JSON.stringify({
           message: text,
           memory: cipherMemory,
+          history: newMessages,
           deviceContext,
+          voice: voiceOn,
         }),
       });
 
@@ -354,13 +351,21 @@ export default function Home() {
 
   const sendVoiceBlob = async (blob) => {
     setLoading(true);
+    const voiceOn = profile?.voiceEnabled !== false;
+
     try {
       const base64 = await blobToBase64(blob);
 
       const res = await fetch("/api/voice_chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio: base64, memory: cipherMemory }),
+        body: JSON.stringify({
+          audio: base64,
+          memory: cipherMemory,
+          history: messages,
+          deviceContext,
+          voice: voiceOn,
+        }),
       });
 
       const data = await res.json();
@@ -501,11 +506,19 @@ export default function Home() {
     setCameraActive(false);
     setLoading(true);
 
+    const voiceOn = profile?.voiceEnabled !== false;
+
     try {
       const res = await fetch("/api/vision_chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: base64, memory: cipherMemory }),
+        body: JSON.stringify({
+          image: base64,
+          memory: cipherMemory,
+          history: messages,
+          deviceContext,
+          voice: voiceOn,
+        }),
       });
 
       const data = await res.json();
@@ -547,12 +560,19 @@ export default function Home() {
      SCREEN ROUTING
   ============================================================ */
 
-  // ⭐ DEVICE SCREEN
+  // DEVICE SCREEN
   if (screen === "device") {
-    return <DevicePanel theme={theme} onClose={() => setScreen("chat")} />;
+    return (
+      <DevicePanel
+        theme={theme}
+        deviceContext={deviceContext}
+        onSnapshot={(snapshot) => setDeviceContext(snapshot)}
+        onClose={() => setScreen("chat")}
+      />
+    );
   }
 
-  // ⭐ OMNI SCREEN
+  // OMNI SCREEN
   if (screen === "omni") {
     return (
       <div
@@ -866,6 +886,10 @@ export default function Home() {
           onOpenStore={() => {
             setMenuOpen(false);
             setStoreOpen(true);
+          }}
+          onOpenDeviceLink={() => {
+            setMenuOpen(false);
+            setScreen("device");
           }}
         />
       )}
