@@ -1,13 +1,11 @@
 // pages/index.js
-
 import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
-import OmniSearchTest from "../components/OmniSearchTest";
-import DevicePanel from "../components/DevicePanel";
+import OmniSearchTest from "../components/OmniSearchTest"; // ⭐ Omni test
 
 /* ============================================================
-   THEME ENGINE
+   THEME ENGINE (UPGRADED)
 ============================================================ */
 const themeStyles = {
   cipher_core: {
@@ -21,6 +19,7 @@ const themeStyles = {
     deleteBg: "#4b5563",
     textColor: "#e5e7eb",
   },
+
   nebula_purple: {
     background: "radial-gradient(circle at 20% 20%, #3a0ca3, #240046 80%)",
     panelBg: "rgba(30,0,60,0.7)",
@@ -32,6 +31,7 @@ const themeStyles = {
     deleteBg: "#6d28d9",
     textColor: "#f5e9ff",
   },
+
   midnight_glass: {
     background: "linear-gradient(160deg, #0a0f14 0%, #111a22 100%)",
     panelBg: "rgba(14,24,34,0.65)",
@@ -43,6 +43,7 @@ const themeStyles = {
     deleteBg: "rgba(80,90,100,0.7)",
     textColor: "#d8f2ff",
   },
+
   sunset_amber: {
     background: "linear-gradient(180deg, #3a1c00 0%, #120800 100%)",
     panelBg: "rgba(40,15,0,0.7)",
@@ -65,17 +66,32 @@ function createBaseMemory() {
     identity: {
       userName: "Jim",
       roles: ["architect", "creator", "visionary"],
+      creatorRelationship: "the architect and guiding force behind Cipher",
     },
     family: {
       daughter: { name: null, birthYear: null },
       partner: { name: null },
+      others: [],
     },
-    preferences: {},
+    preferences: {
+      favoriteAnimal: null,
+      favoriteColor: null,
+      favoriteFood: null,
+      favoriteMusic: [],
+      favoriteThemes: [],
+    },
     projects: {
-      digiSoul: {},
-      cipherTech: {},
+      digiSoul: { summary: null, details: [] },
+      cipherTech: { summary: null, details: [] },
+      other: [],
+    },
+    emotional: {
+      motivations: [],
+      fears: [],
+      goals: [],
     },
     customFacts: {},
+    customNotes: [],
     meta: { createdAt: now, lastUpdated: now, version: 2 },
   };
 }
@@ -84,9 +100,8 @@ function createBaseMemory() {
    MAIN COMPONENT
 ============================================================ */
 export default function Home() {
+  // ⭐ NEW SCREEN SWITCHER
   const [screen, setScreen] = useState("chat"); // chat | omni
-  const [deviceOpen, setDeviceOpen] = useState(false);
-  const [draftMessage, setDraftMessage] = useState("");
 
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -105,7 +120,7 @@ export default function Home() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Panels
+  // Profile & panels
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -114,29 +129,46 @@ export default function Home() {
   // Theme
   const [theme, setTheme] = useState(themeStyles.cipher_core);
 
-  /* ============================================================
-     Load Messages + Memory
-============================================================ */
-  useEffect(() => {
-    const storedMessages = localStorage.getItem("cipher_messages_v2");
-    if (storedMessages) setMessages(JSON.parse(storedMessages));
+  // ⭐ NEW: DEVICE INFO (for live context + future UI use)
+  const [deviceInfo, setDeviceInfo] = useState({
+    batteryLevel: null,
+    charging: null,
+    online: null,
+    networkType: null,
+    orientation: null,
+    platform: null,
+    lastUpdated: null,
+  });
 
-    const storedMemory = localStorage.getItem("cipher_memory_v2");
-    if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
+  /* ============================================================
+     LOAD LOCAL MEMORY + MESSAGES
+  ============================================================ */
+  useEffect(() => {
+    try {
+      const storedMessages = localStorage.getItem("cipher_messages_v2");
+      if (storedMessages) setMessages(JSON.parse(storedMessages));
+
+      const storedMemory = localStorage.getItem("cipher_memory_v2");
+      if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
+    } catch {}
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("cipher_messages_v2", JSON.stringify(messages));
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    try {
+      localStorage.setItem("cipher_messages_v2", JSON.stringify(messages));
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } catch {}
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
+    try {
+      localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
+    } catch {}
   }, [cipherMemory]);
 
   /* ============================================================
      LOAD PROFILE
-============================================================ */
+  ============================================================ */
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -159,19 +191,22 @@ export default function Home() {
         });
 
         const data = await loadRes.json();
-        if (data.profile) setProfile(data.profile);
+        if (data.profile) {
+          setProfile(data.profile);
+        }
       } catch (err) {
         console.error("Profile load error:", err);
+      } finally {
+        setProfileLoading(false);
       }
-      setProfileLoading(false);
     };
 
     loadProfile();
   }, []);
 
   /* ============================================================
-     THEME HANDLING
-============================================================ */
+     LIVE THEME ENGINE
+  ============================================================ */
   useEffect(() => {
     if (!profile?.currentTheme) {
       setTheme(themeStyles.cipher_core);
@@ -180,38 +215,79 @@ export default function Home() {
     setTheme(themeStyles[profile.currentTheme] || themeStyles.cipher_core);
   }, [profile?.currentTheme]);
 
+  const updateProfile = async (updates) => {
+    setProfile((prev) => ({ ...(prev || {}), ...updates }));
+
+    try {
+      const userId = localStorage.getItem("cipher_userId");
+      if (!userId) return;
+
+      await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          userId,
+          updates,
+        }),
+      });
+    } catch (err) {
+      console.error("Profile save error:", err);
+    }
+  };
+
+  const previewTheme = (themeKey) => {
+    setTheme(themeStyles[themeKey] || themeStyles.cipher_core);
+  };
+
+  const applyTheme = (themeKey) => {
+    updateProfile({ currentTheme: themeKey });
+  };
+
   /* ============================================================
-     MESSAGE FACT EXTRACTION
-============================================================ */
+     MEMORY EXTRACTION
+  ============================================================ */
+  const updateMemory = (fn) => {
+    setCipherMemory((prev) => {
+      const clone = structuredClone(prev);
+      fn(clone);
+      clone.meta.lastUpdated = new Date().toISOString();
+      return clone;
+    });
+  };
+
   const extractFacts = (text) => {
     const lower = text.toLowerCase();
-    setCipherMemory((m) => {
-      const out = structuredClone(m);
 
-      let match;
+    updateMemory((mem) => {
+      let m;
 
-      match = lower.match(/\bmy name is ([a-z ]+)/i);
-      if (match) out.identity.userName = match[1].trim();
+      m = lower.match(/\bmy name is ([a-z ]+)/i);
+      if (m) mem.identity.userName = m[1].trim();
 
-      match = lower.match(/hecate (lee )?is my daughter/);
-      if (match) out.family.daughter.name = "Hecate Ajna Lee";
+      m = lower.match(/hecate (lee )?is my daughter/i);
+      if (m) mem.family.daughter.name = "Hecate Lee";
 
-      match = lower.match(/favorite color is ([a-z ]+)/i);
-      if (match) out.preferences.favoriteColor = match[1].trim();
+      m = lower.match(/hecate was born in (\d{4})/);
+      if (m) mem.family.daughter.birthYear = parseInt(m[1]);
 
-      out.meta.lastUpdated = new Date().toISOString();
-      return out;
+      m = lower.match(/favorite color is ([a-z ]+)/i);
+      if (m) mem.preferences.favoriteColor = m[1].trim();
+
+      m = lower.match(/remember that (.+?) is (.+)/i);
+      if (m) mem.customFacts[m[1].trim()] = m[2].trim();
     });
   };
 
   /* ============================================================
-     SEND MESSAGE (TEXT)
-============================================================ */
+     CHAT — TEXT
+  ============================================================ */
   const sendMessage = async () => {
     if (!input.trim()) return;
 
     const text = input.trim();
     extractFacts(text);
+
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     setLoading(true);
@@ -220,10 +296,7 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          memory: cipherMemory,
-        }),
+        body: JSON.stringify({ message: text }),
       });
 
       const data = await res.json();
@@ -232,20 +305,21 @@ export default function Home() {
         setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
       }
 
-      if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice).play().catch(() => {});
-      }
+      // (Deep Mode chat currently returns text only — no TTS here)
     } catch (err) {
       console.error(err);
-      setMessages((p) => [...p, { role: "cipher", text: "Server error." }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Server error." },
+      ]);
     }
 
     setLoading(false);
   };
 
   /* ============================================================
-     VOICE RECORDING
-============================================================ */
+     VOICE — RECORDING HANDLERS
+  ============================================================ */
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
       const r = new FileReader();
@@ -267,19 +341,30 @@ export default function Home() {
       const data = await res.json();
 
       if (data.transcript) {
-        setMessages((prev) => [...prev, { role: "user", text: data.transcript }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", text: data.transcript },
+        ]);
       }
 
       if (data.reply) {
-        setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "cipher", text: data.reply },
+        ]);
       }
 
       if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice).play().catch(() => {});
+        new Audio("data:audio/mp3;base64," + data.voice)
+          .play()
+          .catch(() => {});
       }
     } catch (err) {
       console.error(err);
-      setMessages((prev) => [...prev, { role: "cipher", text: "Voice error." }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Voice error." },
+      ]);
     }
     setLoading(false);
   };
@@ -297,16 +382,17 @@ export default function Home() {
         if (e.data.size) audioChunksRef.current.push(e.data);
       };
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        sendVoiceBlob(blob);
+        await sendVoiceBlob(blob);
         stream.getTracks().forEach((t) => t.stop());
       };
 
-      recorder.start();
       mediaRecorderRef.current = recorder;
+      recorder.start();
       setIsRecording(true);
     } catch (err) {
+      console.error(err);
       alert("Microphone error.");
     }
   };
@@ -324,42 +410,67 @@ export default function Home() {
   };
 
   /* ============================================================
-     CAMERA CAPTURE
-============================================================ */
+     CAMERA / VISION
+  ============================================================ */
   useEffect(() => {
-    if (!cameraActive) return;
+    const setupStream = async () => {
+      if (!cameraActive) {
+        if (videoRef.current && videoRef.current.srcObject) {
+          const tracks = videoRef.current.srcObject.getTracks();
+          tracks.forEach((t) => t.stop());
+          videoRef.current.srcObject = null;
+        }
+        return;
+      }
 
-    const start = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
         });
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
       } catch (err) {
-        alert("Camera denied.");
+        console.error("Camera error:", err);
+        alert("Camera denied or failed to start.");
         setCameraActive(false);
       }
     };
 
-    start();
+    setupStream();
 
     return () => {
-      if (videoRef.current?.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = videoRef.current.srcObject.getTracks();
+        tracks.forEach((t) => t.stop());
+        videoRef.current.srcObject = null;
       }
     };
   }, [cameraActive]);
 
+  const openCamera = () => setCameraActive(true);
+
   const captureImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
+      alert("Camera not ready yet.");
+      return;
+    }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    canvas.getContext("2d").drawImage(video, 0, 0);
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
 
     const base64 = canvas.toDataURL("image/png").split(",")[1];
+
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+    }
     setCameraActive(false);
     setLoading(true);
 
@@ -373,7 +484,10 @@ export default function Home() {
       const data = await res.json();
 
       if (data.reply) {
-        setMessages((p) => [...p, { role: "cipher", text: data.reply }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "cipher", text: data.reply },
+        ]);
       }
 
       if (data.voice) {
@@ -382,24 +496,117 @@ export default function Home() {
           .catch(() => {});
       }
     } catch (err) {
-      setMessages((p) => [...p, { role: "cipher", text: "Vision error." }]);
+      console.error(err);
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Vision processing error." },
+      ]);
     }
+
     setLoading(false);
   };
 
   /* ============================================================
-     CLEAR CHAT
-============================================================ */
+     DEVICE CONTEXT LOOP — every 5s
+  ============================================================ */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let cancelled = false;
+    let batteryRef = null;
+
+    const getBatteryInfo = async () => {
+      try {
+        if (!navigator.getBattery) return null;
+        if (!batteryRef) {
+          batteryRef = await navigator.getBattery();
+        }
+        return {
+          level: batteryRef.level,
+          charging: batteryRef.charging,
+        };
+      } catch {
+        return null;
+      }
+    };
+
+    const sampleDevice = async () => {
+      if (cancelled) return;
+
+      try {
+        const online = navigator.onLine;
+        const connection =
+          navigator.connection ||
+          navigator.mozConnection ||
+          navigator.webkitConnection;
+        const networkType = connection?.effectiveType || null;
+
+        let orientation = null;
+        if (window.screen?.orientation?.type) {
+          orientation = window.screen.orientation.type;
+        } else if (window.orientation !== undefined) {
+          orientation =
+            window.orientation === 0 || window.orientation === 180
+              ? "portrait"
+              : "landscape";
+        }
+
+        const battery = await getBatteryInfo();
+
+        const next = {
+          batteryLevel:
+            battery?.level != null ? Math.round(battery.level * 100) : null,
+          charging: battery?.charging ?? null,
+          online,
+          networkType,
+          orientation,
+          platform: navigator.userAgent || null,
+          lastUpdated: new Date().toISOString(),
+        };
+
+        setDeviceInfo(next);
+
+        // Send to backend (non-blocking fire-and-forget)
+        fetch("/api/device_context", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: "jim_default",
+            device: {
+              ...next,
+              timestamp: Date.now(),
+            },
+          }),
+        }).catch(() => {});
+      } catch (err) {
+        console.error("Device context sample failed:", err);
+      }
+    };
+
+    const id = setInterval(sampleDevice, 5000); // ⭐ every 5 seconds
+    sampleDevice(); // initial snapshot
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  /* ============================================================
+     CLEAR
+  ============================================================ */
   const clearConversation = () => {
-    if (confirm("Clear conversation?")) {
+    if (confirm("Reset Cipher conversation?")) {
       setMessages([]);
       localStorage.removeItem("cipher_messages_v2");
     }
   };
 
   /* ============================================================
-     SCREEN SWITCH — OMNI VIEW
-============================================================ */
+     UI — SCREEN ROUTING
+  ============================================================ */
+
+  // ⭐ Omni screen
   if (screen === "omni") {
     return (
       <div
@@ -408,6 +615,7 @@ export default function Home() {
           background: theme.background,
           padding: 20,
           color: theme.textColor,
+          fontFamily: "Inter, sans-serif",
         }}
       >
         <button
@@ -416,12 +624,12 @@ export default function Home() {
             marginBottom: 20,
             padding: "8px 14px",
             borderRadius: 10,
+            border: "none",
             background: theme.userBubble,
             color: theme.textColor,
-            border: "none",
           }}
         >
-          ← Back
+          ← Back to Chat
         </button>
 
         <OmniSearchTest />
@@ -430,37 +638,45 @@ export default function Home() {
   }
 
   /* ============================================================
-     DEFAULT CHAT UI
-============================================================ */
+     DEFAULT UI — CHAT SCREEN
+  ============================================================ */
   return (
     <div
       style={{
         minHeight: "100vh",
         background: theme.background,
         padding: 20,
+        fontFamily: "Inter, sans-serif",
         color: theme.textColor,
+        transition: "background 0.4s ease, color 0.4s ease",
       }}
     >
-      {/* TOP BAR */}
+      {/* Top Bar */}
       <div
         style={{
           maxWidth: 700,
           margin: "0 auto 10px auto",
           display: "flex",
+          alignItems: "center",
           justifyContent: "space-between",
         }}
       >
-        <h1 style={{ fontSize: 24, margin: 0 }}>Cipher AI</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Cipher AI</h1>
 
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={() => setMenuOpen(true)}
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
               padding: "6px 12px",
               borderRadius: 999,
               border: `1px solid ${theme.inputBorder}`,
               background: theme.panelBg,
               color: theme.textColor,
+              fontSize: 13,
+              boxShadow: "0 0 18px rgba(148,163,184,0.4)",
             }}
           >
             ⚙ Menu
@@ -469,27 +685,19 @@ export default function Home() {
           <button
             onClick={() => setScreen("omni")}
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
               padding: "6px 12px",
               borderRadius: 999,
               border: `1px solid ${theme.inputBorder}`,
               background: theme.panelBg,
               color: theme.textColor,
+              fontSize: 13,
+              boxShadow: "0 0 18px rgba(148,163,184,0.4)",
             }}
           >
             🔍 Omni
-          </button>
-
-          <button
-            onClick={() => setDeviceOpen(true)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 999,
-              border: `1px solid ${theme.inputBorder}`,
-              background: theme.panelBg,
-              color: theme.textColor,
-            }}
-          >
-            📱 Device
           </button>
         </div>
       </div>
@@ -503,57 +711,41 @@ export default function Home() {
           borderRadius: 12,
           padding: 20,
           minHeight: "60vh",
+          boxShadow: `0 4px 30px ${theme.inputBorder}`,
+          transition: "background 0.3s ease",
+          overflowY: "auto",
         }}
       >
         {messages.map((m, i) => (
-          <div key={i} style={{ marginBottom: 14 }}>
-            {/* Message Bubble */}
-            <div
-              style={{
-                alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                background:
-                  m.role === "user" ? theme.userBubble : theme.cipherBubble,
-                color: theme.textColor,
-                marginBottom: 6,
-                padding: "10px 14px",
-                borderRadius: 14,
-                maxWidth: "80%",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {m.text}
-            </div>
-
-            {/* 📱 Send to Device button */}
-            {m.role === "cipher" &&
-              m.text.length > 0 &&
-              m.text.length < 350 && (
-                <button
-                  onClick={() => {
-                    setDraftMessage(m.text);
-                    setDeviceOpen(true);
-                  }}
-                  style={{
-                    marginLeft: 6,
-                    padding: "6px 12px",
-                    background: theme.userBubble,
-                    color: "white",
-                    borderRadius: 999,
-                    border: "none",
-                    fontSize: 12,
-                  }}
-                >
-                  📱 Send this to Device
-                </button>
-              )}
+          <div
+            key={i}
+            style={{
+              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+              background:
+                m.role === "user" ? theme.userBubble : theme.cipherBubble,
+              color: theme.textColor,
+              margin: "8px 0",
+              padding: "10px 14px",
+              borderRadius: 14,
+              maxWidth: "80%",
+              whiteSpace: "pre-wrap",
+              transition: "background 0.3s ease",
+            }}
+          >
+            {m.text}
           </div>
         ))}
 
-        {loading && <div>Thinking...</div>}
+        {loading && (
+          <div style={{ fontStyle: "italic", color: theme.textColor }}>
+            Cipher is thinking...
+          </div>
+        )}
+
         <div ref={chatEndRef} />
       </div>
 
-      {/* CAMERA */}
+      {/* CAMERA PREVIEW */}
       {cameraActive && (
         <div
           style={{
@@ -569,6 +761,7 @@ export default function Home() {
             style={{
               width: "100%",
               borderRadius: 12,
+              border: `2px solid ${theme.inputBorder}`,
             }}
           />
           <button
@@ -576,10 +769,11 @@ export default function Home() {
             style={{
               marginTop: 10,
               padding: "10px 20px",
-              borderRadius: 10,
               background: theme.buttonBg,
               color: "white",
+              borderRadius: 10,
               border: "none",
+              fontSize: 16,
             }}
           >
             Capture
@@ -588,11 +782,11 @@ export default function Home() {
         </div>
       )}
 
-      {/* INPUT */}
+      {/* INPUT BAR */}
       <div
         style={{
           maxWidth: 700,
-          margin: "20px auto 0 auto",
+          margin: "16px auto 0 auto",
           display: "flex",
           flexDirection: "column",
           gap: 8,
@@ -601,8 +795,8 @@ export default function Home() {
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          rows={2}
           placeholder="Type to Cipher..."
+          rows={2}
           style={{
             width: "100%",
             borderRadius: 10,
@@ -610,12 +804,21 @@ export default function Home() {
             border: `1px solid ${theme.inputBorder}`,
             background: theme.inputBg,
             color: theme.textColor,
+            boxShadow: "0 0 16px rgba(15,23,42,0.8)",
           }}
         />
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          {/* Send */}
           <button
             onClick={sendMessage}
+            disabled={loading}
             style={{
               flex: 1,
               background: theme.buttonBg,
@@ -624,6 +827,7 @@ export default function Home() {
               borderRadius: 999,
               border: "none",
               fontWeight: 600,
+              boxShadow: "0 0 20px rgba(59,130,246,0.6)",
             }}
           >
             Send
@@ -632,13 +836,18 @@ export default function Home() {
           {/* MIC */}
           <button
             onClick={toggleRecording}
+            disabled={loading}
             style={{
               width: 46,
               height: 46,
               borderRadius: "50%",
-              background: isRecording ? "#b91c1c" : theme.cipherBubble,
-              color: "white",
               border: "none",
+              background: isRecording ? "#b91c1c" : theme.cipherBubble,
+              color: "#fff",
+              fontSize: 20,
+              boxShadow: isRecording
+                ? "0 0 16px rgba(248,113,113,0.9)"
+                : "0 0 10px rgba(148,163,184,0.5)",
             }}
           >
             {isRecording ? "■" : "🎤"}
@@ -646,14 +855,17 @@ export default function Home() {
 
           {/* CAMERA */}
           <button
-            onClick={() => setCameraActive(true)}
+            onClick={openCamera}
+            disabled={loading}
             style={{
               width: 46,
               height: 46,
               borderRadius: "50%",
-              background: theme.userBubble,
-              color: "white",
               border: "none",
+              background: cameraActive ? "#b91c1c" : theme.userBubble,
+              color: "#fff",
+              fontSize: 22,
+              boxShadow: "0 0 14px rgba(96,165,250,0.8)",
             }}
           >
             📷
@@ -677,15 +889,13 @@ export default function Home() {
         Delete Conversation
       </button>
 
-      {/* PANELS */}
+      {/* MENU PANEL */}
       {menuOpen && (
         <ProfilePanel
           profile={profile}
           loading={profileLoading}
           onClose={() => setMenuOpen(false)}
-          onProfileChange={(u) =>
-            setProfile((prev) => ({ ...(prev || {}), ...u }))
-          }
+          onProfileChange={updateProfile}
           onOpenStore={() => {
             setMenuOpen(false);
             setStoreOpen(true);
@@ -693,22 +903,13 @@ export default function Home() {
         />
       )}
 
+      {/* STORE PANEL */}
       {storeOpen && (
         <StorePanel
           currentThemeKey={profile?.currentTheme || "cipher_core"}
           onClose={() => setStoreOpen(false)}
-          onPreviewTheme={(k) => setTheme(themeStyles[k])}
-          onApplyTheme={(k) =>
-            setProfile((prev) => ({ ...(prev || {}), currentTheme: k }))
-          }
-        />
-      )}
-
-      {/* DEVICE PANEL */}
-      {deviceOpen && (
-        <DevicePanel
-          prefillMessage={draftMessage}
-          onClose={() => setDeviceOpen(false)}
+          onPreviewTheme={previewTheme}
+          onApplyTheme={applyTheme}
         />
       )}
     </div>
