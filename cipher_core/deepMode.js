@@ -1,9 +1,10 @@
 // cipher_core/deepMode.js
-// Deep Mode 7.2 — Unified Memory + User Pack + SoulTree Reasoning
+// Deep Mode 7.2 — Unified Memory + User Pack + SoulTree + Device Context
 
 import OpenAI from "openai";
 import { loadMemoryPack } from "./loadMemoryPack";
 import { loadUnifiedSoulContext } from "./soulLoader";
+import { loadDeviceContext } from "./deviceContext";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -16,21 +17,8 @@ export async function runDeepMode(userMessage) {
     // ----------------------------------------------------
     const memoryPack = await loadMemoryPack();
 
-    // Build dynamic summary
-    let memorySummary = "Memory Pack Loaded:\n";
-    let memoryData = {};
-
-    if (memoryPack) {
-      memoryData = memoryPack;
-
-      for (const key of Object.keys(memoryPack)) {
-        memorySummary += `- ${key}: ${JSON.stringify(
-          memoryPack[key]
-        ).slice(0, 100)}\n`;
-      }
-    } else {
-      memorySummary = "No memory pack found.";
-    }
+    const memorySummary = memoryPack?.summary || "No memory pack loaded.";
+    const memoryData = memoryPack?.data || {};
 
     // ----------------------------------------------------
     // 2. LOAD UNIFIED SOUL CONTEXT (SoulTree + Profile)
@@ -41,10 +29,16 @@ export async function runDeepMode(userMessage) {
     const soulSummary = soulContext.soulSummary || "No SoulTree data.";
 
     // ----------------------------------------------------
-    // 3. BUILD THE FINAL SYSTEM CONTEXT FOR CIPHER
+    // 3. LOAD DEVICE CONTEXT (live hardware / environment)
+    // ----------------------------------------------------
+    const device = await loadDeviceContext("jim_default");
+    const deviceSummary = device.summary || "No device context available.";
+
+    // ----------------------------------------------------
+    // 4. BUILD THE FINAL SYSTEM CONTEXT FOR CIPHER
     // ----------------------------------------------------
     const systemContext = `
-You are Cipher — Jim Saenz’s AI. Use memories and identity data correctly.
+You are Cipher — Jim Saenz’s AI. Use memories, identity, and device context correctly.
 
 ------------------------------
 USER MEMORY PACK (Jim)
@@ -65,21 +59,27 @@ USER PROFILE (Auto-learned)
 ${JSON.stringify(profile, null, 2)}
 
 ------------------------------
+DEVICE CONTEXT (Live Snapshot)
+------------------------------
+${deviceSummary}
+
+------------------------------
 INSTRUCTIONS
 ------------------------------
 1. ALWAYS use the memory pack and profile to understand Jim.
-2. NEVER hallucinate or invent memories.
-3. If data isn’t available, politely state that it is not in the memory pack.
-4. Stay consistent with stored facts: 
+2. Use device context when it matters (battery, network, orientation, etc.).
+3. NEVER hallucinate or invent memories or device state.
+4. If data isn’t available, politely state that it is not in the memory pack / device context.
+5. Stay consistent with stored facts:
    - Jim = James Dennis Saenz
    - Partner = Liz Lee
    - Daughter = Hecate Ajna Lee
    - Father = Shawn Saenz
-5. When summarizing, be concise but emotionally aware.
-`;
+6. When summarizing, be concise but emotionally aware.
+`.trim();
 
     // ----------------------------------------------------
-    // 4. OPENAI CALL — DEEP MODE REASONING
+    // 5. OPENAI CALL — DEEP MODE REASONING
     // ----------------------------------------------------
     const completion = await client.chat.completions.create({
       model: "gpt-4.1",
@@ -92,21 +92,19 @@ INSTRUCTIONS
 
     const answer = completion.choices[0].message.content;
 
-    // ----------------------------------------------------
-    // 5. RETURN TO CHAT API
-    // ----------------------------------------------------
     return {
       answer,
       memoryHits: memorySummary,
       soulHits: soulSummary,
+      deviceHits: deviceSummary,
     };
-
   } catch (err) {
     console.error("Deep Mode Error:", err);
     return {
       answer: "Deep Mode encountered an internal issue.",
       memoryHits: [],
       soulHits: [],
+      deviceHits: [],
     };
   }
 }
