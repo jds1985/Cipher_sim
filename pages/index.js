@@ -6,7 +6,7 @@ import OmniSearchTest from "../components/OmniSearchTest";
 import DevicePanel from "../components/DevicePanel";
 
 /* ============================================================
-   THEME ENGINE
+   THEME ENGINE (UPGRADED)
 ============================================================ */
 const themeStyles = {
   cipher_core: {
@@ -101,7 +101,8 @@ function createBaseMemory() {
    MAIN COMPONENT
 ============================================================ */
 export default function Home() {
-  const [screen, setScreen] = useState("chat"); // chat | omni | device
+  // Screens: chat | omni | device
+  const [screen, setScreen] = useState("chat");
 
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -110,30 +111,28 @@ export default function Home() {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // Voice
+  // Voice recording
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Camera
+  // Camera / vision
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Profile
+  // Profile & panels
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
 
-  // Theme
+  // Device panel as its own screen (for now)
   const [theme, setTheme] = useState(themeStyles.cipher_core);
-
-  // Device context snapshot (shared with chat APIs)
-  const [deviceContext, setDeviceContext] = useState(null);
+  const [userId, setUserId] = useState(null); // used by context bridge + chat
 
   /* ============================================================
-     LOAD LOCAL MEMORY + MESSAGES + DEVICE CONTEXT
+     LOAD LOCAL MEMORY + MESSAGES
   ============================================================ */
   useEffect(() => {
     try {
@@ -142,58 +141,53 @@ export default function Home() {
 
       const storedMemory = localStorage.getItem("cipher_memory_v2");
       if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
-
-      const storedDevice = localStorage.getItem("cipher_device_context_v1");
-      if (storedDevice) setDeviceContext(JSON.parse(storedDevice));
-    } catch {}
+    } catch {
+      // ignore localStorage errors
+    }
   }, []);
 
   useEffect(() => {
     try {
       localStorage.setItem("cipher_messages_v2", JSON.stringify(messages));
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    } catch {}
+    } catch {
+      // ignore localStorage errors
+    }
   }, [messages]);
 
   useEffect(() => {
     try {
       localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
-    } catch {}
+    } catch {
+      // ignore localStorage errors
+    }
   }, [cipherMemory]);
 
-  useEffect(() => {
-    try {
-      if (deviceContext) {
-        localStorage.setItem(
-          "cipher_device_context_v1",
-          JSON.stringify(deviceContext)
-        );
-      }
-    } catch {}
-  }, [deviceContext]);
-
   /* ============================================================
-     LOAD PROFILE
+     LOAD PROFILE (AND USER ID)
   ============================================================ */
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        let userId = localStorage.getItem("cipher_userId");
-        if (!userId) {
+        let id = localStorage.getItem("cipher_userId");
+
+        if (!id) {
           const newRes = await fetch("/api/profile", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "newId" }),
           });
           const newData = await newRes.json();
-          userId = newData.userId;
-          localStorage.setItem("cipher_userId", userId);
+          id = newData.userId;
+          localStorage.setItem("cipher_userId", id);
         }
+
+        setUserId(id);
 
         const loadRes = await fetch("/api/profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "load", userId }),
+          body: JSON.stringify({ action: "load", userId: id }),
         });
 
         const data = await loadRes.json();
@@ -217,15 +211,15 @@ export default function Home() {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
 
     try {
-      const userId = localStorage.getItem("cipher_userId");
-      if (!userId) return;
+      const id = userId || localStorage.getItem("cipher_userId");
+      if (!id) return;
 
       await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "update",
-          userId,
+          userId: id,
           updates,
         }),
       });
@@ -258,7 +252,11 @@ export default function Home() {
   ============================================================ */
   const updateMemory = (fn) => {
     setCipherMemory((prev) => {
-      const clone = structuredClone(prev);
+      const base = prev || createBaseMemory();
+      const clone =
+        typeof structuredClone === "function"
+          ? structuredClone(base)
+          : JSON.parse(JSON.stringify(base));
       fn(clone);
       clone.meta.lastUpdated = new Date().toISOString();
       return clone;
@@ -289,32 +287,29 @@ export default function Home() {
   };
 
   /* ============================================================
-     CHAT — TEXT
+     CHAT — TEXT (DEEP MODE + POSSIBLE VOICE)
   ============================================================ */
   const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim()) return;
 
     const text = input.trim();
     extractFacts(text);
 
-    const newMessages = [...messages, { role: "user", text }];
-    setMessages(newMessages);
+    setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     setLoading(true);
 
-    const voiceOn = profile?.voiceEnabled !== false;
-
     try {
+      const body = {
+        message: text,
+        memory: cipherMemory,
+        userId: userId || "jim_default",
+      };
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          memory: cipherMemory,
-          history: newMessages,
-          deviceContext,
-          voice: voiceOn,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -323,8 +318,10 @@ export default function Home() {
         setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
       }
 
-      if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice)
+      // Be robust to either `voice` or `audio` keys coming back from backend
+      const voiceBase64 = data.voice || data.audio;
+      if (voiceBase64) {
+        new Audio("data:audio/mp3;base64," + voiceBase64)
           .play()
           .catch(() => {});
       }
@@ -351,8 +348,6 @@ export default function Home() {
 
   const sendVoiceBlob = async (blob) => {
     setLoading(true);
-    const voiceOn = profile?.voiceEnabled !== false;
-
     try {
       const base64 = await blobToBase64(blob);
 
@@ -362,9 +357,7 @@ export default function Home() {
         body: JSON.stringify({
           audio: base64,
           memory: cipherMemory,
-          history: messages,
-          deviceContext,
-          voice: voiceOn,
+          userId: userId || "jim_default",
         }),
       });
 
@@ -384,8 +377,9 @@ export default function Home() {
         ]);
       }
 
-      if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice)
+      const voiceBase64 = data.voice || data.audio;
+      if (voiceBase64) {
+        new Audio("data:audio/mp3;base64," + voiceBase64)
           .play()
           .catch(() => {});
       }
@@ -506,8 +500,6 @@ export default function Home() {
     setCameraActive(false);
     setLoading(true);
 
-    const voiceOn = profile?.voiceEnabled !== false;
-
     try {
       const res = await fetch("/api/vision_chat", {
         method: "POST",
@@ -515,9 +507,7 @@ export default function Home() {
         body: JSON.stringify({
           image: base64,
           memory: cipherMemory,
-          history: messages,
-          deviceContext,
-          voice: voiceOn,
+          userId: userId || "jim_default",
         }),
       });
 
@@ -530,8 +520,9 @@ export default function Home() {
         ]);
       }
 
-      if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice)
+      const voiceBase64 = data.voice || data.audio;
+      if (voiceBase64) {
+        new Audio("data:audio/mp3;base64," + voiceBase64)
           .play()
           .catch(() => {});
       }
@@ -560,19 +551,17 @@ export default function Home() {
      SCREEN ROUTING
   ============================================================ */
 
-  // DEVICE SCREEN
+  // Device panel as full screen for now
   if (screen === "device") {
     return (
       <DevicePanel
         theme={theme}
-        deviceContext={deviceContext}
-        onSnapshot={(snapshot) => setDeviceContext(snapshot)}
         onClose={() => setScreen("chat")}
       />
     );
   }
 
-  // OMNI SCREEN
+  // Omni screen
   if (screen === "omni") {
     return (
       <div
@@ -886,10 +875,6 @@ export default function Home() {
           onOpenStore={() => {
             setMenuOpen(false);
             setStoreOpen(true);
-          }}
-          onOpenDeviceLink={() => {
-            setMenuOpen(false);
-            setScreen("device");
           }}
         />
       )}
