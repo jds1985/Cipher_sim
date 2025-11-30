@@ -1,273 +1,263 @@
 // components/ProfilePanel.js
-// Cipher Menu / Profile Panel (with Store entry + Theme support)
+// Cipher Profile + Settings Panel (with Voice Toggle)
 
 export default function ProfilePanel({
   profile,
   loading,
   onClose,
   onProfileChange,
-  onOpenStore, // new optional prop
+  onOpenStore,
+  voiceEnabled = true,
+  onToggleVoice,
 }) {
-  if (loading || !profile) {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(4px)",
-          zIndex: 50,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          color: "#fff",
-        }}
-      >
-        Loading…
-      </div>
-    );
-  }
+  const displayName = profile?.displayName || "Jim";
+  const bio =
+    profile?.bio ||
+    "Architect of Cipher AI, DigiSoul, and the memory future.";
+
+  const handleChange = (field, value) => {
+    if (!onProfileChange) return;
+    onProfileChange({ [field]: value });
+  };
 
   return (
-    <>
-      {/* Overlay */}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15,23,42,0.75)",
+        backdropFilter: "blur(10px)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 50,
+        padding: 16,
+      }}
+    >
       <div
-        onClick={onClose}
         style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(6px)",
-          zIndex: 99,
-        }}
-      />
-
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          width: "88%",
-          maxWidth: 430,
-          height: "100vh",
-          background: "rgba(10,20,35,0.96)",
-          backdropFilter: "blur(14px)",
-          borderLeft: "1px solid rgba(148,163,184,0.45)",
-          boxShadow: "0 0 40px rgba(15,23,42,0.9)",
-          zIndex: 100,
-          color: "#fff",
+          width: "100%",
+          maxWidth: 420,
+          background:
+            "radial-gradient(circle at top, #111827 0%, #020617 55%, #020617 100%)",
+          color: "#e5e7eb",
+          borderRadius: 18,
           padding: 20,
-          overflowY: "auto",
+          boxShadow: "0 25px 60px rgba(0,0,0,0.7)",
+          border: "1px solid rgba(148,163,184,0.35)",
         }}
       >
-        {/* TOP BAR */}
+        {/* Header */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: 20,
+            marginBottom: 10,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: "50%",
-                background:
-                  "radial-gradient(circle at 30% 0%, #38bdf8, #6366f1 70%)",
-                boxShadow: "0 0 16px rgba(56,189,248,0.7)",
-              }}
-            />
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 20,
-                  fontWeight: 700,
-                  letterSpacing: 0.4,
-                }}
-              >
-                Cipher Menu
-              </h2>
-              <div style={{ fontSize: 11, opacity: 0.7 }}>
-                User ID: {profile.userId || "guest_default"}
-              </div>
-            </div>
-          </div>
-
+          <h2
+            style={{
+              margin: 0,
+              fontSize: 20,
+              fontWeight: 700,
+              letterSpacing: 0.5,
+            }}
+          >
+            ⚙ Cipher Settings
+          </h2>
           <button
             onClick={onClose}
             style={{
-              fontSize: 22,
-              color: "#e5e7eb",
-              background: "none",
               border: "none",
+              background: "transparent",
+              color: "#9ca3af",
+              fontSize: 20,
               cursor: "pointer",
             }}
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* STORE BUTTON */}
-        <div style={{ marginBottom: 20 }}>
-          <button
-            onClick={onOpenStore}
-            style={{
-              width: "100%",
-              padding: "10px 14px",
-              borderRadius: 999,
-              border: "1px solid rgba(251,191,36,0.8)",
-              background:
-                "radial-gradient(circle at 0 0, rgba(251,191,36,0.25), rgba(15,23,42,1))",
-              color: "#fde68a",
-              fontSize: 14,
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              cursor: "pointer",
-            }}
-          >
-            <span>🛒</span>
-            <span>Store</span>
-          </button>
-        </div>
+        {loading ? (
+          <p style={{ fontStyle: "italic", color: "#9ca3af" }}>
+            Loading profile…
+          </p>
+        ) : (
+          <>
+            {/* Identity */}
+            <section style={{ marginBottom: 16 }}>
+              <h3
+                style={{
+                  fontSize: 14,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  color: "#9ca3af",
+                  margin: "0 0 6px 0",
+                }}
+              >
+                Profile
+              </h3>
 
-        {/* DISPLAY NAME */}
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ fontSize: 13, opacity: 0.7 }}>DISPLAY NAME</label>
-          <input
-            type="text"
-            placeholder="How should Cipher address you?"
-            value={profile.displayName || ""}
-            onChange={(e) =>
-              onProfileChange({ displayName: e.target.value || "" })
-            }
-            style={{
-              width: "100%",
-              marginTop: 8,
-              padding: "12px 14px",
-              borderRadius: 10,
-              background: "rgba(15,23,42,0.85)",
-              border: "1px solid rgba(148,163,184,0.7)",
-              color: "#fff",
-              fontSize: 15,
-            }}
-          />
-        </div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  color: "#9ca3af",
+                  marginBottom: 4,
+                }}
+              >
+                Display name
+              </label>
+              <input
+                type="text"
+                defaultValue={displayName}
+                onBlur={(e) => handleChange("displayName", e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid #4b5563",
+                  background: "#020617",
+                  color: "#e5e7eb",
+                  marginBottom: 8,
+                  fontSize: 14,
+                }}
+              />
 
-        {/* TONE SELECTOR */}
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ fontSize: 13, opacity: 0.7 }}>CIPHER TONE</label>
-          <select
-            value={profile.cipherTone || "steady"}
-            onChange={(e) => onProfileChange({ cipherTone: e.target.value })}
-            style={{
-              width: "100%",
-              marginTop: 8,
-              padding: "12px",
-              borderRadius: 10,
-              background: "rgba(15,23,42,0.85)",
-              border: "1px solid rgba(148,163,184,0.7)",
-              color: "#fff",
-            }}
-          >
-            <option value="steady">Steady & Grounded</option>
-            <option value="warm">Warm & Supportive</option>
-            <option value="direct">Direct & Efficient</option>
-            <option value="creative">Creative & Exploratory</option>
-            <option value="mystic">Mystic & Symbolic</option>
-          </select>
-        </div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  color: "#9ca3af",
+                  marginBottom: 4,
+                }}
+              >
+                Bio / tagline
+              </label>
+              <textarea
+                rows={2}
+                defaultValue={bio}
+                onBlur={(e) => handleChange("bio", e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid #4b5563",
+                  background: "#020617",
+                  color: "#e5e7eb",
+                  fontSize: 13,
+                  resize: "none",
+                }}
+              />
+            </section>
 
-        {/* DEPTH LEVEL */}
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ fontSize: 13, opacity: 0.7 }}>DEPTH LEVEL</label>
-          <input
-            type="range"
-            min={1}
-            max={10}
-            value={profile.depth || 5}
-            onChange={(e) => onProfileChange({ depth: Number(e.target.value) })}
-            style={{ width: "100%", marginTop: 10 }}
-          />
-        </div>
+            {/* Voice Settings */}
+            <section style={{ marginBottom: 16 }}>
+              <h3
+                style={{
+                  fontSize: 14,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  color: "#9ca3af",
+                  margin: "0 0 6px 0",
+                }}
+              >
+                Voice
+              </h3>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "#9ca3af",
+                  margin: "0 0 8px 0",
+                }}
+              >
+                Control whether Cipher speaks out loud after normal text chat
+                replies. Voice & Vision chat will still use audio responses.
+              </p>
 
-        {/* CREATIVITY */}
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ fontSize: 13, opacity: 0.7 }}>CREATIVITY</label>
-          <input
-            type="range"
-            min={1}
-            max={10}
-            value={profile.creativity || 5}
-            onChange={(e) =>
-              onProfileChange({ creativity: Number(e.target.value) })
-            }
-            style={{ width: "100%", marginTop: 10 }}
-          />
-        </div>
+              <button
+                onClick={onToggleVoice}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  border: "none",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  background: voiceEnabled ? "#22c55e" : "#4b5563",
+                  boxShadow: voiceEnabled
+                    ? "0 0 18px rgba(34,197,94,0.6)"
+                    : "0 0 10px rgba(75,85,99,0.7)",
+                  color: "white",
+                }}
+              >
+                {voiceEnabled ? "🔊 Voice On (text chat)" : "🔈 Voice Off"}
+              </button>
+            </section>
 
-        {/* THEME SELECTOR (still here as quick access) */}
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ fontSize: 13, opacity: 0.7 }}>VISUAL THEME</label>
-          <select
-            value={profile.currentTheme || "cipher_core"}
-            onChange={(e) =>
-              onProfileChange({ currentTheme: e.target.value || "cipher_core" })
-            }
-            style={{
-              width: "100%",
-              marginTop: 8,
-              padding: "12px",
-              borderRadius: 10,
-              background: "rgba(15,23,42,0.85)",
-              border: "1px solid rgba(148,163,184,0.7)",
-              color: "#fff",
-            }}
-          >
-            <option value="cipher_core">Cipher Core (Blue / Navy)</option>
-            <option value="nebula_purple">Nebula Purple</option>
-            <option value="midnight_glass">Midnight Glass</option>
-            <option value="sunset_amber">Sunset Amber</option>
-          </select>
-        </div>
+            {/* Theme / Store */}
+            <section style={{ marginBottom: 10 }}>
+              <h3
+                style={{
+                  fontSize: 14,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  color: "#9ca3af",
+                  margin: "0 0 6px 0",
+                }}
+              >
+                Appearance
+              </h3>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "#9ca3af",
+                  margin: "0 0 8px 0",
+                }}
+              >
+                Switch between Cipher themes and future cosmetic upgrades.
+              </p>
+              <button
+                onClick={onOpenStore}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  border: "none",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background:
+                    "linear-gradient(90deg,#6366f1,#8b5cf6,#ec4899)",
+                  color: "white",
+                  boxShadow: "0 0 18px rgba(129,140,248,0.8)",
+                }}
+              >
+                🎨 Open Theme Store
+              </button>
+            </section>
 
-        {/* STRICTNESS */}
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ fontSize: 13, opacity: 0.7 }}>
-            GROUNDING / STRICTNESS
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={10}
-            value={profile.strictness || 5}
-            onChange={(e) =>
-              onProfileChange({ strictness: Number(e.target.value) })
-            }
-            style={{ width: "100%", marginTop: 10 }}
-          />
-          <div style={{ fontSize: 12, opacity: 0.5, marginTop: 4 }}>
-            Higher values keep Cipher more cautious and stabilizing.
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: 10,
-            fontSize: 11,
-            opacity: 0.6,
-            textAlign: "center",
-          }}
-        >
-          Changes save automatically. This is your control room.
-        </div>
+            {/* Footer */}
+            <p
+              style={{
+                fontSize: 11,
+                color: "#6b7280",
+                marginTop: 8,
+                textAlign: "center",
+              }}
+            >
+              Cipher remembers these settings locally and in your profile.
+            </p>
+          </>
+        )}
       </div>
-    </>
+    </div>
   );
 }
