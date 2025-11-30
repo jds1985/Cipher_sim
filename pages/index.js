@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
 import OmniSearchTest from "../components/OmniSearchTest";
-import DevicePanel from "../components/DevicePanel";
+import DevicePanel from "../components/DevicePanel"; // ⭐ Device panel
 
 /* ============================================================
    THEME ENGINE (UPGRADED)
@@ -101,8 +101,7 @@ function createBaseMemory() {
    MAIN COMPONENT
 ============================================================ */
 export default function Home() {
-  // Screens: chat | omni | device
-  const [screen, setScreen] = useState("chat");
+  const [screen, setScreen] = useState("chat"); // chat | omni | device
 
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -116,23 +115,25 @@ export default function Home() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Camera / vision
+  // Voice reply toggle (for TTS)
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+
+  // Camera
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Profile & panels
+  // Profile
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
 
-  // Device panel as its own screen (for now)
+  // Theme
   const [theme, setTheme] = useState(themeStyles.cipher_core);
-  const [userId, setUserId] = useState(null); // used by context bridge + chat
 
   /* ============================================================
-     LOAD LOCAL MEMORY + MESSAGES
+     LOAD LOCAL MEMORY + MESSAGES + VOICE TOGGLE
   ============================================================ */
   useEffect(() => {
     try {
@@ -141,53 +142,58 @@ export default function Home() {
 
       const storedMemory = localStorage.getItem("cipher_memory_v2");
       if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
-    } catch {
-      // ignore localStorage errors
-    }
+
+      const storedVoice = localStorage.getItem("cipher_voice_enabled");
+      if (storedVoice === "false") {
+        setVoiceEnabled(false);
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
     try {
       localStorage.setItem("cipher_messages_v2", JSON.stringify(messages));
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    } catch {
-      // ignore localStorage errors
-    }
+    } catch {}
   }, [messages]);
 
   useEffect(() => {
     try {
       localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
-    } catch {
-      // ignore localStorage errors
-    }
+    } catch {}
   }, [cipherMemory]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "cipher_voice_enabled",
+        voiceEnabled ? "true" : "false"
+      );
+    } catch {}
+  }, [voiceEnabled]);
+
   /* ============================================================
-     LOAD PROFILE (AND USER ID)
+     LOAD PROFILE
   ============================================================ */
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        let id = localStorage.getItem("cipher_userId");
-
-        if (!id) {
+        let userId = localStorage.getItem("cipher_userId");
+        if (!userId) {
           const newRes = await fetch("/api/profile", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "newId" }),
           });
           const newData = await newRes.json();
-          id = newData.userId;
-          localStorage.setItem("cipher_userId", id);
+          userId = newData.userId;
+          localStorage.setItem("cipher_userId", userId);
         }
-
-        setUserId(id);
 
         const loadRes = await fetch("/api/profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "load", userId: id }),
+          body: JSON.stringify({ action: "load", userId }),
         });
 
         const data = await loadRes.json();
@@ -211,15 +217,15 @@ export default function Home() {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
 
     try {
-      const id = userId || localStorage.getItem("cipher_userId");
-      if (!id) return;
+      const userId = localStorage.getItem("cipher_userId");
+      if (!userId) return;
 
       await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "update",
-          userId: id,
+          userId,
           updates,
         }),
       });
@@ -252,11 +258,7 @@ export default function Home() {
   ============================================================ */
   const updateMemory = (fn) => {
     setCipherMemory((prev) => {
-      const base = prev || createBaseMemory();
-      const clone =
-        typeof structuredClone === "function"
-          ? structuredClone(base)
-          : JSON.parse(JSON.stringify(base));
+      const clone = structuredClone(prev);
       fn(clone);
       clone.meta.lastUpdated = new Date().toISOString();
       return clone;
@@ -287,7 +289,7 @@ export default function Home() {
   };
 
   /* ============================================================
-     CHAT — TEXT (DEEP MODE + POSSIBLE VOICE)
+     CHAT — TEXT
   ============================================================ */
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -300,16 +302,14 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const body = {
-        message: text,
-        memory: cipherMemory,
-        userId: userId || "jim_default",
-      };
-
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          message: text,
+          memory: cipherMemory,
+          voice: voiceEnabled, // ⭐ control TTS
+        }),
       });
 
       const data = await res.json();
@@ -318,10 +318,8 @@ export default function Home() {
         setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
       }
 
-      // Be robust to either `voice` or `audio` keys coming back from backend
-      const voiceBase64 = data.voice || data.audio;
-      if (voiceBase64) {
-        new Audio("data:audio/mp3;base64," + voiceBase64)
+      if (data.voice) {
+        new Audio("data:audio/mp3;base64," + data.voice)
           .play()
           .catch(() => {});
       }
@@ -357,7 +355,7 @@ export default function Home() {
         body: JSON.stringify({
           audio: base64,
           memory: cipherMemory,
-          userId: userId || "jim_default",
+          voice: voiceEnabled, // ⭐ control TTS
         }),
       });
 
@@ -377,9 +375,8 @@ export default function Home() {
         ]);
       }
 
-      const voiceBase64 = data.voice || data.audio;
-      if (voiceBase64) {
-        new Audio("data:audio/mp3;base64," + voiceBase64)
+      if (data.voice) {
+        new Audio("data:audio/mp3;base64," + data.voice)
           .play()
           .catch(() => {});
       }
@@ -507,7 +504,7 @@ export default function Home() {
         body: JSON.stringify({
           image: base64,
           memory: cipherMemory,
-          userId: userId || "jim_default",
+          voice: voiceEnabled, // ⭐ control TTS
         }),
       });
 
@@ -520,9 +517,8 @@ export default function Home() {
         ]);
       }
 
-      const voiceBase64 = data.voice || data.audio;
-      if (voiceBase64) {
-        new Audio("data:audio/mp3;base64," + voiceBase64)
+      if (data.voice) {
+        new Audio("data:audio/mp3;base64," + data.voice)
           .play()
           .catch(() => {});
       }
@@ -551,17 +547,12 @@ export default function Home() {
      SCREEN ROUTING
   ============================================================ */
 
-  // Device panel as full screen for now
+  // DEVICE SCREEN
   if (screen === "device") {
-    return (
-      <DevicePanel
-        theme={theme}
-        onClose={() => setScreen("chat")}
-      />
-    );
+    return <DevicePanel theme={theme} onClose={() => setScreen("chat")} />;
   }
 
-  // Omni screen
+  // OMNI SCREEN
   if (screen === "omni") {
     return (
       <div
@@ -614,11 +605,31 @@ export default function Home() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: 10,
         }}
       >
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Cipher AI</h1>
 
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {/* Voice Toggle */}
+          <button
+            onClick={() => setVoiceEnabled((v) => !v)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 10px",
+              borderRadius: 999,
+              border: `1px solid ${theme.inputBorder}`,
+              background: voiceEnabled ? theme.userBubble : theme.panelBg,
+              color: theme.textColor,
+              fontSize: 12,
+              boxShadow: "0 0 12px rgba(148,163,184,0.4)",
+            }}
+          >
+            {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
+          </button>
+
           {/* Menu */}
           <button
             onClick={() => setMenuOpen(true)}
