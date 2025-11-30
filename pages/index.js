@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
 import OmniSearchTest from "../components/OmniSearchTest";
-import DevicePanel from "../components/DevicePanel"; // ⭐ ADDED
+import DevicePanel from "../components/DevicePanel";
 
 /* ============================================================
    THEME ENGINE (UPGRADED)
@@ -110,7 +110,10 @@ export default function Home() {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
 
-  // Voice
+  // Voice toggle (for text chat TTS)
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+
+  // Voice recording
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -139,6 +142,11 @@ export default function Home() {
 
       const storedMemory = localStorage.getItem("cipher_memory_v2");
       if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
+
+      const storedVoice = localStorage.getItem("cipher_voice_enabled");
+      if (storedVoice === "false") {
+        setVoiceEnabled(false);
+      }
     } catch {}
   }, []);
 
@@ -154,6 +162,15 @@ export default function Home() {
       localStorage.setItem("cipher_memory_v2", JSON.stringify(cipherMemory));
     } catch {}
   }, [cipherMemory]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "cipher_voice_enabled",
+        voiceEnabled ? "true" : "false"
+      );
+    } catch {}
+  }, [voiceEnabled]);
 
   /* ============================================================
      LOAD PROFILE
@@ -288,7 +305,11 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, memory: cipherMemory }),
+        body: JSON.stringify({
+          message: text,
+          memory: cipherMemory,
+          voice: voiceEnabled, // ask backend for TTS when enabled
+        }),
       });
 
       const data = await res.json();
@@ -297,8 +318,11 @@ export default function Home() {
         setMessages((prev) => [...prev, { role: "cipher", text: data.reply }]);
       }
 
-      if (data.voice) {
-        new Audio("data:audio/mp3;base64," + data.voice).play().catch(() => {});
+      // Only play if user has voice enabled and backend returned audio
+      if (voiceEnabled && data.voice) {
+        new Audio("data:audio/mp3;base64," + data.voice)
+          .play()
+          .catch(() => {});
       }
     } catch (err) {
       console.error(err);
@@ -516,7 +540,7 @@ export default function Home() {
      SCREEN ROUTING
   ============================================================ */
 
-  // ⭐ DEVICE SCREEN
+  // DEVICE SCREEN
   if (screen === "device") {
     return (
       <DevicePanel
@@ -526,7 +550,7 @@ export default function Home() {
     );
   }
 
-  // ⭐ OMNI SCREEN
+  // OMNI SCREEN
   if (screen === "omni") {
     return (
       <div
@@ -622,7 +646,7 @@ export default function Home() {
             🔍 Omni
           </button>
 
-          {/* ⭐ DEVICE BUTTON */}
+          {/* Device */}
           <button
             onClick={() => setScreen("device")}
             style={{
@@ -835,6 +859,8 @@ export default function Home() {
         <ProfilePanel
           profile={profile}
           loading={profileLoading}
+          voiceEnabled={voiceEnabled}
+          onToggleVoice={() => setVoiceEnabled((v) => !v)}
           onClose={() => setMenuOpen(false)}
           onProfileChange={updateProfile}
           onOpenStore={() => {
