@@ -1,5 +1,5 @@
 // components/DevicePanel.js
-// Cipher Device Panel — Context Bridge v3.1
+// Cipher Device Panel — Context Bridge v4.0 (Live Uplink Monitor)
 
 import { useState, useEffect } from "react";
 
@@ -8,29 +8,146 @@ export default function DevicePanel({ theme, onClose }) {
   const [loading, setLoading] = useState(true);
   const [timestamp, setTimestamp] = useState("");
 
+  /* ---------------------------------------------------------
+     LOAD SNAPSHOT (Client-Side Collector v3)
+  --------------------------------------------------------- */
   const loadSnapshot = async () => {
     setLoading(true);
-    try {
-      const res = await fetch("/api/device_context", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "snapshot" }),
-      });
 
-      const data = await res.json();
-      setSnapshot(data.context || {});
+    try {
+      // --- System Info ---
+      const ua = navigator.userAgent || "";
+      let os = "Unknown";
+      if (/Android/i.test(ua)) os = "Android";
+      else if (/iPhone|iPad/i.test(ua)) os = "iOS";
+      else if (/Windows/i.test(ua)) os = "Windows";
+      else if (/Mac/i.test(ua)) os = "macOS";
+
+      const browser = (() => {
+        if (ua.includes("Chrome")) return "Chrome";
+        if (ua.includes("Firefox")) return "Firefox";
+        if (ua.includes("Safari")) return "Safari";
+        return "Unknown";
+      })();
+
+      const system = {
+        model: "Unknown",
+        os,
+        browser,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+
+      // --- Hardware ---
+      const hardware = {
+        threads: navigator.hardwareConcurrency || null,
+        memoryGB: navigator.deviceMemory || null,
+        battery: "Unknown",
+        touch: "ontouchstart" in window ? true : false,
+      };
+
+      try {
+        const battery = await navigator.getBattery();
+        hardware.battery = `${Math.round(battery.level * 100)}%`;
+      } catch {
+        hardware.battery = "Unknown";
+      }
+
+      // --- Network ---
+      const conn = navigator.connection || {};
+      const network = {
+        type: conn.type || "Unknown",
+        effectiveType: conn.effectiveType || "Unknown",
+        downlink: conn.downlink || null,
+        online: navigator.onLine,
+      };
+
+      // --- Permissions ---
+      const permissions = {
+        microphone: "Unknown",
+        camera: "Unknown",
+        notifications: Notification.permission || "Unknown",
+      };
+
+      try {
+        const mic = await navigator.permissions.query({ name: "microphone" });
+        permissions.microphone = mic.state;
+      } catch {}
+
+      try {
+        const cam = await navigator.permissions.query({ name: "camera" });
+        permissions.camera = cam.state;
+      } catch {}
+
+      // --- UPLINK (initial) ---
+      const uplink = {
+        active: true,
+        lastSync: new Date().toLocaleTimeString(),
+        confidence: 100,
+      };
+
+      const fullSnapshot = {
+        system,
+        hardware,
+        network,
+        permissions,
+        uplink,
+      };
+
+      setSnapshot(fullSnapshot);
       setTimestamp(new Date().toLocaleTimeString());
     } catch (err) {
-      console.error("Device context error:", err);
-      setSnapshot({ error: "Failed to load device context." });
+      console.error("Snapshot error:", err);
+      setSnapshot({ error: "Failed to read device info." });
     }
+
     setLoading(false);
   };
 
+  /* ---------------------------------------------------------
+     REAL-TIME UPLINK MONITOR (Every 5 Seconds)
+     Simulates Cipher's OS-level link + health scoring
+  --------------------------------------------------------- */
+  useEffect(() => {
+    if (!snapshot) return;
+
+    const interval = setInterval(() => {
+      setSnapshot((prev) => {
+        if (!prev) return prev;
+
+        // Confidence drops if offline
+        let confidence = prev.network.online ? prev.uplink.confidence : 10;
+
+        // Simulate small natural drift
+        confidence = Math.max(
+          5,
+          Math.min(100, confidence + (Math.random() * 6 - 3))
+        );
+
+        return {
+          ...prev,
+          uplink: {
+            active: true,
+            lastSync: new Date().toLocaleTimeString(),
+            confidence: Math.round(confidence),
+          },
+        };
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [snapshot]);
+
+  /* ---------------------------------------------------------
+     INITIAL LOAD
+  --------------------------------------------------------- */
   useEffect(() => {
     loadSnapshot();
   }, []);
 
+  /* ---------------------------------------------------------
+     SAVE SNAPSHOT TO CIPHER (Optional)
+  --------------------------------------------------------- */
   const saveToCipher = async () => {
     try {
       await fetch("/api/device_context", {
@@ -48,6 +165,9 @@ export default function DevicePanel({ theme, onClose }) {
     }
   };
 
+  /* ---------------------------------------------------------
+     LOADING VIEW
+  --------------------------------------------------------- */
   if (!snapshot) {
     return (
       <div
@@ -64,13 +184,11 @@ export default function DevicePanel({ theme, onClose }) {
     );
   }
 
-  /** Pull from new structured context */
-  const hw = snapshot.hardware || {};
-  const net = snapshot.network || {};
-  const perm = snapshot.permissions || {};
-  const sys = snapshot.system || {};
-  const uplink = snapshot.uplink || {};
+  const { system, hardware, network, permissions, uplink } = snapshot;
 
+  /* ---------------------------------------------------------
+     MAIN UI
+  --------------------------------------------------------- */
   return (
     <div
       style={{
@@ -81,7 +199,6 @@ export default function DevicePanel({ theme, onClose }) {
         fontFamily: "Inter, sans-serif",
       }}
     >
-      {/* BACK */}
       <button
         onClick={onClose}
         style={{
@@ -131,69 +248,46 @@ export default function DevicePanel({ theme, onClose }) {
         </button>
       </div>
 
-      {/* TIMESTAMP */}
       <p style={{ marginBottom: 10 }}>
         Last updated: {loading ? "Loading..." : timestamp}
       </p>
 
-      {/* --- SUMMARY CARD --- */}
+      {/* SUMMARY */}
       <Section title="Device Summary" theme={theme}>
-        <Row label="Model Guess" value={sys.model || "Unknown"} />
-        <Row label="OS" value={sys.os || "Unknown"} />
-        <Row label="Browser" value={sys.browser || "Unknown"} />
-        <Row
-          label="Resolution"
-          value={`${sys.width} x ${sys.height}`}
-        />
+        <Row label="Model Guess" value={system.model} />
+        <Row label="OS" value={system.os} />
+        <Row label="Browser" value={system.browser} />
+        <Row label="Resolution" value={`${system.width} x ${system.height}`} />
       </Section>
 
-      {/* --- HARDWARE --- */}
+      {/* HARDWARE */}
       <Section title="Hardware" theme={theme}>
-        <Row
-          label="Threads"
-          value={hw.threads != null ? hw.threads : "?"}
-        />
-        <Row label="Memory Estimate" value={`${hw.memoryGB || "?"} GB`} />
-        <Row label="Battery" value={hw.battery || "Unknown"} />
-        <Row label="Touch Support" value={hw.touch ? "Yes" : "No"} />
+        <Row label="Threads" value={hardware.threads || "?"} />
+        <Row label="Memory Estimate" value={`${hardware.memoryGB || "?"} GB`} />
+        <Row label="Battery" value={hardware.battery} />
+        <Row label="Touch Support" value={hardware.touch ? "Yes" : "No"} />
       </Section>
 
-      {/* --- NETWORK --- */}
+      {/* NETWORK */}
       <Section title="Network" theme={theme}>
-        <Row label="Type" value={net.type || "Unknown"} />
-        <Row label="Effective" value={net.effectiveType || "?"} />
-        <Row label="Downlink" value={`${net.downlink || "?"} Mbps`} />
-        <Row label="Online" value={net.online ? "Yes" : "No"} />
+        <Row label="Type" value={network.type} />
+        <Row label="Effective" value={network.effectiveType} />
+        <Row label="Downlink" value={`${network.downlink || "?"} Mbps`} />
+        <Row label="Online" value={network.online ? "Yes" : "No"} />
       </Section>
 
-      {/* --- PERMISSIONS --- */}
+      {/* PERMISSIONS */}
       <Section title="Permissions" theme={theme}>
-        <Row
-          label="Microphone"
-          value={perm.microphone || "Unknown"}
-        />
-        <Row label="Camera" value={perm.camera || "Unknown"} />
-        <Row
-          label="Notifications"
-          value={perm.notifications || "Unknown"}
-        />
+        <Row label="Microphone" value={permissions.microphone} />
+        <Row label="Camera" value={permissions.camera} />
+        <Row label="Notifications" value={permissions.notifications} />
       </Section>
 
-      {/* --- UPLINK --- */}
+      {/* LIVE UPLINK */}
       <Section title="Cipher Uplink" theme={theme}>
-        <Row
-          label="Status"
-          value={uplink.active ? "Connected" : "Inactive"}
-        />
-        <Row label="Last Sync" value={uplink.lastSync || "Unknown"} />
-        <Row
-          label="Confidence"
-          value={
-            uplink.confidence != null
-              ? `${uplink.confidence}%`
-              : "Unknown"
-          }
-        />
+        <Row label="Status" value={uplink.active ? "Connected" : "Inactive"} />
+        <Row label="Last Sync" value={uplink.lastSync} />
+        <Row label="Confidence" value={`${uplink.confidence}%`} />
       </Section>
 
       {/* RAW JSON */}
@@ -213,8 +307,7 @@ export default function DevicePanel({ theme, onClose }) {
   );
 }
 
-/* ---- Reusable UI components ---- */
-
+/* COMPONENTS */
 function Section({ title, theme, children }) {
   return (
     <div
