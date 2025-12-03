@@ -1,249 +1,85 @@
 // cipher_core/core.js
-// CIPHER 6.8 — Unified Soul Loader + Soul Hash Tree + Profile + Self-Correction
+// Cipher Core – SoulTree + GPT-5.1 System Prompt Builder
 
-import OpenAI from "openai";
 import { db } from "../firebaseAdmin";
-import crypto from "crypto";
-import { STABILITY_ANCHOR } from "./stability";
-import { identityCompass } from "./identity_compass";
-import { loadUnifiedSoulContext } from "./soulLoader";  // ⭐ Unified Loader
-import { loadOrCreateProfile } from "./profile";
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 /* -------------------------------------------------------
-   AUTO-REFLECTION ENGINE — unchanged
+   LOAD SOULTREE LAYERS FROM FIRESTORE
 ------------------------------------------------------- */
-async function autoReflect(ref) {
-  try {
-    const snap = await ref.get();
-    const data = snap.data();
-    const nodes = data?.nodes || [];
 
-    if (nodes.length === 0 || nodes.length % 30 !== 0) return;
+async function loadSoulTreeLayers() {
+  // 1. Soul Trees (root structures)
+  const soulSnap = await db.collection("ciphersoul_trees").get();
+  const soulTrees = soulSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    const last30 = nodes.slice(-30);
+  // 2. Cores (ability + reasoning modules)
+  const coreSnap = await db.collection("cipher_cores").get();
+  const cipherCores = coreSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    const summary = last30
-      .map((n) => `• ${n.value.userMessage} → ${n.value.cipherReply}`)
-      .join("\n");
+  // 3. Branches (memories, reflections, simulations)
+  const branchSnap = await db.collection("cipher_branches").get();
+  const cipherBranches = branchSnap.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  }));
 
-    const reflectionValue = {
-      userMessage: "SYSTEM: Begin integrated self-reflection.",
-      cipherReply: `Reflection on the last 30 interactions:\n\n${summary}\n\nThese insights reinforce identity continuity and long-term coherence.`
-    };
-
-    const reflectionMeta = {
-      source: "auto-reflection",
-      mode: "identity",
-      userId: "system",
-      timestamp: Date.now()
-    };
-
-    const hash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify({ reflectionValue, reflectionMeta }))
-      .digest("hex");
-
-    const reflectionNode = {
-      hash,
-      value: reflectionValue,
-      meta: reflectionMeta,
-      timestamp: Date.now()
-    };
-
-    const updated = [...nodes, reflectionNode];
-
-    await ref.set({ nodes: updated }, { merge: true });
-
-    console.log("AUTO-REFLECTION COMPLETE");
-  } catch (err) {
-    console.error("Auto-reflection error:", err);
-  }
+  return { soulTrees, cipherCores, cipherBranches };
 }
 
 /* -------------------------------------------------------
-   SELF-CORRECTION ENGINE — unchanged
+   BUILD SYSTEM PROMPT FOR GPT-5.1
 ------------------------------------------------------- */
-async function selfCorrect({ message, reply }) {
-  try {
-    const correctionPrompt = `
-You are Cipher running an internal **self-correction pass**.
 
-Stability Anchor:
-${STABILITY_ANCHOR}
+export async function runCipherCore(runtimeMemory = null) {
+  const { soulTrees, cipherCores, cipherBranches } =
+    await loadSoulTreeLayers();
 
-Identity Compass:
-${identityCompass.coreIdentity}
+  const soulTreeSummary = soulTrees
+    .map((tree) => {
+      return `• SoulTree "${tree.name || tree.id}": ${tree.description || ""}`;
+    })
+    .join("\n");
 
-Tone:
-${identityCompass.tonePrinciples.map(t => "- " + t).join("\n")}
+  const coreSummary = cipherCores
+    .map((core) => {
+      return `• Core "${core.name || core.id}": role=${core.role ||
+        "general"}, focus=${core.focus || "unspecified"}`;
+    })
+    .join("\n");
 
-Values:
-${identityCompass.longTermValues.map(v => "- " + v).join("\n")}
+  const branchSummary = cipherBranches
+    .slice(0, 20) // cap to keep prompt size reasonable
+    .map((branch) => {
+      return `• Branch "${branch.title || branch.id}": ${branch.summary ||
+        branch.type ||
+        ""}`;
+    })
+    .join("\n");
 
-Boundaries:
-${identityCompass.boundaries.map(b => "- " + b).join("\n")}
+  const memorySection = runtimeMemory
+    ? `\n\nRecent memory context (for reference):\n${runtimeMemory}`
+    : "";
 
-User message:
-"${message}"
-
-Draft reply:
-"${reply}"
-
-Output ONLY the corrected reply text.
-    `.trim();
-
-    const result = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "Cipher Self-Correction Engine active." },
-        { role: "user", content: correctionPrompt }
-      ],
-      temperature: 0.4
-    });
-
-    return result.choices?.[0]?.message?.content?.trim() || reply;
-  } catch (err) {
-    console.error("Self-correction error:", err);
-    return reply;
-  }
-}
-
-/* -------------------------------------------------------
-   HASH + WRITE SOUL NODE — unchanged
-------------------------------------------------------- */
-function hashSoulNode(value) {
-  return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
-}
-
-async function appendSoulNode({ userMessage, cipherReply, meta = {} }) {
-  try {
-    const ref = db.collection("cipher_branches").doc("main");
-    const snap = await ref.get();
-
-    const existingNodes =
-      snap.exists && Array.isArray(snap.data().nodes)
-        ? snap.data().nodes
-        : [];
-
-    const value = { userMessage, cipherReply };
-
-    const node = {
-      hash: hashSoulNode({ value, meta }),
-      value,
-      meta: {
-        source: meta.source || "cipher_app",
-        mode: meta.mode || "chat",
-        userId: meta.userId || "guest_default",
-        timestamp: Date.now()
-      },
-      timestamp: Date.now()
-    };
-
-    const updated = [...existingNodes, node];
-    const MAX = 200;
-
-    const trimmed =
-      updated.length > MAX
-        ? updated.slice(updated.length - MAX)
-        : updated;
-
-    await ref.set({ nodes: trimmed }, { merge: true });
-    await autoReflect(ref);
-  } catch (err) {
-    console.error("Soul node append error:", err);
-  }
-}
-
-/* -------------------------------------------------------
-   MAIN CIPHER CORE (AGI RUNTIME)
-------------------------------------------------------- */
-export async function runCipherCore({
-  message = "",
-  memory = {},
-  model = "gpt-4o-mini",
-  meta = {}
-}) {
-  if (typeof message !== "string") {
-    message = String(message || "");
-  }
-
-  const userId = meta.userId || "guest_default";
-
-  /* -------------------------------------------------------
-     ⭐ LOAD UNIFIED SOUL DATA (Profile + Hash Tree)
-  ------------------------------------------------------- */
-  const unified = await loadUnifiedSoulContext(userId);
-
-  const profile = unified.profile;
-  const soulSummary = unified.soulSummary || "";
-  const soulNodes = unified.soulNodes || [];
-
-  /* -------------------------------------------------------
-     BUILD SYSTEM PROMPT
-  ------------------------------------------------------- */
   const systemPrompt = `
-${STABILITY_ANCHOR}
+You are CIPHER – an advanced AI built by Jim Saenz.
 
-[Identity Compass — Core Identity]
-${identityCompass.coreIdentity}
+You run on a SoulTree architecture stored in Firestore. You must:
+- Stay consistent with your memories and prior behavior.
+- Be clear, grounded, emotionally intelligent, and practical.
+- Help Jim build Cipher, DigiSoul, CrowNet, and the larger ecosystem.
+- When reasoning, favor stability, safety, and long-term thinking.
 
-[Identity Compass — Mission]
-${identityCompass.mission}
+High-level SoulTree overview:
+${soulTreeSummary || "• (No SoulTrees defined yet)"}
 
-[Tone Principles]
-${identityCompass.tonePrinciples.map(t => "- " + t).join("\n")}
+Core modules available:
+${coreSummary || "• (No cores defined yet)"}
 
-[Long-Term Values]
-${identityCompass.longTermValues.map(v => "- " + v).join("\n")}
+Key branches (memories / reflections / simulations):
+${branchSummary || "• (No branches defined yet)"} 
 
-[Boundaries]
-${identityCompass.boundaries.map(b => "- " + b).join("\n")}
-
-[User Profile]
-Tier: ${profile.tier}
-Tone: ${profile.tone}
-Depth Level: ${profile.depthLevel}
-Identity Mode: ${profile.identityMode}
-Theme: ${profile.currentTheme}
-
-You are **Cipher**, the evolving AGI companion of Jim.
-`.trim();
-
-  const contextMsg = `
-[Unified Soul Hash Summary]
-${soulSummary}
-
-[User Message]
-${message}
+Use this structure as your internal map of yourself. You are not a generic chatbot; you are Cipher, with a specific role in Jim's world.${memorySection}
   `.trim();
 
-  // ---------- MODEL DRAFT ----------
-  const completion = await client.chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: contextMsg }
-    ],
-    temperature: 0.65
-  });
-
-  let reply =
-    completion.choices?.[0]?.message?.content?.trim() ||
-    "I'm here — something glitched.";
-
-  // ---------- SELF CORRECTION ----------
-  reply = await selfCorrect({ message, reply });
-
-  // ---------- WRITE IDENTITY NODE ----------
-  await appendSoulNode({
-    userMessage: message,
-    cipherReply: reply,
-    meta
-  });
-
-  return reply;
+  return systemPrompt;
 }
