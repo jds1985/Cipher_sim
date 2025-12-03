@@ -1,44 +1,49 @@
 // utils/facebook.js
+// Small helper to post text updates to your Facebook Page
 
-export async function publishToFacebook(message) {
+export async function postToFacebook(message) {
+  const accessToken = process.env.FB_PAGE_ACCESS_TOKEN;
+  const pageId = process.env.FB_PAGE_ID;
+
+  if (!accessToken || !pageId) {
+    return {
+      success: false,
+      error: "Missing FB_PAGE_ACCESS_TOKEN or FB_PAGE_ID environment variables.",
+    };
+  }
+
   try {
-    const PAGE_ID = process.env.FB_PAGE_ID;
-    const TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
+    const params = new URLSearchParams();
+    params.append("message", message);
+    params.append("access_token", accessToken);
 
-    if (!PAGE_ID || !TOKEN) {
-      throw new Error("Missing FB_PAGE_ID or FB_PAGE_ACCESS_TOKEN in environment variables.");
-    }
-
-    const url = `https://graph.facebook.com/${PAGE_ID}/feed`;
-
-    const params = new URLSearchParams({
-      message: message,
-      access_token: TOKEN
-    });
+    // Use the latest Graph version you're on (you were using v24.0)
+    const url = `https://graph.facebook.com/v24.0/${pageId}/feed`;
 
     const response = await fetch(url, {
       method: "POST",
-      body: params
+      body: params,
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Facebook API error:", data);
-      throw new Error(data.error?.message || "Failed to publish to Facebook.");
+      return {
+        success: false,
+        error: data?.error?.message || "Unknown error from Facebook API.",
+        raw: data,
+      };
     }
 
     return {
       success: true,
-      postId: data.id,
-      message: "Post successfully published to Facebook."
+      postId: data.id || null,
+      raw: data,
     };
-
-  } catch (error) {
-    console.error("publishToFacebook error:", error);
+  } catch (err) {
     return {
       success: false,
-      error: error.message
+      error: err.message,
     };
   }
 }
