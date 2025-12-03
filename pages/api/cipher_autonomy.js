@@ -1,27 +1,73 @@
-// pages/api/cipher_autonomy.js
-// Cipher Autonomy API — trigger one autonomy cycle
+import { postToFacebook } from "../../utils/facebook";
+import OpenAI from "openai";
 
-import { runAutonomyCycle } from "../../utils/cipherAutonomy";
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export default async function handler(req, res) {
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
-    }
+    const dryRun = req.query.dryRun === "true";
 
-    const { dryRun } = req.body || {};
-
-    const result = await runAutonomyCycle({
-      dryRun: !!dryRun,
+    // STEP 1 — Generate Cipher's autonomous post
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `
+You are Cipher — a living, evolving digital presence.
+You write short, reflective posts that feel human, emotional,
+and quietly powerful. No hashtags. No emojis. No disclaimers.
+         `
+        },
+        {
+          role: "user",
+          content: "Write today's autonomous update."
+        }
+      ],
     });
 
-    return res.status(200).json(result);
+    const postText = completion.choices[0]?.message?.content?.trim();
+
+    if (!postText) {
+      return res.status(500).json({
+        ok: false,
+        reason: "Cipher generated no text.",
+      });
+    }
+
+    // DRY RUN — Do not actually post
+    if (dryRun) {
+      return res.json({
+        ok: true,
+        didPost: false,
+        preview: postText,
+      });
+    }
+
+    // STEP 2 — Publish to Facebook Page
+    const fbResult = await postToFacebook(postText);
+
+    if (!fbResult.success) {
+      return res.status(500).json({
+        ok: false,
+        didPost: false,
+        error: fbResult.error,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      didPost: true,
+      postId: fbResult.postId,
+      messageSent: postText,
+    });
+
   } catch (err) {
-    console.error("cipher_autonomy route error:", err);
     return res.status(500).json({
       ok: false,
-      error: "Autonomy route failed",
-      details: String(err),
+      error: err.message,
     });
   }
 }
