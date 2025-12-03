@@ -1,15 +1,16 @@
 // pages/api/voice_call.js
 import OpenAI from "openai";
+import formidable from "formidable";
+
+export const config = {
+  api: {
+    bodyParser: false, // required for formidable
+  },
+};
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,63 +18,63 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ---- 1. Read raw audio bytes
-    const chunks = [];
-    await new Promise((resolve, reject) => {
-      req.on("data", (chunk) => chunks.push(chunk));
-      req.on("end", resolve);
-      req.on("error", reject);
+    // ---------------------------
+    // 1. Parse multipart form-data
+    // ---------------------------
+    const form = formidable({ multiples: false });
+
+    const { fields, files } = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve({ fields, files });
+      });
     });
 
-    const buffer = Buffer.concat(chunks);
+    const audioFile = files?.audio;
 
-    if (!buffer.length) {
-      return res.status(400).json({ error: "No audio received." });
+    if (!audioFile) {
+      return res
+        .status(400)
+        .json({ error: "No audio file received in form-data." });
     }
 
-    // ---- 2. Speech → text
+    const audioBuffer = await fsRead(audioFile.filepath);
+
+    // ---------------------------
+    // 2. Speech → text
+    // ---------------------------
     const transcription = await client.audio.transcriptions.create({
       file: {
-        data: buffer,
+        data: audioBuffer,
         name: "input.webm",
       },
-      model: "gpt-4o-mini-transcribe", // if this fails we’ll see it now
+      model: "gpt-4o-mini-transcribe",
     });
 
-    const userText =
-      typeof transcription?.text === "string"
-        ? transcription.text
-        : String(transcription || "");
+    const userText = transcription.text || "";
 
     console.log("User said:", userText);
 
-    // ---- 3. Cipher reply (text)
+    // ---------------------------
+    // 3. Text → Chat reply
+    // ---------------------------
     const chat = await client.chat.completions.create({
       model: "gpt-5.1-mini",
       messages: [
         {
           role: "system",
           content:
-            "You are Cipher, Jim's AI co-architect and companion. " +
-            "You are speaking on a short voice call. " +
-            "Keep your replies natural, warm, and brief.",
+            "You are Cipher, Jim’s AI companion. Keep your voice replies warm, short, and natural.",
         },
-        {
-          role: "user",
-          content: userText || "The audio was empty or unclear.",
-        },
+        { role: "user", content: userText },
       ],
-      temperature: 0.7,
-      max_tokens: 180,
     });
 
-    const replyText =
-      chat.choices?.[0]?.message?.content ||
-      "I'm here, but something went wrong with my reply text.";
+    const replyText = chat.choices[0].message?.content || "I'm here.";
 
-    console.log("Cipher reply:", replyText);
-
-    // ---- 4. Text → speech
+    // ---------------------------
+    // 4. Text → Speech
+    // ---------------------------
     const speech = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
       voice: "shimmer",
@@ -81,26 +82,27 @@ export default async function handler(req, res) {
       format: "mp3",
     });
 
-    const audioBuffer = Buffer.from(await speech.arrayBuffer());
+    const speechBuffer = Buffer.from(await speech.arrayBuffer());
 
     res.setHeader("Content-Type", "audio/mpeg");
-    res.status(200).send(audioBuffer);
+    res.status(200).send(speechBuffer);
   } catch (err) {
     console.error("voice_call error:", err);
-
-    let details = "Unknown error";
-    if (err?.response?.data) {
-      details = JSON.stringify(err.response.data);
-    } else if (err?.message) {
-      details = err.message;
-    } else {
-      try {
-        details = JSON.stringify(err);
-      } catch (_) {}
-    }
-
     res.status(500).json({
-      error: `Cipher voice pipeline failed: ${details}`,
+      error: `Cipher voice pipeline failed: ${
+        err?.message || "Unknown error"
+      }`,
     });
   }
+}
+
+// helper to read file buffer
+import fs from "fs";
+function fsRead(path) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(path, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
 }
