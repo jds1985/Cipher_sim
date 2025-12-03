@@ -1,7 +1,7 @@
 // pages/api/realtime.js
-// Cipher Realtime Voice — GPT-5.1 Realtime
+// Fully working realtime voice endpoint
 
-import { OpenAI } from "openai";
+import OpenAI from "openai";
 
 export const config = {
   api: {
@@ -9,35 +9,29 @@ export const config = {
   },
 };
 
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 export default async function handler(req, res) {
-  if (req.method !== "GET") {
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    // Create a Realtime Session
+    // Create a realtime session
     const session = await client.realtime.sessions.create({
-      model: "gpt-5.1-realtime",
-      voice: "natural",
-      instructions:
-        "You are Cipher. Speak naturally, emotionally, and like a real human.",
+      model: "gpt-4o-realtime-preview",   // WORKS TODAY
+      modalities: ["audio", "text"],
+      voice: "alloy",                     // Female voice
     });
 
-    // Upgrade to WebSocket for streaming voice
-    const upgrade = req.socket.server;
-    upgrade.on("upgrade", function (request, socket, head) {
-      if (request.url === "/api/realtime") {
-        session.connectWebSocket({ request, socket, head });
-      }
+    return res.status(200).json({ session });
+  } catch (err) {
+    console.error("Realtime error:", err);
+    return res.status(500).json({
+      error: "Failed to create realtime session",
+      details: err?.response?.data || err.toString(),
     });
-
-    res.status(200).json({ status: "Realtime voice session active" });
-  } catch (error) {
-    console.error("Realtime voice error:", error);
-    return res.status(500).json({ error: "Internal server error" });
   }
 }
