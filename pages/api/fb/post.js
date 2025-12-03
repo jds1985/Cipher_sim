@@ -1,5 +1,7 @@
 // pages/api/fb/post.js
-import { publishPagePost } from "../../../lib/facebook";
+// Post a message to Cipher's Facebook Page
+
+import { postToFacebookPage } from "../../../utils/facebook";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -10,13 +12,20 @@ export default async function handler(req, res) {
     const { message } = req.body;
 
     if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "Missing 'message' string" });
+      return res.status(400).json({ error: "Message is required" });
     }
 
-    const fbRes = await publishPagePost(message);
-    return res.status(200).json({ success: true, fbRes });
+    const response = await postToFacebookPage(message);
+
+    return res.status(200).json({
+      success: true,
+      fbResponse: response,
+    });
+
   } catch (err) {
-    console.error("[API fb/post] error:", err);
-    return res.status(500).json({ error: "Failed to publish to FB" });
+    return res.status(500).json({
+      error: "Failed to post to Facebook",
+      details: err.message,
+    });
   }
 }
