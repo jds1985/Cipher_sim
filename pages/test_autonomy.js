@@ -1,6 +1,4 @@
 // pages/test_autonomy.js
-// Simple browser page to trigger Cipher's autonomy API
-
 import { useState } from "react";
 
 export default function TestAutonomy() {
