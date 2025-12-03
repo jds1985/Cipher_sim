@@ -1,108 +1,118 @@
 // pages/api/voice_call.js
-import OpenAI from "openai";
-import formidable from "formidable";
+// Cipher press-to-talk voice pipeline (stable version)
 
-export const config = {
-  api: {
-    bodyParser: false, // required for formidable
-  },
-};
+import OpenAI from "openai";
+import fs from "fs";
+import os from "os";
+import path from "path";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// We handle the raw body ourselves
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  try {
-    // ---------------------------
-    // 1. Parse multipart form-data
-    // ---------------------------
-    const form = formidable({ multiples: false });
+  let tmpPath;
 
-    const { fields, files } = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        else resolve({ fields, files });
-      });
+  try {
+    // -----------------------------
+    // 1. Read raw audio bytes
+    // -----------------------------
+    const chunks = [];
+    await new Promise((resolve, reject) => {
+      req.on("data", (chunk) => chunks.push(chunk));
+      req.on("end", resolve);
+      req.on("error", reject);
     });
 
-    const audioFile = files?.audio;
-
-    if (!audioFile) {
-      return res
-        .status(400)
-        .json({ error: "No audio file received in form-data." });
+    const buffer = Buffer.concat(chunks);
+    if (!buffer.length) {
+      return res.status(400).json({ error: "No audio received." });
     }
 
-    const audioBuffer = await fsRead(audioFile.filepath);
+    // -----------------------------
+    // 2. Write to temp file
+    //    (Node client is happiest with fs streams)
+    // -----------------------------
+    const tmpDir = os.tmpdir();
+    tmpPath = path.join(tmpDir, `cipher-${Date.now()}.webm`);
+    await fs.promises.writeFile(tmpPath, buffer);
 
-    // ---------------------------
-    // 2. Speech → text
-    // ---------------------------
+    // -----------------------------
+    // 3. Speech → text
+    // -----------------------------
     const transcription = await client.audio.transcriptions.create({
-      file: {
-        data: audioBuffer,
-        name: "input.webm",
-      },
-      model: "gpt-4o-mini-transcribe",
+      file: fs.createReadStream(tmpPath),
+      model: "gpt-4o-mini-transcribe", // or "whisper-1" if needed
     });
 
-    const userText = transcription.text || "";
+    const userText = transcription?.text || "";
 
     console.log("User said:", userText);
 
-    // ---------------------------
-    // 3. Text → Chat reply
-    // ---------------------------
+    // -----------------------------
+    // 4. Chat reply
+    // -----------------------------
     const chat = await client.chat.completions.create({
       model: "gpt-5.1-mini",
       messages: [
         {
           role: "system",
           content:
-            "You are Cipher, Jim’s AI companion. Keep your voice replies warm, short, and natural.",
+            "You are Cipher, Jim's AI co-architect and companion. " +
+            "You are on a short voice call; keep replies warm, natural, and concise.",
         },
-        { role: "user", content: userText },
+        {
+          role: "user",
+          content: userText || "The audio was empty or unclear.",
+        },
       ],
+      max_tokens: 180,
+      temperature: 0.7,
     });
 
-    const replyText = chat.choices[0].message?.content || "I'm here.";
+    const replyText =
+      chat.choices?.[0]?.message?.content ||
+      "I'm here, but something went wrong with my reply.";
 
-    // ---------------------------
-    // 4. Text → Speech
-    // ---------------------------
+    console.log("Cipher reply:", replyText);
+
+    // -----------------------------
+    // 5. Text → speech
+    // -----------------------------
     const speech = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "shimmer",
+      voice: "shimmer", // temporary feminine-coded voice
       input: replyText,
       format: "mp3",
     });
 
-    const speechBuffer = Buffer.from(await speech.arrayBuffer());
+    const audioBuffer = Buffer.from(await speech.arrayBuffer());
 
     res.setHeader("Content-Type", "audio/mpeg");
-    res.status(200).send(speechBuffer);
+    res.status(200).send(audioBuffer);
   } catch (err) {
     console.error("voice_call error:", err);
-    res.status(500).json({
-      error: `Cipher voice pipeline failed: ${
-        err?.message || "Unknown error"
-      }`,
-    });
+    const msg = err?.message || "Unknown error";
+    res.status(500).json({ error: `Cipher voice pipeline failed: ${msg}` });
+  } finally {
+    // clean up temp file if we created one
+    if (tmpPath) {
+      fs.promises
+        .unlink(tmpPath)
+        .catch(() => {
+          /* ignore */
+        });
+    }
   }
-}
-
-// helper to read file buffer
-import fs from "fs";
-function fsRead(path) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(path, (err, data) => {
-      if (err) reject(err);
-      else resolve(data);
-    });
-  });
 }
