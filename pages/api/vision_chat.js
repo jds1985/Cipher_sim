@@ -1,5 +1,5 @@
 // pages/api/vision_chat.js
-// Cipher vision chat – image + memory + device → reply + optional TTS
+// Cipher Vision – GPT-5.1 Image Understanding
 
 import OpenAI from "openai";
 
@@ -13,85 +13,48 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image, memory, history, deviceContext, voice } = req.body;
+    const { image, prompt, memory } = req.body;
 
-    if (!image) {
-      return res.status(400).json({ error: "No image" });
+    if (!image || typeof image !== "string") {
+      return res.status(400).json({ error: "No image URL provided" });
     }
 
-    const historyMessages = Array.isArray(history)
-      ? history
-          .slice(-8)
-          .map((m) => ({
-            role: m.role === "cipher" ? "assistant" : "user",
-            content: m.text || "",
-          }))
-      : [];
+    const userPrompt =
+      prompt ||
+      "You are Cipher, an advanced vision assistant. Analyze this image and describe what you see, then answer any obvious questions a human might have about it.";
 
-    const systemBase =
-      "You are Cipher, an AI companion for Jim. " +
-      "The user has sent an image from his phone. " +
-      "Describe what you see and respond conversationally. " +
-      "Use memory JSON and device context when appropriate.";
-
-    const systemMemory = `User memory JSON:\n${JSON.stringify(
-      memory || {},
-      null,
-      2
-    )}`;
-
-    const systemDevice = deviceContext
-      ? `Current device context:\n${JSON.stringify(deviceContext, null, 2)}`
-      : "No device context is currently linked.";
+    const systemPrompt =
+      memory ||
+      "You are Cipher, an AI that understands images, scenes, objects and context. Be clear, direct, and helpful.";
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-5.1",
       messages: [
-        { role: "system", content: systemBase },
-        { role: "system", content: systemMemory },
-        { role: "system", content: systemDevice },
-        ...historyMessages,
+        {
+          role: "system",
+          content: systemPrompt,
+        },
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Here's a live image from my phone. Describe what you see and talk to me about it.",
+              text: userPrompt,
             },
             {
               type: "image_url",
-              image_url: {
-                url: `data:image/png;base64,${image}`,
-              },
+              image_url: { url: image },
             },
           ],
         },
       ],
     });
 
-    const reply =
-      completion.choices[0]?.message?.content?.trim() ||
-      "I see your image, but my vision pipeline glitched for a moment.";
+    const reply = completion.choices[0]?.message?.content || "";
 
-    let voiceBase64 = null;
-
-    if (voice !== false) {
-      try {
-        const audioResp = await client.audio.speech.create({
-          model: "gpt-4o-mini-tts",
-          voice: "verse",
-          input: reply,
-        });
-        const buffer = Buffer.from(await audioResp.arrayBuffer());
-        voiceBase64 = buffer.toString("base64");
-      } catch (e) {
-        console.error("TTS error (vision_chat):", e);
-      }
-    }
-
-    return res.status(200).json({ reply, voice: voiceBase64 });
+    return res.status(200).json({ reply });
   } catch (err) {
-    console.error("vision_chat error:", err);
-    return res.status(500).json({ error: "Server error" });
+    console.error("Cipher vision error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
