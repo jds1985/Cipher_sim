@@ -1,4 +1,3 @@
-// pages/fb-test.js
 import { useState } from "react";
 
 export default function FBTest() {
@@ -17,8 +16,8 @@ export default function FBTest() {
         body: JSON.stringify({ message }),
       });
 
-      const data = await res.json();
-      setOutput(JSON.stringify(data, null, 2));
+      const result = await res.json();
+      setOutput(JSON.stringify(result, null, 2));
     } catch (error) {
       setOutput("Error: " + error.message);
     }
@@ -27,7 +26,7 @@ export default function FBTest() {
   return (
     <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
       <h1>📡 Facebook Post Test</h1>
-      <p>Type a message below and click the button to make Cipher post to your Page.</p>
+      <p>Type a message below and click the button to post to Cipher’s Page.</p>
 
       <textarea
         value={message}
