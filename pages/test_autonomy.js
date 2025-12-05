@@ -2,63 +2,113 @@
 import { useState } from "react";
 
 export default function TestAutonomy() {
+  const [note, setNote] = useState("");
+  const [output, setOutput] = useState("Output will appear here...");
   const [loading, setLoading] = useState(false);
-  const [output, setOutput] = useState("");
 
-  async function runAutonomy() {
+  const runAutonomy = async () => {
     setLoading(true);
-    setOutput("");
+    setOutput("Running Cipher autonomy cycle...");
 
     try {
-      const res = await fetch("/api/cipher_autonomy", {
+      const res = await fetch("/api/autonomy", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ dryRun: false }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
       });
 
       const data = await res.json();
-      setOutput(JSON.stringify(data, null, 2));
+
+      if (!res.ok || data.error) {
+        setOutput("Error: " + (data.error || "Unknown error"));
+      } else {
+        // Pretty-print the reflection
+        setOutput(
+          [
+            `🔥 Autonomy Run ID: ${data.id}`,
+            `⏰ Time: ${data.createdAt}`,
+            "",
+            "📝 Note / Context:",
+            data.note,
+            "",
+            "💭 Cipher Reflection:",
+            data.reflection,
+          ].join("\n")
+        );
+      }
     } catch (err) {
       setOutput("Error: " + err.message);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <h1>🧪 Cipher Autonomy Test</h1>
-      <p>Click the button below to trigger Cipher's autonomous cycle.</p>
+    <div
+      style={{
+        padding: "24px",
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        maxWidth: "700px",
+        margin: "0 auto",
+      }}
+    >
+      <h1 style={{ fontSize: "28px", marginBottom: "8px" }}>
+        🧪 Cipher Autonomy Test
+      </h1>
+      <p style={{ marginBottom: "16px", lineHeight: 1.5 }}>
+        Type an optional note or context below, then click the button to trigger
+        Cipher&apos;s autonomy / dream run. The result will be saved to
+        Firestore and shown here.
+      </p>
+
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Example: Reflect on everything we've built this week and plan the next 3 moves."
+        style={{
+          width: "100%",
+          minHeight: "120px",
+          padding: "12px",
+          borderRadius: "10px",
+          border: "1px solid #ccc",
+          fontSize: "15px",
+          marginBottom: "16px",
+        }}
+      />
 
       <button
         onClick={runAutonomy}
+        disabled={loading}
         style={{
-          padding: "10px 20px",
-          background: "#6C3DFF",
-          color: "white",
+          width: "100%",
+          padding: "14px",
+          borderRadius: "12px",
           border: "none",
-          borderRadius: "8px",
           fontSize: "18px",
-          cursor: "pointer",
+          fontWeight: 600,
+          background: loading ? "#9c7dff" : "#7b4dff",
+          color: "white",
+          cursor: loading ? "default" : "pointer",
+          boxShadow: "0 8px 18px rgba(123, 77, 255, 0.35)",
         }}
       >
-        {loading ? "Running..." : "Run Cipher Autonomy"}
+        {loading ? "Running..." : "🚀 Run Cipher Autonomy"}
       </button>
 
       <pre
         style={{
-          marginTop: "20px",
-          background: "#111",
-          color: "#0f0",
-          padding: "15px",
-          borderRadius: "8px",
+          marginTop: "24px",
+          padding: "16px",
+          background: "#050505",
+          color: "#00ff66",
+          borderRadius: "10px",
+          minHeight: "220px",
           whiteSpace: "pre-wrap",
-          minHeight: "200px",
+          fontSize: "14px",
+          lineHeight: 1.5,
         }}
       >
-        {output || "Output will appear here..."}
+        {output}
       </pre>
     </div>
   );
