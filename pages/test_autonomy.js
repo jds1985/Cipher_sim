@@ -1,17 +1,18 @@
-// pages/test_autonomy.js
+// pages/test.js
 import { useState } from "react";
 
-export default function TestAutonomy() {
+export default function CipherAutonomyTest() {
   const [note, setNote] = useState("");
+  const [runId, setRunId] = useState(null);
+  const [version, setVersion] = useState(null);
+  const [reflection, setReflection] = useState("");
   const [loading, setLoading] = useState(false);
-  const [runId, setRunId] = useState("—");
-  const [version, setVersion] = useState("Cipher Autonomy v5");
-  const [report, setReport] = useState("(No output yet)");
 
-  const runAutonomy = async () => {
+  async function runAutonomy() {
     setLoading(true);
-    setReport("Running Cipher Autonomy v5...");
-    setRunId("—");
+    setReflection("");
+    setRunId(null);
+    setVersion(null);
 
     try {
       const res = await fetch("/api/autonomy", {
@@ -22,34 +23,39 @@ export default function TestAutonomy() {
 
       const data = await res.json();
 
-      if (data.error) {
-        setReport("Error: " + data.error);
+      // If backend error
+      if (!res.ok) {
+        setReflection("❌ API Error: " + (data.error || "Unknown issue"));
+        setLoading(false);
         return;
       }
 
-      setRunId(data.runId || "—");
-      setVersion(data.version || "Cipher Autonomy v5");
-      setReport(data.report || "(No output returned)");
+      // UI fix — these must match API keys
+      setRunId(data.autonomyRunId || "—");
+      setVersion(data.version || "—");
+      setReflection(data.reflection || data.output || "(No output returned)");
     } catch (err) {
-      setReport("Error: " + err.message);
+      console.error(err);
+      setReflection("❌ Network or server error.");
     }
 
     setLoading(false);
-  };
+  }
 
   return (
-    <div style={{ padding: "24px", maxWidth: "700px", margin: "0 auto" }}>
-      <h1>🧪 Cipher Autonomy Test</h1>
+    <div style={{ padding: "20px", fontFamily: "'Inter', sans-serif" }}>
+      <h1 style={{ fontSize: "32px" }}>🧪 Cipher Autonomy Test</h1>
 
       <textarea
+        placeholder="Type your autonomy instruction here…"
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="Enter autonomy note..."
         style={{
           width: "100%",
-          minHeight: "120px",
+          height: "150px",
           padding: "12px",
-          marginBottom: "16px",
+          fontSize: "16px",
+          marginTop: "15px",
         }}
       />
 
@@ -58,32 +64,38 @@ export default function TestAutonomy() {
         disabled={loading}
         style={{
           width: "100%",
-          padding: "14px",
-          background: "#7b4dff",
-          color: "#fff",
+          padding: "18px",
+          marginTop: "20px",
+          background: "#7c3aed",
+          color: "white",
           borderRadius: "10px",
-          fontSize: "18px",
-          marginBottom: "20px",
+          fontSize: "20px",
+          fontWeight: "bold",
         }}
       >
-        {loading ? "Running..." : "🚀 Run Cipher Autonomy"}
+        {loading ? "Running…" : "🚀 Run Cipher Autonomy"}
       </button>
 
-      <pre
-        style={{
-          background: "#000",
-          color: "#00ff66",
-          padding: "16px",
-          borderRadius: "12px",
-          whiteSpace: "pre-wrap",
-        }}
-      >
-{`🔥 Autonomy Run ID: ${runId}
-🧬 Version: ${version}
-
-💭 Cipher Reflection:
-${report}`}
-      </pre>
+      {/* RESULTS SECTION */}
+      {runId && (
+        <div
+          style={{
+            background: "black",
+            color: "#00ff88",
+            padding: "20px",
+            marginTop: "25px",
+            borderRadius: "12px",
+            fontFamily: "monospace",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          <div>🔥 <b>Autonomy Run ID:</b> {runId}</div>
+          <div>🧬 <b>Version:</b> {version}</div>
+          <br />
+          <div>💭 <b>Cipher Reflection:</b></div>
+          <div>{reflection}</div>
+        </div>
+      )}
     </div>
   );
 }
