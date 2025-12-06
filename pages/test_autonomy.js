@@ -22,17 +22,12 @@ export default function TestAutonomy() {
       if (!res.ok || data.error) {
         setOutput("Error: " + (data.error || "Unknown error"));
       } else {
-        // Pretty-print the reflection
         setOutput(
           [
-            `🔥 Autonomy Run ID: ${data.id}`,
-            `⏰ Time: ${data.createdAt}`,
-            "",
-            "📝 Note / Context:",
-            data.note,
+            `🔥 Autonomy Run ID: ${data.run_id}`,
             "",
             "💭 Cipher Reflection:",
-            data.reflection,
+            data.output,
           ].join("\n")
         );
       }
@@ -57,8 +52,7 @@ export default function TestAutonomy() {
       </h1>
       <p style={{ marginBottom: "16px", lineHeight: 1.5 }}>
         Type an optional note or context below, then click the button to trigger
-        Cipher&apos;s autonomy / dream run. The result will be saved to
-        Firestore and shown here.
+        Cipher&apos;s autonomy / dream run. The output will be shown here.
       </p>
 
       <textarea
