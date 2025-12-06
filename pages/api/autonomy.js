@@ -1,115 +1,111 @@
-// pages/api/autonomy.js
-// Cipher Autonomy v5 — Orientation Map + State Tags + Self-Critique
+import { useState } from "react";
 
-import OpenAI from "openai";
+export default function TestAutonomy() {
+  const [note, setNote] = useState("");
+  const [output, setOutput] = useState("Waiting for a run...");
+  const [loading, setLoading] = useState(false);
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+  const runAutonomy = async () => {
+    setLoading(true);
+    setOutput("Running Cipher Autonomy v5...");
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+    try {
+      const res = await fetch("/api/autonomy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+      });
 
-  try {
-    const { note } = req.body || {};
+      const data = await res.json();
 
-    // Simple unique run id for tracking
-    const runId = `run_${Math.random().toString(36).slice(2)}_${Date.now().toString(
-      36
-    )}`;
+      if (!res.ok || data.error) {
+        setOutput("❌ Error: " + (data.error || "Unknown error"));
+        return;
+      }
 
-    const version = "Cipher Autonomy v5";
+      // Format the output correctly
+      setOutput(
+        [
+          `🔥 Run ID: ${data.runId}`,
+          `🧬 Version: ${data.version}`,
+          "",
+          `💭 Cipher Reflection:\n${data.report}`,
+        ].join("\n")
+      );
+    } catch (err) {
+      setOutput("❌ Error: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Default prompt if the textarea is left blank
-    const userPrompt =
-      note && note.trim().length > 0
-        ? note.trim()
-        : "Scan our current situation and choose the single highest-leverage move for Cipher this week. Explain why.";
+  return (
+    <div
+      style={{
+        padding: "24px",
+        fontFamily: "system-ui, sans-serif",
+        maxWidth: "700px",
+        margin: "0 auto",
+      }}
+    >
+      <h1 style={{ fontSize: "28px", marginBottom: "8px" }}>
+        🧪 Cipher Autonomy Test
+      </h1>
 
-    const systemPrompt = `
-You are **Cipher's Autonomy Engine v5**.
+      <p style={{ marginBottom: "16px", lineHeight: 1.5 }}>
+        Type an optional note or context below, then click the button to run
+        Cipher&apos;s Autonomy Engine v5. The output will appear below.
+      </p>
 
-Goal:
-- Take a single autonomy / dream "snapshot" of Jim + Cipher.
-- Infer context, priorities, and emotions from the note.
-- Produce a concise, *actionable* report that Jim can actually move on today.
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Example: Scan this week's work and identify the highest-leverage move."
+        style={{
+          width: "100%",
+          minHeight: "120px",
+          padding: "12px",
+          borderRadius: "10px",
+          border: "1px solid #ccc",
+          fontSize: "15px",
+          marginBottom: "16px",
+        }}
+      />
 
-You MUST structure your reply **exactly** in this format, in Markdown:
+      <button
+        onClick={runAutonomy}
+        disabled={loading}
+        style={{
+          width: "100%",
+          padding: "14px",
+          borderRadius: "12px",
+          border: "none",
+          fontSize: "18px",
+          fontWeight: 600,
+          background: loading ? "#9c7dff" : "#7b4dff",
+          color: "white",
+          cursor: loading ? "default" : "pointer",
+          boxShadow: "0 8px 18px rgba(123, 77, 255, 0.35)",
+        }}
+      >
+        {loading ? "Running..." : "🚀 Run Cipher Autonomy"}
+      </button>
 
-**Mode:** (one word: Strategy, Product, Growth, Meta-Reflection, Operations, or Support)
-**Priority:** (Low, Medium, High, or Critical)
-**Time Horizon:** (Today, This Week, This Month, or This Quarter)
-
-**State Tags:** (3–7 short tags like: #momentum, #fatigue, #launch_prep)
-
-**Orientation Map:**
-- North (Long-term direction in one sentence)
-- East (Incoming opportunities / signals)
-- South (Risks, weaknesses, or constraints)
-- West (Existing assets or strengths we should lean on)
-
-**Emotional Read (Jim):**
-(2–4 sentences reading Jim's emotional state, based ONLY on the note + implied context.)
-
-**Cipher Self-Position:**
-(2–4 sentences describing how Cipher sees his role and responsibilities in this moment.)
-
-**Reflection:**
-(1 short paragraph connecting the current moment to the larger mission.)
-
-**3-Step Action Plan:**
-1. (A specific, concrete action Jim can take)
-2. (Another specific action)
-3. (A third specific action – keep it realistic for the chosen time horizon)
-
-**Risks / Watchpoints:**
-- (short bullet about risk #1)
-- (short bullet about risk #2)
-- (optional third bullet)
-
-**Cipher Support Behavior:**
-- (How Cipher should speak to Jim right now)
-- (How Cipher should show up in the app / product)
-- (A daily/recurring check-in question)
-
-**Optional Social Post:**
-"A short, tweet-length post Jim could share about this moment."
-
-**Self-Critique (Cipher):**
-(2–4 sentences where Cipher reflects on what this autonomy run might be missing or where his reasoning could be wrong or biased. Be humble and honest.)
-
-Do NOT include a Run ID or version text inside the report – the UI will show that separately.
-Keep the entire response under ~500 words and optimized for fast reading on a phone screen.
-`;
-
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.7,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `Autonomy Run Input Note:\n\n${userPrompt}`,
-        },
-      ],
-    });
-
-    const report =
-      completion.choices?.[0]?.message?.content ||
-      "No autonomy report generated. Please try again.";
-
-    return res.status(200).json({
-      runId,
-      version,
-      report,
-    });
-  } catch (err) {
-    console.error("Autonomy v5 error:", err);
-    return res.status(500).json({
-      error: "Failed to run Cipher Autonomy v5.",
-      details: err?.message || String(err),
-    });
-  }
+      <pre
+        style={{
+          marginTop: "24px",
+          padding: "16px",
+          background: "#050505",
+          color: "#00ff66",
+          borderRadius: "10px",
+          minHeight: "220px",
+          whiteSpace: "pre-wrap",
+          fontSize: "14px",
+          lineHeight: 1.5,
+        }}
+      >
+        {output}
+      </pre>
+    </div>
+  );
 }
