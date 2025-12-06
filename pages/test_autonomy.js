@@ -30,17 +30,20 @@ document.addEventListener("DOMContentLoaded", () => {
       runIdEl.textContent = run_id || "unknown";
       versionEl.textContent = version || "unknown";
 
-      // ⭐ Remove metadata that the model might include inside its output
-      let cleanedOutput = rawOutput
+      // ⭐ Stronger metadata filtering — removes ALL echoed metadata
+      let cleanedOutput = (rawOutput || "")
+        .replace(/🔥 Autonomy Run ID:.*/gi, "")
+        .replace(/🧬 Version:.*/gi, "")
         .replace(/Autonomy Run ID:.*/gi, "")
         .replace(/Version:.*/gi, "")
-        .replace(/Autonomy Output:/gi, "")
+        .replace(/Autonomy Output:.*/gi, "")
+        .replace(/Output:.*/gi, "")
         .trim();
 
       // ⭐ Safely render Markdown
       output.innerHTML = marked.parse(cleanedOutput || "No output received.");
 
-      // ⭐ Force layout recompute (fixes mobile browser “duplicate scroll” bug)
+      // ⭐ Force layout recompute (fixes mobile render bugs)
       output.style.minHeight = output.scrollHeight + "px";
 
     } catch (err) {
