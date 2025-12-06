@@ -1,91 +1,42 @@
-import { useState } from "react";
+// test.js — Corrected Version (Prevents Duplicate Output)
 
-export default function TestAutonomy() {
-  const [note, setNote] = useState("");
-  const [runId, setRunId] = useState("");
-  const [version, setVersion] = useState("");
-  const [output, setOutput] = useState("");
+document.addEventListener("DOMContentLoaded", () => {
+  const runBtn = document.getElementById("run-autonomy");
+  const output = document.getElementById("autonomy-output");
+  const runIdEl = document.getElementById("run-id");
+  const versionEl = document.getElementById("version");
 
-  async function runAutonomy() {
-    setOutput("Running...");
-
+  runBtn.addEventListener("click", async () => {
     try {
+      runBtn.disabled = true;
+      runBtn.innerText = "Running...";
+
+      // ⭐ FIX: Clear previous render BEFORE injecting new output
+      output.innerHTML = "";
+      runIdEl.textContent = "";
+      versionEl.textContent = "";
+
       const res = await fetch("/api/autonomy", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ note })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: true }),
       });
-
-      // If backend crashed, handle it cleanly
-      if (!res.ok) {
-        const errText = await res.text();
-        setOutput("Server error: " + errText);
-        return;
-      }
 
       const data = await res.json();
 
-      setRunId(data.autonomyRunId || "—");
-      setVersion(data.version || "—");
-      setOutput(data.reflection || "No output returned.");
+      // Add run ID + version
+      runIdEl.textContent = data.run_id || "unknown";
+      versionEl.textContent = data.version || "unknown";
+
+      // Render the model’s Markdown response cleanly
+      output.innerHTML = marked.parse(data.output || "No output received.");
+
     } catch (err) {
-      setOutput("Request failed: " + err.message);
+      console.error("Autonomy Error:", err);
+      output.innerHTML = `<p style="color:red;">Error running autonomy test.</p>`;
+    } finally {
+      runBtn.disabled = false;
+      runBtn.innerText = "🚀 Run Cipher Autonomy";
     }
-  }
-
-  return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <h1>🧪 Cipher Autonomy Test</h1>
-
-      <textarea
-        style={{
-          width: "100%",
-          height: "180px",
-          fontSize: "16px",
-          padding: "10px"
-        }}
-        placeholder="Enter autonomy note..."
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-      />
-
-      <button
-        onClick={runAutonomy}
-        style={{
-          width: "100%",
-          marginTop: "20px",
-          padding: "15px",
-          background: "#8b00ff",
-          color: "white",
-          fontSize: "20px",
-          borderRadius: "10px"
-        }}
-      >
-        🚀 Run Cipher Autonomy
-      </button>
-
-      <div
-        style={{
-          marginTop: "30px",
-          padding: "20px",
-          background: "#000",
-          color: "#0f0",
-          borderRadius: "10px",
-          fontSize: "16px",
-          whiteSpace: "pre-wrap"
-        }}
-      >
-        🔥 <b>Autonomy Run ID:</b> {runId}
-        <br />
-        🧬 <b>Version:</b> {version}
-        <br />
-        <br />
-        📝 <b>Autonomy Output:</b>
-        <br />
-        {output}
-      </div>
-    </div>
-  );
-}
+  });
+});
