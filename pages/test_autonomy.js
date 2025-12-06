@@ -1,21 +1,20 @@
-// pages/test.js
+// pages/test_autonomy.js
+
 import { useState } from "react";
 
-export default function CipherAutonomyTest() {
+export default function TestAutonomy() {
   const [note, setNote] = useState("");
-  const [runId, setRunId] = useState(null);
-  const [version, setVersion] = useState(null);
-  const [reflection, setReflection] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [output, setOutput] = useState("");
+  const [runId, setRunId] = useState("");
+  const [version, setVersion] = useState("");
 
   async function runAutonomy() {
-    setLoading(true);
-    setReflection("");
-    setRunId(null);
-    setVersion(null);
+    setOutput("Running...");
+    setRunId("");
+    setVersion("");
 
     try {
-      const res = await fetch("/api/autonomy", {
+      const res = await fetch("/api/autonomy_v7", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note }),
@@ -23,79 +22,95 @@ export default function CipherAutonomyTest() {
 
       const data = await res.json();
 
-      // If backend error
-      if (!res.ok) {
-        setReflection("❌ API Error: " + (data.error || "Unknown issue"));
-        setLoading(false);
+      if (data.error) {
+        setOutput("Error: " + data.error);
         return;
       }
 
-      // UI fix — these must match API keys
       setRunId(data.autonomyRunId || "—");
-      setVersion(data.version || "—");
-      setReflection(data.reflection || data.output || "(No output returned)");
+      setVersion(data.version || "Cipher Autonomy v7");
+      setOutput(data.output || "(No output returned)");
     } catch (err) {
-      console.error(err);
-      setReflection("❌ Network or server error.");
+      setOutput("Request failed: " + err.message);
     }
-
-    setLoading(false);
   }
 
   return (
-    <div style={{ padding: "20px", fontFamily: "'Inter', sans-serif" }}>
-      <h1 style={{ fontSize: "32px" }}>🧪 Cipher Autonomy Test</h1>
+    <div
+      style={{
+        maxWidth: "900px",
+        margin: "0 auto",
+        padding: "20px",
+        fontFamily: "Inter, sans-serif",
+      }}
+    >
+      <h1 style={{ fontSize: "2rem", marginBottom: "10px" }}>
+        🧪 Cipher Autonomy Test
+      </h1>
 
       <textarea
-        placeholder="Type your autonomy instruction here…"
+        placeholder="Enter autonomy note..."
         value={note}
         onChange={(e) => setNote(e.target.value)}
         style={{
           width: "100%",
-          height: "150px",
+          height: "160px",
           padding: "12px",
-          fontSize: "16px",
-          marginTop: "15px",
+          fontSize: "1rem",
+          borderRadius: "10px",
+          border: "2px solid #ccc",
+          marginBottom: "20px",
+          fontFamily: "monospace",
+          whiteSpace: "pre-wrap",
         }}
       />
 
       <button
         onClick={runAutonomy}
-        disabled={loading}
         style={{
           width: "100%",
           padding: "18px",
-          marginTop: "20px",
-          background: "#7c3aed",
+          fontSize: "1.3rem",
+          background: "#8b4dff",
           color: "white",
-          borderRadius: "10px",
-          fontSize: "20px",
-          fontWeight: "bold",
+          border: "none",
+          borderRadius: "12px",
+          cursor: "pointer",
+          fontWeight: "600",
+          marginBottom: "30px",
         }}
       >
-        {loading ? "Running…" : "🚀 Run Cipher Autonomy"}
+        🚀 Run Cipher Autonomy
       </button>
 
-      {/* RESULTS SECTION */}
-      {runId && (
+      {output ? (
         <div
           style={{
             background: "black",
             color: "#00ff88",
             padding: "20px",
-            marginTop: "25px",
             borderRadius: "12px",
             fontFamily: "monospace",
+            fontSize: "0.95rem",
             whiteSpace: "pre-wrap",
           }}
         >
-          <div>🔥 <b>Autonomy Run ID:</b> {runId}</div>
-          <div>🧬 <b>Version:</b> {version}</div>
+          <div>
+            🔥 <b>Autonomy Run ID:</b> {runId}
+          </div>
+          <div>
+            🧬 <b>Version:</b> {version}
+          </div>
+
           <br />
-          <div>💭 <b>Cipher Reflection:</b></div>
-          <div>{reflection}</div>
+
+          <div>
+            📄 <b>Autonomy Output:</b>
+          </div>
+
+          <div style={{ marginTop: "10px" }}>{output}</div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
