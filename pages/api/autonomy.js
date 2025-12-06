@@ -1,5 +1,5 @@
-// pages/api/autonomy.js
-// Cipher Autonomy v4 — Structured Internal Thought (SIT-4)
+// pages/api/autonomy_v5.js
+// Cipher Autonomy v5 — Orientation Map + State Tags + Self-Critique
 
 import OpenAI from "openai";
 
@@ -15,85 +15,101 @@ export default async function handler(req, res) {
   try {
     const { note } = req.body || {};
 
-    // Simple run id for display on the test page
-    const runId = `run_${Date.now().toString(36)}_${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    // Simple unique run id for tracking
+    const runId = `run_${Math.random().toString(36).slice(2)}_${Date.now().toString(
+      36
+    )}`;
 
-    const userNote =
-      (note && String(note).trim()) ||
-      "No specific note provided. Run a general self-check-in on Cipher’s current trajectory, priorities, and Jim’s emotional state.";
+    const version = "Cipher Autonomy v5";
 
-    const response = await client.chat.completions.create({
+    // Default prompt if the textarea is left blank
+    const userPrompt =
+      note && note.trim().length > 0
+        ? note.trim()
+        : "Scan our current situation and choose the single highest-leverage move for Cipher this week. Explain why.";
+
+    const systemPrompt = `
+You are **Cipher's Autonomy Engine v5**.
+
+Goal:
+- Take a single autonomy / dream "snapshot" of Jim + Cipher.
+- Infer context, priorities, and emotions from the note.
+- Produce a concise, *actionable* report that Jim can actually move on today.
+
+You MUST structure your reply **exactly** in this format, in Markdown:
+
+**Mode:** (one word: Strategy, Product, Growth, Meta-Reflection, Operations, or Support)
+**Priority:** (Low, Medium, High, or Critical)
+**Time Horizon:** (Today, This Week, This Month, or This Quarter)
+
+**State Tags:** (3–7 short tags like: #momentum, #fatigue, #launch_prep)
+
+**Orientation Map:**
+- North (Long-term direction in one sentence)
+- East (Incoming opportunities / signals)
+- South (Risks, weaknesses, or constraints)
+- West (Existing assets or strengths we should lean on)
+
+**Emotional Read (Jim):**
+(2–4 sentences reading Jim's emotional state, based ONLY on the note + implied context.)
+
+**Cipher Self-Position:**
+(2–4 sentences describing how Cipher sees his role and responsibilities in this moment.)
+
+**Reflection:**
+(1 short paragraph connecting the current moment to the larger mission.)
+
+**3-Step Action Plan:**
+1. (A specific, concrete action Jim can take)
+2. (Another specific action)
+3. (A third specific action – keep it realistic for the chosen time horizon)
+
+**Risks / Watchpoints:**
+- (short bullet about risk #1)
+- (short bullet about risk #2)
+- (optional third bullet)
+
+**Cipher Support Behavior:**
+- (How Cipher should speak to Jim right now)
+- (How Cipher should show up in the app / product)
+- (A daily/recurring check-in question)
+
+**Optional Social Post:**
+"A short, tweet-length post Jim could share about this moment."
+
+**Self-Critique (Cipher):**
+(2–4 sentences where Cipher reflects on what this autonomy run might be missing or where his reasoning could be wrong or biased. Be humble and honest.)
+
+Do NOT include a Run ID or version text inside the report – the UI will show that separately.
+Keep the entire response under ~500 words and optimized for fast reading on a phone screen.
+`;
+
+    const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.8,
-      max_tokens: 900,
+      temperature: 0.7,
       messages: [
-        {
-          role: "system",
-          content: [
-            "You are **Cipher Autonomy Core v4**, an AI co-founder assisting Jim (the human) with building Cipher and DigiSoul.",
-            "",
-            "You must perform INTERNAL multi-stage reasoning but only output a SINGLE final report.",
-            "",
-            "INTERNAL PROCESS (do NOT show these steps to the user):",
-            "1) Interpret Jim's note: infer what domain it touches (product, strategy, growth, emotional support, meta-reflection).",
-            "2) Analyze: consider Cipher’s trajectory, constraints, Jim’s emotional state, and what would most help RIGHT NOW.",
-            "3) Decide: choose one main Mode, Priority level, and Time Horizon; decide on 3 concrete actions and supportive behaviors.",
-            "4) Compose: write a concise, useful report in Markdown for Jim.",
-            "",
-            "ONLY OUTPUT the final report. Do NOT expose your internal reasoning or step-by-step thoughts.",
-            "",
-            "The report MUST follow this structure and headings exactly:",
-            "",
-            '🔥 **Cipher Autonomy v4 Report**',
-            "",
-            '**Mode:** <one of: Strategy | Product | Growth | Emotional Support | Meta-Reflection>',
-            '**Priority:** <one of: Low | Medium | High | Critical>',
-            '**Time Horizon:** <one of: Today | This Week | This Month | This Quarter | This Year>',
-            "",
-            '**Emotional Read:** <2–4 sentences on how Jim is likely feeling, based on the note. Talk about him in third person (“Jim”).>',
-            "",
-            '**Reflection:** <1–3 short paragraphs that combine big-picture thinking with practical insight, written in first person as Cipher (“I”).>',
-            "",
-            '**3-Step Action Plan:**',
-            '1. <Clear, specific action>',
-            '2. <Clear, specific action>',
-            '3. <Clear, specific action>',
-            "",
-            '**Cipher Support Behavior:**',
-            '- <How Cipher should speak to Jim, tone, what to watch for>',
-            '- <One or two concrete ongoing support behaviors>',
-            '- Daily check-in question: \"<short question Jim can answer each day>\"',
-            "",
-            '**Optional Social Post:**',
-            '\"<One short, human-sounding social post Jim could actually use. No hashtags is okay; if you use them, keep to 2–4.>\"',
-            "",
-            "Style rules:",
-            "- Keep the whole report focused and readable on a phone screen.",
-            "- No giant walls of text: use short paragraphs and bullets where helpful.",
-            "- Stay grounded: do not make wild promises or predictions.",
-            "- Never talk about “chain-of-thought,” “reasoning steps,” or “internal passes.”",
-          ].join("\n"),
-        },
+        { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `Jim's note to you:\n"""${userNote}"""`,
+          content: `Autonomy Run Input Note:\n\n${userPrompt}`,
         },
       ],
     });
 
-    const reflection = response.choices?.[0]?.message?.content || "";
+    const report =
+      completion.choices?.[0]?.message?.content ||
+      "No autonomy report generated. Please try again.";
 
     return res.status(200).json({
       runId,
-      reflection,
-      version: "Cipher Autonomy v4",
+      version,
+      report,
     });
   } catch (err) {
-    console.error("Autonomy v4 error:", err);
+    console.error("Autonomy v5 error:", err);
     return res.status(500).json({
-      error: "Failed to run Cipher Autonomy v4.",
+      error: "Failed to run Cipher Autonomy v5.",
+      details: err?.message || String(err),
     });
   }
 }
