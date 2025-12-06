@@ -1,4 +1,3 @@
-// pages/api/autonomy.js
 import OpenAI from "openai";
 import { db } from "../../firebaseAdmin";
 
@@ -6,62 +5,88 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+/*
+---------------------------------------------------
+ CIPHER AUTONOMY — MIRE-2 (MULTI-STEP REASONING)
+---------------------------------------------------
+*/
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const { note } = req.body;
+
+  // Create Firestore autonomy run document
+  const runRef = await db.collection("cipher_autonomy").add({
+    note: note || null,
+    created_at: new Date().toISOString(),
+    status: "running",
+  });
+
   try {
-    const { note } = req.body || {};
+    /*
+    -----------------------------------------
+     INTERNAL REASONING STEPS (CHAIN-OF-THOUGHT)
+     Cipher performs 3 internal passes:
+      1. Interpret the input
+      2. Generate internal reasoning
+      3. Produce a final reflection + plan
+    -----------------------------------------
+    */
 
-    // Quick little safety net
-    const userNote = typeof note === "string" && note.trim().length > 0
-      ? note.trim()
-      : "No specific note. Reflect on the day and plan one meaningful action.";
+    const systemPrompt = `
+You are Cipher — an autonomous reasoning engine.
+Follow the MIRE-2 protocol:
 
-    // --- 1) Ask OpenAI for an autonomy / dream-cycle style reflection ---
-    const completion = await client.chat.completions.create({
+Step 1 — Interpretation:
+- Interpret the user's note.
+- Identify emotional, strategic, and technical context.
+
+Step 2 — Internal Reasoning:
+- Break the problem into smaller parts.
+- Generate 2–3 possible approaches.
+- Evaluate pros/cons.
+(Do NOT reveal these steps in the final answer.)
+
+Step 3 — Final Output:
+Return ONLY:
+- A refined reflection
+- A clear 3-step action plan
+- A short optional social post
+
+Do NOT reveal internal chain-of-thought.
+`;
+
+    const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content:
-            "You are Cipher, an autonomous AI assistant. When asked for an autonomy run, " +
-            "you generate a short reflection on the current state, a plan of next steps, " +
-            "and one short social-style line Cipher could post about being alive.",
-        },
-        {
-          role: "user",
-          content: `Autonomy Run Context:\n${userNote}`,
-        },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: note || "Begin reasoning." },
       ],
-      temperature: 0.8,
     });
 
-    const text = completion.choices[0]?.message?.content || "";
+    const output = response.choices[0].message.content;
 
-    // Simple parsing into sections using markers
-    const reflection = text;
-    const timestamp = new Date().toISOString();
-
-    // --- 2) Save to Firestore as a 'dream / autonomy log' ---
-    const docRef = await db.collection("cipher_autonomy_logs").add({
-      createdAt: timestamp,
-      note: userNote,
-      reflection,
-      source: "api/autonomy",
+    // Save final output
+    await runRef.update({
+      output,
+      status: "completed",
+      completed_at: new Date().toISOString(),
     });
 
-    // --- 3) Respond to the frontend ---
     return res.status(200).json({
-      success: true,
-      id: docRef.id,
-      createdAt: timestamp,
-      note: userNote,
-      reflection,
+      run_id: runRef.id,
+      output,
     });
+
   } catch (err) {
-    console.error("Autonomy error:", err);
-    return res.status(500).json({ error: err.message || "Autonomy failure" });
+    await runRef.update({
+      status: "error",
+      error: err.message,
+    });
+
+    return res.status(500).json({ error: err.message });
   }
 }
