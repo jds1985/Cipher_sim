@@ -1,4 +1,4 @@
-// pages/api/autonomy_v5.js
+// pages/api/autonomy.js
 // Cipher Autonomy v5 — Orientation Map + State Tags + Self-Critique
 
 import OpenAI from "openai";
