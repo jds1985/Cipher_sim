@@ -1,47 +1,65 @@
-import Head from "next/head";
-import Script from "next/script";
+// pages/test_autonomy.js
 
 export default function TestAutonomy() {
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <Head>
-        <title>Cipher Autonomy Test</title>
-      </Head>
-
       <h1>🧪 Cipher Autonomy Test</h1>
       <p>Run the v8 autonomy engine below.</p>
 
-      <div style={{ marginBottom: "20px" }}>
-        <button id="run-autonomy"
-          style={{
-            background: "#7a00ff",
-            color: "white",
-            padding: "12px 20px",
-            borderRadius: "8px",
-            border: "none",
-            fontSize: "18px",
-          }}
-        >
-          🚀 Run Cipher Autonomy
-        </button>
-      </div>
+      {/* Input box */}
+      <textarea
+        id="autonomy-note"
+        placeholder="Enter a note for Cipher Autonomy v8..."
+        style={{
+          width: "100%",
+          height: "120px",
+          padding: "10px",
+          borderRadius: "8px",
+          border: "1px solid #ccc",
+          marginBottom: "15px",
+          fontSize: "16px"
+        }}
+      ></textarea>
 
-      <div>
-        <p><strong>Run ID:</strong> <span id="run-id"></span></p>
-        <p><strong>Version:</strong> <span id="version"></span></p>
-      </div>
+      {/* Run Button */}
+      <button
+        id="run-autonomy"
+        style={{
+          background: "#8a2be2",
+          color: "white",
+          padding: "15px",
+          border: "none",
+          borderRadius: "10px",
+          fontSize: "18px",
+          width: "100%",
+          cursor: "pointer"
+        }}
+      >
+        🚀 Run Cipher Autonomy
+      </button>
 
-      <div id="autonomy-output" style={{
-        background: "black",
-        color: "#00ff00",
-        padding: "15px",
-        borderRadius: "8px",
-        minHeight: "200px",
-        whiteSpace: "pre-wrap"
-      }}></div>
+      <h3>Run ID:</h3>
+      <p id="run-id"></p>
 
-      <Script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" />
-      <Script src="/test.js" />
+      <h3>Version:</h3>
+      <p id="version"></p>
+
+      {/* Output */}
+      <div
+        id="autonomy-output"
+        style={{
+          background: "black",
+          color: "#00ff66",
+          padding: "20px",
+          borderRadius: "12px",
+          marginTop: "20px",
+          whiteSpace: "pre-wrap",
+          minHeight: "200px"
+        }}
+      ></div>
+
+      {/* Load Test Script */}
+      <script src="/test.js"></script>
     </div>
   );
 }
