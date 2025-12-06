@@ -1,4 +1,4 @@
-// test.js — Corrected Version (Prevents Duplicate Output)
+// test.js — FINAL FIXED VERSION (Removes metadata & prevents double render)
 
 document.addEventListener("DOMContentLoaded", () => {
   const runBtn = document.getElementById("run-autonomy");
@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
       runBtn.disabled = true;
       runBtn.innerText = "Running...";
 
-      // ⭐ FIX: Clear previous render BEFORE injecting new output
+      // FULL RESET — prevents duplication on mobile
       output.innerHTML = "";
       runIdEl.textContent = "";
       versionEl.textContent = "";
@@ -19,20 +19,32 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/autonomy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ test: true }),
+        body: JSON.stringify({ test: true })
       });
 
       const data = await res.json();
 
-      // Add run ID + version
-      runIdEl.textContent = data.run_id || "unknown";
-      versionEl.textContent = data.version || "unknown";
+      const { run_id, version, output: rawOutput } = data;
 
-      // Render the model’s Markdown response cleanly
-      output.innerHTML = marked.parse(data.output || "No output received.");
+      // ⭐ Place metadata in their correct UI spots
+      runIdEl.textContent = run_id || "unknown";
+      versionEl.textContent = version || "unknown";
+
+      // ⭐ Remove metadata that the model might include inside its output
+      let cleanedOutput = rawOutput
+        .replace(/Autonomy Run ID:.*/gi, "")
+        .replace(/Version:.*/gi, "")
+        .replace(/Autonomy Output:/gi, "")
+        .trim();
+
+      // ⭐ Safely render Markdown
+      output.innerHTML = marked.parse(cleanedOutput || "No output received.");
+
+      // ⭐ Force layout recompute (fixes mobile browser “duplicate scroll” bug)
+      output.style.minHeight = output.scrollHeight + "px";
 
     } catch (err) {
-      console.error("Autonomy Error:", err);
+      console.error("Autonomy Test Error:", err);
       output.innerHTML = `<p style="color:red;">Error running autonomy test.</p>`;
     } finally {
       runBtn.disabled = false;
