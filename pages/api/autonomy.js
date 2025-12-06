@@ -106,8 +106,9 @@ Now process the autonomy note below:
     return res.status(200).json({
       autonomyRunId,
       version,
-      output,
+      reflection: output,  // <— REQUIRED BY THE UI
     });
+
   } catch (err) {
     console.error("Autonomy v7 error:", err);
     return res.status(500).json({ error: "Internal server error" });
