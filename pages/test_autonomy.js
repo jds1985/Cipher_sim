@@ -24,10 +24,11 @@ export default function TestAutonomy() {
       } else {
         setOutput(
           [
-            `🔥 Autonomy Run ID: ${data.run_id}`,
+            `🔥 Autonomy Run ID: ${data.runId || "N/A"}`,
+            `🧬 Version: ${data.version || "Unknown"}`,
             "",
             "💭 Cipher Reflection:",
-            data.output,
+            data.reflection || "(no reflection returned)",
           ].join("\n")
         );
       }
@@ -58,7 +59,7 @@ export default function TestAutonomy() {
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="Example: Reflect on everything we've built this week and plan the next 3 moves."
+        placeholder="Example: Analyze our last 72 hours of development."
         style={{
           width: "100%",
           minHeight: "120px",
