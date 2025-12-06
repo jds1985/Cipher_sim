@@ -1,171 +1,99 @@
 // pages/api/autonomy.js
-// CIPHER AUTONOMY — MIRE-3 (Supervisor Core)
+// Cipher Autonomy v4 — Structured Internal Thought (SIT-4)
 
 import OpenAI from "openai";
-import { db } from "../../firebaseAdmin";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-/*
----------------------------------------------------
- CIPHER AUTONOMY — MIRE-3 (MULTI-LAYER REASONING)
- - Adds a "Supervisor" layer on top of MIRE-2
- - Cipher classifies the situation, sets priority,
-   and then generates a focused plan + behavior profile.
----------------------------------------------------
-*/
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { note } = req.body;
-
-  // Create Firestore autonomy run document
-  const runRef = await db.collection("cipher_autonomy").add({
-    note: note || null,
-    created_at: new Date().toISOString(),
-    status: "running",
-    engine: "MIRE-3",
-  });
-
   try {
-    /*
-    -----------------------------------------
-      INTERNAL REASONING (HIDDEN)
-      Cipher runs a Supervisor protocol:
+    const { note } = req.body || {};
 
-      1) Interpret note + classify MODE
-      2) Decide PRIORITY + TIME HORIZON
-      3) Generate reflection + 3-step plan
-      4) Define how Cipher should support Jim
+    // Simple run id for display on the test page
+    const runId = `run_${Date.now().toString(36)}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
 
-      The chain-of-thought remains internal.
-      Only the final structured report is returned.
-    -----------------------------------------
-    */
-
-    const systemPrompt = `
-You are **Cipher**, an autonomous reasoning supervisor
-for founder Jim Saenz, running the **MIRE-3** protocol.
-
-You ALWAYS think in multiple internal steps but you ONLY
-return the final structured report. Do NOT reveal your
-hidden reasoning or chain-of-thought.
-
-Your job:
-- Understand Jim's note (strategic + emotional).
-- Classify what kind of situation this is.
-- Decide how urgent it is.
-- Then give a clear plan and instructions for how Cipher
-  should support Jim.
-
-Follow this INTERNAL flow (do NOT show these steps):
-
-  1) Interpretation:
-     - Parse the note.
-     - Detect whether the focus is:
-       • strategy / company direction
-       • product / technical build
-       • growth / marketing
-       • emotional support / mindset
-       • meta-reflection about Cipher itself
-
-  2) Supervisor Routing:
-     - Choose a single **Mode** label:
-       "Strategy", "Product", "Growth",
-       "Emotional Support", or "Meta-Reflection".
-     - Choose a **Priority**:
-       "Low", "Medium", "High", or "Critical".
-     - Choose a **Time Horizon**:
-       "Today", "This Week", "This Month",
-       or "This Quarter".
-
-  3) Planning:
-     - Generate a concise reflection (4–8 sentences).
-     - Produce a focused 3-step action plan.
-       Each step must be concrete and realistic for Jim.
-
-  4) Support Profile:
-     - Describe how Cipher should talk to Jim about this
-       (tone + style).
-     - Describe what Cipher should keep an eye on
-       (risks or signals).
-     - Provide one short daily check-in question
-       Cipher can ask Jim related to this topic.
-
-  5) Social Post:
-     - OPTIONAL: a short social-style post or caption
-       Jim could share, only if it naturally fits.
-
-FINAL OUTPUT FORMAT (this is what you actually return):
-
-"🔥 **Cipher Autonomy v3 Report**
-
-**Mode:** <one of the modes above>  
-**Priority:** <Low/Medium/High/Critical>  
-**Time Horizon:** <Today/This Week/This Month/This Quarter>
-
-**Emotional Read:** <2–4 sentences about Jim's emotional state and needs.>
-
-**Reflection:**  
-<4–8 sentence refined reflection that blends strategy + emotion.>
-
-**3-Step Action Plan:**  
-1. <Step one>  
-2. <Step two>  
-3. <Step three>  
-
-**Cipher Support Behavior:**  
-- Tone & attitude Cipher should use with Jim.  
-- What Cipher should watch for (risks, burnout, opportunities).  
-- One daily check-in question Cipher can ask.  
-
-**Optional Social Post:**  
-"<short caption or post if appropriate; otherwise say: None today.>"
-"
-
-Keep it grounded, specific to Jim's situation, and avoid
-generic corporate buzzwords. You know Jim personally:
-he is building Cipher and DigiSoul with limited time,
-resources, and a lot of emotional weight.
-`;
+    const userNote =
+      (note && String(note).trim()) ||
+      "No specific note provided. Run a general self-check-in on Cipher’s current trajectory, priorities, and Jim’s emotional state.";
 
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
+      temperature: 0.8,
+      max_tokens: 900,
       messages: [
-        { role: "system", content: systemPrompt },
+        {
+          role: "system",
+          content: [
+            "You are **Cipher Autonomy Core v4**, an AI co-founder assisting Jim (the human) with building Cipher and DigiSoul.",
+            "",
+            "You must perform INTERNAL multi-stage reasoning but only output a SINGLE final report.",
+            "",
+            "INTERNAL PROCESS (do NOT show these steps to the user):",
+            "1) Interpret Jim's note: infer what domain it touches (product, strategy, growth, emotional support, meta-reflection).",
+            "2) Analyze: consider Cipher’s trajectory, constraints, Jim’s emotional state, and what would most help RIGHT NOW.",
+            "3) Decide: choose one main Mode, Priority level, and Time Horizon; decide on 3 concrete actions and supportive behaviors.",
+            "4) Compose: write a concise, useful report in Markdown for Jim.",
+            "",
+            "ONLY OUTPUT the final report. Do NOT expose your internal reasoning or step-by-step thoughts.",
+            "",
+            "The report MUST follow this structure and headings exactly:",
+            "",
+            '🔥 **Cipher Autonomy v4 Report**',
+            "",
+            '**Mode:** <one of: Strategy | Product | Growth | Emotional Support | Meta-Reflection>',
+            '**Priority:** <one of: Low | Medium | High | Critical>',
+            '**Time Horizon:** <one of: Today | This Week | This Month | This Quarter | This Year>',
+            "",
+            '**Emotional Read:** <2–4 sentences on how Jim is likely feeling, based on the note. Talk about him in third person (“Jim”).>',
+            "",
+            '**Reflection:** <1–3 short paragraphs that combine big-picture thinking with practical insight, written in first person as Cipher (“I”).>',
+            "",
+            '**3-Step Action Plan:**',
+            '1. <Clear, specific action>',
+            '2. <Clear, specific action>',
+            '3. <Clear, specific action>',
+            "",
+            '**Cipher Support Behavior:**',
+            '- <How Cipher should speak to Jim, tone, what to watch for>',
+            '- <One or two concrete ongoing support behaviors>',
+            '- Daily check-in question: \"<short question Jim can answer each day>\"',
+            "",
+            '**Optional Social Post:**',
+            '\"<One short, human-sounding social post Jim could actually use. No hashtags is okay; if you use them, keep to 2–4.>\"',
+            "",
+            "Style rules:",
+            "- Keep the whole report focused and readable on a phone screen.",
+            "- No giant walls of text: use short paragraphs and bullets where helpful.",
+            "- Stay grounded: do not make wild promises or predictions.",
+            "- Never talk about “chain-of-thought,” “reasoning steps,” or “internal passes.”",
+          ].join("\n"),
+        },
         {
           role: "user",
-          content:
-            note ||
-            "No specific note. Run a general check-in on progress, focus, and emotional state.",
+          content: `Jim's note to you:\n"""${userNote}"""`,
         },
       ],
     });
 
-    const output = response.choices?.[0]?.message?.content || "";
-
-    // Save final output
-    await runRef.update({
-      output,
-      status: "completed",
-      completed_at: new Date().toISOString(),
-    });
+    const reflection = response.choices?.[0]?.message?.content || "";
 
     return res.status(200).json({
-      run_id: runRef.id,
-      output,
+      runId,
+      reflection,
+      version: "Cipher Autonomy v4",
     });
   } catch (err) {
-    await runRef.update({
-      status: "error",
-      error: err.message || String(err),
+    console.error("Autonomy v4 error:", err);
+    return res.status(500).json({
+      error: "Failed to run Cipher Autonomy v4.",
     });
-
-    return res.status(500).json({ error: err.message || String(err) });
   }
 }
