@@ -1,13 +1,17 @@
+// pages/test_autonomy.js
 import { useState } from "react";
 
 export default function TestAutonomy() {
   const [note, setNote] = useState("");
-  const [output, setOutput] = useState("Output will appear here...");
   const [loading, setLoading] = useState(false);
+  const [runId, setRunId] = useState("—");
+  const [version, setVersion] = useState("Cipher Autonomy v5");
+  const [report, setReport] = useState("(No output yet)");
 
   const runAutonomy = async () => {
     setLoading(true);
-    setOutput("Running Cipher autonomy cycle...");
+    setReport("Running Cipher Autonomy v5...");
+    setRunId("—");
 
     try {
       const res = await fetch("/api/autonomy", {
@@ -18,57 +22,33 @@ export default function TestAutonomy() {
 
       const data = await res.json();
 
-      if (!res.ok || data.error) {
-        setOutput("Error: " + (data.error || "Unknown error"));
-      } else {
-        setOutput(
-          [
-            `🔥 Autonomy Run ID: ${data.run_id}`,
-            `🧬 Version: ${data.version || "Cipher Autonomy v5"}`,
-            `⏰ Time: ${data.created_at || "—"}`,
-            "",
-            "💭 Cipher Reflection:",
-            data.output || "(No output returned)",
-          ].join("\n")
-        );
+      if (data.error) {
+        setReport("Error: " + data.error);
+        return;
       }
+
+      setRunId(data.runId || "—");
+      setVersion(data.version || "Cipher Autonomy v5");
+      setReport(data.report || "(No output returned)");
     } catch (err) {
-      setOutput("Error: " + err.message);
-    } finally {
-      setLoading(false);
+      setReport("Error: " + err.message);
     }
+
+    setLoading(false);
   };
 
   return (
-    <div
-      style={{
-        padding: "24px",
-        fontFamily:
-          "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-        maxWidth: "700px",
-        margin: "0 auto",
-      }}
-    >
-      <h1 style={{ fontSize: "28px", marginBottom: "8px" }}>
-        🧪 Cipher Autonomy Test
-      </h1>
-      <p style={{ marginBottom: "16px", lineHeight: 1.5 }}>
-        Type an optional note or context below, then click the button to
-        trigger Cipher&apos;s autonomy / dream run. The output will be
-        shown here.
-      </p>
+    <div style={{ padding: "24px", maxWidth: "700px", margin: "0 auto" }}>
+      <h1>🧪 Cipher Autonomy Test</h1>
 
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="Example: Analyze the last 72 hours..."
+        placeholder="Enter autonomy note..."
         style={{
           width: "100%",
           minHeight: "120px",
           padding: "12px",
-          borderRadius: "10px",
-          border: "1px solid #ccc",
-          fontSize: "15px",
           marginBottom: "16px",
         }}
       />
@@ -79,14 +59,11 @@ export default function TestAutonomy() {
         style={{
           width: "100%",
           padding: "14px",
-          borderRadius: "12px",
-          border: "none",
+          background: "#7b4dff",
+          color: "#fff",
+          borderRadius: "10px",
           fontSize: "18px",
-          fontWeight: 600,
-          background: loading ? "#9c7dff" : "#7b4dff",
-          color: "white",
-          cursor: loading ? "default" : "pointer",
-          boxShadow: "0 8px 18px rgba(123, 77, 255, 0.35)",
+          marginBottom: "20px",
         }}
       >
         {loading ? "Running..." : "🚀 Run Cipher Autonomy"}
@@ -94,18 +71,18 @@ export default function TestAutonomy() {
 
       <pre
         style={{
-          marginTop: "24px",
-          padding: "16px",
-          background: "#050505",
+          background: "#000",
           color: "#00ff66",
-          borderRadius: "10px",
-          minHeight: "220px",
+          padding: "16px",
+          borderRadius: "12px",
           whiteSpace: "pre-wrap",
-          fontSize: "14px",
-          lineHeight: 1.5,
         }}
       >
-        {output}
+{`🔥 Autonomy Run ID: ${runId}
+🧬 Version: ${version}
+
+💭 Cipher Reflection:
+${report}`}
       </pre>
     </div>
   );
