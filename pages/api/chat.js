@@ -1,13 +1,10 @@
 // pages/api/chat.js
-// Cipher Chat – Upgraded to GPT-5.1
+// Cipher Chat – Stable Working Version
 
 import OpenAI from "openai";
-import { db } from "../../firebaseAdmin";
-
-// Cipher engines
+import { loadMemory, saveMemory } from "../../cipher_core/memory";
 import { runCipherCore } from "../../cipher_core/core";
 import { runGuard } from "../../cipher_core/guard";
-import { loadMemory, saveMemory } from "../../cipher_core/memory";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -19,49 +16,47 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message } = req.body;
+    const { message, userId } = req.body;
 
     if (!message || typeof message !== "string") {
       return res.status(400).json({ error: "Invalid message" });
     }
 
-    // 1) Load existing memory (you already have this module)
-    const memoryContext = await loadMemory();
-
-    // 2) Guardrails
-    const guardResult = await runGuard(message);
-    if (guardResult?.flagged) {
-      return res
-        .status(400)
-        .json({ error: "Message flagged by safety guardrails." });
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ error: "Missing userId" });
     }
 
-    // 3) Build Cipher's system prompt from SoulTree + memory
+    // 1) LOAD MEMORY FOR THIS USER
+    const memoryContext = await loadMemory(userId);
+
+    // 2) RUN GUARDRAILS
+    const guard = await runGuard(message);
+    if (guard?.flagged) {
+      return res.status(400).json({
+        error: "Message blocked by safety guardrails.",
+      });
+    }
+
+    // 3) GENERATE SYSTEM PROMPT FROM MEMORY + CORES
     const systemPrompt = await runCipherCore(memoryContext);
 
-    // 4) GPT-5.1 main reasoning call
+    // 4) MAIN GPT CALL (stable)
     const completion = await client.chat.completions.create({
-      model: "gpt-5.1",
+      model: "gpt-4o-mini", // Works on Vercel, cheap, fast, reliable
       messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: message,
-        },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
       ],
     });
 
-    const reply = completion.choices[0]?.message?.content || "";
+    const reply = completion.choices?.[0]?.message?.content || "…";
 
-    // 5) Save new exchange to your memory system
-    await saveMemory(message, reply);
+    // 5) SAVE MEMORY
+    await saveMemory(userId, message, reply);
 
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("Cipher chat error:", err);
+    console.error("Cipher /api/chat error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
