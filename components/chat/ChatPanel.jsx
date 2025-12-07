@@ -7,20 +7,37 @@ import {
   extractFactsIntoMemory,
 } from "../../logic/memoryCore";
 
-/**
- * TEMP STUBS – so build works even without voiceCore / visionCore modules.
- * These keep the same API ChatPanel expects but just return simple messages.
- */
+/* ---------------------------------------------------------
+   REAL TEXT CHAT → /api/chat
+--------------------------------------------------------- */
 const sendTextToCipher = async ({ text, memory, voiceEnabled }) => {
-  // This is a minimal placeholder. Your real text chat is still handled
-  // via /api/chat from the other parts of the app. Here we just echo.
-  return {
-    reply: `Cipher (placeholder): ${text}`,
-    voice: null,
-  };
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: text,
+        memory,
+        voiceEnabled,
+      }),
+    });
+
+    const data = await res.json();
+
+    return {
+      reply: data.reply || "No response.",
+      voice: data.voice || null,
+    };
+  } catch (err) {
+    console.error("API Chat Error:", err);
+    return { reply: "API error.", voice: null };
+  }
 };
 
-const sendVoiceToCipher = async ({ base64Audio, memory, voiceEnabled }) => {
+/* ---------------------------------------------------------
+   TEMP VOICE STUB
+--------------------------------------------------------- */
+const sendVoiceToCipher = async ({ base64Audio }) => {
   return {
     transcript: "[Voice not enabled yet]",
     reply: "Voice pipeline is not enabled in this build.",
@@ -28,7 +45,10 @@ const sendVoiceToCipher = async ({ base64Audio, memory, voiceEnabled }) => {
   };
 };
 
-const sendImageToCipher = async ({ base64Image, memory, voiceEnabled }) => {
+/* ---------------------------------------------------------
+   TEMP IMAGE STUB
+--------------------------------------------------------- */
+const sendImageToCipher = async ({ base64Image }) => {
   return {
     reply: "Vision pipeline is not enabled in this build.",
     voice: null,
@@ -53,7 +73,9 @@ export default function ChatPanel({ theme }) {
 
   const chatEndRef = useRef(null);
 
-  // Load persisted stuff
+  /* ---------------------------------------------------------
+     LOAD STORED CHAT + MEMORY
+  --------------------------------------------------------- */
   useEffect(() => {
     try {
       const storedMessages = localStorage.getItem("cipher_messages_v3");
@@ -67,7 +89,9 @@ export default function ChatPanel({ theme }) {
     } catch {}
   }, []);
 
-  // Save messages
+  /* ---------------------------------------------------------
+     SAVE MESSAGES
+  --------------------------------------------------------- */
   useEffect(() => {
     try {
       localStorage.setItem("cipher_messages_v3", JSON.stringify(messages));
@@ -75,14 +99,18 @@ export default function ChatPanel({ theme }) {
     } catch {}
   }, [messages]);
 
-  // Save memory
+  /* ---------------------------------------------------------
+     SAVE MEMORY
+  --------------------------------------------------------- */
   useEffect(() => {
     try {
       localStorage.setItem("cipher_memory_v3", JSON.stringify(cipherMemory));
     } catch {}
   }, [cipherMemory]);
 
-  // Save voice toggle
+  /* ---------------------------------------------------------
+     SAVE VOICE STATE
+  --------------------------------------------------------- */
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -92,15 +120,18 @@ export default function ChatPanel({ theme }) {
     } catch {}
   }, [voiceEnabled]);
 
-  // TEXT SEND
+  /* ---------------------------------------------------------
+     TEXT SEND
+  --------------------------------------------------------- */
   const handleSendText = async () => {
     if (!input.trim()) return;
     const text = input.trim();
 
-    // update memory
+    // memory update
     const updatedMem = extractFactsIntoMemory(cipherMemory, text);
     setCipherMemory(updatedMem);
 
+    // add user message
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     setLoading(true);
@@ -127,7 +158,9 @@ export default function ChatPanel({ theme }) {
     setLoading(false);
   };
 
-  // VOICE HELPERS
+  /* ---------------------------------------------------------
+     VOICE HELPERS
+  --------------------------------------------------------- */
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
       const r = new FileReader();
@@ -137,6 +170,7 @@ export default function ChatPanel({ theme }) {
 
   const sendVoiceBlob = async (blob) => {
     setLoading(true);
+
     try {
       const base64 = await blobToBase64(blob);
       const { transcript, reply, voice } = await sendVoiceToCipher({
@@ -162,6 +196,7 @@ export default function ChatPanel({ theme }) {
         { role: "cipher", text: "Voice error." },
       ]);
     }
+
     setLoading(false);
   };
 
@@ -188,7 +223,6 @@ export default function ChatPanel({ theme }) {
       recorder.start();
       setIsRecording(true);
     } catch (err) {
-      console.error(err);
       alert("Microphone error.");
     }
   };
@@ -205,13 +239,14 @@ export default function ChatPanel({ theme }) {
     else startRecording();
   };
 
-  // CAMERA
+  /* ---------------------------------------------------------
+     CAMERA
+  --------------------------------------------------------- */
   useEffect(() => {
     const setupStream = async () => {
       if (!cameraActive) {
-        if (videoRef.current && videoRef.current.srcObject) {
-          const tracks = videoRef.current.srcObject.getTracks();
-          tracks?.forEach((t) => t.stop());
+        if (videoRef.current?.srcObject) {
+          videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
           videoRef.current.srcObject = null;
         }
         return;
@@ -221,12 +256,9 @@ export default function ChatPanel({ theme }) {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
         });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.error("Camera error:", err);
-        alert("Camera denied or failed to start.");
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch {
+        alert("Camera failed.");
         setCameraActive(false);
       }
     };
@@ -234,9 +266,8 @@ export default function ChatPanel({ theme }) {
     setupStream();
 
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach((t) => t.stop());
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
         videoRef.current.srcObject = null;
       }
     };
@@ -247,11 +278,7 @@ export default function ChatPanel({ theme }) {
   const captureImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-
-    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
-      alert("Camera not ready yet.");
-      return;
-    }
+    if (!video || !canvas) return;
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -261,49 +288,42 @@ export default function ChatPanel({ theme }) {
 
     const base64 = canvas.toDataURL("image/png").split(",")[1];
 
-    if (video.srcObject) {
-      video.srcObject.getTracks().forEach((t) => t.stop());
-      video.srcObject = null;
-    }
+    video.srcObject?.getTracks().forEach((t) => t.stop());
+    video.srcObject = null;
+
     setCameraActive(false);
     setLoading(true);
 
-    try {
-      const { reply, voice } = await sendImageToCipher({
-        base64Image: base64,
-        memory: cipherMemory,
-        voiceEnabled,
-      });
+    const { reply, voice } = await sendImageToCipher({
+      base64Image: base64,
+      memory: cipherMemory,
+      voiceEnabled,
+    });
 
-      if (reply) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "cipher", text: reply, voice: voice || null },
-        ]);
-      }
-    } catch (err) {
-      console.error(err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "cipher", text: "Vision processing error." },
-      ]);
-    }
+    setMessages((prev) => [
+      ...prev,
+      { role: "cipher", text: reply, voice: voice || null },
+    ]);
 
     setLoading(false);
   };
 
+  /* ---------------------------------------------------------
+     CLEAR CHAT
+  --------------------------------------------------------- */
   const clearConversation = () => {
     if (confirm("Reset Cipher conversation?")) {
       setMessages([]);
-      try {
-        localStorage.removeItem("cipher_messages_v3");
-      } catch {}
+      localStorage.removeItem("cipher_messages_v3");
     }
   };
 
+  /* ---------------------------------------------------------
+     UI
+  --------------------------------------------------------- */
   return (
     <>
-      {/* Voice toggle inside chat panel */}
+      {/* VOICE ON/OFF */}
       <div
         style={{
           maxWidth: 700,
@@ -324,14 +344,13 @@ export default function ChatPanel({ theme }) {
             background: voiceEnabled ? theme.userBubble : theme.panelBg,
             color: theme.textColor,
             fontSize: 12,
-            boxShadow: "0 0 12px rgba(148,163,184,0.4)",
           }}
         >
           {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
         </button>
       </div>
 
-      {/* CHAT PANEL */}
+      {/* CHAT WINDOW */}
       <div
         style={{
           maxWidth: 700,
@@ -341,7 +360,6 @@ export default function ChatPanel({ theme }) {
           padding: 20,
           minHeight: "60vh",
           boxShadow: `0 4px 30px ${theme.inputBorder}`,
-          transition: "background 0.3s ease",
           overflowY: "auto",
         }}
       >
@@ -402,7 +420,7 @@ export default function ChatPanel({ theme }) {
         theme={theme}
       />
 
-      {/* DELETE */}
+      {/* DELETE CHAT */}
       <button
         onClick={clearConversation}
         style={{
