@@ -2,6 +2,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
+
+// NEW – make sure ChatPanel knows about MessageBubble
+import MessageBubble from "./MessageBubble.jsx";
+
 import { createBaseMemory, extractFactsIntoMemory } from "../../logic/memoryCore";
 import { sendTextToCipher } from "../../logic/chatCore";
 import { sendVoiceToCipher } from "../../logic/voiceCore";
@@ -25,7 +29,7 @@ export default function ChatPanel({ theme }) {
 
   const chatEndRef = useRef(null);
 
-  // Load persisted stuff
+  // Load saved messages, memory, voice state
   useEffect(() => {
     try {
       const storedMessages = localStorage.getItem("cipher_messages_v3");
@@ -39,7 +43,7 @@ export default function ChatPanel({ theme }) {
     } catch {}
   }, []);
 
-  // Save messages
+  // Persist messages + autoscroll
   useEffect(() => {
     try {
       localStorage.setItem("cipher_messages_v3", JSON.stringify(messages));
@@ -47,14 +51,14 @@ export default function ChatPanel({ theme }) {
     } catch {}
   }, [messages]);
 
-  // Save memory
+  // Persist memory
   useEffect(() => {
     try {
       localStorage.setItem("cipher_memory_v3", JSON.stringify(cipherMemory));
     } catch {}
   }, [cipherMemory]);
 
-  // Save voice toggle
+  // Persist voice toggle
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -64,12 +68,11 @@ export default function ChatPanel({ theme }) {
     } catch {}
   }, [voiceEnabled]);
 
-  // TEXT SEND
+  // --- TEXT SEND ---
   const handleSendText = async () => {
     if (!input.trim()) return;
-    const text = input.trim();
 
-    // update memory
+    const text = input.trim();
     const updatedMem = extractFactsIntoMemory(cipherMemory, text);
     setCipherMemory(updatedMem);
 
@@ -99,7 +102,7 @@ export default function ChatPanel({ theme }) {
     setLoading(false);
   };
 
-  // VOICE HELPERS
+  // --- VOICE HELPERS ---
   const blobToBase64 = (blob) =>
     new Promise((resolve) => {
       const r = new FileReader();
@@ -111,6 +114,7 @@ export default function ChatPanel({ theme }) {
     setLoading(true);
     try {
       const base64 = await blobToBase64(blob);
+
       const { transcript, reply, voice } = await sendVoiceToCipher({
         base64Audio: base64,
         memory: cipherMemory,
@@ -129,10 +133,7 @@ export default function ChatPanel({ theme }) {
       }
     } catch (err) {
       console.error(err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "cipher", text: "Voice error." },
-      ]);
+      setMessages((prev) => [...prev, { role: "cipher", text: "Voice error." }]);
     }
     setLoading(false);
   };
@@ -145,10 +146,7 @@ export default function ChatPanel({ theme }) {
       const recorder = new MediaRecorder(stream);
 
       audioChunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size) audioChunksRef.current.push(e.data);
-      };
+      recorder.ondataavailable = (e) => e.data.size && audioChunksRef.current.push(e.data);
 
       recorder.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
@@ -159,8 +157,7 @@ export default function ChatPanel({ theme }) {
       mediaRecorderRef.current = recorder;
       recorder.start();
       setIsRecording(true);
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Microphone error.");
     }
   };
@@ -173,17 +170,15 @@ export default function ChatPanel({ theme }) {
   };
 
   const toggleRecording = () => {
-    if (isRecording) stopRecording();
-    else startRecording();
+    isRecording ? stopRecording() : startRecording();
   };
 
-  // CAMERA
+  // --- CAMERA ---
   useEffect(() => {
     const setupStream = async () => {
       if (!cameraActive) {
-        if (videoRef.current && videoRef.current.srcObject) {
-          const tracks = videoRef.current.srcObject.getTracks();
-          tracks?.forEach((t) => t.stop());
+        if (videoRef.current?.srcObject) {
+          videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
           videoRef.current.srcObject = null;
         }
         return;
@@ -193,12 +188,9 @@ export default function ChatPanel({ theme }) {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
         });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.error("Camera error:", err);
-        alert("Camera denied or failed to start.");
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch {
+        alert("Camera denied or failed.");
         setCameraActive(false);
       }
     };
@@ -206,22 +198,19 @@ export default function ChatPanel({ theme }) {
     setupStream();
 
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach((t) => t.stop());
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
         videoRef.current.srcObject = null;
       }
     };
   }, [cameraActive]);
 
-  const openCamera = () => setCameraActive(true);
-
   const captureImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
-      alert("Camera not ready yet.");
+    if (!video || !canvas || !video.videoWidth) {
+      alert("Camera not ready.");
       return;
     }
 
@@ -247,14 +236,12 @@ export default function ChatPanel({ theme }) {
         voiceEnabled,
       });
 
-      if (reply) {
+      if (reply)
         setMessages((prev) => [
           ...prev,
           { role: "cipher", text: reply, voice: voice || null },
         ]);
-      }
-    } catch (err) {
-      console.error(err);
+    } catch {
       setMessages((prev) => [
         ...prev,
         { role: "cipher", text: "Vision processing error." },
@@ -267,19 +254,17 @@ export default function ChatPanel({ theme }) {
   const clearConversation = () => {
     if (confirm("Reset Cipher conversation?")) {
       setMessages([]);
-      try {
-        localStorage.removeItem("cipher_messages_v3");
-      } catch {}
+      localStorage.removeItem("cipher_messages_v3");
     }
   };
 
   return (
     <>
-      {/* Voice toggle inside chat panel */}
+      {/* VOICE TOGGLE */}
       <div
         style={{
           maxWidth: 700,
-          margin: "0 auto 10px auto",
+          margin: "0 auto 10px",
           display: "flex",
           justifyContent: "flex-end",
         }}
@@ -287,9 +272,6 @@ export default function ChatPanel({ theme }) {
         <button
           onClick={() => setVoiceEnabled((v) => !v)}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
             padding: "6px 10px",
             borderRadius: 999,
             border: `1px solid ${theme.inputBorder}`,
@@ -313,7 +295,6 @@ export default function ChatPanel({ theme }) {
           padding: 20,
           minHeight: "60vh",
           boxShadow: `0 4px 30px ${theme.inputBorder}`,
-          transition: "background 0.3s ease",
           overflowY: "auto",
         }}
       >
@@ -325,15 +306,9 @@ export default function ChatPanel({ theme }) {
         />
       </div>
 
-      {/* CAMERA PREVIEW */}
+      {/* CAMERA UI */}
       {cameraActive && (
-        <div
-          style={{
-            maxWidth: 700,
-            margin: "16px auto 0 auto",
-            textAlign: "center",
-          }}
-        >
+        <div style={{ maxWidth: 700, margin: "16px auto 0", textAlign: "center" }}>
           <video
             ref={videoRef}
             autoPlay
@@ -370,7 +345,7 @@ export default function ChatPanel({ theme }) {
         onSend={handleSendText}
         onToggleRecording={toggleRecording}
         isRecording={isRecording}
-        onOpenCamera={openCamera}
+        onOpenCamera={() => setCameraActive(true)}
         theme={theme}
       />
 
@@ -379,7 +354,7 @@ export default function ChatPanel({ theme }) {
         onClick={clearConversation}
         style={{
           display: "block",
-          margin: "20px auto 0 auto",
+          margin: "20px auto",
           background: theme.deleteBg,
           color: "white",
           padding: "8px 16px",
