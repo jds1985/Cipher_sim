@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher Chat – Stable Working Version
+// Cipher Chat – Stable Working Version (Patched with Guard Fix)
 
 import OpenAI from "openai";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
@@ -29,30 +29,35 @@ export default async function handler(req, res) {
     // 1) LOAD MEMORY FOR THIS USER
     const memoryContext = await loadMemory(userId);
 
-    // 2) RUN GUARDRAILS
+    // 2) RUN GUARDRAILS (new object-based guard)
     const guard = await runGuard(message);
-    if (guard?.flagged) {
+
+    if (guard.flagged) {
       return res.status(400).json({
         error: "Message blocked by safety guardrails.",
+        reason: guard.reason || "Unknown",
       });
     }
+
+    // Use cleaned text from guard module
+    const cleanedMessage = guard.cleaned || message;
 
     // 3) GENERATE SYSTEM PROMPT FROM MEMORY + CORES
     const systemPrompt = await runCipherCore(memoryContext);
 
-    // 4) MAIN GPT CALL (stable)
+    // 4) MAIN GPT CALL
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini", // Works on Vercel, cheap, fast, reliable
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: message },
+        { role: "user", content: cleanedMessage },
       ],
     });
 
     const reply = completion.choices?.[0]?.message?.content || "…";
 
-    // 5) SAVE MEMORY
-    await saveMemory(userId, message, reply);
+    // 5) SAVE MEMORY (save CLEANED for context but original for logs)
+    await saveMemory(userId, cleanedMessage, reply);
 
     return res.status(200).json({ reply });
   } catch (err) {
