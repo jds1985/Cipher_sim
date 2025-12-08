@@ -1,6 +1,4 @@
 // pages/api/vision_chat.js
-// Cipher Vision V2 — Image Understanding + Memory
-
 import OpenAI from "openai";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
 import { runCipherCore } from "../../cipher_core/core";
@@ -15,7 +13,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { base64Image, memory, userId } = req.body;
+    const { base64Image, userId } = req.body;
 
     if (!base64Image) {
       return res.status(400).json({ error: "No image provided" });
@@ -25,26 +23,24 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing userId" });
     }
 
-    // Load Firerestore memory for this user
-    const memoryContext = await loadMemory(userId);
+    // Load memory
+    const memory = await loadMemory(userId);
 
-    // Build the system prompt that includes memory + core traits
-    const systemPrompt = await runCipherCore(memoryContext);
+    // Build Cipher System Prompt
+    const systemPrompt = await runCipherCore(memory);
 
-    // ----------------------------------------
-    //  GPT-4o-mini Vision inference
-    // ----------------------------------------
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+    // ---- GPT-4o VISION CALL (REQUIRED) ----
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o",
       messages: [
-        { role: "system", content: systemPrompt },
+        {
+          role: "system",
+          content: systemPrompt,
+        },
         {
           role: "user",
           content: [
-            {
-              type: "input_text",
-              text: "Analyze this image in detail.",
-            },
+            { type: "input_text", text: "Analyze this image and explain it." },
             {
               type: "input_image",
               image_url: `data:image/jpeg;base64,${base64Image}`,
@@ -55,17 +51,15 @@ export default async function handler(req, res) {
     });
 
     const reply =
-      response.choices?.[0]?.message?.content ||
-      "I couldn't analyze the image.";
+      completion.choices?.[0]?.message?.content ||
+      "I could not analyze the image.";
 
-    // ----------------------------------------
-    // Save image reflection as a memory branch
-    // ----------------------------------------
-    await saveMemory(userId, "[Image uploaded]", reply);
+    // Save vision memory
+    await saveMemory(userId, "[Image Uploaded]", reply);
 
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("Vision API error:", err);
+    console.error("Vision error:", err);
     return res.status(500).json({ error: "Vision pipeline failed." });
   }
 }
