@@ -13,7 +13,7 @@
     "react-dom": "18.2.0",
 
     "firebase": "10.13.0",
-    "firebase-admin": "12.0.0",
+    "firebase-admin": "10.11.1",
 
     "@opentelemetry/api": "^1.8.0",
     "@google-cloud/firestore": "^7.10.0",
