@@ -1,5 +1,6 @@
 // components/chat/InputBar.jsx
 import React from "react";
+import { sendVisionToCipher } from "../../utils/sendVision";
 
 export default function InputBar({
   input,
@@ -8,9 +9,44 @@ export default function InputBar({
   onSend,
   onToggleRecording,
   isRecording,
-  onOpenCamera,
   theme,
+  addMessage, // <-- REQUIRED FOR VISION
 }) {
+  // Vision Handler
+  async function handleVisionCapture() {
+    return new Promise((resolve) => {
+      const inputEl = document.createElement("input");
+      inputEl.type = "file";
+      inputEl.accept = "image/*";
+      inputEl.capture = "environment";
+
+      inputEl.onchange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return resolve();
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64 = reader.result;
+
+          // Add placeholder message
+          addMessage("user", "[Photo Sent]");
+
+          // Send to Cipher Vision API
+          const reply = await sendVisionToCipher(base64);
+
+          // Display Cipher’s response
+          addMessage("cipher", reply);
+
+          resolve();
+        };
+
+        reader.readAsDataURL(file);
+      };
+
+      inputEl.click();
+    });
+  }
+
   return (
     <div
       style={{
@@ -84,7 +120,7 @@ export default function InputBar({
 
         {/* CAMERA */}
         <button
-          onClick={onOpenCamera}
+          onClick={handleVisionCapture}
           disabled={loading}
           style={{
             width: 46,
