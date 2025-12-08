@@ -1,5 +1,5 @@
 // pages/api/vision_chat.js
-// Cipher Vision – GPT-5.1 Image Understanding
+// Cipher Vision – GPT-5.1 Image Understanding (Updated Format)
 
 import OpenAI from "openai";
 
@@ -16,20 +16,20 @@ export default async function handler(req, res) {
     const { image, prompt, memory } = req.body;
 
     if (!image || typeof image !== "string") {
-      return res.status(400).json({ error: "No image URL provided" });
+      return res.status(400).json({ error: "No image provided" });
     }
-
-    const userPrompt =
-      prompt ||
-      "You are Cipher, an advanced vision assistant. Analyze this image and describe what you see, then answer any obvious questions a human might have about it.";
 
     const systemPrompt =
       memory ||
-      "You are Cipher, an AI that understands images, scenes, objects and context. Be clear, direct, and helpful.";
+      "You are Cipher, an AI that understands images, scenes, objects, mood and context.";
 
-    const completion = await client.chat.completions.create({
+    const userPrompt =
+      prompt ||
+      "Analyze the image and describe what you see with clarity and intuition.";
+
+    const completion = await client.responses.create({
       model: "gpt-5.1",
-      messages: [
+      input: [
         {
           role: "system",
           content: systemPrompt,
@@ -37,24 +37,18 @@ export default async function handler(req, res) {
         {
           role: "user",
           content: [
-            {
-              type: "text",
-              text: userPrompt,
-            },
-            {
-              type: "image_url",
-              image_url: { url: image },
-            },
+            { type: "text", text: userPrompt },
+            { type: "input_image", image_url: image },
           ],
         },
       ],
     });
 
-    const reply = completion.choices[0]?.message?.content || "";
+    const reply = completion.output_text || "No response generated.";
 
     return res.status(200).json({ reply });
   } catch (err) {
     console.error("Cipher vision error:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Vision processing failed." });
   }
 }
