@@ -1,102 +1,79 @@
-// components/chat/InputBar.jsx
-import React from "react";
+"use client";
+import { useState } from "react";
 
-export default function InputBar({
-  input,
-  setInput,
-  loading,
-  onSend,
-  onToggleRecording,
-  isRecording,
-  onToggleCameraMenu,
-  theme,
-}) {
+export default function ChatInput({ onSend, onImageSend }) {
+  const [message, setMessage] = useState("");
+
+  // ---------------------------
+  // IMAGE COMPRESSION FUNCTION
+  // ---------------------------
+  async function compressImage(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+
+          // Resize logic: target width ~800px max
+          const scaleFactor = 800 / img.width;
+          canvas.width = 800;
+          canvas.height = img.height * scaleFactor;
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // Compress: 0.75 is a sweet spot
+          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.75);
+          resolve(compressedBase64);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleImageSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const compressed = await compressImage(file);
+    onImageSend(compressed);
+  }
+
+  function handleSend() {
+    if (!message.trim()) return;
+    onSend(message);
+    setMessage("");
+  }
+
   return (
-    <div
-      style={{
-        maxWidth: 700,
-        margin: "16px auto 0 auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      {/* INPUT */}
-      <textarea
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
+    <div className="input-bar">
+      <input
+        className="chat-input"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
         placeholder="Type to Cipher..."
-        rows={2}
-        style={{
-          width: "100%",
-          borderRadius: 10,
-          padding: "10px 14px",
-          border: `1px solid ${theme.inputBorder}`,
-          background: theme.inputBg,
-          color: theme.textColor,
-          boxShadow: "0 0 16px rgba(15,23,42,0.8)",
-        }}
       />
 
-      {/* BUTTON ROW */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {/* SEND */}
-        <button
-          onClick={onSend}
-          disabled={loading}
-          style={{
-            flex: 1,
-            background: theme.buttonBg,
-            color: "white",
-            padding: "10px 16px",
-            borderRadius: 999,
-            border: "none",
-            fontWeight: 600,
-            boxShadow: "0 0 20px rgba(59,130,246,0.6)",
-          }}
-        >
-          Send
-        </button>
+      {/* Hidden file input */}
+      <input
+        id="vision-file-input"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleImageSelect}
+      />
 
-        {/* RECORD */}
-        <button
-          onClick={onToggleRecording}
-          disabled={loading}
-          style={{
-            width: 46,
-            height: 46,
-            borderRadius: "50%",
-            border: "none",
-            background: isRecording ? "#b91c1c" : theme.cipherBubble,
-            color: "#fff",
-            fontSize: 20,
-            boxShadow: isRecording
-              ? "0 0 16px rgba(248,113,113,0.9)"
-              : "0 0 10px rgba(148,163,184,0.5)",
-          }}
-        >
-          {isRecording ? "■" : "🎤"}
-        </button>
+      <button
+        className="camera-btn"
+        onClick={() => document.getElementById("vision-file-input").click()}
+      >
+        📷
+      </button>
 
-        {/* CAMERA */}
-        <button
-          onToggleCameraMenu=""
-          onClick={onToggleCameraMenu}
-          disabled={loading}
-          style={{
-            width: 46,
-            height: 46,
-            borderRadius: "50%",
-            border: "none",
-            background: theme.userBubble,
-            color: "#fff",
-            fontSize: 22,
-            boxShadow: "0 0 14px rgba(96,165,250,0.8)",
-          }}
-        >
-          📷
-        </button>
-      </div>
+      <button className="send-btn" onClick={handleSend}>Send</button>
     </div>
   );
 }
