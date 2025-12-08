@@ -21,6 +21,7 @@ export default function InputBar({
         gap: 8,
       }}
     >
+      {/* USER TEXT INPUT */}
       <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}
@@ -37,14 +38,9 @@ export default function InputBar({
         }}
       />
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        {/* Send */}
+      {/* BUTTON BAR */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {/* SEND */}
         <button
           onClick={onSend}
           disabled={loading}
