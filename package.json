@@ -11,8 +11,13 @@
     "next": "14.2.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+
     "firebase": "10.13.0",
     "firebase-admin": "12.0.0",
+
+    "@opentelemetry/api": "^1.8.0",
+    "@google-cloud/firestore": "^7.10.0",
+
     "openai": "5.2.0",
     "react-force-graph": "1.44.0",
     "formdata-node": "6.0.1"
