@@ -1,19 +1,25 @@
 // cipher_core/guard.js
-// Simple guard layer for Cipher 4.1
+// Simple guard layer that always returns an object with a 'flagged' field.
 
 export async function runGuard(message) {
-  if (!message) return "";
+  if (!message || typeof message !== "string") {
+    return { flagged: true, reason: "Invalid message type." };
+  }
 
-  let text = String(message).trim();
+  let text = message.trim();
 
-  // Hard cap to avoid huge payloads
+  // Hard cap to avoid massive payloads
   const MAX_LEN = 4000;
   if (text.length > MAX_LEN) {
     text = text.slice(0, MAX_LEN);
   }
 
-  // Strip weird control characters
+  // Strip weird control chars
   text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 
-  return text;
+  // IMPORTANT: Always return an object
+  return {
+    flagged: false,
+    cleaned: text,
+  };
 }
