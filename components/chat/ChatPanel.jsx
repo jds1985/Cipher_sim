@@ -10,21 +10,19 @@ import {
 /* ---------------------------------------------------------
    REAL TEXT CHAT → /api/chat
 --------------------------------------------------------- */
-const sendTextToCipher = async ({ text, memory, voiceEnabled }) => {
+const sendTextToCipher = async ({ text, memory, userId }) => {
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: text,
-        userId: "jim",        // *** REQUIRED FIX ***
         memory,
-        voiceEnabled,
+        userId,
       }),
     });
 
     const data = await res.json();
-
     return {
       reply: data.reply || "No response.",
       voice: data.voice || null,
@@ -36,21 +34,28 @@ const sendTextToCipher = async ({ text, memory, voiceEnabled }) => {
 };
 
 /* ---------------------------------------------------------
-   TEMP STUBS FOR VOICE + IMAGE
+   SEND IMAGE → Vision V2 (/api/vision_chat)
 --------------------------------------------------------- */
-const sendVoiceToCipher = async () => {
-  return {
-    transcript: "[Voice not enabled yet]",
-    reply: "Voice pipeline not enabled in this build.",
-    voice: null,
-  };
-};
+const sendImageToCipher = async ({ base64Image, memory, userId }) => {
+  try {
+    const res = await fetch("/api/vision_chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        base64Image,
+        memory,
+        userId,
+      }),
+    });
 
-const sendImageToCipher = async ({ base64Image }) => {
-  return {
-    reply: "Vision pipeline not enabled yet.",
-    voice: null,
-  };
+    const data = await res.json();
+    return {
+      reply: data.reply || "No response.",
+    };
+  } catch (err) {
+    console.error("Vision Error:", err);
+    return { reply: "Vision error." };
+  }
 };
 
 export default function ChatPanel({ theme }) {
@@ -62,13 +67,16 @@ export default function ChatPanel({ theme }) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   const [isRecording, setIsRecording] = useState(false);
-
   const chatEndRef = useRef(null);
 
+  // Camera menu state
   const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
 
+  // TEMP USER ID — later will be real auth
+  const userId = "jim";
+
   /* ---------------------------------------------------------
-     LOAD STORED CHAT + MEMORY (local)
+     LOAD STORED CHAT + MEMORY
   --------------------------------------------------------- */
   useEffect(() => {
     try {
@@ -103,45 +111,30 @@ export default function ChatPanel({ theme }) {
   }, [cipherMemory]);
 
   /* ---------------------------------------------------------
-     SAVE VOICE STATE
-  --------------------------------------------------------- */
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        "cipher_voice_enabled_v2",
-        voiceEnabled ? "true" : "false"
-      );
-    } catch {}
-  }, [voiceEnabled]);
-
-  /* ---------------------------------------------------------
-     TEXT SEND HANDLER
+     SEND TEXT MESSAGE
   --------------------------------------------------------- */
   const handleSendText = async () => {
     if (!input.trim()) return;
 
     const text = input.trim();
 
-    // Update memory context first
+    // Update local memory first
     const updatedMem = extractFactsIntoMemory(cipherMemory, text);
     setCipherMemory(updatedMem);
 
-    // Add user message to UI
+    // Display the user's message
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     setLoading(true);
 
     try {
-      const { reply, voice } = await sendTextToCipher({
+      const { reply } = await sendTextToCipher({
         text,
         memory: updatedMem,
-        voiceEnabled,
+        userId,
       });
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "cipher", text: reply, voice: voice || null },
-      ]);
+      setMessages((prev) => [...prev, { role: "cipher", text: reply }]);
     } catch (err) {
       console.error(err);
       setMessages((prev) => [
@@ -157,6 +150,8 @@ export default function ChatPanel({ theme }) {
      IMAGE UPLOAD PIPELINE
   --------------------------------------------------------- */
   const handleImageUpload = async (file) => {
+    if (!file) return;
+
     setLoading(true);
 
     const reader = new FileReader();
@@ -165,16 +160,13 @@ export default function ChatPanel({ theme }) {
       const base64 = reader.result.split(",")[1];
 
       try {
-        const { reply, voice } = await sendImageToCipher({
+        const { reply } = await sendImageToCipher({
           base64Image: base64,
           memory: cipherMemory,
-          voiceEnabled,
+          userId,
         });
 
-        setMessages((prev) => [
-          ...prev,
-          { role: "cipher", text: reply, voice: voice || null },
-        ]);
+        setMessages((prev) => [...prev, { role: "cipher", text: reply }]);
       } catch (err) {
         console.error(err);
         setMessages((prev) => [
@@ -190,25 +182,25 @@ export default function ChatPanel({ theme }) {
   };
 
   /* ---------------------------------------------------------
-     CAMERA HANDLING
+     CAMERA MENU HANDLING
   --------------------------------------------------------- */
   const handleCamera = (mode) => {
     setCameraMenuOpen(false);
 
-    const el = document.createElement("input");
-    el.type = "file";
-    el.accept = "image/*";
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
 
-    if (mode === "environment") el.capture = "environment";
-    else if (mode === "user") el.capture = "user";
+    // Control camera type
+    if (mode === "environment") input.capture = "environment";
+    if (mode === "user") input.capture = "user";
 
-    el.onchange = async (e) => {
+    input.onchange = async (e) => {
       const file = e.target.files?.[0];
-      if (!file) return;
       await handleImageUpload(file);
     };
 
-    el.click();
+    input.click();
   };
 
   /* ---------------------------------------------------------
@@ -226,33 +218,6 @@ export default function ChatPanel({ theme }) {
   --------------------------------------------------------- */
   return (
     <div style={{ position: "relative" }}>
-      {/* VOICE TOGGLE */}
-      <div
-        style={{
-          maxWidth: 700,
-          margin: "0 auto 10px auto",
-          display: "flex",
-          justifyContent: "flex-end",
-        }}
-      >
-        <button
-          onClick={() => setVoiceEnabled((v) => !v)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "6px 10px",
-            borderRadius: 999,
-            border: `1px solid ${theme.inputBorder}`,
-            background: voiceEnabled ? theme.userBubble : theme.panelBg,
-            color: theme.textColor,
-            fontSize: 12,
-          }}
-        >
-          {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
-        </button>
-      </div>
-
       {/* CHAT WINDOW */}
       <div
         style={{
@@ -295,9 +260,11 @@ export default function ChatPanel({ theme }) {
           <button style={menuBtn} onClick={() => handleCamera("environment")}>
             📷 Rear Camera
           </button>
+
           <button style={menuBtn} onClick={() => handleCamera("user")}>
             🤳 Front Camera
           </button>
+
           <button style={menuBtn} onClick={() => handleCamera("gallery")}>
             🖼️ Choose from Gallery
           </button>
@@ -335,7 +302,6 @@ export default function ChatPanel({ theme }) {
   );
 }
 
-/* shared button style */
 const menuBtn = {
   padding: "8px 12px",
   background: "#334155",
