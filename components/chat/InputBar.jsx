@@ -21,7 +21,7 @@ export default function InputBar({
         gap: 8,
       }}
     >
-      {/* USER TEXT INPUT */}
+      {/* INPUT */}
       <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}
@@ -38,7 +38,7 @@ export default function InputBar({
         }}
       />
 
-      {/* BUTTON BAR */}
+      {/* BUTTON ROW */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {/* SEND */}
         <button
@@ -58,7 +58,7 @@ export default function InputBar({
           Send
         </button>
 
-        {/* MIC */}
+        {/* RECORD */}
         <button
           onClick={onToggleRecording}
           disabled={loading}
@@ -78,8 +78,9 @@ export default function InputBar({
           {isRecording ? "■" : "🎤"}
         </button>
 
-        {/* CAMERA MENU BUTTON */}
+        {/* CAMERA */}
         <button
+          onToggleCameraMenu=""
           onClick={onToggleCameraMenu}
           disabled={loading}
           style={{
