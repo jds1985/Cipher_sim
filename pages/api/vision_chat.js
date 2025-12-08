@@ -1,10 +1,7 @@
-// pages/api/vision_chat.js
 import OpenAI from "openai";
-import { loadMemory, saveMemory } from "../../cipher_core/memory";
-import { runCipherCore } from "../../cipher_core/core";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 export default async function handler(req, res) {
@@ -13,53 +10,43 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { base64Image, userId } = req.body;
+    const { image } = req.body;
 
-    if (!base64Image) {
+    if (!image) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    if (!userId) {
-      return res.status(400).json({ error: "Missing userId" });
-    }
-
-    // Load memory
-    const memory = await loadMemory(userId);
-
-    // Build Cipher System Prompt
-    const systemPrompt = await runCipherCore(memory);
-
-    // ---- GPT-4o VISION CALL (REQUIRED) ----
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o",
+    // ---------------------------
+    // CALL GPT-4o-mini VISION
+    ---------------------------
+    const response = await client.chat.completions.create({
+      model: "gpt-4.1-mini",
       messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
+        { role: "system", content: "You are Cipher Vision. Analyze images deeply and describe details." },
         {
           role: "user",
           content: [
-            { type: "input_text", text: "Analyze this image and explain it." },
             {
               type: "input_image",
-              image_url: `data:image/jpeg;base64,${base64Image}`,
+              image_url: {
+                url: image
+              }
             },
-          ],
-        },
-      ],
+            {
+              type: "text",
+              text: "Describe what you see and remember anything meaningful."
+            }
+          ]
+        }
+      ]
     });
 
-    const reply =
-      completion.choices?.[0]?.message?.content ||
-      "I could not analyze the image.";
+    return res.status(200).json({
+      reply: response.choices[0].message.content
+    });
 
-    // Save vision memory
-    await saveMemory(userId, "[Image Uploaded]", reply);
-
-    return res.status(200).json({ reply });
   } catch (err) {
-    console.error("Vision error:", err);
-    return res.status(500).json({ error: "Vision pipeline failed." });
+    console.error("Vision Error:", err);
+    return res.status(500).json({ error: "Vision processing failed." });
   }
 }
