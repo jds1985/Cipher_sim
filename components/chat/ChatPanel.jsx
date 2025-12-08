@@ -17,6 +17,7 @@ const sendTextToCipher = async ({ text, memory, voiceEnabled }) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: text,
+        userId: "jim",        // *** REQUIRED FIX ***
         memory,
         voiceEnabled,
       }),
@@ -61,16 +62,13 @@ export default function ChatPanel({ theme }) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
 
   const chatEndRef = useRef(null);
 
-  /* CAMERA MENU STATE */
   const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
 
   /* ---------------------------------------------------------
-     LOAD STORED CHAT + MEMORY
+     LOAD STORED CHAT + MEMORY (local)
   --------------------------------------------------------- */
   useEffect(() => {
     try {
@@ -117,16 +115,18 @@ export default function ChatPanel({ theme }) {
   }, [voiceEnabled]);
 
   /* ---------------------------------------------------------
-     TEXT SEND
+     TEXT SEND HANDLER
   --------------------------------------------------------- */
   const handleSendText = async () => {
     if (!input.trim()) return;
 
     const text = input.trim();
 
+    // Update memory context first
     const updatedMem = extractFactsIntoMemory(cipherMemory, text);
     setCipherMemory(updatedMem);
 
+    // Add user message to UI
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     setLoading(true);
@@ -190,7 +190,7 @@ export default function ChatPanel({ theme }) {
   };
 
   /* ---------------------------------------------------------
-     CAMERA MENU HANDLING
+     CAMERA HANDLING
   --------------------------------------------------------- */
   const handleCamera = (mode) => {
     setCameraMenuOpen(false);
@@ -199,13 +199,8 @@ export default function ChatPanel({ theme }) {
     el.type = "file";
     el.accept = "image/*";
 
-    if (mode === "environment") {
-      el.capture = "environment"; // rear camera
-    } else if (mode === "user") {
-      el.capture = "user"; // selfie camera
-    } else {
-      el.capture = undefined; // gallery
-    }
+    if (mode === "environment") el.capture = "environment";
+    else if (mode === "user") el.capture = "user";
 
     el.onchange = async (e) => {
       const file = e.target.files?.[0];
@@ -227,11 +222,11 @@ export default function ChatPanel({ theme }) {
   };
 
   /* ---------------------------------------------------------
-     UI
+     UI RENDER
   --------------------------------------------------------- */
   return (
     <div style={{ position: "relative" }}>
-      {/* VOICE ON/OFF */}
+      {/* VOICE TOGGLE */}
       <div
         style={{
           maxWidth: 700,
@@ -340,7 +335,7 @@ export default function ChatPanel({ theme }) {
   );
 }
 
-/* small shared menu style */
+/* shared button style */
 const menuBtn = {
   padding: "8px 12px",
   background: "#334155",
