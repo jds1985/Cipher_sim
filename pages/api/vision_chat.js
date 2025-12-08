@@ -1,11 +1,31 @@
 // pages/api/vision_chat.js
-// Cipher Vision – GPT-5.1 Image Understanding (Updated Format)
+// Cipher Vision V2 — Image Understanding + Visual Memory Branches
 
 import OpenAI from "openai";
+import { db } from "../../firebaseAdmin";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// -------------------------------------------------------------
+// SAVE VISUAL MEMORY INTO FIRESTORE
+// -------------------------------------------------------------
+async function saveVisualMemory(userId, analysis, base64Image) {
+  try {
+    const newMemory = {
+      userId,
+      type: "visual_memory",
+      analysis,
+      imagePreview: base64Image.slice(0, 200) + "...", // avoids huge payloads
+      timestamp: Date.now(),
+    };
+
+    await db.collection("cipher_branches").add(newMemory);
+  } catch (err) {
+    console.error("Failed to store visual memory:", err);
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -13,42 +33,53 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image, prompt, memory } = req.body;
+    const { base64Image, memory, userId } = req.body;
 
-    if (!image || typeof image !== "string") {
+    if (!base64Image) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    const systemPrompt =
-      memory ||
-      "You are Cipher, an AI that understands images, scenes, objects, mood and context.";
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ error: "Missing userId for memory tracking." });
+    }
 
-    const userPrompt =
-      prompt ||
-      "Analyze the image and describe what you see with clarity and intuition.";
-
-    const completion = await client.responses.create({
-      model: "gpt-5.1",
-      input: [
+    // MAIN GPT-4o VISION CALL
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
         {
           role: "system",
-          content: systemPrompt,
+          content: `
+You are CIPHER, an advanced visual reasoning AI.
+When you see an image:
+- Describe it clearly.
+- Identify relevant emotional tone.
+- Identify important details for long-term learning.
+- Suggest why this image may matter to Jim.
+- Be concise but meaningful.
+          `,
         },
         {
           role: "user",
           content: [
-            { type: "text", text: userPrompt },
-            { type: "input_image", image_url: image },
+            { type: "text", text: memory ? `Use this memory context: ${memory}` : "Analyze this image." },
+            {
+              type: "image_url",
+              image_url: `data:image/jpeg;base64,${base64Image}`,
+            },
           ],
         },
       ],
     });
 
-    const reply = completion.output_text || "No response generated.";
+    const analysis = response.choices?.[0]?.message?.content || "I couldn't analyze the image.";
 
-    return res.status(200).json({ reply });
+    // SAVE VISUAL MEMORY
+    await saveVisualMemory(userId, analysis, base64Image);
+
+    return res.status(200).json({ reply: analysis });
   } catch (err) {
-    console.error("Cipher vision error:", err);
-    return res.status(500).json({ error: "Vision processing failed." });
+    console.error("Vision API Error:", err);
+    return res.status(500).json({ error: "Vision processing error" });
   }
 }
