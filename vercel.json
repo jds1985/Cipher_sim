@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/vision_chat.js": {
+      "maxRequestBodySize": "20mb"
+    }
+  }
+}
