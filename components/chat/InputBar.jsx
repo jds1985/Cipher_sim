@@ -15,17 +15,30 @@ export default function ChatInput({ onSend, onImageSend }) {
         img.onload = () => {
           const canvas = document.createElement("canvas");
 
-          // Resize logic: target width ~800px max
-          const scaleFactor = 800 / img.width;
-          canvas.width = 800;
-          canvas.height = img.height * scaleFactor;
+          // Resize: max width = 800
+          const MAX_WIDTH = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH) {
+            const scaleFactor = MAX_WIDTH / width;
+            width = MAX_WIDTH;
+            height = height * scaleFactor;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
 
           const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, width, height);
 
-          // Compress: 0.75 is a sweet spot
-          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.75);
-          resolve(compressedBase64);
+          // Compress quality
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+
+          // 🚨 Strip header: we want ONLY raw base64
+          const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
+
+          resolve(base64);
         };
         img.src = e.target.result;
       };
@@ -37,13 +50,13 @@ export default function ChatInput({ onSend, onImageSend }) {
     const file = e.target.files[0];
     if (!file) return;
 
-    const compressed = await compressImage(file);
-    onImageSend(compressed);
+    const compressedBase64 = await compressImage(file);
+    onImageSend(compressedBase64);
   }
 
   function handleSend() {
     if (!message.trim()) return;
-    onSend(message);
+    onSend(message.trim());
     setMessage("");
   }
 
@@ -73,7 +86,9 @@ export default function ChatInput({ onSend, onImageSend }) {
         📷
       </button>
 
-      <button className="send-btn" onClick={handleSend}>Send</button>
+      <button className="send-btn" onClick={handleSend}>
+        Send
+      </button>
     </div>
   );
 }
