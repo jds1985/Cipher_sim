@@ -17,7 +17,7 @@ const sendTextToCipher = async ({ text, memory, voiceEnabled }) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: text,
-        userId: "jim", // <-- YOU CAN CHANGE THIS
+        userId: "jim", // you can change this later if needed
         memory,
         voiceEnabled,
       }),
@@ -33,14 +33,15 @@ const sendTextToCipher = async ({ text, memory, voiceEnabled }) => {
 
 /* ---------------------------------------------
    SEND IMAGE → /api/vision_chat
+   (expects { image: <data-url> })
 --------------------------------------------- */
-const sendImageToCipher = async ({ base64Image }) => {
+const sendImageToCipher = async ({ image }) => {
   try {
     const res = await fetch("/api/vision_chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        base64Image,
+        image,       // full data URL: "data:image/jpeg;base64,...."
         userId: "jim",
       }),
     });
@@ -133,36 +134,78 @@ export default function ChatPanel({ theme }) {
         { role: "cipher", text: reply, voice: voice || null },
       ]);
     } catch (err) {
-      setMessages((prev) => [...prev, { role: "cipher", text: "Server error." }]);
+      console.error(err);
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Server error." },
+      ]);
     }
 
     setLoading(false);
   };
 
   /* ---------------------------------------------------------
-     HANDLE IMAGE UPLOAD
+     COMPRESS + SEND IMAGE
   --------------------------------------------------------- */
   const handleImageUpload = async (file) => {
+    if (!file) return;
     setLoading(true);
 
-    const reader = new FileReader();
+    try {
+      // 1) Read file as data URL
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
 
-    reader.onloadend = async () => {
-      const base64 = reader.result.split(",")[1];
+      // 2) Compress via canvas (keep EXIF irrelevant, we just care about pixels)
+      const compressedDataUrl = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX_WIDTH = 800;
+          const scale = Math.min(1, MAX_WIDTH / img.width);
 
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // quality 0.7 → good balance
+          const out = canvas.toDataURL("image/jpeg", 0.7);
+          resolve(out);
+        };
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+
+      // 3) Optional: show that an image was sent
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", text: "[Image sent to Cipher Vision]" },
+      ]);
+
+      // 4) Send to API
       const { reply, voice } = await sendImageToCipher({
-        base64Image: base64,
+        image: compressedDataUrl,
       });
 
       setMessages((prev) => [
         ...prev,
         { role: "cipher", text: reply, voice: voice || null },
       ]);
+    } catch (err) {
+      console.error("Vision pipeline error:", err);
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Vision error." },
+      ]);
+    }
 
-      setLoading(false);
-    };
-
-    reader.readAsDataURL(file);
+    setLoading(false);
   };
 
   /* CAMERA MENU HANDLING */
