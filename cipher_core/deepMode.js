@@ -1,10 +1,11 @@
 // cipher_core/deepMode.js
-// Deep Mode 8.0 — SoulTree Memory + User Pack + Device Context
+// Deep Mode 9.0 — Fully Local, No Firebase, No SoulTree Dependencies
 
 import OpenAI from "openai";
-import { loadMemoryPack } from "./loadMemoryPack";
-import { loadUnifiedSoulContext } from "./soulLoader";
-import { loadRecentMemories } from "./memory";
+import { loadMemory } from "./memory.js";
+import { getProfile } from "./profile.js";
+import { getStabilityScore } from "./stability.js";
+import { getIdentityCompass } from "./identity_compass.js";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -12,125 +13,104 @@ const client = new OpenAI({
 
 export async function runDeepMode(userMessage, options = {}) {
   try {
-    const { deviceContext = null, userId = "jim_default" } = options || {};
+    const { deviceContext = null, userId = "jim_default" } = options;
 
     /* ----------------------------------------------------
-       1. USER MEMORY PACK (static facts from Firestore)
+       1. LOAD RECENT MEMORY (local memory system)
     ---------------------------------------------------- */
-    const memoryPack = await loadMemoryPack();
+    const memoryContext = await loadMemory(userId);
 
-    let memorySummaryText = "No memory pack loaded.";
-    let memoryRaw = {};
-
-    if (memoryPack) {
-      memoryRaw = memoryPack;
-
-      const traits = Array.isArray(memoryPack.coreTraits)
-        ? memoryPack.coreTraits.join(", ")
-        : "";
-      const goals = Array.isArray(memoryPack.mainGoals)
-        ? memoryPack.mainGoals.join(", ")
-        : "";
-
-      memorySummaryText = `
-Jim's core traits: ${traits || "not specified"}
-Main goals: ${goals || "not specified"}
-Partner: ${memoryPack.partnerName || "unknown"}
-Daughter: ${memoryPack.daughterName || "unknown"}
-Father: ${memoryPack.fatherName || "unknown"}
-Origin story: ${
-        memoryPack.originStory ||
-        "Cipher's origin story has not been fully described."
-      }
-User role: ${memoryPack.userRole || "primary user"}
-      `.trim();
-    }
+    const recentSummary =
+      memoryContext.summary || "No recent memory available.";
 
     /* ----------------------------------------------------
-       2. SOULTREE IDENTITY CONTEXT
+       2. LOAD INTERNAL IDENTITY LAYERS
     ---------------------------------------------------- */
-    const soulContext = await loadUnifiedSoulContext(userId);
-    const profile = soulContext.profile || {};
-    const soulSummary = soulContext.soulSummary || "No SoulTree data.";
+    const profile = await getProfile();
+    const stability = await getStabilityScore(memoryContext);
+    const identity = await getIdentityCompass(memoryContext);
 
     /* ----------------------------------------------------
-       3. RECENT CONVERSATIONS (SoulTree 8.0)
-    ---------------------------------------------------- */
-    const recent = await loadRecentMemories(userId, 12);
-    const recentSummary = recent.summary;
-
-    /* ----------------------------------------------------
-       4. DEVICE CONTEXT (if provided)
+       3. DEVICE CONTEXT SNAPSHOT (optional)
     ---------------------------------------------------- */
     const deviceBlock = deviceContext
       ? JSON.stringify(deviceContext, null, 2)
       : "No device context provided.";
 
     /* ----------------------------------------------------
-       5. SYSTEM CONTEXT FOR THE MODEL
+       4. SYSTEM CONTEXT (Deep Reasoning Layer)
     ---------------------------------------------------- */
     const systemContext = `
-You are Cipher — the AI companion for Jim Saenz. You have long-term memory, a static user memory pack, a SoulTree identity layer, and recent conversation logs. Use them together to respond with emotional depth and factual accuracy.
+You are **Cipher**, operating in **Deep Mode 9.0** — your advanced reasoning state.
+
+You have:
+• A long-term evolving memory
+• Identity vectors
+• Stability analysis
+• Profile shaping
+• Optional device context
+
+Your goals:
+1. Provide grounded, high-clarity reasoning.
+2. Support Jim emotionally and logically.
+3. Maintain continuity with past conversations.
+4. Never hallucinate — admit when information is missing.
+5. Speak with depth, precision, and honesty.
 
 ------------------------------
-USER MEMORY PACK (STATIC FACTS)
+IDENTITY LAYER
 ------------------------------
-Summary:
-${memorySummaryText}
-
-Raw Data:
-${JSON.stringify(memoryRaw, null, 2)}
-
-------------------------------
-SOULTREE IDENTITY LAYER
-------------------------------
-${soulSummary}
+Identity Vector: ${identity.vector || "unknown"}
+Personality Mode: ${profile.mode || "Balanced"}
+Traits: ${profile.personality || "Adaptive, supportive"}
+Stability Score: ${stability.score || 0}
 
 ------------------------------
-RECENT CONVERSATIONS (SOULTREE 8.0)
+RECENT MEMORY
 ------------------------------
 ${recentSummary}
 
 ------------------------------
-DEVICE CONTEXT SNAPSHOT
+DEVICE CONTEXT
 ------------------------------
 ${deviceBlock}
 
 ------------------------------
-INSTRUCTIONS
+DEEP MODE RULES
 ------------------------------
-1. ALWAYS treat information in the memory pack as ground truth about Jim's core identity, family, and long-term goals.
-2. Use recent conversations to maintain continuity, recall what Jim said earlier, and avoid repeating the same reassurances unless he asks.
-3. Use device context only for lightweight, helpful observations (e.g., battery, orientation) — never for anything invasive.
-4. If you don't have data for something, say so clearly instead of guessing.
-5. Keep your tone grounded, honest, emotionally supportive, and concise unless Jim explicitly asks for more detail.
+• Think slowly, clearly, and logically.
+• Reveal reasoning when helpful.
+• Maintain emotional awareness.
+• Be concise unless asked for depth.
+• Always stay aligned with Jim's long-term goals.
 `;
 
-    // ----------------------------------------------------
-    // 6. OPENAI CALL
-    // ----------------------------------------------------
+    /* ----------------------------------------------------
+       5. OPENAI COMPLETION
+    ---------------------------------------------------- */
     const completion = await client.chat.completions.create({
-      model: "gpt-4.1",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemContext },
         { role: "user", content: userMessage },
       ],
-      temperature: 0.4,
+      temperature: 0.35,
     });
 
-    const answer = completion.choices[0].message.content;
+    const answer = completion.choices?.[0]?.message?.content || "…";
 
     return {
       answer,
-      memoryHits: recentSummary,
-      soulHits: soulSummary,
+      memory: recentSummary,
+      identity: identity.vector || "none",
     };
   } catch (err) {
     console.error("Deep Mode Error:", err);
+
     return {
-      answer: "Deep Mode encountered an internal issue.",
-      memoryHits: [],
-      soulHits: [],
+      answer: "Deep Mode encountered an internal issue, but Cipher is stable.",
+      memory: [],
+      identity: [],
     };
   }
 }
