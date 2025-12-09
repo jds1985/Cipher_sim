@@ -1,5 +1,5 @@
 {
-  "name": "cipher-sim",
+  "name": "cipher-app",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -8,18 +8,12 @@
     "start": "next start"
   },
   "dependencies": {
+    "@vercel/blob": "latest",
+    "firebase": "9.22.0",
+    "firebase-admin": "11.10.1",
     "next": "14.2.3",
+    "openai": "4.52.0",
     "react": "18.2.0",
-    "react-dom": "18.2.0",
-
-    "firebase": "10.13.0",
-    "firebase-admin": "11.11.1",
-
-    "@opentelemetry/api": "^1.8.0",
-    "@google-cloud/firestore": "^7.10.0",
-
-    "openai": "5.2.0",
-    "react-force-graph": "1.44.0",
-    "formdata-node": "6.0.1"
+    "react-dom": "18.2.0"
   }
 }
