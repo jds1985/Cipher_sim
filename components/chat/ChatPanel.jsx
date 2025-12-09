@@ -1,7 +1,10 @@
 // components/chat/ChatPanel.jsx
+"use client";
+
 import React, { useEffect, useRef, useState } from "react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
+import { put } from "@vercel/blob";
 import {
   createBaseMemory,
   extractFactsIntoMemory,
@@ -17,7 +20,7 @@ const sendTextToCipher = async ({ text, memory, voiceEnabled }) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: text,
-        userId: "jim", // you can change this later if needed
+        userId: "jim",
         memory,
         voiceEnabled,
       }),
@@ -32,25 +35,21 @@ const sendTextToCipher = async ({ text, memory, voiceEnabled }) => {
 };
 
 /* ---------------------------------------------
-   SEND IMAGE → /api/vision_chat
-   (expects { image: <data-url> })
+   SEND IMAGE (URL ONLY) → /api/vision_chat
 --------------------------------------------- */
-const sendImageToCipher = async ({ image }) => {
+const sendVisionUrlToCipher = async ({ imageUrl }) => {
   try {
     const res = await fetch("/api/vision_chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        image,       // full data URL: "data:image/jpeg;base64,...."
-        userId: "jim",
-      }),
+      body: JSON.stringify({ imageUrl, userId: "jim" }),
     });
 
     const data = await res.json();
-    return { reply: data.reply || "Vision error.", voice: data.voice || null };
+    return { reply: data.reply || "Vision error." };
   } catch (err) {
     console.error("Vision error:", err);
-    return { reply: "Vision error.", voice: null };
+    return { reply: "Vision error." };
   }
 };
 
@@ -61,26 +60,26 @@ export default function ChatPanel({ theme }) {
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
   const chatEndRef = useRef(null);
-  const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
 
   /* LOAD SAVED CHAT + MEMORY */
   useEffect(() => {
     try {
-      const storedMessages = localStorage.getItem("cipher_messages_v3");
-      if (storedMessages) setMessages(JSON.parse(storedMessages));
+      const savedMsgs = localStorage.getItem("cipher_messages_v3");
+      if (savedMsgs) setMessages(JSON.parse(savedMsgs));
 
-      const storedMemory = localStorage.getItem("cipher_memory_v3");
-      if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
+      const savedMem = localStorage.getItem("cipher_memory_v3");
+      if (savedMem) setCipherMemory(JSON.parse(savedMem));
 
-      const storedVoice = localStorage.getItem("cipher_voice_enabled_v2");
-      if (storedVoice === "false") setVoiceEnabled(false);
+      const savedVoice = localStorage.getItem("cipher_voice_enabled_v2");
+      if (savedVoice === "false") setVoiceEnabled(false);
     } catch {}
   }, []);
 
-  /* SAVE CHAT */
+  /* AUTO SAVE CHAT */
   useEffect(() => {
     try {
       localStorage.setItem("cipher_messages_v3", JSON.stringify(messages));
@@ -88,7 +87,7 @@ export default function ChatPanel({ theme }) {
     } catch {}
   }, [messages]);
 
-  /* SAVE MEMORY */
+  /* AUTO SAVE MEMORY */
   useEffect(() => {
     try {
       localStorage.setItem("cipher_memory_v3", JSON.stringify(cipherMemory));
@@ -106,38 +105,66 @@ export default function ChatPanel({ theme }) {
   }, [voiceEnabled]);
 
   /* ---------------------------------------------------------
-     SEND TEXT MESSAGE
+     SEND TEXT
   --------------------------------------------------------- */
   const handleSendText = async () => {
     if (!input.trim()) return;
 
     const text = input.trim();
 
-    // Memory extraction
     const updatedMem = extractFactsIntoMemory(cipherMemory, text);
     setCipherMemory(updatedMem);
 
-    // Push user message
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     setLoading(true);
 
+    const { reply, voice } = await sendTextToCipher({
+      text,
+      memory: updatedMem,
+      voiceEnabled,
+    });
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "cipher", text: reply, voice: voice || null },
+    ]);
+
+    setLoading(false);
+  };
+
+  /* ---------------------------------------------------------
+     HANDLE IMAGE UPLOAD WITH BLOB
+  --------------------------------------------------------- */
+  const handleImageUpload = async (file) => {
     try {
-      const { reply, voice } = await sendTextToCipher({
-        text,
-        memory: updatedMem,
-        voiceEnabled,
+      setLoading(true);
+
+      // 1) Upload to Vercel Blob (public)
+      const blob = await put(`cipher-${Date.now()}.jpg`, file, {
+        access: "public",
       });
+
+      const imageUrl = blob.url;
+
+      // Show placeholder
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", text: "[Image sent to Cipher Vision]" },
+      ]);
+
+      // 2) Send URL to backend
+      const { reply } = await sendVisionUrlToCipher({ imageUrl });
 
       setMessages((prev) => [
         ...prev,
-        { role: "cipher", text: reply, voice: voice || null },
+        { role: "cipher", text: reply },
       ]);
     } catch (err) {
       console.error(err);
       setMessages((prev) => [
         ...prev,
-        { role: "cipher", text: "Server error." },
+        { role: "cipher", text: "Vision error occurred." },
       ]);
     }
 
@@ -145,70 +172,8 @@ export default function ChatPanel({ theme }) {
   };
 
   /* ---------------------------------------------------------
-     COMPRESS + SEND IMAGE
+     CAMERA HANDLING (front, rear, gallery)
   --------------------------------------------------------- */
-  const handleImageUpload = async (file) => {
-    if (!file) return;
-    setLoading(true);
-
-    try {
-      // 1) Read file as data URL
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      // 2) Compress via canvas (keep EXIF irrelevant, we just care about pixels)
-      const compressedDataUrl = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          const MAX_WIDTH = 800;
-          const scale = Math.min(1, MAX_WIDTH / img.width);
-
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          // quality 0.7 → good balance
-          const out = canvas.toDataURL("image/jpeg", 0.7);
-          resolve(out);
-        };
-        img.onerror = reject;
-        img.src = dataUrl;
-      });
-
-      // 3) Optional: show that an image was sent
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", text: "[Image sent to Cipher Vision]" },
-      ]);
-
-      // 4) Send to API
-      const { reply, voice } = await sendImageToCipher({
-        image: compressedDataUrl,
-      });
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "cipher", text: reply, voice: voice || null },
-      ]);
-    } catch (err) {
-      console.error("Vision pipeline error:", err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "cipher", text: "Vision error." },
-      ]);
-    }
-
-    setLoading(false);
-  };
-
-  /* CAMERA MENU HANDLING */
   const handleCamera = (mode) => {
     setCameraMenuOpen(false);
 
@@ -235,9 +200,6 @@ export default function ChatPanel({ theme }) {
     }
   };
 
-  /* ---------------------------------------------------------
-     UI RENDER
-  --------------------------------------------------------- */
   return (
     <div style={{ position: "relative" }}>
       {/* VOICE TOGGLE */}
@@ -267,7 +229,7 @@ export default function ChatPanel({ theme }) {
         </button>
       </div>
 
-      {/* CHAT WINDOW */}
+      {/* CHAT PANEL */}
       <div
         style={{
           maxWidth: 700,
@@ -277,13 +239,12 @@ export default function ChatPanel({ theme }) {
           padding: 20,
           minHeight: "60vh",
           boxShadow: `0 4px 30px ${theme.inputBorder}`,
-          overflowY: "auto",
         }}
       >
         <MessageList
           messages={messages}
-          theme={theme}
           loading={loading}
+          theme={theme}
           chatEndRef={chatEndRef}
         />
       </div>
@@ -330,7 +291,7 @@ export default function ChatPanel({ theme }) {
         theme={theme}
       />
 
-      {/* CLEAR CHAT BUTTON */}
+      {/* CLEAR CHAT */}
       <button
         onClick={clearConversation}
         style={{
