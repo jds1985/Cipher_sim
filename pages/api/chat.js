@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher Chat – Stable Working Version (Corrected saveMemory format)
+// Cipher Chat – Stable Version (Guard + Core 10.0)
 
 import OpenAI from "openai";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
 
     const cleanedMessage = guard.cleaned || message;
 
-    // 3) BUILD SYSTEM PROMPT
+    // 3) SYSTEM PROMPT FROM CORE
     const systemPrompt = await runCipherCore(memoryContext);
 
     // 4) MAIN GPT CALL
@@ -55,11 +55,14 @@ export default async function handler(req, res) {
 
     const reply = completion.choices?.[0]?.message?.content || "…";
 
-    // 5) SAVE MEMORY (Correct format)
+    // 5) SAVE MEMORY (object-based)
     await saveMemory({
       userId,
       userMessage: cleanedMessage,
       cipherReply: reply,
+      meta: {
+        source: "chat_api",
+      },
     });
 
     return res.status(200).json({ reply });
