@@ -1,54 +1,43 @@
 // components/chat/ChatPanel.jsx
-"use client";
-
 import React, { useEffect, useRef, useState } from "react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
-import { put } from "@vercel/blob";
 import {
   createBaseMemory,
   extractFactsIntoMemory,
 } from "../../logic/memoryCore";
 
 /* ---------------------------------------------
-   SEND TEXT → /api/chat
+   SEND TEXT
 --------------------------------------------- */
-const sendTextToCipher = async ({ text, memory, voiceEnabled }) => {
+const sendTextToCipher = async ({ text, memory }) => {
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: text,
-        userId: "jim",
-        memory,
-        voiceEnabled,
-      }),
+      body: JSON.stringify({ message: text, userId: "jim", memory }),
     });
 
-    const data = await res.json();
-    return { reply: data.reply || "No response.", voice: data.voice || null };
-  } catch (err) {
-    console.error("API Chat Error:", err);
-    return { reply: "API error.", voice: null };
+    return await res.json();
+  } catch {
+    return { reply: "API error." };
   }
 };
 
 /* ---------------------------------------------
-   SEND IMAGE (URL ONLY) → /api/vision_chat
+   SEND IMAGE → BLOB BACKEND
 --------------------------------------------- */
-const sendVisionUrlToCipher = async ({ imageUrl }) => {
+const sendImageToCipher = async (base64Image) => {
   try {
     const res = await fetch("/api/vision_chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrl, userId: "jim" }),
+      body: JSON.stringify({ base64Image, userId: "jim" }),
     });
 
-    const data = await res.json();
-    return { reply: data.reply || "Vision error." };
+    return await res.json();
   } catch (err) {
-    console.error("Vision error:", err);
+    console.error("Vision Error:", err);
     return { reply: "Vision error." };
   }
 };
@@ -59,177 +48,78 @@ export default function ChatPanel({ theme }) {
   const [loading, setLoading] = useState(false);
 
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-
   const chatEndRef = useRef(null);
+  const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
 
-  /* LOAD SAVED CHAT + MEMORY */
+  /* LOAD PREVIOUS CHAT */
   useEffect(() => {
-    try {
-      const savedMsgs = localStorage.getItem("cipher_messages_v3");
-      if (savedMsgs) setMessages(JSON.parse(savedMsgs));
+    const stored = localStorage.getItem("cipher_messages_v3");
+    if (stored) setMessages(JSON.parse(stored));
 
-      const savedMem = localStorage.getItem("cipher_memory_v3");
-      if (savedMem) setCipherMemory(JSON.parse(savedMem));
-
-      const savedVoice = localStorage.getItem("cipher_voice_enabled_v2");
-      if (savedVoice === "false") setVoiceEnabled(false);
-    } catch {}
+    const mem = localStorage.getItem("cipher_memory_v3");
+    if (mem) setCipherMemory(JSON.parse(mem));
   }, []);
 
-  /* AUTO SAVE CHAT */
+  /* SAVE CHAT */
   useEffect(() => {
-    try {
-      localStorage.setItem("cipher_messages_v3", JSON.stringify(messages));
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    } catch {}
+    localStorage.setItem("cipher_messages_v3", JSON.stringify(messages));
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  /* AUTO SAVE MEMORY */
-  useEffect(() => {
-    try {
-      localStorage.setItem("cipher_memory_v3", JSON.stringify(cipherMemory));
-    } catch {}
-  }, [cipherMemory]);
-
-  /* SAVE VOICE STATE */
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        "cipher_voice_enabled_v2",
-        voiceEnabled ? "true" : "false"
-      );
-    } catch {}
-  }, [voiceEnabled]);
-
-  /* ---------------------------------------------------------
-     SEND TEXT
-  --------------------------------------------------------- */
+  /* TEXT SEND */
   const handleSendText = async () => {
     if (!input.trim()) return;
 
-    const text = input.trim();
-
-    const updatedMem = extractFactsIntoMemory(cipherMemory, text);
-    setCipherMemory(updatedMem);
-
-    setMessages((prev) => [...prev, { role: "user", text }]);
+    const userText = input.trim();
     setInput("");
+
+    const newMem = extractFactsIntoMemory(cipherMemory, userText);
+    setCipherMemory(newMem);
+
+    setMessages((m) => [...m, { role: "user", text: userText }]);
     setLoading(true);
 
-    const { reply, voice } = await sendTextToCipher({
-      text,
-      memory: updatedMem,
-      voiceEnabled,
+    const { reply } = await sendTextToCipher({
+      text: userText,
+      memory: newMem,
     });
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "cipher", text: reply, voice: voice || null },
-    ]);
-
+    setMessages((m) => [...m, { role: "cipher", text: reply }]);
     setLoading(false);
   };
 
-  /* ---------------------------------------------------------
-     HANDLE IMAGE UPLOAD WITH BLOB
-  --------------------------------------------------------- */
-  const handleImageUpload = async (file) => {
-    try {
-      setLoading(true);
+  /* IMAGE UPLOAD */
+  const handleRawImage = async (file) => {
+    setLoading(true);
 
-      // 1) Upload to Vercel Blob (public)
-      const blob = await put(`cipher-${Date.now()}.jpg`, file, {
-        access: "public",
-      });
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result.split(",")[1];
 
-      const imageUrl = blob.url;
+      const { reply } = await sendImageToCipher(base64);
 
-      // Show placeholder
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", text: "[Image sent to Cipher Vision]" },
-      ]);
+      setMessages((m) => [...m, { role: "cipher", text: reply }]);
+      setLoading(false);
+    };
 
-      // 2) Send URL to backend
-      const { reply } = await sendVisionUrlToCipher({ imageUrl });
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "cipher", text: reply },
-      ]);
-    } catch (err) {
-      console.error(err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "cipher", text: "Vision error occurred." },
-      ]);
-    }
-
-    setLoading(false);
+    reader.readAsDataURL(file);
   };
 
-  /* ---------------------------------------------------------
-     CAMERA HANDLING (front, rear, gallery)
-  --------------------------------------------------------- */
-  const handleCamera = (mode) => {
+  /* CAMERA MENU → TRIGGER FILE INPUT */
+  const triggerImage = (mode) => {
     setCameraMenuOpen(false);
 
-    const el = document.createElement("input");
-    el.type = "file";
-    el.accept = "image/*";
-
+    const el = document.getElementById("cipher-image-input");
     if (mode === "environment") el.capture = "environment";
     if (mode === "user") el.capture = "user";
-
-    el.onchange = (e) => {
-      const file = e.target.files?.[0];
-      if (file) handleImageUpload(file);
-    };
+    if (mode === "gallery") el.capture = undefined;
 
     el.click();
   };
 
-  /* CLEAR CHAT */
-  const clearConversation = () => {
-    if (confirm("Reset Cipher conversation?")) {
-      setMessages([]);
-      localStorage.removeItem("cipher_messages_v3");
-    }
-  };
-
   return (
     <div style={{ position: "relative" }}>
-      {/* VOICE TOGGLE */}
-      <div
-        style={{
-          maxWidth: 700,
-          margin: "0 auto 10px auto",
-          display: "flex",
-          justifyContent: "flex-end",
-        }}
-      >
-        <button
-          onClick={() => setVoiceEnabled((v) => !v)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "6px 10px",
-            borderRadius: 999,
-            border: `1px solid ${theme.inputBorder}`,
-            background: voiceEnabled ? theme.userBubble : theme.panelBg,
-            color: theme.textColor,
-            fontSize: 12,
-          }}
-        >
-          {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
-        </button>
-      </div>
-
-      {/* CHAT PANEL */}
+      {/* CHAT WINDOW */}
       <div
         style={{
           maxWidth: 700,
@@ -238,18 +128,13 @@ export default function ChatPanel({ theme }) {
           borderRadius: 12,
           padding: 20,
           minHeight: "60vh",
-          boxShadow: `0 4px 30px ${theme.inputBorder}`,
+          overflowY: "auto",
         }}
       >
-        <MessageList
-          messages={messages}
-          loading={loading}
-          theme={theme}
-          chatEndRef={chatEndRef}
-        />
+        <MessageList messages={messages} theme={theme} chatEndRef={chatEndRef} />
       </div>
 
-      {/* CAMERA MENU */}
+      {/* CAMERA POPUP */}
       {cameraMenuOpen && (
         <div
           style={{
@@ -259,23 +144,14 @@ export default function ChatPanel({ theme }) {
             background: "#1e293b",
             padding: 10,
             borderRadius: 12,
-            boxShadow: "0 0 20px rgba(0,0,0,0.6)",
-            zIndex: 999,
             display: "flex",
             flexDirection: "column",
             gap: 8,
-            minWidth: 160,
           }}
         >
-          <button style={menuBtn} onClick={() => handleCamera("environment")}>
-            📷 Rear Camera
-          </button>
-          <button style={menuBtn} onClick={() => handleCamera("user")}>
-            🤳 Front Camera
-          </button>
-          <button style={menuBtn} onClick={() => handleCamera("gallery")}>
-            🖼️ Choose from Gallery
-          </button>
+          <button onClick={() => triggerImage("environment")}>📷 Rear Camera</button>
+          <button onClick={() => triggerImage("user")}>🤳 Front Camera</button>
+          <button onClick={() => triggerImage("gallery")}>🖼 Gallery</button>
         </div>
       )}
 
@@ -283,40 +159,14 @@ export default function ChatPanel({ theme }) {
       <InputBar
         input={input}
         setInput={setInput}
-        loading={loading}
         onSend={handleSendText}
-        onToggleRecording={() => setIsRecording(!isRecording)}
-        isRecording={isRecording}
-        onToggleCameraMenu={() => setCameraMenuOpen(!cameraMenuOpen)}
+        onImageSelect={handleRawImage}
+        onToggleRecording={() => {}}
+        isRecording={false}
+        onToggleCameraMenu={() => setCameraMenuOpen((v) => !v)}
+        loading={loading}
         theme={theme}
       />
-
-      {/* CLEAR CHAT */}
-      <button
-        onClick={clearConversation}
-        style={{
-          display: "block",
-          margin: "20px auto 0 auto",
-          background: theme.deleteBg,
-          color: "white",
-          padding: "8px 16px",
-          borderRadius: 999,
-          border: "none",
-        }}
-      >
-        Delete Conversation
-      </button>
     </div>
   );
 }
-
-const menuBtn = {
-  padding: "8px 12px",
-  background: "#334155",
-  color: "#fff",
-  border: "none",
-  borderRadius: 8,
-  textAlign: "left",
-  fontSize: 14,
-  cursor: "pointer",
-};
