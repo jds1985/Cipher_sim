@@ -1,4 +1,3 @@
-// pages/api/upload.js
 import { put } from "@vercel/blob";
 
 export default async function handler(req, res) {
@@ -13,10 +12,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No file provided" });
     }
 
-    // Convert base64 back to binary
     const buffer = Buffer.from(fileData, "base64");
 
-    // Upload to Vercel Blob
     const uploaded = await put(`cipher/${fileName}`, buffer, {
       access: "public",
     });
