@@ -1,20 +1,18 @@
 // cipher_core/memory.js
-// SoulTree 8.0 — TEMPORARY Local Memory Engine (No Firebase)
+// SoulTree 8.0 — Unified Conversation Memory Engine (Cleaned)
 
-// In the future, we can swap this with a database again.
-// For now, this keeps Cipher functional without breaking deploys.
-
-let localMemory = [];
+// Only this file talks to Firestore.
+import { db } from "../firebaseAdmin";
 
 /* -------------------------------------------------------
-   SAVE MEMORY — stores in local array only
+   SAVE MEMORY (object-based payload)
 ------------------------------------------------------- */
 export async function saveMemory(payload = {}) {
   try {
     const {
       userId = "jim_default",
       userMessage,
-      message,
+      message, // legacy field
       cipherReply,
       meta = {},
       deviceContext = null,
@@ -31,49 +29,53 @@ export async function saveMemory(payload = {}) {
       ...rest,
     };
 
-    // Store locally (non-persistent)
-    localMemory.push(doc);
-
-    // Keep memory from growing too large
-    if (localMemory.length > 200) {
-      localMemory = localMemory.slice(-200);
-    }
+    await db.collection("cipher_memories").add(doc);
   } catch (err) {
     console.error("saveMemory error:", err);
   }
 }
 
 /* -------------------------------------------------------
-   LOAD MEMORY — loads last N items (local only)
+   LOAD RECENT MEMORIES + BUILD SUMMARY
 ------------------------------------------------------- */
 export async function loadMemory(userId = "jim_default", limit = 12) {
   try {
-    const filtered = localMemory
-      .filter((m) => m.userId === userId)
-      .slice(-limit);
+    const snap = await db
+      .collection("cipher_memories")
+      .orderBy("createdAt", "desc")
+      .limit(120)
+      .get();
+
+    const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const filtered = all.filter((m) => m.userId === userId).slice(0, limit);
 
     if (!filtered.length) {
       return {
         memories: [],
-        summary: "No prior memories yet.",
+        summary: "No prior conversation memories stored yet.",
       };
     }
 
-    const summaryLines = filtered.map((m, idx) => {
-      const shortUser =
-        m.userMessage && m.userMessage.length > 160
-          ? m.userMessage.slice(0, 157) + "…"
-          : m.userMessage || "[empty]";
+    const summaryLines = filtered
+      .slice()
+      .reverse()
+      .map((m, idx) => {
+        const user = (m.userMessage || "").trim();
+        const reply = (m.cipherReply || "").trim();
 
-      const shortReply =
-        m.cipherReply && m.cipherReply.length > 180
-          ? m.cipherReply.slice(0, 177) + "…"
-          : m.cipherReply || "[empty]";
+        const shortUser =
+          user.length > 160 ? user.slice(0, 157).trim() + "…" : user;
+        const shortReply =
+          reply.length > 180 ? reply.slice(0, 177).trim() + "…" : reply;
 
-      return `#${idx + 1}
-User: ${shortUser}
-Cipher: ${shortReply}`;
-    });
+        const ts = m.createdAt
+          ? new Date(m.createdAt).toISOString()
+          : "unknown time";
+
+        return `#${idx + 1} (${ts})
+User: ${shortUser || "[empty]"}
+Cipher: ${shortReply || "[empty]"}`;
+      });
 
     return {
       memories: filtered,
@@ -83,12 +85,12 @@ Cipher: ${shortReply}`;
     console.error("loadMemory error:", err);
     return {
       memories: [],
-      summary: "Error loading memories.",
+      summary: "Error loading prior memories.",
     };
   }
 }
 
-/* Alias */
+/* Convenience alias */
 export async function loadRecentMemories(userId = "jim_default", limit = 12) {
   return loadMemory(userId, limit);
 }
