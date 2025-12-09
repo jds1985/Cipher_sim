@@ -7,9 +7,6 @@ import {
   extractFactsIntoMemory,
 } from "../../logic/memoryCore";
 
-/* ---------------------------------------------
-   SEND TEXT → /api/chat
---------------------------------------------- */
 const sendTextToCipher = async ({ text, memory }) => {
   try {
     const res = await fetch("/api/chat", {
@@ -17,71 +14,31 @@ const sendTextToCipher = async ({ text, memory }) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text, userId: "jim", memory }),
     });
-
-    const data = await res.json();
-    return { reply: data.reply || "No response." };
-  } catch (err) {
-    console.error("API Chat Error:", err);
+    return await res.json();
+  } catch {
     return { reply: "API error." };
   }
 };
 
-/* ---------------------------------------------
-   SEND IMAGE → /api/vision_chat
---------------------------------------------- */
-const sendImageToCipher = async (base64Image) => {
+/* ---------------------------------------------------------
+   SEND IMAGE (multipart/form-data)
+--------------------------------------------------------- */
+const sendImageToCipher = async (file) => {
   try {
+    const form = new FormData();
+    form.append("image", file);
+
     const res = await fetch("/api/vision_chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base64Image, userId: "jim" }),
+      body: form, // <-- NO JSON, NO BASE64
     });
 
-    const data = await res.json();
-    return { reply: data.reply || "Vision error." };
+    return await res.json();
   } catch (err) {
     console.error("Vision Error:", err);
     return { reply: "Vision error." };
   }
 };
-
-/* ---------------------------------------------
-   CLIENT-SIDE IMAGE COMPRESSION
-   - Shrinks huge camera photos BEFORE upload
---------------------------------------------- */
-const compressImageInBrowser = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          const maxWidth = 800; // target width
-          const scale = img.width > maxWidth ? maxWidth / img.width : 1;
-
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          // JPEG at 0.7 quality → usually < 500KB
-          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          const base64 = compressedDataUrl.split(",")[1];
-          resolve(base64);
-        } catch (err) {
-          reject(err);
-        }
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 
 export default function ChatPanel({ theme }) {
   const [input, setInput] = useState("");
@@ -92,57 +49,33 @@ export default function ChatPanel({ theme }) {
   const chatEndRef = useRef(null);
   const [cameraMenuOpen, setCameraMenuOpen] = useState(false);
 
-  /* LOAD PREVIOUS CHAT + MEMORY */
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("cipher_messages_v3");
-      if (stored) setMessages(JSON.parse(stored));
+    const stored = localStorage.getItem("cipher_messages_v3");
+    if (stored) setMessages(JSON.parse(stored));
 
-      const mem = localStorage.getItem("cipher_memory_v3");
-      if (mem) setCipherMemory(JSON.parse(mem));
-    } catch (err) {
-      console.error("Load localStorage error:", err);
-    }
+    const mem = localStorage.getItem("cipher_memory_v3");
+    if (mem) setCipherMemory(JSON.parse(mem));
   }, []);
 
-  /* SAVE CHAT */
   useEffect(() => {
-    try {
-      localStorage.setItem("cipher_messages_v3", JSON.stringify(messages));
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    } catch (err) {
-      console.error("Save messages error:", err);
-    }
+    localStorage.setItem("cipher_messages_v3", JSON.stringify(messages));
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  /* SAVE MEMORY */
-  useEffect(() => {
-    try {
-      localStorage.setItem("cipher_memory_v3", JSON.stringify(cipherMemory));
-    } catch (err) {
-      console.error("Save memory error:", err);
-    }
-  }, [cipherMemory]);
-
-  /* ---------------------------------------------
-     TEXT SEND
-  --------------------------------------------- */
   const handleSendText = async () => {
     if (!input.trim()) return;
 
-    const userText = input.trim();
+    const txt = input.trim();
     setInput("");
 
-    // update memory
-    const newMem = extractFactsIntoMemory(cipherMemory, userText);
+    const newMem = extractFactsIntoMemory(cipherMemory, txt);
     setCipherMemory(newMem);
 
-    // show user message
-    setMessages((m) => [...m, { role: "user", text: userText }]);
+    setMessages((m) => [...m, { role: "user", text: txt }]);
     setLoading(true);
 
     const { reply } = await sendTextToCipher({
-      text: userText,
+      text: txt,
       memory: newMem,
     });
 
@@ -150,55 +83,28 @@ export default function ChatPanel({ theme }) {
     setLoading(false);
   };
 
-  /* ---------------------------------------------
-     IMAGE HANDLER (with compression)
-  --------------------------------------------- */
-  const handleRawImage = async (file) => {
-    if (!file) return;
+  /* ---------------------------------------------------------
+     IMAGE UPLOAD (raw file)
+  --------------------------------------------------------- */
+  const handleImageSelect = async (file) => {
     setLoading(true);
 
-    try {
-      // 1) Compress locally
-      const base64 = await compressImageInBrowser(file);
+    const { reply } = await sendImageToCipher(file);
 
-      // 2) Send compressed base64 to backend
-      const { reply } = await sendImageToCipher(base64);
-
-      setMessages((m) => [
-        ...m,
-        { role: "cipher", text: reply || "Vision error." },
-      ]);
-    } catch (err) {
-      console.error("Vision pipeline error:", err);
-      setMessages((m) => [
-        ...m,
-        { role: "cipher", text: "Vision error." },
-      ]);
-    }
-
+    setMessages((m) => [...m, { role: "cipher", text: reply }]);
     setLoading(false);
   };
 
-  /* CAMERA MENU → TRIGGER FILE INPUT */
   const triggerImage = (mode) => {
     setCameraMenuOpen(false);
 
     const el = document.getElementById("cipher-image-input");
-    if (!el) return;
 
     if (mode === "environment") el.capture = "environment";
-    else if (mode === "user") el.capture = "user";
-    else el.capture = undefined; // gallery
+    if (mode === "user") el.capture = "user";
+    if (mode === "gallery") el.capture = undefined;
 
     el.click();
-  };
-
-  /* CLEAR CHAT (if you want to hook to a button later) */
-  const clearConversation = () => {
-    if (confirm("Reset Cipher conversation?")) {
-      setMessages([]);
-      localStorage.removeItem("cipher_messages_v3");
-    }
   };
 
   return (
@@ -215,11 +121,7 @@ export default function ChatPanel({ theme }) {
           overflowY: "auto",
         }}
       >
-        <MessageList
-          messages={messages}
-          theme={theme}
-          chatEndRef={chatEndRef}
-        />
+        <MessageList messages={messages} theme={theme} chatEndRef={chatEndRef} />
       </div>
 
       {/* CAMERA POPUP */}
@@ -235,28 +137,33 @@ export default function ChatPanel({ theme }) {
             display: "flex",
             flexDirection: "column",
             gap: 8,
-            boxShadow: "0 0 20px rgba(0,0,0,0.6)",
           }}
         >
-          <button onClick={() => triggerImage("environment")}>
-            📷 Rear Camera
-          </button>
-          <button onClick={() => triggerImage("user")}>🤳 Front Camera</button>
+          <button onClick={() => triggerImage("environment")}>📷 Rear</button>
+          <button onClick={() => triggerImage("user")}>🤳 Front</button>
           <button onClick={() => triggerImage("gallery")}>🖼 Gallery</button>
         </div>
       )}
 
-      {/* INPUT BAR */}
       <InputBar
         input={input}
         setInput={setInput}
-        loading={loading}
         onSend={handleSendText}
-        onImageSelect={handleRawImage}
-        onToggleRecording={() => {}}
-        isRecording={false}
+        onImageSelect={handleImageSelect}
         onToggleCameraMenu={() => setCameraMenuOpen((v) => !v)}
+        loading={loading}
         theme={theme}
+      />
+
+      {/* HIDDEN INPUT */}
+      <input
+        id="cipher-image-input"
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.[0]) handleImageSelect(e.target.files[0]);
+        }}
       />
     </div>
   );
