@@ -1,9 +1,18 @@
-// pages/api/vision_chat.js
+import { put } from "@vercel/blob";
 import OpenAI from "openai";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Allow large body for blob conversion
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "10mb",
+    },
+  },
+};
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -11,41 +20,54 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { imageUrl } = req.body;
+    const { base64Image, userId } = req.body;
 
-    if (!imageUrl) {
-      return res.status(400).json({ error: "Missing image URL" });
+    if (!base64Image) {
+      return res.status(400).json({ error: "No image provided" });
     }
 
-    const response = await client.chat.completions.create({
+    // Convert base64 → binary
+    const imgBuffer = Buffer.from(base64Image, "base64");
+
+    // Upload to Vercel Blob (VERY tiny payload)
+    const blob = await put(`vision-${Date.now()}.jpg`, imgBuffer, {
+      contentType: "image/jpeg",
+      access: "public",
+    });
+
+    const imgUrl = blob.url;
+
+    // Vision call
+    const completion = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
-        {
-          role: "system",
-          content:
-            "You are Cipher Vision. Analyze images deeply and describe all meaningful details.",
-        },
+        { role: "system", content: "You are Cipher Vision. Analyze deeply." },
         {
           role: "user",
           content: [
             {
               type: "input_image",
-              image_url: { url: imageUrl },
+              image_url: { url: imgUrl }
             },
             {
               type: "text",
-              text: "Describe what you see.",
-            },
-          ],
-        },
-      ],
+              text: "Describe what you see in detail and remember anything meaningful."
+            }
+          ]
+        }
+      ]
     });
 
     return res.status(200).json({
-      reply: response.choices[0].message.content,
+      reply: completion.choices[0].message.content,
+      imgUrl,
     });
+
   } catch (err) {
-    console.error("Vision Error:", err);
-    return res.status(500).json({ error: "Vision processing failed." });
+    console.error("VISION ERROR:", err);
+    return res.status(500).json({
+      error: "Vision failed",
+      details: err.message,
+    });
   }
 }
