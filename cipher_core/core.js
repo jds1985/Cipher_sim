@@ -4,7 +4,7 @@
 import { getProfile } from "./profile";
 import { getStabilityScore } from "./stability";
 import { getIdentityCompass } from "./identity_compass";
-import { getThemeByKey } from "./themes";
+import { getThemeByKey } from "./theme.js";
 
 export async function runCipherCore(memoryContext = {}, options = {}) {
   const profile = await getProfile();
