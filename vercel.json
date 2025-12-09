@@ -1,10 +1,10 @@
 {
   "version": 2,
   "functions": {
-    "api/chat.js": {
+    "/api/chat.js": {
       "maxDuration": 20
     },
-    "api/upload.js": {
+    "/api/upload.js": {
       "maxDuration": 20
     }
   }
