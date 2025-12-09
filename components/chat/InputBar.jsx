@@ -58,7 +58,7 @@ export default function InputBar({
           Send
         </button>
 
-        {/* MIC */}
+        {/* MIC (stubbed for now) */}
         <button
           onClick={onToggleRecording}
           disabled={loading}
@@ -104,7 +104,8 @@ export default function InputBar({
         accept="image/*"
         className="hidden"
         onChange={(e) => {
-          if (e.target.files?.[0]) onImageSelect(e.target.files[0]);
+          const file = e.target.files?.[0];
+          if (file) onImageSelect(file);
         }}
       />
     </div>
