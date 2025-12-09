@@ -2,41 +2,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
-import { createBaseMemory, extractFactsIntoMemory } from "../../logic/memoryCore";
-
-/* TEXT → /api/chat */
-const sendTextToCipher = async ({ text, memory }) => {
-  try {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text, userId: "jim", memory }),
-    });
-
-    return await res.json();
-  } catch {
-    return { reply: "API error." };
-  }
-};
-
-/* IMAGE UPLOAD → /api/image_analyze */
-const sendImageToCipher = async (file) => {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("userId", "jim");
-
-  try {
-    const res = await fetch("/api/image_analyze", {
-      method: "POST",
-      body: formData,
-    });
-
-    return await res.json();
-  } catch (err) {
-    console.error("Image Upload Error:", err);
-    return { reply: "Vision error." };
-  }
-};
+import {
+  createBaseMemory,
+  extractFactsIntoMemory,
+} from "../../logic/memoryCore";
 
 export default function ChatPanel({ theme }) {
   const [input, setInput] = useState("");
@@ -46,53 +15,149 @@ export default function ChatPanel({ theme }) {
   const [cipherMemory, setCipherMemory] = useState(createBaseMemory);
   const chatEndRef = useRef(null);
 
-  /* Load local chat */
+  /* ---------------------------------------------
+     LOAD SAVED CHAT + MEMORY
+  --------------------------------------------- */
   useEffect(() => {
-    const stored = localStorage.getItem("cipher_messages_v3");
-    if (stored) setMessages(JSON.parse(stored));
+    try {
+      const storedMessages = localStorage.getItem("cipher_messages_v3");
+      if (storedMessages) setMessages(JSON.parse(storedMessages));
 
-    const mem = localStorage.getItem("cipher_memory_v3");
-    if (mem) setCipherMemory(JSON.parse(mem));
+      const storedMemory = localStorage.getItem("cipher_memory_v3");
+      if (storedMemory) setCipherMemory(JSON.parse(storedMemory));
+    } catch {}
   }, []);
 
-  /* Save chat */
+  /* ---------------------------------------------
+     AUTO SAVE CHAT + AUTOSCROLL
+  --------------------------------------------- */
   useEffect(() => {
-    localStorage.setItem("cipher_messages_v3", JSON.stringify(messages));
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    try {
+      localStorage.setItem("cipher_messages_v3", JSON.stringify(messages));
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } catch {}
   }, [messages]);
 
-  /* TEXT SEND */
+  /* ---------------------------------------------
+     SAVE MEMORY
+  --------------------------------------------- */
+  useEffect(() => {
+    try {
+      localStorage.setItem("cipher_memory_v3", JSON.stringify(cipherMemory));
+    } catch {}
+  }, [cipherMemory]);
+
+  /* ---------------------------------------------
+     SEND TEXT → /api/chat
+  --------------------------------------------- */
   const handleSendText = async () => {
     if (!input.trim()) return;
 
     const text = input.trim();
     setInput("");
 
-    const newMem = extractFactsIntoMemory(cipherMemory, text);
-    setCipherMemory(newMem);
+    // Update memory
+    const updatedMemory = extractFactsIntoMemory(cipherMemory, text);
+    setCipherMemory(updatedMemory);
 
+    // Push user message
     setMessages((prev) => [...prev, { role: "user", text }]);
     setLoading(true);
 
-    const { reply } = await sendTextToCipher({ text, memory: newMem });
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          userId: "jim",
+          memory: updatedMemory,
+        }),
+      });
 
-    setMessages((prev) => [...prev, { role: "cipher", text: reply }]);
+      const data = await res.json();
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: data.reply || "No response." },
+      ]);
+    } catch {
+      setMessages((prev) => [...prev, { role: "cipher", text: "API error." }]);
+    }
+
     setLoading(false);
   };
 
-  /* IMAGE UPLOAD */
-  const handleImageSelect = async (file) => {
-    setLoading(true);
+  /* ---------------------------------------------
+     NEW IMAGE UPLOAD → Upload to Vercel → Send URL
+  --------------------------------------------- */
+  const handleImageUpload = async (file) => {
+    try {
+      setLoading(true);
 
-    const { reply } = await sendImageToCipher(file);
+      // 1. Upload file to Vercel Blob via Upload API
+      const formData = new FormData();
+      formData.append("file", file);
 
-    setMessages((prev) => [...prev, { role: "cipher", text: reply }]);
+      const uploadRes = await fetch("https://upload.vercel.com/api/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_VERCEL_BLOB_TOKEN}`,
+        },
+        body: formData,
+      });
+
+      const uploadData = await uploadRes.json();
+
+      if (!uploadData.url) {
+        throw new Error("Upload failed");
+      }
+
+      const imageUrl = uploadData.url;
+
+      // 2. Send URL to /api/image_analyze
+      const res = await fetch("/api/image_analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: imageUrl,
+          userId: "jim",
+        }),
+      });
+
+      const data = await res.json();
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: data.reply || "Vision failed." },
+      ]);
+    } catch (err) {
+      console.error("Image upload error:", err);
+      setMessages((prev) => [
+        ...prev,
+        { role: "cipher", text: "Image analysis failed." },
+      ]);
+    }
+
     setLoading(false);
   };
 
+  /* ---------------------------------------------
+     CLEAR CHAT
+  --------------------------------------------- */
+  const clearConversation = () => {
+    if (confirm("Reset Cipher conversation?")) {
+      setMessages([]);
+      localStorage.removeItem("cipher_messages_v3");
+    }
+  };
+
+  /* ---------------------------------------------
+     RENDER UI
+  --------------------------------------------- */
   return (
     <div style={{ position: "relative" }}>
-      {/* Chat Window */}
+      {/* CHAT WINDOW */}
       <div
         style={{
           maxWidth: 700,
@@ -102,19 +167,42 @@ export default function ChatPanel({ theme }) {
           padding: 20,
           minHeight: "60vh",
           overflowY: "auto",
+          boxShadow: `0 2px 20px ${theme.inputBorder}`,
         }}
       >
-        <MessageList messages={messages} theme={theme} chatEndRef={chatEndRef} />
+        <MessageList
+          messages={messages}
+          theme={theme}
+          loading={loading}
+          chatEndRef={chatEndRef}
+        />
       </div>
 
-      {/* Input Bar */}
+      {/* INPUT BAR */}
       <InputBar
         input={input}
         setInput={setInput}
+        loading={loading}
         onSend={handleSendText}
-        onImageSelect={handleImageSelect}
+        onImageUpload={handleImageUpload}
         theme={theme}
       />
+
+      {/* CLEAR CHAT */}
+      <button
+        onClick={clearConversation}
+        style={{
+          display: "block",
+          margin: "20px auto 0 auto",
+          background: theme.deleteBg,
+          color: "white",
+          padding: "8px 16px",
+          borderRadius: 999,
+          border: "none",
+        }}
+      >
+        Delete Conversation
+      </button>
     </div>
   );
 }
