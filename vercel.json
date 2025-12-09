@@ -1,7 +1,11 @@
 {
+  "version": 2,
   "functions": {
-    "api/vision_chat.js": {
-      "maxRequestBodySize": "20mb"
+    "api/chat.js": {
+      "maxDuration": 20
+    },
+    "api/upload.js": {
+      "maxDuration": 20
     }
   }
 }
