@@ -1,11 +1,4 @@
 {
   "version": 2,
-  "functions": {
-    "api/chat.js": {
-      "maxDuration": 20
-    },
-    "api/upload.js": {
-      "maxDuration": 20
-    }
-  }
+  "rootDirectory": "Cipher_sim"
 }
