@@ -1,5 +1,4 @@
 // components/chat/InputBar.jsx
-"use client";
 import React from "react";
 
 export default function InputBar({
@@ -8,28 +7,16 @@ export default function InputBar({
   loading,
   onSend,
   onImageSelect,
-  onToggleRecording,
-  isRecording,
-  onToggleCameraMenu,
-  theme,
+  theme
 }) {
   return (
-    <div
-      style={{
-        maxWidth: 700,
-        margin: "16px auto 0 auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      {/* TEXT AREA */}
+    <div style={{ maxWidth: 700, margin: "16px auto 0 auto" }}>
+      {/* Text input */}
       <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="Type to Cipher..."
         rows={2}
-        disabled={loading}
         style={{
           width: "100%",
           borderRadius: 10,
@@ -38,19 +25,13 @@ export default function InputBar({
           background: theme.inputBg,
           color: theme.textColor,
           boxShadow: "0 0 16px rgba(15,23,42,0.8)",
-          resize: "none",
         }}
       />
 
-      {/* BUTTON ROW */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        {/* SEND BUTTON */}
+      {/* Buttons */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+        
+        {/* SEND */}
         <button
           onClick={onSend}
           disabled={loading}
@@ -62,69 +43,38 @@ export default function InputBar({
             borderRadius: 999,
             border: "none",
             fontWeight: 600,
-            fontSize: 16,
-            boxShadow: "0 0 20px rgba(59,130,246,0.6)",
-            opacity: loading ? 0.6 : 1,
           }}
         >
           Send
         </button>
 
-        {/* MIC BUTTON */}
+        {/* IMAGE UPLOAD */}
         <button
-          onClick={onToggleRecording}
-          disabled={loading}
           style={{
             width: 46,
             height: 46,
             borderRadius: "50%",
-            border: "none",
-            background: isRecording ? "#dc2626" : theme.cipherBubble,
-            color: "#fff",
-            fontSize: 20,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: isRecording
-              ? "0 0 16px rgba(248,113,113,0.9)"
-              : "0 0 10px rgba(148,163,184,0.5)",
-          }}
-        >
-          {isRecording ? "■" : "🎤"}
-        </button>
-
-        {/* CAMERA MENU TOGGLE */}
-        <button
-          onClick={onToggleCameraMenu}
-          disabled={loading}
-          style={{
-            width: 46,
-            height: 46,
-            borderRadius: "50%",
-            border: "none",
             background: theme.userBubble,
             color: "#fff",
-            fontSize: 22,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 0 14px rgba(96,165,250,0.8)",
+            border: "none",
+            fontSize: 24,
           }}
+          onClick={() => document.getElementById("cipher-upload").click()}
         >
-          📷
+          🖼️
         </button>
-      </div>
 
-      {/* HIDDEN FILE INPUT FOR VISION */}
-      <input
-        id="cipher-image-input"
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files?.[0]) onImageSelect(e.target.files[0]);
-        }}
-      />
+        {/* Hidden File Input */}
+        <input
+          id="cipher-upload"
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files?.[0]) onImageSelect(e.target.files[0]);
+          }}
+        />
+      </div>
     </div>
   );
 }
