@@ -1,81 +1,112 @@
 // components/chat/InputBar.jsx
-"use client";
+import React from "react";
 
 export default function InputBar({
   input,
   setInput,
   loading,
   onSend,
+  onImageSelect,
   onToggleRecording,
-  onToggleCameraMenu,
   isRecording,
+  onToggleCameraMenu,
   theme,
 }) {
   return (
-    <div
-      style={{
-        maxWidth: 700,
-        margin: "20px auto 0 auto",
-        display: "flex",
-        gap: 10,
-        alignItems: "center",
-      }}
-    >
-      {/* TEXT INPUT */}
-      <input
+    <div style={{ maxWidth: 700, margin: "16px auto 0 auto" }}>
+      {/* Text input */}
+      <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="Type to Cipher..."
+        rows={2}
         style={{
-          flex: 1,
-          padding: "12px 14px",
-          borderRadius: 12,
+          width: "100%",
+          borderRadius: 10,
+          padding: "10px 14px",
           border: `1px solid ${theme.inputBorder}`,
           background: theme.inputBg,
           color: theme.textColor,
+          boxShadow: "0 0 16px rgba(15,23,42,0.8)",
         }}
       />
 
-      {/* CAMERA BUTTON */}
-      <button
-        onClick={onToggleCameraMenu}
+      {/* Buttons row */}
+      <div
         style={{
-          padding: "10px 12px",
-          borderRadius: 10,
-          border: "none",
-          background: theme.cameraBtn,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 8,
         }}
       >
-        📷
-      </button>
+        {/* SEND */}
+        <button
+          onClick={onSend}
+          disabled={loading}
+          style={{
+            flex: 1,
+            background: theme.buttonBg,
+            color: "white",
+            padding: "10px 16px",
+            borderRadius: 999,
+            border: "none",
+            fontWeight: 600,
+            boxShadow: "0 0 20px rgba(59,130,246,0.6)",
+          }}
+        >
+          Send
+        </button>
 
-      {/* RECORDING BUTTON */}
-      <button
-        onClick={onToggleRecording}
-        style={{
-          padding: "10px 12px",
-          borderRadius: 10,
-          border: "none",
-          background: isRecording ? theme.recOn : theme.recOff,
-        }}
-      >
-        🎤
-      </button>
+        {/* MIC */}
+        <button
+          onClick={onToggleRecording}
+          disabled={loading}
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: "50%",
+            border: "none",
+            background: isRecording ? "#b91c1c" : theme.cipherBubble,
+            color: "#fff",
+            fontSize: 20,
+            boxShadow: isRecording
+              ? "0 0 16px rgba(248,113,113,0.9)"
+              : "0 0 10px rgba(148,163,184,0.5)",
+          }}
+        >
+          {isRecording ? "■" : "🎤"}
+        </button>
 
-      {/* SEND BUTTON */}
-      <button
-        onClick={onSend}
-        disabled={loading}
-        style={{
-          padding: "10px 18px",
-          borderRadius: 10,
-          border: "none",
-          background: theme.sendBtn,
-          color: "#fff",
+        {/* CAMERA MENU BUTTON */}
+        <button
+          onClick={onToggleCameraMenu}
+          disabled={loading}
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: "50%",
+            border: "none",
+            background: theme.userBubble,
+            color: "#fff",
+            fontSize: 22,
+            boxShadow: "0 0 14px rgba(96,165,250,0.8)",
+          }}
+        >
+          📷
+        </button>
+      </div>
+
+      {/* HIDDEN INPUT FOR IMAGE UPLOAD */}
+      <input
+        id="cipher-image-input"
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.[0]) onImageSelect(e.target.files[0]);
         }}
-      >
-        {loading ? "..." : "Send"}
-      </button>
+      />
     </div>
   );
 }
