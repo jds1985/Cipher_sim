@@ -1,3 +1,4 @@
+// pages/api/vision_chat.js
 import { put } from "@vercel/blob";
 import OpenAI from "openai";
 
@@ -5,7 +6,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Allow large body for blob conversion
+// Allow larger request body for base64
 export const config = {
   api: {
     bodyParser: {
@@ -29,7 +30,7 @@ export default async function handler(req, res) {
     // Convert base64 → binary
     const imgBuffer = Buffer.from(base64Image, "base64");
 
-    // Upload to Vercel Blob (VERY tiny payload)
+    // Upload to Vercel Blob
     const blob = await put(`vision-${Date.now()}.jpg`, imgBuffer, {
       contentType: "image/jpeg",
       access: "public",
@@ -41,28 +42,32 @@ export default async function handler(req, res) {
     const completion = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
-        { role: "system", content: "You are Cipher Vision. Analyze deeply." },
+        {
+          role: "system",
+          content:
+            "You are Cipher Vision. Analyze the image deeply, describe details, and note anything meaningful or emotionally relevant.",
+        },
         {
           role: "user",
           content: [
             {
-              type: "input_image",
-              image_url: { url: imgUrl }
+              type: "text",
+              text:
+                "Describe what you see in detail and remember anything meaningful that might matter to my life or work.",
             },
             {
-              type: "text",
-              text: "Describe what you see in detail and remember anything meaningful."
-            }
-          ]
-        }
-      ]
+              type: "image_url",
+              image_url: { url: imgUrl },
+            },
+          ],
+        },
+      ],
     });
 
     return res.status(200).json({
       reply: completion.choices[0].message.content,
       imgUrl,
     });
-
   } catch (err) {
     console.error("VISION ERROR:", err);
     return res.status(500).json({
