@@ -1,82 +1,32 @@
 // pages/api/themes.js
-// Theme API — list / buy / set current theme
-
-import {
-  getAllThemes,
-  getUserThemeState,
-  purchaseTheme,
-  setUserTheme,
-} from "../../cipher_core/themes";
+// Simple Theme Loader — NO FIREBASE ANYWHERE
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
+  if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const { action, userId, themeId } = req.body;
+    const themes = [
+      {
+        key: "midnight_glass",
+        name: "Midnight Glass",
+        tag: "Sleek • Minimal",
+        description:
+          "Dark glass panels with subtle cyan accents for deep work sessions.",
+      },
+      {
+        key: "sunset_amber",
+        name: "Sunset Amber",
+        tag: "Warm • Cozy",
+        description:
+          "Amber glow gradients perfect for relaxed thinking and calm focus.",
+      },
+    ];
 
-    if (!userId) {
-      return res.status(400).json({ error: "Missing userId" });
-    }
-
-    switch (action) {
-      case "list": {
-        const themes = getAllThemes();
-        const state = await getUserThemeState(userId);
-        return res.status(200).json({
-          themes,
-          themesOwned: state.themesOwned,
-          currentTheme: state.currentTheme,
-        });
-      }
-
-      case "buy": {
-        if (!themeId) {
-          return res.status(400).json({ error: "Missing themeId" });
-        }
-
-        // For now, this just grants the theme.
-        // Later: verify payment / CYC before granting.
-        const result = await purchaseTheme({ userId, themeId });
-        const state = await getUserThemeState(userId);
-
-        return res.status(200).json({
-          success: true,
-          theme: result.theme,
-          themesOwned: state.themesOwned,
-          currentTheme: state.currentTheme,
-        });
-      }
-
-      case "set": {
-        if (!themeId) {
-          return res.status(400).json({ error: "Missing themeId" });
-        }
-
-        const state = await getUserThemeState(userId);
-
-        if (
-          themeId !== "default" &&
-          !state.themesOwned.includes(themeId)
-        ) {
-          return res
-            .status(403)
-            .json({ error: "Theme not owned. Purchase it first." });
-        }
-
-        const current = await setUserTheme(userId, themeId);
-        return res.status(200).json({
-          success: true,
-          currentTheme: current,
-        });
-      }
-
-      default:
-        return res.status(400).json({ error: "Unknown action" });
-    }
+    return res.status(200).json({ themes });
   } catch (err) {
-    console.error("Theme API error:", err);
-    return res.status(500).json({ error: "Server error" });
+    console.error("themes API error:", err);
+    return res.status(500).json({ error: "Failed to load themes" });
   }
 }
