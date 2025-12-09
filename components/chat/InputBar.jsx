@@ -1,93 +1,80 @@
+// components/chat/InputBar.jsx
 "use client";
-import { useState } from "react";
 
-export default function ChatInput({ onSend, onImageSend }) {
-  const [message, setMessage] = useState("");
-
-  // ---------------------------
-  // IMAGE COMPRESSION FUNCTION
-  // ---------------------------
-  async function compressImage(file) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-
-          // Resize: max width = 800
-          const MAX_WIDTH = 800;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > MAX_WIDTH) {
-            const scaleFactor = MAX_WIDTH / width;
-            width = MAX_WIDTH;
-            height = height * scaleFactor;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Compress quality
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
-
-          // 🚨 Strip header: we want ONLY raw base64
-          const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
-
-          resolve(base64);
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function handleImageSelect(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const compressedBase64 = await compressImage(file);
-    onImageSend(compressedBase64);
-  }
-
-  function handleSend() {
-    if (!message.trim()) return;
-    onSend(message.trim());
-    setMessage("");
-  }
-
+export default function InputBar({
+  input,
+  setInput,
+  loading,
+  onSend,
+  onToggleRecording,
+  onToggleCameraMenu,
+  isRecording,
+  theme,
+}) {
   return (
-    <div className="input-bar">
+    <div
+      style={{
+        maxWidth: 700,
+        margin: "20px auto 0 auto",
+        display: "flex",
+        gap: 10,
+        alignItems: "center",
+      }}
+    >
+      {/* TEXT INPUT */}
       <input
-        className="chat-input"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
         placeholder="Type to Cipher..."
+        style={{
+          flex: 1,
+          padding: "12px 14px",
+          borderRadius: 12,
+          border: `1px solid ${theme.inputBorder}`,
+          background: theme.inputBg,
+          color: theme.textColor,
+        }}
       />
 
-      {/* Hidden file input */}
-      <input
-        id="vision-file-input"
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleImageSelect}
-      />
-
+      {/* CAMERA BUTTON */}
       <button
-        className="camera-btn"
-        onClick={() => document.getElementById("vision-file-input").click()}
+        onClick={onToggleCameraMenu}
+        style={{
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: "none",
+          background: theme.cameraBtn,
+        }}
       >
         📷
       </button>
 
-      <button className="send-btn" onClick={handleSend}>
-        Send
+      {/* RECORDING BUTTON */}
+      <button
+        onClick={onToggleRecording}
+        style={{
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: "none",
+          background: isRecording ? theme.recOn : theme.recOff,
+        }}
+      >
+        🎤
+      </button>
+
+      {/* SEND BUTTON */}
+      <button
+        onClick={onSend}
+        disabled={loading}
+        style={{
+          padding: "10px 18px",
+          borderRadius: 10,
+          border: "none",
+          background: theme.sendBtn,
+          color: "#fff",
+        }}
+      >
+        {loading ? "..." : "Send"}
       </button>
     </div>
   );
