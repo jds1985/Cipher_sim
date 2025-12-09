@@ -1,4 +1,3 @@
-// components/chat/InputBar.jsx
 import React from "react";
 
 export default function InputBar({
@@ -6,12 +5,11 @@ export default function InputBar({
   setInput,
   loading,
   onSend,
-  onImageSelect,
-  theme
+  onImageUpload,
+  theme,
 }) {
   return (
     <div style={{ maxWidth: 700, margin: "16px auto 0 auto" }}>
-      {/* Text input */}
       <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}
@@ -24,13 +22,17 @@ export default function InputBar({
           border: `1px solid ${theme.inputBorder}`,
           background: theme.inputBg,
           color: theme.textColor,
-          boxShadow: "0 0 16px rgba(15,23,42,0.8)",
         }}
       />
 
-      {/* Buttons */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-        
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 8,
+        }}
+      >
         {/* SEND */}
         <button
           onClick={onSend}
@@ -49,31 +51,30 @@ export default function InputBar({
         </button>
 
         {/* IMAGE UPLOAD */}
-        <button
+        <label
           style={{
             width: 46,
             height: 46,
             borderRadius: "50%",
             background: theme.userBubble,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 22,
             color: "#fff",
-            border: "none",
-            fontSize: 24,
+            cursor: "pointer",
           }}
-          onClick={() => document.getElementById("cipher-upload").click()}
         >
-          🖼️
-        </button>
-
-        {/* Hidden File Input */}
-        <input
-          id="cipher-upload"
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files?.[0]) onImageSelect(e.target.files[0]);
-          }}
-        />
+          📎
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              if (e.target.files?.[0]) onImageUpload(e.target.files[0]);
+            }}
+          />
+        </label>
       </div>
     </div>
   );
