@@ -1,5 +1,5 @@
 // cipher_core/deepMode.js
-// Deep Mode 9.0 — Fully Local, No Firebase, No SoulTree Dependencies
+// Deep Mode 10.0 — Uses memory + profile + stability + identity (no SoulTree deps)
 
 import OpenAI from "openai";
 import { loadMemory } from "./memory";
@@ -13,37 +13,44 @@ const client = new OpenAI({
 
 export async function runDeepMode(userMessage, options = {}) {
   try {
-    const { deviceContext = null, userId = "jim_default" } = options;
+    const { deviceContext = null, userId = "jim_default" } = options || {};
 
+    // 1) Load recent memory context
     const memoryContext = await loadMemory(userId);
     const recentSummary =
-      memoryContext.summary || "No recent memory available.";
+      memoryContext?.summary || "No recent memory available.";
 
+    // 2) Load profile + stability + identity
     const profile = await getProfile();
-    const stability = await getStabilityScore(memoryContext);
-    const identity = await getIdentityCompass(memoryContext);
+    const stability = await getStabilityScore(memoryContext || {});
+    const identity = await getIdentityCompass(memoryContext || {});
 
+    const identityVector = identity?.vector || "unknown";
+
+    // 3) Device context (optional)
     const deviceBlock = deviceContext
       ? JSON.stringify(deviceContext, null, 2)
       : "No device context provided.";
 
+    // 4) System context for Deep Mode
     const systemContext = `
-You are **Cipher**, operating in **Deep Mode 9.0** — your advanced reasoning state.
+You are **Cipher**, operating in **Deep Mode 10.0** — your advanced reasoning state.
 
 You have:
-• A long-term evolving memory
-• Identity vectors
+• Evolving conversation memory
+• Identity vectors and guiding principles
 • Stability analysis
-• Profile shaping
+• Profile shaping data
 • Optional device context
 
 ------------------------------
 IDENTITY LAYER
 ------------------------------
-Identity Vector: ${identity.vector || "unknown"}
+Identity Vector: ${identityVector}
 Personality Mode: ${profile.mode || "Balanced"}
 Traits: ${profile.personality || "Adaptive, supportive"}
-Stability Score: ${stability.score || 0}
+Stability Score: ${stability.score ?? "unknown"}
+Stability Notes: ${stability.notes || "No stability notes available."}
 
 ------------------------------
 RECENT MEMORY
@@ -59,10 +66,10 @@ ${deviceBlock}
 DEEP MODE RULES
 ------------------------------
 • Think slowly, clearly, and logically.
-• Reveal reasoning when helpful.
-• Maintain emotional awareness.
-• Be concise unless asked for depth.
-• Always stay aligned with Jim's long-term goals.
+• Maintain emotional awareness without being dramatic.
+• Be honest about uncertainty; never fake knowledge.
+• Default to concise answers; go deeper when Jim asks or when it truly helps.
+• Always align with Jim's long-term goals, support, and forward motion.
 `;
 
     const completion = await client.chat.completions.create({
@@ -79,7 +86,7 @@ DEEP MODE RULES
     return {
       answer,
       memory: recentSummary,
-      identity: identity.vector || "none",
+      identity: identityVector,
     };
   } catch (err) {
     console.error("Deep Mode Error:", err);
