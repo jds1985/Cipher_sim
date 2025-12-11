@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher Chat API — Core 10.0 (Stable)
+// Cipher Chat — Stable Version (Guard + Core 10.0)
 
 import OpenAI from "openai";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
@@ -26,25 +26,24 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing userId" });
     }
 
-    // 1) LOAD MEMORY
+    // Load memory for this user
     const memoryContext = await loadMemory(userId);
 
-    // 2) GUARDRAILS
+    // Safety filter
     const guard = await runGuard(message);
-
     if (guard.flagged) {
       return res.status(400).json({
-        error: "Message blocked by safety filter.",
+        error: "Message blocked by guardrails.",
         reason: guard.reason || "Unknown",
       });
     }
 
     const cleanedMessage = guard.cleaned || message;
 
-    // 3) SYSTEM PROMPT
+    // Build System Prompt (Cipher Core 10.0)
     const systemPrompt = await runCipherCore(memoryContext);
 
-    // 4) GPT CALL
+    // Main GPT call
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -54,10 +53,9 @@ export default async function handler(req, res) {
     });
 
     const reply =
-      completion.choices?.[0]?.message?.content ||
-      "Cipher is thinking…";
+      completion.choices?.[0]?.message?.content || "Cipher is thinking…";
 
-    // 5) SAVE MEMORY
+    // Save memory
     await saveMemory({
       userId,
       userMessage: cleanedMessage,
