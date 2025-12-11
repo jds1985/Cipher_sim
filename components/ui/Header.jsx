@@ -1,4 +1,4 @@
-// components/Header.jsx
+// components/ui/Header.jsx
 // Cipher Header 2.0 – Minimal + Menu Trigger
 
 export default function Header({ onMenuClick }) {
@@ -6,9 +6,9 @@ export default function Header({ onMenuClick }) {
     <header style={styles.header}>
       <h1 style={styles.title}>Cipher AI</h1>
 
-      <div style={styles.menuIcon} onClick={onMenuClick}>
+      <button style={styles.menuBtn} onClick={onMenuClick}>
         ☰
-      </div>
+      </button>
     </header>
   );
 }
@@ -22,14 +22,19 @@ const styles = {
     alignItems: "center",
     background: "transparent",
     color: "white",
-    fontSize: "20px",
+    fontSize: "22px",
+    position: "relative",
+    zIndex: 10000,
   },
   title: {
     margin: 0,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-  menuIcon: {
+  menuBtn: {
     fontSize: "28px",
+    background: "none",
+    border: "none",
+    color: "white",
     cursor: "pointer",
     userSelect: "none",
   },
