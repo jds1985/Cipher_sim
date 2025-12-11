@@ -1,4 +1,6 @@
-// firebaseAdmin.js (Stable Version for Vercel + firebase-admin 11.10.1)
+// firebaseAdmin.js
+// Stable Version for Vercel + firebase-admin 11.x
+
 import * as admin from "firebase-admin";
 
 let app;
