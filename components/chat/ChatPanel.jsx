@@ -67,7 +67,7 @@ export default function ChatPanel({ userId = "jim_default" }) {
         )}
       </div>
 
-      <ChatInput onSend={sendMessage} />
+      <InputBar onSend={sendMessage} />
     </div>
   );
 }
