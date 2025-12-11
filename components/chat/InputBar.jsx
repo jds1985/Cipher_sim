@@ -1,31 +1,35 @@
-// components/ChatInput.jsx
-// Cipher Input Bar 10.0 – Stable Version
-
+// components/chat/InputBar.jsx
 import { useState } from "react";
 
-export default function ChatInput({ onSend }) {
+export default function InputBar({ onSend }) {
   const [text, setText] = useState("");
 
-  function handleSubmit(e) {
-    e.preventDefault();
-    if (!text.trim()) return;
-    onSend(text.trim());
+  const send = () => {
+    console.log("SENDING:", text);
+    onSend(text);
     setText("");
-  }
+  };
 
   return (
-    <form className="chat-input-bar" onSubmit={handleSubmit}>
+    <div style={{
+      display: "flex",
+      padding: "10px",
+      background: "#000",
+      borderTop: "1px solid #333",
+    }}>
       <input
-        type="text"
-        placeholder="Type a message for Cipher…"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        className="chat-input"
+        placeholder="Type a message for Cipher..."
+        style={{
+          flex: 1,
+          padding: "10px",
+          borderRadius: 6,
+        }}
       />
-
-      <button className="send-btn" type="submit">
+      <button onClick={send} style={{ marginLeft: 6, padding: "10px 14px" }}>
         Send
       </button>
-    </form>
+    </div>
   );
 }
