@@ -53,9 +53,10 @@ export default async function handler(req, res) {
       ],
     });
 
-    const reply = completion.choices?.[0]?.message?.content || "…";
+    const reply =
+      completion.choices?.[0]?.message?.content || "Cipher is thinking…";
 
-    // 5) SAVE MEMORY (object-based)
+    // 5) SAVE MEMORY
     await saveMemory({
       userId,
       userMessage: cleanedMessage,
