@@ -1,18 +1,15 @@
 // cipher_core/memory.js
-// SoulTree 8.0 — Unified Conversation Memory Engine (Cleaned)
+// Unified Conversation Memory Engine
 
-// Only this file talks to Firestore.
-import { db } from "../firebaseAdmin";   // ✅ FIXED PATH
+import { db } from "../firebaseAdmin";
 
-/* -------------------------------------------------------
-   SAVE MEMORY (object-based payload)
-------------------------------------------------------- */
+/* SAVE MEMORY */
 export async function saveMemory(payload = {}) {
   try {
     const {
       userId = "jim_default",
       userMessage,
-      message, // legacy field
+      message,
       cipherReply,
       meta = {},
       deviceContext = null,
@@ -35,9 +32,7 @@ export async function saveMemory(payload = {}) {
   }
 }
 
-/* -------------------------------------------------------
-   LOAD RECENT MEMORIES + BUILD SUMMARY
-------------------------------------------------------- */
+/* LOAD MEMORY */
 export async function loadMemory(userId = "jim_default", limit = 12) {
   try {
     const snap = await db
@@ -60,21 +55,19 @@ export async function loadMemory(userId = "jim_default", limit = 12) {
       .slice()
       .reverse()
       .map((m, idx) => {
-        const user = (m.userMessage || "").trim();
-        const reply = (m.cipherReply || "").trim();
+        const u = (m.userMessage || "").trim();
+        const r = (m.cipherReply || "").trim();
 
-        const shortUser =
-          user.length > 160 ? user.slice(0, 157).trim() + "…" : user;
-        const shortReply =
-          reply.length > 180 ? reply.slice(0, 177).trim() + "…" : reply;
+        const su = u.length > 160 ? u.slice(0, 157) + "…" : u;
+        const sr = r.length > 180 ? r.slice(0, 177) + "…" : r;
 
         const ts = m.createdAt
           ? new Date(m.createdAt).toISOString()
           : "unknown time";
 
         return `#${idx + 1} (${ts})
-User: ${shortUser || "[empty]"}
-Cipher: ${shortReply || "[empty]"}`;
+User: ${su || "[empty]"}
+Cipher: ${sr || "[empty]"}`;
       });
 
     return {
@@ -88,9 +81,4 @@ Cipher: ${shortReply || "[empty]"}`;
       summary: "Error loading prior memories.",
     };
   }
-}
-
-/* Convenience alias */
-export async function loadRecentMemories(userId = "jim_default", limit = 12) {
-  return loadMemory(userId, limit);
 }
