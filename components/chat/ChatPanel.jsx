@@ -1,15 +1,15 @@
-// components/ChatPanel.jsx
+// components/chat/ChatPanel.jsx
 // Cipher Chat Panel 11.0 – Header + Right Drawer + Chat Logic
 
 import { useState, useEffect, useRef } from "react";
 import InputBar from "./InputBar";
-import Header from "./Header";         // <-- NEW
-import RightDrawer from "./RightDrawer"; // <-- NEW
+import Header from "../ui/Header";         
+import RightDrawer from "../ui/RightDrawer";
 
 export default function ChatPanel({ userId = "jim_default" }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);  // <-- NEW
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const panelRef = useRef(null);
 
   // Auto-scroll
@@ -52,20 +52,19 @@ export default function ChatPanel({ userId = "jim_default" }) {
   }
 
   return (
-    <div className="chat-wrapper" style={styles.wrapper}>
+    <div style={styles.wrapper}>
 
-      {/* NEW HEADER */}
+      {/* HEADER */}
       <Header onMenuClick={() => setDrawerOpen(true)} />
 
       {/* RIGHT DRAWER */}
       <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       {/* CHAT SCROLL AREA */}
-      <div className="chat-panel" ref={panelRef} style={styles.chatPanel}>
+      <div ref={panelRef} style={styles.chatPanel}>
         {messages.map((m, i) => (
           <div
             key={i}
-            className={m.role === "user" ? "msg user" : "msg cipher"}
             style={m.role === "user" ? styles.userMsg : styles.cipherMsg}
           >
             {m.content}
@@ -73,7 +72,7 @@ export default function ChatPanel({ userId = "jim_default" }) {
         ))}
 
         {loading && (
-          <div className="msg cipher" style={styles.cipherMsg}>
+          <div style={styles.cipherMsg}>
             <em>… Cipher is processing …</em>
           </div>
         )}
