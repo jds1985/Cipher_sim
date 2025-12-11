@@ -1,10 +1,11 @@
+// components/RightDrawer.jsx
+// Full-Height Right Slide-Out Menu
+
 export default function RightDrawer({ open, onClose }) {
   return (
     <>
       {/* Backdrop */}
-      {open && (
-        <div style={styles.backdrop} onClick={onClose}></div>
-      )}
+      {open && <div style={styles.backdrop} onClick={onClose}></div>}
 
       {/* Drawer */}
       <div
