@@ -1,33 +1,81 @@
 // cipher_core/omniSearch.js
-// Cipher 10.0 – Global Search (Stubbed until Omni is active)
+// Cipher Core 10.0 — Omni Search (Firebase + Memory Index)
 
 import { db } from "../firebaseAdmin";
 
-export async function omniSearch(query = "", userId = "jim_default") {
-  try {
-    if (!query.trim()) {
-      return { results: [], message: "Empty query provided." };
-    }
+/**
+ * omniSearch
+ * Searches through:
+ *  • cipher_memories   (Firestorm conversation logs)
+ *  • userMessage + cipherReply fields
+ * Returns ranked hits with timestamps.
+ */
 
+export async function omniSearch(query = "", userId = "jim_default", limit = 25) {
+  if (!query || typeof query !== "string") {
+    return {
+      query,
+      hits: [],
+      summary: "No search query provided.",
+    };
+  }
+
+  try {
+    // Fetch recent memory logs
     const snap = await db
       .collection("cipher_memories")
       .orderBy("createdAt", "desc")
-      .limit(50)
+      .limit(200)
       .get();
 
     const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const userLogs = all.filter((m) => m.userId === userId);
 
-    const matches = all.filter((m) =>
-      (m.userMessage || "").toLowerCase().includes(query.toLowerCase()) ||
-      (m.cipherReply || "").toLowerCase().includes(query.toLowerCase())
-    );
+    const q = query.toLowerCase();
+    const hits = [];
+
+    for (const log of userLogs) {
+      const msg = (log.userMessage || "").toLowerCase();
+      const rep = (log.cipherReply || "").toLowerCase();
+
+      const score =
+        (msg.includes(q) ? 1 : 0) +
+        (rep.includes(q) ? 1 : 0);
+
+      if (score > 0) {
+        hits.push({
+          id: log.id,
+          createdAt: log.createdAt,
+          userMessage: log.userMessage || "",
+          cipherReply: log.cipherReply || "",
+          score,
+        });
+      }
+    }
+
+    // Sort by score + recency
+    hits.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+
+    const trimmed = hits.slice(0, limit);
 
     return {
-      results: matches,
-      count: matches.length,
+      query,
+      count: trimmed.length,
+      hits: trimmed,
+      summary:
+        trimmed.length === 0
+          ? "No matches found."
+          : `${trimmed.length} result(s) found for "${query}".`,
     };
   } catch (err) {
-    console.error("omniSearch error:", err);
-    return { results: [], count: 0 };
+    console.error("🔥 omniSearch error:", err);
+    return {
+      query,
+      hits: [],
+      summary: "Error performing omni search.",
+    };
   }
 }
