@@ -1,23 +1,22 @@
-// cipher_core/themes.js
-// Local theme library – NOT an API
+// cipher_core/theme.js
+// UI Themes for Cipher Core
 
-const themes = [
-  {
+const themes = {
+  midnight_glass: {
     key: "midnight_glass",
     name: "Midnight Glass",
-    tag: "Sleek • Minimal",
-    description:
-      "Dark glass panels with subtle cyan accents for deep work sessions.",
+    tag: "Quiet. Focused. Sharp.",
+    description: "Dark crystalline glass with cool neon blue edges.",
   },
-  {
-    key: "sunset_amber",
-    name: "Sunset Amber",
-    tag: "Warm • Cozy",
-    description:
-      "Amber glow gradients perfect for relaxed thinking and calm focus.",
+
+  warm_orbit: {
+    key: "warm_orbit",
+    name: "Warm Orbit",
+    tag: "Gentle gravity.",
+    description: "Soft orbital colors, amber and red glow tones.",
   },
-];
+};
 
 export function getThemeByKey(key) {
-  return themes.find((t) => t.key === key) || themes[0];
+  return themes[key] || themes.midnight_glass;
 }
