@@ -20,6 +20,7 @@ export default function Home() {
     const loadProfile = async () => {
       try {
         let userId = localStorage.getItem("cipher_userId");
+
         if (!userId) {
           const newRes = await fetch("/api/profile", {
             method: "POST",
@@ -90,7 +91,7 @@ export default function Home() {
     updateProfile({ currentTheme: themeKey });
   };
 
-  // ROUTING
+  // ROUTING SCREENS ======================================================
   if (screen === "device") {
     return <DevicePanel theme={theme} onClose={() => setScreen("chat")} />;
   }
@@ -125,95 +126,21 @@ export default function Home() {
     );
   }
 
-  // CHAT SCREEN
+  // CHAT SCREEN ==========================================================
   return (
     <div
       style={{
         minHeight: "100vh",
         background: theme.background,
-        padding: 20,
         fontFamily: "Inter, sans-serif",
         color: theme.textColor,
         transition: "background 0.4s ease, color 0.4s ease",
       }}
     >
-      {/* Top Bar */}
-      <div
-        style={{
-          maxWidth: 700,
-          margin: "0 auto 10px auto",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        }}
-      >
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Cipher AI</h1>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {/* Menu */}
-          <button
-            onClick={() => setMenuOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 12px",
-              borderRadius: 999,
-              border: `1px solid ${theme.inputBorder}`,
-              background: theme.panelBg,
-              color: theme.textColor,
-              fontSize: 13,
-              boxShadow: "0 0 18px rgba(148,163,184,0.4)",
-            }}
-          >
-            ⚙ Menu
-          </button>
-
-          {/* Omni */}
-          <button
-            onClick={() => setScreen("omni")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 12px",
-              borderRadius: 999,
-              border: `1px solid ${theme.inputBorder}`,
-              background: theme.panelBg,
-              color: theme.textColor,
-              fontSize: 13,
-              boxShadow: "0 0 18px rgba(148,163,184,0.4)",
-            }}
-          >
-            🔍 Omni
-          </button>
-
-          {/* Device */}
-          <button
-            onClick={() => setScreen("device")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 12px",
-              borderRadius: 999,
-              border: `1px solid ${theme.inputBorder}`,
-              background: theme.panelBg,
-              color: theme.textColor,
-              fontSize: 13,
-              boxShadow: "0 0 18px rgba(148,163,184,0.4)",
-            }}
-          >
-            📱 Device
-          </button>
-        </div>
-      </div>
-
-      {/* CHAT PANEL (modular) */}
+      {/* NEW MODULAR CHAT PANEL WITH HEADER + DRAWER */}
       <ChatPanel theme={theme} />
 
-      {/* PANELS */}
+      {/* PROFILE + STORE PANELS (OVERLAYS) */}
       {menuOpen && (
         <ProfilePanel
           profile={profile}
