@@ -1,18 +1,15 @@
 // components/chat/ChatPanel.jsx
-// Cipher Chat Panel 11.0 – Header + Right Drawer + Chat Logic
-
 import { useState, useEffect, useRef } from "react";
 import InputBar from "./InputBar";
-import Header from "../ui/Header";         
+import Header from "../ui/Header";
 import RightDrawer from "../ui/RightDrawer";
 
-export default function ChatPanel({ userId = "jim_default" }) {
+export default function ChatPanel({ userId = "jim_default", theme }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const panelRef = useRef(null);
 
-  // Auto-scroll
   useEffect(() => {
     if (panelRef.current) {
       panelRef.current.scrollTop = panelRef.current.scrollHeight;
@@ -22,8 +19,7 @@ export default function ChatPanel({ userId = "jim_default" }) {
   async function sendMessage(text) {
     if (!text.trim()) return;
 
-    const newMsg = { role: "user", content: text };
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages(prev => [...prev, { role: "user", content: text }]);
     setLoading(true);
 
     try {
@@ -34,17 +30,14 @@ export default function ChatPanel({ userId = "jim_default" }) {
       });
 
       const data = await res.json();
-
-      const reply = {
-        role: "assistant",
-        content: data.reply || "Cipher is thinking…",
-      };
-
-      setMessages((prev) => [...prev, reply]);
-    } catch (err) {
-      setMessages((prev) => [
+      setMessages(prev => [
         ...prev,
-        { role: "assistant", content: "Error: Cipher couldn't respond." },
+        { role: "assistant", content: data.reply || "Cipher is thinking…" }
+      ]);
+    } catch (e) {
+      setMessages(prev => [
+        ...prev,
+        { role: "assistant", content: "Error: Cipher could not respond." }
       ]);
     }
 
@@ -52,66 +45,52 @@ export default function ChatPanel({ userId = "jim_default" }) {
   }
 
   return (
-    <div style={styles.wrapper}>
+    <div style={{
+      height: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      background: theme?.background || "black",
+      color: theme?.textColor || "white",
+      overflow: "hidden",
+    }}>
 
-      {/* HEADER */}
       <Header onMenuClick={() => setDrawerOpen(true)} />
-
-      {/* RIGHT DRAWER */}
       <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      {/* CHAT SCROLL AREA */}
-      <div ref={panelRef} style={styles.chatPanel}>
+      <div
+        ref={panelRef}
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "20px",
+        }}
+      >
         {messages.map((m, i) => (
-          <div
-            key={i}
-            style={m.role === "user" ? styles.userMsg : styles.cipherMsg}
-          >
+          <div key={i} style={{
+            background: m.role === "user" ? "#222" : "#111",
+            padding: "12px",
+            marginBottom: "10px",
+            borderRadius: "10px",
+            alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+            maxWidth: "80%",
+          }}>
             {m.content}
           </div>
         ))}
 
         {loading && (
-          <div style={styles.cipherMsg}>
-            <em>… Cipher is processing …</em>
+          <div style={{
+            background: "#111",
+            padding: "12px",
+            borderRadius: "10px",
+            maxWidth: "80%",
+          }}>
+            … Cipher is processing …
           </div>
         )}
       </div>
 
-      {/* INPUT BAR */}
       <InputBar onSend={sendMessage} />
-
     </div>
   );
 }
-
-const styles = {
-  wrapper: {
-    height: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    background: "black",
-    color: "white",
-  },
-  chatPanel: {
-    flex: 1,
-    overflowY: "auto",
-    padding: "16px",
-  },
-  userMsg: {
-    background: "#222",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    marginBottom: "10px",
-    alignSelf: "flex-end",
-    maxWidth: "80%",
-  },
-  cipherMsg: {
-    background: "#111",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    marginBottom: "10px",
-    alignSelf: "flex-start",
-    maxWidth: "80%",
-  },
-};
