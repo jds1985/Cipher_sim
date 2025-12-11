@@ -1,81 +1,33 @@
-import React from "react";
+// components/InputBar.js
+// Cipher InputBar 10.0
 
-export default function InputBar({
-  input,
-  setInput,
-  loading,
-  onSend,
-  onImageUpload,
-  theme,
-}) {
+import { useState } from "react";
+
+export default function InputBar({ onSend }) {
+  const [text, setText] = useState("");
+
+  function handleSend() {
+    if (!text.trim()) return;
+    onSend(text);
+    setText("");
+  }
+
   return (
-    <div style={{ maxWidth: 700, margin: "16px auto 0 auto" }}>
-      <textarea
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Type to Cipher..."
-        rows={2}
-        style={{
-          width: "100%",
-          borderRadius: 10,
-          padding: "10px 14px",
-          border: `1px solid ${theme.inputBorder}`,
-          background: theme.inputBg,
-          color: theme.textColor,
-        }}
+    <div className="w-full flex items-center space-x-2">
+      <input
+        className="flex-1 bg-[#0d0d0d] text-gray-300 border border-[#222] rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600"
+        placeholder="Speak to Cipher…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleSend()}
       />
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          marginTop: 8,
-        }}
+      <button
+        onClick={handleSend}
+        className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-xl"
       >
-        {/* SEND */}
-        <button
-          onClick={onSend}
-          disabled={loading}
-          style={{
-            flex: 1,
-            background: theme.buttonBg,
-            color: "white",
-            padding: "10px 16px",
-            borderRadius: 999,
-            border: "none",
-            fontWeight: 600,
-          }}
-        >
-          Send
-        </button>
-
-        {/* IMAGE UPLOAD */}
-        <label
-          style={{
-            width: 46,
-            height: 46,
-            borderRadius: "50%",
-            background: theme.userBubble,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 22,
-            color: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          📎
-          <input
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              if (e.target.files?.[0]) onImageUpload(e.target.files[0]);
-            }}
-          />
-        </label>
-      </div>
+        Send
+      </button>
     </div>
   );
 }
