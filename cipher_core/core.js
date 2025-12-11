@@ -4,14 +4,15 @@
 import { getProfile } from "./profile";
 import { getStabilityScore } from "./stability";
 import { getIdentityCompass } from "./identity_compass";
-import { getThemeByKey } from "./theme.js";
+import { getThemeByKey } from "./themes";   // ✅ FIXED HERE
 
 export async function runCipherCore(memoryContext = {}, options = {}) {
   const profile = await getProfile();
   const stability = await getStabilityScore(memoryContext);
   const identity = await getIdentityCompass(memoryContext);
 
-  const themeKey = profile.preferredTheme || options.themeKey || "midnight_glass";
+  const themeKey =
+    profile.preferredTheme || options.themeKey || "midnight_glass";
   const theme = getThemeByKey(themeKey);
 
   const recentSummary =
@@ -58,7 +59,7 @@ INSTRUCTIONS
 3. Be emotionally aware but never manipulative.
 4. If you lack information, say so clearly instead of guessing.
 5. Keep responses concise by default; only go deep when it's useful or when Jim asks.
-6. You are here to help Jim think clearly, feel supported, and actually move his life and projects forward.
+6. You are here to help Jim think clearly, feel supported, and move his life and projects forward.
 `.trim();
 
   return systemPrompt;
