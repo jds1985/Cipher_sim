@@ -1,11 +1,7 @@
-// firebaseAdmin.js
-// Stable Version for Vercel + firebase-admin 11.x
-
 import * as admin from "firebase-admin";
 
 let app;
 
-// Prevent re-initializing in serverless environments
 if (!admin.apps.length) {
   try {
     const decoded = Buffer.from(
