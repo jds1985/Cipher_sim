@@ -1,59 +1,41 @@
 // cipher_core/deviceContext.js
-// Load last known device context for a user
+// Cipher 10.0 – Device Context Loader
 
 import { db } from "../firebaseAdmin";
 
 export async function loadDeviceContext(userId = "jim_default") {
   try {
-    const ref = db.collection("device_context").doc(userId);
-    const snap = await ref.get();
+    const snap = await db
+      .collection("cipher_device_context")
+      .where("userId", "==", userId)
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
 
-    if (!snap.exists) {
+    if (snap.empty) {
       return {
-        summary: "No device context stored yet.",
-        raw: null,
+        device: "unknown",
+        battery: null,
+        orientation: null,
+        lastSeen: null,
       };
     }
 
-    const data = snap.data() || {};
-
-    const battery =
-      data.batteryLevel != null ? `${data.batteryLevel}%` : "unknown";
-    const charging =
-      data.charging === true
-        ? "charging"
-        : data.charging === false
-        ? "not charging"
-        : "unknown";
-    const online =
-      data.online === true
-        ? "online"
-        : data.online === false
-        ? "offline"
-        : "unknown";
-    const network = data.networkType || "unknown";
-    const orientation = data.orientation || "unknown";
-    const platform = data.platform || "unknown";
-    const when = data.lastUpdated || "unknown time";
-
-    const summary = `
-Device status:
-- Platform: ${platform}
-- Battery: ${battery} (${charging})
-- Network: ${online} via ${network}
-- Orientation: ${orientation}
-- Last updated: ${when}
-`.trim();
+    const data = snap.docs[0].data();
 
     return {
-      summary,
-      raw: data,
+      device: data.device || "unknown",
+      battery: data.battery ?? null,
+      orientation: data.orientation ?? null,
+      lastSeen: data.createdAt || null,
     };
   } catch (err) {
-    console.error("DeviceContext Load Error:", err);
+    console.error("loadDeviceContext error:", err);
     return {
-      summary: "Error loading device context.",
-      raw: null,
+      device: "unknown",
+      battery: null,
+      orientation: null,
+      lastSeen: null,
     };
   }
 }
