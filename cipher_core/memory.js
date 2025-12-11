@@ -2,7 +2,7 @@
 // SoulTree 8.0 — Unified Conversation Memory Engine (Cleaned)
 
 // Only this file talks to Firestore.
-import { db } from "../firebaseAdmin";
+import { db } from "../firebaseAdmin";   // ✅ FIXED PATH
 
 /* -------------------------------------------------------
    SAVE MEMORY (object-based payload)
