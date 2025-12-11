@@ -2,7 +2,7 @@
 // Cipher Chat Panel 10.0 – Stable + Minimal UI Logic
 
 import { useState, useEffect, useRef } from "react";
-import ChatInput from "./ChatInput";
+import InputBar from "./InputBar";
 
 export default function ChatPanel({ userId = "jim_default" }) {
   const [messages, setMessages] = useState([]);
