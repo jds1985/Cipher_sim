@@ -1,79 +1,73 @@
-// components/ChatPanel.js
-// Cipher ChatPanel 10.0
+// components/ChatPanel.jsx
+// Cipher Chat Panel 10.0 – Stable + Minimal UI Logic
 
-import { useState } from "react";
-import InputBar from "./InputBar";
+import { useState, useEffect, useRef } from "react";
+import ChatInput from "./ChatInput";
 
-export default function ChatPanel() {
+export default function ChatPanel({ userId = "jim_default" }) {
   const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const panelRef = useRef(null);
+
+  // Auto-scroll
+  useEffect(() => {
+    if (panelRef.current) {
+      panelRef.current.scrollTop = panelRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   async function sendMessage(text) {
     if (!text.trim()) return;
 
-    // Add user message instantly
-    setMessages((prev) => [
-      ...prev,
-      { from: "user", text },
-    ]);
+    const newMsg = { role: "user", content: text };
+    setMessages((prev) => [...prev, newMsg]);
+    setLoading(true);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          userId: "jim_default"
-        }),
+        body: JSON.stringify({ message: text, userId }),
       });
 
       const data = await res.json();
 
-      if (data?.reply) {
-        setMessages((prev) => [
-          ...prev,
-          { from: "cipher", text: data.reply },
-        ]);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          { from: "cipher", text: "Cipher could not respond." },
-        ]);
-      }
+      const reply = {
+        role: "assistant",
+        content: data.reply || "Cipher is thinking…",
+      };
+
+      setMessages((prev) => [...prev, reply]);
     } catch (err) {
-      console.error(err);
       setMessages((prev) => [
         ...prev,
-        { from: "cipher", text: "Network error." },
+        { role: "assistant", content: "Error: Cipher couldn't respond." },
       ]);
     }
+
+    setLoading(false);
   }
 
   return (
-    <div className="flex flex-col h-full w-full px-4 py-2">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+    <div className="chat-wrapper">
+      <div className="chat-panel" ref={panelRef}>
         {messages.map((m, i) => (
           <div
             key={i}
-            className={`w-full flex ${
-              m.from === "user" ? "justify-end" : "justify-start"
-            }`}
+            className={m.role === "user" ? "msg user" : "msg cipher"}
           >
-            <div
-              className={`px-4 py-2 rounded-xl max-w-[70%] ${
-                m.from === "user"
-                  ? "bg-purple-600 text-white"
-                  : "bg-[#111] border border-[#333] text-gray-200"
-              }`}
-            >
-              {m.text}
-            </div>
+            {m.content}
           </div>
         ))}
+
+        {loading && (
+          <div className="msg cipher">
+            <em>… Cipher is processing …</em>
+          </div>
+        )}
       </div>
 
-      {/* Input Bar */}
-      <InputBar onSend={sendMessage} />
+      <ChatInput onSend={sendMessage} />
     </div>
   );
 }
