@@ -1,26 +1,30 @@
-// components/RightDrawer.jsx
+// components/ui/RightDrawer.jsx
 // Full-Height Right Slide-Out Menu
 
 export default function RightDrawer({ open, onClose }) {
   return (
     <>
-      {/* Backdrop */}
+      {/* Black overlay / backdrop */}
       {open && <div style={styles.backdrop} onClick={onClose}></div>}
 
-      {/* Drawer */}
+      {/* Slide-out drawer */}
       <div
         style={{
           ...styles.drawer,
-          right: open ? "0px" : "-80%",
+          right: open ? "0px" : "-320px",
         }}
       >
+        <button style={styles.closeBtn} onClick={onClose}>
+          ✕
+        </button>
+
         <h2 style={styles.drawerTitle}>Menu</h2>
 
-        <div style={styles.menuItem}>⚡ ShadowFlip</div>
-        <div style={styles.menuItem}>🜂 Decipher</div>
-        <div style={styles.menuItem}>🖥 Device</div>
-        <div style={styles.menuItem}>⚙️ Settings</div>
-        <div style={styles.menuItem}>✦ About Cipher</div>
+        <button style={styles.menuItem}>⚡ ShadowFlip</button>
+        <button style={styles.menuItem}>△ Decipher</button>
+        <button style={styles.menuItem}>🖥 Device</button>
+        <button style={styles.menuItem}>⚙ Settings</button>
+        <button style={styles.menuItem}>✦ About Cipher</button>
       </div>
     </>
   );
@@ -33,24 +37,41 @@ const styles = {
     height: "100vh",
     width: "80%",
     maxWidth: "300px",
-    background: "rgba(20,20,30,0.92)",
-    backdropFilter: "blur(10px)",
+    background: "rgba(18, 18, 25, 0.98)",
+    backdropFilter: "blur(8px)",
     color: "white",
-    padding: "24px",
-    boxShadow: "-4px 0 20px rgba(0,0,0,0.6)",
-    transition: "right 0.25s ease",
-    zIndex: 9999,
+    padding: "24px 16px",
+    boxShadow: "-4px 0 24px rgba(0,0,0,0.6)",
+    transition: "right 0.28s ease",
+    zIndex: 9999999,
+    display: "flex",
+    flexDirection: "column",
+  },
+  closeBtn: {
+    alignSelf: "flex-end",
+    fontSize: "22px",
+    background: "none",
+    border: "none",
+    color: "white",
+    cursor: "pointer",
+    marginBottom: "12px",
   },
   drawerTitle: {
-    marginBottom: "20px",
-    fontSize: "22px",
+    margin: 0,
+    marginBottom: "18px",
+    fontSize: "24px",
+    fontWeight: "600",
   },
   menuItem: {
-    margin: "12px 0",
+    textAlign: "left",
     fontSize: "18px",
+    padding: "10px 0",
+    border: "none",
+    background: "none",
+    color: "white",
     cursor: "pointer",
-    paddingBottom: "6px",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
+    borderBottom: "1px solid rgba(255,255,255,0.12)",
+    marginBottom: "8px",
   },
   backdrop: {
     position: "fixed",
@@ -58,7 +79,7 @@ const styles = {
     left: 0,
     width: "100vw",
     height: "100vh",
-    background: "rgba(0,0,0,0.4)",
-    zIndex: 9998,
+    background: "rgba(0,0,0,0.35)",
+    zIndex: 9999998,
   },
 };
