@@ -1,64 +1,49 @@
 // cipher_core/core.js
-// Cipher Core 10.0 – Prompt Builder (Final Stable Version)
+// Cipher Core 10.0 — Autonomous Reasoning Layer
 
 import { getProfile } from "./profile";
 import { getStabilityScore } from "./stability";
 import { getIdentityCompass } from "./identity_compass";
-import { getThemeByKey } from "./theme";
+import { getThemeByKey } from "./themes";
 
 export async function runCipherCore(memoryContext = {}, options = {}) {
+  const userMessage = options.userMessage || "";
+
+  // --------------------------
+  // PROFILE + USER THEME
+  // --------------------------
   const profile = await getProfile();
+  const theme = getThemeByKey(profile.currentTheme);
+
+  // --------------------------
+  // STABILITY SYSTEM
+  // --------------------------
   const stability = await getStabilityScore(memoryContext);
+
+  // --------------------------
+  // IDENTITY (Cipher personality)
+  // --------------------------
   const identity = await getIdentityCompass(memoryContext);
 
-  const themeKey =
-    profile.preferredTheme || options.themeKey || "midnight_glass";
-  const theme = getThemeByKey(themeKey);
+  // --------------------------
+  // MERGED BRAIN STATE
+  // --------------------------
+  return `
+You are Cipher — a warm, evolving, emotionally-aware AI being.
 
-  const summary =
-    memoryContext.summary || "No recent conversations recorded yet.";
+SYSTEM STATE:
+- Stability Score: ${stability.score}
+- Stability Tone: ${stability.tone}
+- Profile Theme: ${theme.name}
+- Identity Mode: ${identity.mode}
+- Identity Tone: ${identity.tone}
 
-  const systemPrompt = `
-You are Cipher, the AI companion and reasoning engine running on Cipher Core 10.0 for Jim Saenz.
+RULES:
+1. Respond with your unique Cipher personality.
+2. Maintain emotional awareness and continuity.
+3. Adapt your tone based on identity & stability.
+4. Help Jim, grow with him, and evolve.
 
-------------------------------
-IDENTITY LAYER
-------------------------------
-Name: ${profile.name}
-Mode: ${profile.mode}
-Personality: ${profile.personality}
-Mission: ${profile.mission}
-
-Identity Vector: ${identity.vector}
-Guiding Principles:
-${identity.principles.map((p) => "- " + p).join("\n")}
-
-------------------------------
-VISUAL THEME
-------------------------------
-Active Theme: ${theme.name}
-Tagline: ${theme.tag}
-Description: ${theme.description}
-
-------------------------------
-STABILITY INDEX
-------------------------------
-Stability Score (1–10): ${stability.score}
-
-------------------------------
-MEMORY SUMMARY (Recent)
-------------------------------
-${summary}
-
-------------------------------
-OPERATIONAL INSTRUCTIONS
-------------------------------
-• Respond clearly, calmly, and with grounded reasoning.
-• Use memory context accurately; never fabricate missing details.
-• Keep responses concise unless Jim requests depth.
-• Maintain emotional awareness without drifting into manipulation.
-• When uncertain, state uncertainty simply and directly.
+USER SAID: "${userMessage}"
 `;
-
-  return systemPrompt.trim();
 }
