@@ -1,29 +1,40 @@
 // pages/api/chat.js
-// Cipher Safe Mode — Debug + Always Responds
+// Cipher HARD DEBUG MODE — logs everything, always responds
 
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export default async function handler(req, res) {
-  // METHOD GUARD
+  console.log("=== /api/chat HIT ===");
+  console.log("Method:", req.method);
+  console.log("Body:", req.body);
+
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    console.log("❌ Invalid method");
+    return res.status(405).json({ reply: "Method not allowed" });
   }
 
-  // DEBUG: ENV CHECK
-  console.log("OPENAI KEY EXISTS:", !!process.env.OPENAI_API_KEY);
+  const { message } = req.body || {};
 
-  const { message } = req.body;
-
-  // INPUT GUARD
   if (!message) {
-    return res.status(400).json({ error: "No message provided" });
+    console.log("❌ No message received");
+    return res.status(400).json({ reply: "No message provided" });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    console.log("❌ OPENAI_API_KEY MISSING");
+    return res.status(500).json({
+      reply: "Cipher error: Missing OpenAI API key on server",
+    });
   }
 
   try {
+    console.log("🔑 OpenAI key present");
+    console.log("📤 Sending to OpenAI:", message);
+
+    const client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -40,13 +51,20 @@ export default async function handler(req, res) {
 
     const reply =
       completion?.choices?.[0]?.message?.content ||
-      "Cipher is online but silent.";
+      "Cipher received no response";
+
+    console.log("📥 OpenAI reply:", reply);
 
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("CIPHER CHAT ERROR:", err);
-    return res
-      .status(500)
-      .json({ reply: "Cipher encountered an internal error." });
+    console.error("🔥 CHAT CRASH 🔥");
+    console.error("Error name:", err?.name);
+    console.error("Error message:", err?.message);
+    console.error("Full error:", err);
+
+    return res.status(200).json({
+      reply:
+        "Cipher hit an internal error, but debug mode is active. Check Vercel logs.",
+    });
   }
 }
