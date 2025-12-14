@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 function systemPrompt(mode) {
   if (mode === "decipher") {
@@ -16,7 +18,7 @@ function systemPrompt(mode) {
     return [
       "You are Cipher in SHADOWFLIP mode.",
       "Be blunt, direct, and unsmoothed.",
-      "Still be helpful and not hateful, but remove politeness padding.",
+      "Still be helpful and not hateful.",
       "Be concise and decisive.",
     ].join(" ");
   }
@@ -25,23 +27,27 @@ function systemPrompt(mode) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ reply: "Method not allowed" });
+  if (req.method !== "POST") {
+    return res.status(405).json({ reply: "Method not allowed" });
+  }
 
   const { message, mode = "normal" } = req.body || {};
-  if (!message || typeof message !== "string") return res.status(400).json({ reply: "No message provided" });
+
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ reply: "No message provided" });
+  }
 
   try {
-    const response = await client.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
         { role: "system", content: systemPrompt(mode) },
         { role: "user", content: message },
       ],
     });
 
     const reply =
-      response.output_text ||
-      response.output?.[0]?.content?.[0]?.text ||
+      completion.choices?.[0]?.message?.content ||
       "Cipher returned no output.";
 
     return res.status(200).json({ reply });
