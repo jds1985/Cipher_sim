@@ -1,22 +1,27 @@
-// components/chat/ChatPanel.jsx
-// Cipher Chat Panel – Header + Drawer + Messaging
-
 import { useState, useEffect, useRef } from "react";
 import InputBar from "./InputBar";
-import Header from "../ui/Header";
-import RightDrawer from "../ui/RightDrawer";
 
-export default function ChatPanel({ userId = "jim_default", theme }) {
+export default function ChatPanel({ userId = "jim_default" }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mode, setMode] = useState("normal"); // normal | decipher | shadow
   const panelRef = useRef(null);
 
+  // Auto-scroll
   useEffect(() => {
     if (panelRef.current) {
       panelRef.current.scrollTop = panelRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, loading]);
+
+  const cycleMode = () => {
+    setMode((prev) =>
+      prev === "normal" ? "decipher" : prev === "decipher" ? "shadow" : "normal"
+    );
+  };
+
+  const modeLabel =
+    mode === "normal" ? "Cipher" : mode === "decipher" ? "Decipher" : "ShadowFlip";
 
   async function sendMessage(text) {
     if (!text.trim()) return;
@@ -28,7 +33,11 @@ export default function ChatPanel({ userId = "jim_default", theme }) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, userId }),
+        body: JSON.stringify({
+          message: text,
+          mode,
+          userId,
+        }),
       });
 
       const data = await res.json();
@@ -37,13 +46,18 @@ export default function ChatPanel({ userId = "jim_default", theme }) {
         ...prev,
         {
           role: "assistant",
-          content: data.reply || "Cipher is thinking…",
+          content: data.reply || "Cipher returned no output.",
+          mode,
         },
       ]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Error: Cipher couldn't respond." },
+        {
+          role: "assistant",
+          content: "Cipher encountered a server error.",
+          mode,
+        },
       ]);
     }
 
@@ -56,37 +70,69 @@ export default function ChatPanel({ userId = "jim_default", theme }) {
         height: "100vh",
         display: "flex",
         flexDirection: "column",
-        background: theme?.background || "#000011",
-        color: theme?.textColor || "white",
-        overflow: "hidden",
+        background: "#000",
+        color: "#fff",
       }}
     >
-      {/* Header with menu */}
-      <Header onMenuClick={() => setDrawerOpen(true)} />
+      {/* HEADER */}
+      <div
+        style={{
+          padding: "14px 16px",
+          borderBottom: "1px solid #222",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <strong style={{ fontSize: 18 }}>Cipher</strong>
 
-      {/* Right-side drawer */}
-      <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+        <button
+          onClick={cycleMode}
+          style={{
+            padding: "6px 12px",
+            borderRadius: 20,
+            border: "1px solid #444",
+            background:
+              mode === "normal"
+                ? "#111"
+                : mode === "decipher"
+                ? "#1b2330"
+                : "#2a1b1b",
+            color: "#fff",
+            fontSize: 13,
+            cursor: "pointer",
+          }}
+        >
+          {modeLabel}
+        </button>
+      </div>
 
-      {/* Chat messages */}
+      {/* CHAT */}
       <div
         ref={panelRef}
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "18px 12px",
+          padding: 16,
         }}
       >
         {messages.map((m, i) => (
           <div
             key={i}
             style={{
-              background: m.role === "user" ? "#222" : "#111",
-              padding: "12px",
-              marginBottom: "10px",
-              borderRadius: "10px",
-              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
               maxWidth: "80%",
-              color: "white",
+              marginBottom: 10,
+              padding: "10px 14px",
+              borderRadius: 12,
+              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+              background:
+                m.role === "user"
+                  ? "#222"
+                  : m.mode === "decipher"
+                  ? "#1b2330"
+                  : m.mode === "shadow"
+                  ? "#2a1b1b"
+                  : "#111",
             }}
           >
             {m.content}
@@ -96,20 +142,20 @@ export default function ChatPanel({ userId = "jim_default", theme }) {
         {loading && (
           <div
             style={{
-              background: "#111",
-              padding: "12px",
-              borderRadius: "10px",
               maxWidth: "80%",
-              color: "white",
+              padding: "10px 14px",
+              borderRadius: 12,
+              background: "#111",
+              opacity: 0.7,
             }}
           >
-            … Cipher is processing …
+            Cipher is thinking…
           </div>
         )}
       </div>
 
-      {/* Input bar */}
+      {/* INPUT */}
       <InputBar onSend={sendMessage} />
     </div>
   );
-}
+  }
