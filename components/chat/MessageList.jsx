@@ -1,21 +1,23 @@
-// components/chat/MessageList.jsx
-import React from "react";
 import MessageBubble from "./MessageBubble";
 
-export default function MessageList({ messages, theme, loading, chatEndRef }) {
+export default function MessageList({ messages, onShadowFlip }) {
   return (
-    <>
-      {messages.map((m, i) => (
-        <MessageBubble key={i} msg={m} theme={theme} />
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        padding: "12px",
+        overflowY: "auto",
+        flex: 1,
+      }}
+    >
+      {messages.map((message, index) => (
+        <MessageBubble
+          key={index}
+          message={message}
+          onShadowFlip={() => onShadowFlip(index)}
+        />
       ))}
-
-      {loading && (
-        <div style={{ fontStyle: "italic", color: theme.textColor }}>
-          Cipher is thinking...
-        </div>
-      )}
-
-      <div ref={chatEndRef} />
-    </>
+    </div>
   );
 }
