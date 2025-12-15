@@ -6,15 +6,16 @@ export default function ChatPanel() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // SEND NORMAL MESSAGE
   const sendMessage = async (text) => {
-    if (!text) return;
+    if (!text || loading) return;
 
     const userMsg = {
       role: "user",
       content: text,
     };
 
-    setMessages((m) => [...m, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
 
     try {
@@ -29,16 +30,17 @@ export default function ChatPanel() {
       const cipherMsg = {
         role: "assistant",
         content: data.reply,
-        shadow: null, // will be generated on demand
+        shadow: null, // Decipher text (lazy-loaded)
       };
 
-      setMessages((m) => [...m, cipherMsg]);
-    } catch (e) {
-      setMessages((m) => [
-        ...m,
+      setMessages((prev) => [...prev, cipherMsg]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
         {
           role: "assistant",
           content: "Cipher hit a server error.",
+          shadow: null,
         },
       ]);
     } finally {
@@ -46,26 +48,52 @@ export default function ChatPanel() {
     }
   };
 
-  const generateShadow = async (index) => {
+  // SHADOWFLIP HANDLER
+  const handleShadowFlip = async (index, direction) => {
+    setMessages((prev) => {
+      const copy = [...prev];
+
+      // Swipe RIGHT → turn OFF shadow
+      if (direction === "off") {
+        copy[index] = { ...copy[index], shadow: null };
+        return copy;
+      }
+
+      return copy;
+    });
+
+    if (direction === "off") return;
+
     const msg = messages[index];
     if (!msg || msg.shadow) return;
 
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: msg.content,
-        mode: "shadow",
-      }),
-    });
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: msg.content,
+          mode: "shadow",
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    setMessages((m) =>
-      m.map((item, i) =>
-        i === index ? { ...item, shadow: data.reply } : item
-      )
-    );
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[index] = { ...copy[index], shadow: data.reply };
+        return copy;
+      });
+    } catch (err) {
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[index] = {
+          ...copy[index],
+          shadow: "Decipher failed to surface the truth.",
+        };
+        return copy;
+      });
+    }
   };
 
   return (
@@ -77,7 +105,11 @@ export default function ChatPanel() {
         background: "#000",
       }}
     >
-      <MessageList messages={messages} onShadowFlip={generateShadow} />
+      <MessageList
+        messages={messages}
+        onShadowFlip={handleShadowFlip}
+      />
+
       <InputBar onSend={sendMessage} disabled={loading} />
     </div>
   );
