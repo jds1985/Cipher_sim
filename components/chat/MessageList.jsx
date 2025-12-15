@@ -4,18 +4,17 @@ export default function MessageList({ messages, onShadowFlip }) {
   return (
     <div
       style={{
-        display: "flex",
-        flexDirection: "column",
-        padding: "12px",
-        overflowY: "auto",
         flex: 1,
+        padding: "16px",
+        overflowY: "auto",
       }}
     >
-      {messages.map((message, index) => (
+      {messages.map((msg, i) => (
         <MessageBubble
-          key={index}
-          message={message}
-          onShadowFlip={() => onShadowFlip(index)}
+          key={i}
+          message={msg}
+          isUser={msg.role === "user"}
+          onShadowFlip={() => onShadowFlip(i)}
         />
       ))}
     </div>
