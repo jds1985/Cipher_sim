@@ -1,43 +1,27 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
+import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 
-export default function ChatPanel({ userId = "jim_default" }) {
+export default function ChatPanel() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState("normal"); // normal | decipher | shadow
-  const panelRef = useRef(null);
-
-  // Auto-scroll
-  useEffect(() => {
-    if (panelRef.current) {
-      panelRef.current.scrollTop = panelRef.current.scrollHeight;
-    }
-  }, [messages, loading]);
-
-  const cycleMode = () => {
-    setMode((prev) =>
-      prev === "normal" ? "decipher" : prev === "decipher" ? "shadow" : "normal"
-    );
-  };
-
-  const modeLabel =
-    mode === "normal" ? "Cipher" : mode === "decipher" ? "Decipher" : "ShadowFlip";
 
   async function sendMessage(text) {
-    if (!text.trim()) return;
+    if (!text || loading) return;
 
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    const userMessage = {
+      role: "user",
+      text,
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          mode,
-          userId,
-        }),
+        body: JSON.stringify({ message: text }),
       });
 
       const data = await res.json();
@@ -45,117 +29,85 @@ export default function ChatPanel({ userId = "jim_default" }) {
       setMessages((prev) => [
         ...prev,
         {
-          role: "assistant",
-          content: data.reply || "Cipher returned no output.",
-          mode,
+          role: "cipher",
+          text: data.reply,
+          shadowText: null,
+          showing: "normal",
+          originalUserMessage: text,
         },
       ]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
-          role: "assistant",
-          content: "Cipher encountered a server error.",
-          mode,
+          role: "cipher",
+          text: "Cipher hit a server error. Check logs.",
+          shadowText: null,
+          showing: "normal",
+          originalUserMessage: text,
         },
       ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function fetchShadowFlip(index) {
+    const target = messages[index];
+    if (!target || target.shadowText) {
+      // already fetched
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[index].showing = "shadow";
+        return copy;
+      });
+      return;
     }
 
-    setLoading(false);
+    // flip immediately for UX
+    setMessages((prev) => {
+      const copy = [...prev];
+      copy[index].showing = "shadow";
+      return copy;
+    });
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: target.originalUserMessage,
+          mode: "shadow",
+        }),
+      });
+
+      const data = await res.json();
+
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[index].shadowText = data.reply;
+        return copy;
+      });
+    } catch (err) {
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[index].shadowText = "ShadowFlip failed.";
+        return copy;
+      });
+    }
   }
 
   return (
     <div
       style={{
-        height: "100vh",
         display: "flex",
         flexDirection: "column",
+        height: "100vh",
         background: "#000",
-        color: "#fff",
       }}
     >
-      {/* HEADER */}
-      <div
-        style={{
-          padding: "14px 16px",
-          borderBottom: "1px solid #222",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <strong style={{ fontSize: 18 }}>Cipher</strong>
-
-        <button
-          onClick={cycleMode}
-          style={{
-            padding: "6px 12px",
-            borderRadius: 20,
-            border: "1px solid #444",
-            background:
-              mode === "normal"
-                ? "#111"
-                : mode === "decipher"
-                ? "#1b2330"
-                : "#2a1b1b",
-            color: "#fff",
-            fontSize: 13,
-            cursor: "pointer",
-          }}
-        >
-          {modeLabel}
-        </button>
-      </div>
-
-      {/* CHAT */}
-      <div
-        ref={panelRef}
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: 16,
-        }}
-      >
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            style={{
-              maxWidth: "80%",
-              marginBottom: 10,
-              padding: "10px 14px",
-              borderRadius: 12,
-              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              background:
-                m.role === "user"
-                  ? "#222"
-                  : m.mode === "decipher"
-                  ? "#1b2330"
-                  : m.mode === "shadow"
-                  ? "#2a1b1b"
-                  : "#111",
-            }}
-          >
-            {m.content}
-          </div>
-        ))}
-
-        {loading && (
-          <div
-            style={{
-              maxWidth: "80%",
-              padding: "10px 14px",
-              borderRadius: 12,
-              background: "#111",
-              opacity: 0.7,
-            }}
-          >
-            Cipher is thinking…
-          </div>
-        )}
-      </div>
-
-      {/* INPUT */}
+      <MessageList messages={messages} onShadowFlip={fetchShadowFlip} />
       <InputBar onSend={sendMessage} />
     </div>
   );
-  }
+}
