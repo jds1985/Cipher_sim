@@ -1,52 +1,48 @@
-import { useRef } from "react";
-
 export default function MessageBubble({ message, onShadowFlip }) {
-  const startX = useRef(null);
-
-  const isCipher = message.role === "cipher";
+  const isUser = message.role === "user";
   const isShadow = message.showing === "shadow";
 
-  const onTouchStart = (e) => {
-    startX.current = e.touches[0].clientX;
-  };
+  const bubbleStyle = {
+    maxWidth: "80%",
+    marginBottom: "12px",
+    padding: "12px 14px",
+    borderRadius: 14,
+    fontSize: 15,
+    lineHeight: 1.45,
+    alignSelf: isUser ? "flex-end" : "flex-start",
 
-  const onTouchEnd = (e) => {
-    if (!isCipher) return;
-    const endX = e.changedTouches[0].clientX;
-    if (startX.current - endX > 60) {
-      onShadowFlip?.();
-    }
+    background: isUser
+      ? "#1f2937"                 // user bubble (dark neutral)
+      : isShadow
+      ? "#000000"                 // 🖤 SHADOWFLIP — PURE BLACK
+      : "#5b2cff",                // 🟣 CIPHER — PURPLE
+
+    color: isShadow
+      ? "#9ca3af"                 // grey text for shadow
+      : "#ffffff",                // white text for cipher + user
+
+    border: isShadow
+      ? "1px solid #1f1f1f"       // subtle edge so black doesn’t vanish
+      : "none",
+
+    boxShadow: isShadow
+      ? "inset 0 0 0 1px #000"
+      : "0 4px 14px rgba(91,44,255,0.35)", // purple glow
   };
 
   return (
-    <div
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      style={{
-        background: isCipher
-          ? isShadow
-            ? "#000"
-            : "#111"
-          : "#1f2937",
-        color: isShadow ? "#9ca3af" : "#fff",
-        padding: "12px",
-        borderRadius: "10px",
-        marginBottom: "10px",
-        maxWidth: "80%",
-        alignSelf: isCipher ? "flex-start" : "flex-end",
-        border: isShadow ? "1px solid #333" : "none",
-      }}
-    >
-      {isShadow && (
+    <div style={bubbleStyle} onClick={!isUser ? onShadowFlip : undefined}>
+      {!isUser && isShadow && (
         <div
           style={{
-            fontSize: "11px",
-            opacity: 0.6,
-            marginBottom: "6px",
-            letterSpacing: "0.08em",
+            fontSize: 10,
+            letterSpacing: "1px",
+            color: "#6b7280",
+            marginBottom: 6,
+            textTransform: "uppercase",
           }}
         >
-          SHADOWFLIP
+          Shadowflip
         </div>
       )}
 
