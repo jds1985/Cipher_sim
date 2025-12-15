@@ -6,15 +6,15 @@ export default function ChatPanel() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  async function sendMessage(text) {
-    if (!text || loading) return;
+  const sendMessage = async (text) => {
+    if (!text) return;
 
-    const userMessage = {
+    const userMsg = {
       role: "user",
-      text,
+      content: text,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((m) => [...m, userMsg]);
     setLoading(true);
 
     try {
@@ -26,88 +26,59 @@ export default function ChatPanel() {
 
       const data = await res.json();
 
-      setMessages((prev) => [
-        ...prev,
+      const cipherMsg = {
+        role: "assistant",
+        content: data.reply,
+        shadow: null, // will be generated on demand
+      };
+
+      setMessages((m) => [...m, cipherMsg]);
+    } catch (e) {
+      setMessages((m) => [
+        ...m,
         {
-          role: "cipher",
-          text: data.reply,
-          shadowText: null,
-          showing: "normal",
-          originalUserMessage: text,
-        },
-      ]);
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "cipher",
-          text: "Cipher hit a server error. Check logs.",
-          shadowText: null,
-          showing: "normal",
-          originalUserMessage: text,
+          role: "assistant",
+          content: "Cipher hit a server error.",
         },
       ]);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function fetchShadowFlip(index) {
-    const target = messages[index];
-    if (!target || target.shadowText) {
-      // already fetched
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[index].showing = "shadow";
-        return copy;
-      });
-      return;
-    }
+  const generateShadow = async (index) => {
+    const msg = messages[index];
+    if (!msg || msg.shadow) return;
 
-    // flip immediately for UX
-    setMessages((prev) => {
-      const copy = [...prev];
-      copy[index].showing = "shadow";
-      return copy;
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: msg.content,
+        mode: "shadow",
+      }),
     });
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: target.originalUserMessage,
-          mode: "shadow",
-        }),
-      });
+    const data = await res.json();
 
-      const data = await res.json();
-
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[index].shadowText = data.reply;
-        return copy;
-      });
-    } catch (err) {
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[index].shadowText = "ShadowFlip failed.";
-        return copy;
-      });
-    }
-  }
+    setMessages((m) =>
+      m.map((item, i) =>
+        i === index ? { ...item, shadow: data.reply } : item
+      )
+    );
+  };
 
   return (
     <div
       style={{
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
         background: "#000",
       }}
     >
-      <MessageList messages={messages} onShadowFlip={fetchShadowFlip} />
-      <InputBar onSend={sendMessage} />
+      <MessageList messages={messages} onShadowFlip={generateShadow} />
+      <InputBar onSend={sendMessage} disabled={loading} />
     </div>
   );
 }
