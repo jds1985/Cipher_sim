@@ -4,21 +4,34 @@ export default function MessageBubble({ message, isUser, onShadowFlip }) {
   const startX = useRef(null);
 
   const isCipher = !isUser;
-  const showShadow = Boolean(message.shadow);
+  const isShadow = Boolean(message.shadow);
+
+  const haptic = () => {
+    if (navigator.vibrate) {
+      navigator.vibrate(12);
+    }
+  };
 
   const handleTouchStart = (e) => {
     startX.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e) => {
-    if (!startX.current || showShadow || !isCipher) return;
+    if (!isCipher || startX.current === null) return;
 
     const endX = e.changedTouches[0].clientX;
-    const deltaX = startX.current - endX;
+    const deltaX = endX - startX.current;
 
-    // swipe LEFT threshold
-    if (deltaX > 50) {
-      onShadowFlip();
+    // swipe LEFT → activate Decipher
+    if (deltaX < -60 && !isShadow) {
+      haptic();
+      onShadowFlip("on");
+    }
+
+    // swipe RIGHT → deactivate Decipher
+    if (deltaX > 60 && isShadow) {
+      haptic();
+      onShadowFlip("off");
     }
 
     startX.current = null;
@@ -34,16 +47,16 @@ export default function MessageBubble({ message, isUser, onShadowFlip }) {
 
     background: isUser
       ? "#1f2937"
-      : showShadow
-      ? "#000000"
-      : "#6d28d9",
+      : isShadow
+      ? "#000000" // 🖤 Decipher
+      : "#6d28d9", // 🟣 Cipher
 
-    color: showShadow ? "#9ca3af" : "#ffffff",
+    color: isShadow ? "#9ca3af" : "#ffffff",
+    border: isShadow ? "1px solid #111" : "none",
 
-    border: showShadow ? "1px solid #111" : "none",
-    boxShadow: showShadow
+    boxShadow: isShadow
       ? "inset 0 0 0 1px #000"
-      : "0 2px 10px rgba(0,0,0,0.35)",
+      : "0 3px 14px rgba(109,40,217,0.45)",
 
     transition: "all 0.25s ease",
   };
@@ -54,7 +67,7 @@ export default function MessageBubble({ message, isUser, onShadowFlip }) {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {showShadow && (
+      {isShadow && (
         <div
           style={{
             fontSize: 10,
@@ -69,8 +82,8 @@ export default function MessageBubble({ message, isUser, onShadowFlip }) {
       )}
 
       <div style={bubbleStyle}>
-        {showShadow ? message.shadow : message.content}
+        {isShadow ? message.shadow : message.content}
       </div>
     </div>
   );
-        }
+}
