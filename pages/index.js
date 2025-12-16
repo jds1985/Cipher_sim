@@ -5,11 +5,17 @@ import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
 import OmniSearchTest from "../components/OmniSearchTest";
 import DevicePanel from "../components/DevicePanel";
-
 import { themeStyles, defaultThemeKey } from "../logic/themeCore";
 
 /* --------------------------------------------------
-   🔒 CLIENT-ONLY CHAT PANEL (CRITICAL FIX)
+   🔒 FORCE RUNTIME RENDERING (CRITICAL)
+-------------------------------------------------- */
+export async function getServerSideProps() {
+  return { props: {} };
+}
+
+/* --------------------------------------------------
+   CLIENT-ONLY CHAT PANEL
 -------------------------------------------------- */
 const ChatPanel = dynamic(
   () => import("../components/chat/ChatPanel"),
@@ -17,7 +23,7 @@ const ChatPanel = dynamic(
 );
 
 export default function Home() {
-  const [screen, setScreen] = useState("chat"); // chat | omni | device
+  const [screen, setScreen] = useState("chat");
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -25,7 +31,7 @@ export default function Home() {
   const [theme, setTheme] = useState(themeStyles[defaultThemeKey]);
 
   /* --------------------------------------------------
-     LOAD PROFILE
+     LOAD PROFILE (CLIENT ONLY)
   -------------------------------------------------- */
   useEffect(() => {
     const loadProfile = async () => {
@@ -50,9 +56,7 @@ export default function Home() {
         });
 
         const data = await loadRes.json();
-        if (data.profile) {
-          setProfile(data.profile);
-        }
+        if (data.profile) setProfile(data.profile);
       } catch (err) {
         console.error("Profile load error:", err);
       } finally {
@@ -64,7 +68,7 @@ export default function Home() {
   }, []);
 
   /* --------------------------------------------------
-     UPDATE PROFILE
+     PROFILE UPDATE
   -------------------------------------------------- */
   const updateProfile = async (updates) => {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
@@ -76,11 +80,7 @@ export default function Home() {
       await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update",
-          userId,
-          updates,
-        }),
+        body: JSON.stringify({ action: "update", userId, updates }),
       });
     } catch (err) {
       console.error("Profile save error:", err);
@@ -93,21 +93,19 @@ export default function Home() {
   useEffect(() => {
     if (!profile?.currentTheme) {
       setTheme(themeStyles[defaultThemeKey]);
-      return;
+    } else {
+      setTheme(themeStyles[profile.currentTheme] || themeStyles[defaultThemeKey]);
     }
-    setTheme(themeStyles[profile.currentTheme] || themeStyles[defaultThemeKey]);
   }, [profile?.currentTheme]);
 
-  const previewTheme = (themeKey) => {
+  const previewTheme = (themeKey) =>
     setTheme(themeStyles[themeKey] || themeStyles[defaultThemeKey]);
-  };
 
-  const applyTheme = (themeKey) => {
+  const applyTheme = (themeKey) =>
     updateProfile({ currentTheme: themeKey });
-  };
 
   /* --------------------------------------------------
-     ROUTING SCREENS
+     ROUTING
   -------------------------------------------------- */
   if (screen === "device") {
     return <DevicePanel theme={theme} onClose={() => setScreen("chat")} />;
@@ -153,13 +151,10 @@ export default function Home() {
         background: theme.background,
         fontFamily: "Inter, sans-serif",
         color: theme.textColor,
-        transition: "background 0.4s ease, color 0.4s ease",
       }}
     >
-      {/* CHAT PANEL (CLIENT ONLY) */}
       <ChatPanel theme={theme} />
 
-      {/* PROFILE + STORE PANELS */}
       {menuOpen && (
         <ProfilePanel
           profile={profile}
@@ -183,4 +178,4 @@ export default function Home() {
       )}
     </div>
   );
-          }
+           }
