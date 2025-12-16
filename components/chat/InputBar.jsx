@@ -4,56 +4,43 @@ import { useState } from "react";
 export default function InputBar({ onSend }) {
   const [text, setText] = useState("");
 
-  const send = () => {
-    if (!text.trim()) return; // prevent empty sends
-    console.log("InputBar sending:", text);
+  function send() {
+    if (!text.trim()) return;
     onSend(text);
     setText("");
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  };
+  }
 
   return (
     <div
       style={{
         display: "flex",
-        padding: "12px",
+        padding: 12,
+        borderTop: "1px solid #222",
         background: "#000",
-        borderTop: "1px solid #333",
       }}
     >
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Type a message for Cipher..."
+        placeholder="Type a message for Cipher…"
         style={{
           flex: 1,
-          padding: "12px",
-          borderRadius: 8,
-          border: "1px solid #333",
+          padding: 12,
+          borderRadius: 10,
           background: "#111",
-          color: "white",
-          outline: "none",
+          color: "#fff",
+          border: "none",
         }}
       />
-
       <button
         onClick={send}
         style={{
           marginLeft: 8,
-          padding: "12px 16px",
-          borderRadius: 8,
+          padding: "12px 18px",
+          background: "#3b82f6",
+          color: "#fff",
           border: "none",
-          background: "#2563eb",
-          color: "white",
-          fontWeight: 600,
-          cursor: "pointer",
+          borderRadius: 10,
         }}
       >
         Send
