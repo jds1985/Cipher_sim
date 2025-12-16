@@ -6,11 +6,14 @@ import InputBar from "./InputBar";
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState([]);
-  const [mode, setMode] = useState("normal"); // normal | decipher
+  const [mode, setMode] = useState("normal"); // UI display only
+
+  // 🔥 AUTHORITATIVE MODE (NO LAG)
+  const modeRef = useRef("normal");
   const touchStartX = useRef(null);
 
   /* -------------------------------
-     SWIPE HANDLERS (MESSAGE AREA ONLY)
+     SWIPE HANDLERS (MESSAGE AREA)
   -------------------------------- */
 
   function handleTouchStart(e) {
@@ -23,14 +26,16 @@ export default function ChatPanel() {
     const touchEndX = e.changedTouches[0].clientX;
     const deltaX = touchEndX - touchStartX.current;
 
-    // Swipe left → DECIPHER
-    if (deltaX < -60 && mode !== "decipher") {
+    // Swipe LEFT → DECIPHER
+    if (deltaX < -60 && modeRef.current !== "decipher") {
+      modeRef.current = "decipher";
       setMode("decipher");
       navigator.vibrate?.(40);
     }
 
-    // Swipe right → NORMAL
-    if (deltaX > 60 && mode !== "normal") {
+    // Swipe RIGHT → NORMAL
+    if (deltaX > 60 && modeRef.current !== "normal") {
+      modeRef.current = "normal";
       setMode("normal");
       navigator.vibrate?.(20);
     }
@@ -39,14 +44,17 @@ export default function ChatPanel() {
   }
 
   /* -------------------------------
-     SEND MESSAGE
+     SEND MESSAGE (MODE-SAFE)
   -------------------------------- */
 
   async function sendMessage(text) {
+    const activeMode = modeRef.current;
+
+    // USER MESSAGE
     const userMessage = {
       role: "user",
       content: text,
-      mode,
+      mode: activeMode,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -57,16 +65,17 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
-          mode,
+          mode: activeMode, // 🔥 GUARANTEED CORRECT
         }),
       });
 
       const data = await res.json();
 
+      // AI MESSAGE (SERVER-CONFIRMED MODE)
       const aiMessage = {
         role: "assistant",
         content: data.reply,
-        mode: data.modeUsed || mode, // 🔥 SERVER CONFIRMS MODE
+        mode: data.modeUsed,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -81,28 +90,11 @@ export default function ChatPanel() {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
-      
-      {/* MODE INDICATOR */}
-      <div
-        style={{
-          textAlign: "center",
-          fontSize: 11,
-          letterSpacing: 2,
-          padding: "6px 0",
-          opacity: 0.65,
-          color: mode === "decipher" ? "#888" : "#b388ff",
-          borderBottom: "1px solid rgba(255,255,255,0.05)",
-        }}
-      >
-        {mode === "decipher" ? "DECIPHER MODE" : "CIPHER MODE"}
-      </div>
-
       <MessageList
         messages={messages}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       />
-
       <InputBar onSend={sendMessage} />
     </div>
   );
