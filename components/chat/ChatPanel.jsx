@@ -1,67 +1,64 @@
 // components/chat/ChatPanel.jsx
-
 import { useState, useRef } from "react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState([]);
-  const [mode, setMode] = useState("normal"); // normal | shadow
-
+  const [mode, setMode] = useState("normal"); // normal | decipher
   const touchStartX = useRef(null);
 
-  const handleTouchStart = (e) => {
+  function haptic() {
+    if (navigator.vibrate) navigator.vibrate(20);
+  }
+
+  function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX;
-  };
+  }
 
-  const handleTouchEnd = (e) => {
+  function handleTouchEnd(e) {
     if (touchStartX.current === null) return;
-
     const deltaX = e.changedTouches[0].clientX - touchStartX.current;
 
-    // Swipe LEFT → ShadowFlip
-    if (deltaX < -60 && mode !== "shadow") {
-      setMode("shadow");
-      navigator.vibrate?.(20);
+    if (deltaX < -60 && mode !== "decipher") {
+      setMode("decipher");
+      haptic();
     }
 
-    // Swipe RIGHT → Normal Cipher
     if (deltaX > 60 && mode !== "normal") {
       setMode("normal");
-      navigator.vibrate?.(15);
+      haptic();
     }
 
     touchStartX.current = null;
-  };
+  }
 
-  const sendMessage = async (text) => {
+  async function sendMessage(text) {
     const userMsg = { role: "user", content: text };
     setMessages((m) => [...m, userMsg]);
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, mode }),
-      });
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, mode }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: data.reply, mode },
-      ]);
-    } catch {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: "Cipher hit a server error.", mode },
-      ]);
-    }
-  };
+    setMessages((m) => [
+      ...m,
+      { role: "assistant", content: data.reply, mode },
+    ]);
+  }
 
   return (
     <div
-      style={{ height: "100vh", background: "#000" }}
+      style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: "#000",
+      }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
