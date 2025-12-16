@@ -1,89 +1,40 @@
-import { useRef } from "react";
+// components/chat/MessageBubble.jsx
 
-export default function MessageBubble({ message, isUser, onShadowFlip }) {
-  const startX = useRef(null);
+export default function MessageBubble({ message }) {
+  const isUser = message.role === "user";
+  const isShadow = message.mode === "shadow";
 
-  const isCipher = !isUser;
-  const isShadow = Boolean(message.shadow);
+  let bg = "#2b2b2b";
+  let color = "#fff";
 
-  const haptic = () => {
-    if (navigator.vibrate) {
-      navigator.vibrate(12);
-    }
-  };
-
-  const handleTouchStart = (e) => {
-    startX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = (e) => {
-    if (!isCipher || startX.current === null) return;
-
-    const endX = e.changedTouches[0].clientX;
-    const deltaX = endX - startX.current;
-
-    // swipe LEFT → activate Decipher
-    if (deltaX < -60 && !isShadow) {
-      haptic();
-      onShadowFlip("on");
-    }
-
-    // swipe RIGHT → deactivate Decipher
-    if (deltaX > 60 && isShadow) {
-      haptic();
-      onShadowFlip("off");
-    }
-
-    startX.current = null;
-  };
-
-  const bubbleStyle = {
-    maxWidth: "75%",
-    marginBottom: 14,
-    padding: "14px 16px",
-    borderRadius: 16,
-    lineHeight: 1.45,
-    alignSelf: isUser ? "flex-end" : "flex-start",
-
-    background: isUser
-      ? "#1f2937"
-      : isShadow
-      ? "#000000" // 🖤 Decipher
-      : "#6d28d9", // 🟣 Cipher
-
-    color: isShadow ? "#9ca3af" : "#ffffff",
-    border: isShadow ? "1px solid #111" : "none",
-
-    boxShadow: isShadow
-      ? "inset 0 0 0 1px #000"
-      : "0 3px 14px rgba(109,40,217,0.45)",
-
-    transition: "all 0.25s ease",
-  };
+  if (isUser) {
+    bg = "#3a3a3a";
+  } else if (isShadow) {
+    bg = "#0b0b0b";
+    color = "#aaa";
+  } else {
+    bg = "#6f2dbd"; // purple Cipher
+  }
 
   return (
     <div
-      style={{ display: "flex", flexDirection: "column" }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      style={{
+        maxWidth: "80%",
+        marginBottom: 10,
+        padding: "12px 16px",
+        borderRadius: 16,
+        background: bg,
+        color,
+        alignSelf: isUser ? "flex-end" : "flex-start",
+        boxShadow: isShadow ? "0 0 0 1px #222" : "none",
+      }}
     >
       {isShadow && (
-        <div
-          style={{
-            fontSize: 10,
-            color: "#6b7280",
-            marginBottom: 4,
-            letterSpacing: "1px",
-            textTransform: "uppercase",
-          }}
-        >
-          Decipher
+        <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
+          DECIPHER
         </div>
       )}
-
-      <div style={bubbleStyle}>
-        {isShadow ? message.shadow : message.content}
-      </div>
+      {message.content}
     </div>
   );
 }
