@@ -1,116 +1,72 @@
-import { useState } from "react";
+// components/chat/ChatPanel.jsx
+
+import { useState, useRef } from "react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState("normal"); // normal | shadow
 
-  // SEND NORMAL MESSAGE
-  const sendMessage = async (text) => {
-    if (!text || loading) return;
+  const touchStartX = useRef(null);
 
-    const userMsg = {
-      role: "user",
-      content: text,
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
-      });
-
-      const data = await res.json();
-
-      const cipherMsg = {
-        role: "assistant",
-        content: data.reply,
-        shadow: null, // Decipher text (lazy-loaded)
-      };
-
-      setMessages((prev) => [...prev, cipherMsg]);
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Cipher hit a server error.",
-          shadow: null,
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
   };
 
-  // SHADOWFLIP HANDLER
-  const handleShadowFlip = async (index, direction) => {
-    setMessages((prev) => {
-      const copy = [...prev];
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
 
-      // Swipe RIGHT → turn OFF shadow
-      if (direction === "off") {
-        copy[index] = { ...copy[index], shadow: null };
-        return copy;
-      }
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
 
-      return copy;
-    });
+    // Swipe LEFT → ShadowFlip
+    if (deltaX < -60 && mode !== "shadow") {
+      setMode("shadow");
+      navigator.vibrate?.(20);
+    }
 
-    if (direction === "off") return;
+    // Swipe RIGHT → Normal Cipher
+    if (deltaX > 60 && mode !== "normal") {
+      setMode("normal");
+      navigator.vibrate?.(15);
+    }
 
-    const msg = messages[index];
-    if (!msg || msg.shadow) return;
+    touchStartX.current = null;
+  };
+
+  const sendMessage = async (text) => {
+    const userMsg = { role: "user", content: text };
+    setMessages((m) => [...m, userMsg]);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: msg.content,
-          mode: "shadow",
-        }),
+        body: JSON.stringify({ message: text, mode }),
       });
 
       const data = await res.json();
 
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[index] = { ...copy[index], shadow: data.reply };
-        return copy;
-      });
-    } catch (err) {
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[index] = {
-          ...copy[index],
-          shadow: "Decipher failed to surface the truth.",
-        };
-        return copy;
-      });
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: data.reply, mode },
+      ]);
+    } catch {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: "Cipher hit a server error.", mode },
+      ]);
     }
   };
 
   return (
     <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        background: "#000",
-      }}
+      style={{ height: "100vh", background: "#000" }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
-      <MessageList
-        messages={messages}
-        onShadowFlip={handleShadowFlip}
-      />
-
-      <InputBar onSend={sendMessage} disabled={loading} />
+      <MessageList messages={messages} />
+      <InputBar onSend={sendMessage} />
     </div>
   );
 }
