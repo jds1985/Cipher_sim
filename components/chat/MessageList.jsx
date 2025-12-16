@@ -1,21 +1,12 @@
+// components/chat/MessageList.jsx
+
 import MessageBubble from "./MessageBubble";
 
-export default function MessageList({ messages, onShadowFlip }) {
+export default function MessageList({ messages }) {
   return (
-    <div
-      style={{
-        flex: 1,
-        padding: "16px",
-        overflowY: "auto",
-      }}
-    >
+    <div style={{ padding: 16 }}>
       {messages.map((msg, i) => (
-        <MessageBubble
-          key={i}
-          message={msg}
-          isUser={msg.role === "user"}
-          onShadowFlip={() => onShadowFlip(i)}
-        />
+        <MessageBubble key={i} message={msg} />
       ))}
     </div>
   );
