@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher Chat API — SDK-free, stable, ShadowFlip enabled
+// Cipher Chat API — SDK-free, stable, Decipher-enabled
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -15,21 +15,24 @@ export default async function handler(req, res) {
   const systemPrompt = getSystemPrompt(mode);
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message },
-        ],
-        temperature: mode === "decipher" ? 0.9 : 0.6,
-      }),
-    });
+    const response = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message },
+          ],
+          temperature: mode === "decipher" ? 0.9 : 0.6,
+        }),
+      }
+    );
 
     const data = await response.json();
 
