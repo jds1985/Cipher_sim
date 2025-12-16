@@ -1,36 +1,37 @@
 // components/chat/MessageBubble.jsx
-
 export default function MessageBubble({ message }) {
   const isUser = message.role === "user";
-  const isShadow = message.mode === "shadow";
+  const isDecipher = message.mode === "decipher";
 
-  let bg = "#2b2b2b";
-  let color = "#fff";
+  const bg = isUser
+    ? "#2a2a2a"
+    : isDecipher
+    ? "#000"
+    : "#6b2bd1";
 
-  if (isUser) {
-    bg = "#3a3a3a";
-  } else if (isShadow) {
-    bg = "#0b0b0b";
-    color = "#aaa";
-  } else {
-    bg = "#6f2dbd"; // purple Cipher
-  }
+  const color = isDecipher ? "#b5b5b5" : "#fff";
 
   return (
     <div
       style={{
-        maxWidth: "80%",
-        marginBottom: 10,
-        padding: "12px 16px",
-        borderRadius: 16,
+        alignSelf: isUser ? "flex-end" : "flex-start",
         background: bg,
         color,
-        alignSelf: isUser ? "flex-end" : "flex-start",
-        boxShadow: isShadow ? "0 0 0 1px #222" : "none",
+        padding: "14px 16px",
+        borderRadius: 16,
+        maxWidth: "80%",
+        boxShadow: "0 0 12px rgba(0,0,0,0.6)",
       }}
     >
-      {isShadow && (
-        <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
+      {isDecipher && (
+        <div
+          style={{
+            fontSize: 10,
+            opacity: 0.6,
+            marginBottom: 6,
+            letterSpacing: 1,
+          }}
+        >
           DECIPHER
         </div>
       )}
