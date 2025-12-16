@@ -37,7 +37,11 @@ export default async function handler(req, res) {
       data?.choices?.[0]?.message?.content ||
       "Cipher returned no output.";
 
-    return res.status(200).json({ reply });
+    // 🔥 CONFIRM MODE BACK TO UI
+    return res.status(200).json({
+      reply,
+      modeUsed: mode,
+    });
   } catch (err) {
     console.error("CHAT ERROR:", err);
     return res.status(500).json({
