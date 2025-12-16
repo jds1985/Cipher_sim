@@ -6,7 +6,8 @@ import InputBar from "./InputBar";
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState([]);
-  const [mode, setMode] = useState("normal"); // normal | decipher
+  const [mode, setMode] = useState("normal"); // UI indicator
+  const modeRef = useRef("normal");            // 🔒 SOURCE OF TRUTH
   const touchStartX = useRef(null);
 
   /* -------------------------------
@@ -24,13 +25,15 @@ export default function ChatPanel() {
     const deltaX = touchEndX - touchStartX.current;
 
     // Swipe left → DECIPHER
-    if (deltaX < -60 && mode !== "decipher") {
+    if (deltaX < -60 && modeRef.current !== "decipher") {
+      modeRef.current = "decipher";
       setMode("decipher");
       navigator.vibrate?.(40);
     }
 
     // Swipe right → NORMAL
-    if (deltaX > 60 && mode !== "normal") {
+    if (deltaX > 60 && modeRef.current !== "normal") {
+      modeRef.current = "normal";
       setMode("normal");
       navigator.vibrate?.(20);
     }
@@ -52,7 +55,7 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
-          mode,
+          mode: modeRef.current, // 🔥 GUARANTEED CORRECT
         }),
       });
 
@@ -61,7 +64,7 @@ export default function ChatPanel() {
       const aiMessage = {
         role: "assistant",
         content: data.reply,
-        mode,
+        mode: data.modeUsed || modeRef.current, // 🔥 SERVER CONFIRMATION
       };
 
       setMessages((prev) => [...prev, aiMessage]);
