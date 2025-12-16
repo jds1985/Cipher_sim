@@ -1,11 +1,20 @@
-// pages/index.js
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
 import OmniSearchTest from "../components/OmniSearchTest";
 import DevicePanel from "../components/DevicePanel";
-import ChatPanel from "../components/chat/ChatPanel";
+
 import { themeStyles, defaultThemeKey } from "../logic/themeCore";
+
+/* --------------------------------------------------
+   🔒 CLIENT-ONLY CHAT PANEL (CRITICAL FIX)
+-------------------------------------------------- */
+const ChatPanel = dynamic(
+  () => import("../components/chat/ChatPanel"),
+  { ssr: false }
+);
 
 export default function Home() {
   const [screen, setScreen] = useState("chat"); // chat | omni | device
@@ -15,7 +24,9 @@ export default function Home() {
   const [storeOpen, setStoreOpen] = useState(false);
   const [theme, setTheme] = useState(themeStyles[defaultThemeKey]);
 
-  // LOAD PROFILE
+  /* --------------------------------------------------
+     LOAD PROFILE
+  -------------------------------------------------- */
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -52,7 +63,9 @@ export default function Home() {
     loadProfile();
   }, []);
 
-  // UPDATE PROFILE
+  /* --------------------------------------------------
+     UPDATE PROFILE
+  -------------------------------------------------- */
   const updateProfile = async (updates) => {
     setProfile((prev) => ({ ...(prev || {}), ...updates }));
 
@@ -74,7 +87,9 @@ export default function Home() {
     }
   };
 
-  // THEME ENGINE
+  /* --------------------------------------------------
+     THEME ENGINE
+  -------------------------------------------------- */
   useEffect(() => {
     if (!profile?.currentTheme) {
       setTheme(themeStyles[defaultThemeKey]);
@@ -91,7 +106,9 @@ export default function Home() {
     updateProfile({ currentTheme: themeKey });
   };
 
-  // ROUTING SCREENS ======================================================
+  /* --------------------------------------------------
+     ROUTING SCREENS
+  -------------------------------------------------- */
   if (screen === "device") {
     return <DevicePanel theme={theme} onClose={() => setScreen("chat")} />;
   }
@@ -126,7 +143,9 @@ export default function Home() {
     );
   }
 
-  // CHAT SCREEN ==========================================================
+  /* --------------------------------------------------
+     CHAT SCREEN
+  -------------------------------------------------- */
   return (
     <div
       style={{
@@ -137,10 +156,10 @@ export default function Home() {
         transition: "background 0.4s ease, color 0.4s ease",
       }}
     >
-      {/* NEW MODULAR CHAT PANEL WITH HEADER + DRAWER */}
+      {/* CHAT PANEL (CLIENT ONLY) */}
       <ChatPanel theme={theme} />
 
-      {/* PROFILE + STORE PANELS (OVERLAYS) */}
+      {/* PROFILE + STORE PANELS */}
       {menuOpen && (
         <ProfilePanel
           profile={profile}
@@ -164,4 +183,4 @@ export default function Home() {
       )}
     </div>
   );
-}
+          }
