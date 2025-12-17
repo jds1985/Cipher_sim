@@ -1,16 +1,29 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 
 export default function ChatPanel() {
+  const [mounted, setMounted] = useState(false);
+
   const [messages, setMessages] = useState([]);
   const [mode, setMode] = useState("normal"); // UI display only
 
   // 🔥 AUTHORITATIVE MODE (NO LAG)
   const modeRef = useRef("normal");
   const touchStartX = useRef(null);
+
+  /* -------------------------------
+     CLIENT-ONLY MOUNT GUARD
+     (CRITICAL FOR VERCEL BUILD)
+  -------------------------------- */
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
 
   /* -------------------------------
      SWIPE HANDLERS (MESSAGE AREA)
