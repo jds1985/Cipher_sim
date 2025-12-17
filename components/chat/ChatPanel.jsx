@@ -41,7 +41,7 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
-          mode: activeMode, // 🔥 ALWAYS CORRECT
+          mode: activeMode,
         }),
       });
 
@@ -66,6 +66,20 @@ export default function ChatPanel() {
   return (
     <div className="flex flex-col h-screen bg-black text-white">
 
+      {/* 🔴 DIAGNOSTIC BANNER */}
+      <div
+        style={{
+          background: "red",
+          color: "white",
+          padding: "14px",
+          textAlign: "center",
+          fontWeight: 900,
+          fontSize: "18px",
+        }}
+      >
+        🔴 CHATPANEL LIVE — THIS FILE IS ACTIVE
+      </div>
+
       {/* MODE TOGGLE BAR */}
       <div
         style={{
@@ -84,10 +98,8 @@ export default function ChatPanel() {
             fontWeight: 700,
             letterSpacing: 1,
             cursor: "pointer",
-            background:
-              mode === "decipher" ? "#000" : "#6b2bd1",
-            color:
-              mode === "decipher" ? "#b5b5b5" : "#fff",
+            background: mode === "decipher" ? "#000" : "#6b2bd1",
+            color: mode === "decipher" ? "#b5b5b5" : "#fff",
             boxShadow:
               mode === "decipher"
                 ? "0 0 10px rgba(0,0,0,0.8)"
