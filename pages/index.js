@@ -1,14 +1,15 @@
+import ChatPanel from "../components/chat/ChatPanel";
+
 export default function Home() {
   return (
     <div
       style={{
         background: "black",
-        color: "white",
         minHeight: "100vh",
-        padding: 40,
+        color: "white",
       }}
     >
-      <h1>INDEX IS RENDERING</h1>
+      <ChatPanel />
     </div>
   );
 }
