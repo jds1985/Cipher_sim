@@ -1,69 +1,32 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 
 export default function ChatPanel() {
-  const [mounted, setMounted] = useState(false);
-
   const [messages, setMessages] = useState([]);
-  const [mode, setMode] = useState("normal"); // UI display only
-
-  // 🔥 AUTHORITATIVE MODE (NO LAG)
-  const modeRef = useRef("normal");
-  const touchStartX = useRef(null);
+  const [mode, setMode] = useState("normal"); // UI indicator
+  const modeRef = useRef("normal");            // SOURCE OF TRUTH
 
   /* -------------------------------
-     CLIENT-ONLY MOUNT GUARD
-     (CRITICAL FOR VERCEL BUILD)
+     MODE TOGGLE (BUTTON)
   -------------------------------- */
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
-  /* -------------------------------
-     SWIPE HANDLERS (MESSAGE AREA)
-  -------------------------------- */
-
-  function handleTouchStart(e) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-
-  function handleTouchEnd(e) {
-    if (touchStartX.current === null) return;
-
-    const touchEndX = e.changedTouches[0].clientX;
-    const deltaX = touchEndX - touchStartX.current;
-
-    // Swipe LEFT → DECIPHER
-    if (deltaX < -60 && modeRef.current !== "decipher") {
-      modeRef.current = "decipher";
-      setMode("decipher");
-      navigator.vibrate?.(40);
-    }
-
-    // Swipe RIGHT → NORMAL
-    if (deltaX > 60 && modeRef.current !== "normal") {
-      modeRef.current = "normal";
-      setMode("normal");
-      navigator.vibrate?.(20);
-    }
-
-    touchStartX.current = null;
+  function toggleMode() {
+    const nextMode = modeRef.current === "normal" ? "decipher" : "normal";
+    modeRef.current = nextMode;
+    setMode(nextMode);
+    navigator.vibrate?.(nextMode === "decipher" ? 40 : 20);
   }
 
   /* -------------------------------
-     SEND MESSAGE (MODE-SAFE)
+     SEND MESSAGE
   -------------------------------- */
 
   async function sendMessage(text) {
     const activeMode = modeRef.current;
 
-    // USER MESSAGE
     const userMessage = {
       role: "user",
       content: text,
@@ -78,17 +41,16 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
-          mode: activeMode, // 🔥 GUARANTEED CORRECT
+          mode: activeMode, // 🔥 ALWAYS CORRECT
         }),
       });
 
       const data = await res.json();
 
-      // AI MESSAGE (SERVER-CONFIRMED MODE)
       const aiMessage = {
         role: "assistant",
         content: data.reply,
-        mode: data.modeUsed,
+        mode: data.modeUsed || activeMode,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -103,11 +65,41 @@ export default function ChatPanel() {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
-      <MessageList
-        messages={messages}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      />
+
+      {/* MODE TOGGLE BAR */}
+      <div
+        style={{
+          padding: "10px",
+          display: "flex",
+          justifyContent: "center",
+          borderBottom: "1px solid #222",
+        }}
+      >
+        <button
+          onClick={toggleMode}
+          style={{
+            padding: "8px 14px",
+            borderRadius: 999,
+            border: "none",
+            fontWeight: 700,
+            letterSpacing: 1,
+            cursor: "pointer",
+            background:
+              mode === "decipher" ? "#000" : "#6b2bd1",
+            color:
+              mode === "decipher" ? "#b5b5b5" : "#fff",
+            boxShadow:
+              mode === "decipher"
+                ? "0 0 10px rgba(0,0,0,0.8)"
+                : "0 0 14px rgba(107,43,209,0.7)",
+          }}
+        >
+          {mode === "decipher" ? "DECIPHER MODE" : "CIPHER MODE"}
+        </button>
+      </div>
+
+      {/* CHAT */}
+      <MessageList messages={messages} />
       <InputBar onSend={sendMessage} />
     </div>
   );
