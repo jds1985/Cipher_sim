@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
 import ProfilePanel from "../components/ProfilePanel";
 import StorePanel from "../components/StorePanel";
 import OmniSearchTest from "../components/OmniSearchTest";
@@ -8,14 +7,7 @@ import ChatPanel from "../components/chat/ChatPanel";
 import { themeStyles, defaultThemeKey } from "../logic/themeCore";
 
 export default function Home() {
-  const [mounted, setMounted] = useState(false);
-
-  // 🔒 Prevent SSR render loops
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
+  const [mounted, setMounted] = useState(false); // 🔒 SSR GUARD
 
   const [screen, setScreen] = useState("chat");
   const [profile, setProfile] = useState(null);
@@ -24,10 +16,18 @@ export default function Home() {
   const [storeOpen, setStoreOpen] = useState(false);
   const [theme, setTheme] = useState(themeStyles[defaultThemeKey]);
 
+  // 🔒 MARK CLIENT MOUNT
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // 🚫 BLOCK PRERENDER
+  if (!mounted) {
+    return null;
+  }
+
   // LOAD PROFILE
   useEffect(() => {
-    let cancelled = false;
-
     const loadProfile = async () => {
       try {
         let userId = localStorage.getItem("cipher_userId");
@@ -50,26 +50,29 @@ export default function Home() {
         });
 
         const data = await loadRes.json();
-        if (!cancelled && data.profile) {
+        if (data.profile) {
           setProfile(data.profile);
         }
       } catch (err) {
         console.error("Profile load error:", err);
       } finally {
-        if (!cancelled) setProfileLoading(false);
+        setProfileLoading(false);
       }
     };
 
     loadProfile();
-    return () => (cancelled = true);
   }, []);
 
-  // THEME ENGINE (SAFE)
+  // THEME ENGINE
   useEffect(() => {
-    const key = profile?.currentTheme || defaultThemeKey;
-    setTheme(themeStyles[key] || themeStyles[defaultThemeKey]);
+    if (!profile?.currentTheme) {
+      setTheme(themeStyles[defaultThemeKey]);
+      return;
+    }
+    setTheme(themeStyles[profile.currentTheme] || themeStyles[defaultThemeKey]);
   }, [profile?.currentTheme]);
 
+  // ROUTING
   if (screen === "device") {
     return <DevicePanel theme={theme} onClose={() => setScreen("chat")} />;
   }
@@ -106,9 +109,7 @@ export default function Home() {
           profile={profile}
           loading={profileLoading}
           onClose={() => setMenuOpen(false)}
-          onProfileChange={(updates) =>
-            setProfile((p) => ({ ...(p || {}), ...updates }))
-          }
+          onProfileChange={() => {}}
           onOpenStore={() => {
             setMenuOpen(false);
             setStoreOpen(true);
@@ -120,14 +121,10 @@ export default function Home() {
         <StorePanel
           currentThemeKey={profile?.currentTheme || defaultThemeKey}
           onClose={() => setStoreOpen(false)}
-          onPreviewTheme={(key) =>
-            setTheme(themeStyles[key] || themeStyles[defaultThemeKey])
-          }
-          onApplyTheme={(key) =>
-            setProfile((p) => ({ ...(p || {}), currentTheme: key }))
-          }
+          onPreviewTheme={() => {}}
+          onApplyTheme={() => {}}
         />
       )}
     </div>
   );
-       }
+      }
