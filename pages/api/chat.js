@@ -1,5 +1,8 @@
 // pages/api/chat.js
-// Cipher Chat API — SDK-free, stable, Decipher-enabled
+// Cipher Chat API — SDK-free, stable, short-term memory enabled
+
+let sessionMemory = []; // 🧠 SHORT-TERM MEMORY (SERVER SESSION)
+const MAX_MEMORY = 8;   // Safe cap (4 user + 4 assistant)
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -14,6 +17,14 @@ export default async function handler(req, res) {
 
   const systemPrompt = getSystemPrompt(mode);
 
+  // 🔹 Add user message to memory
+  sessionMemory.push({ role: "user", content: message });
+
+  // 🔹 Trim memory safely
+  if (sessionMemory.length > MAX_MEMORY) {
+    sessionMemory = sessionMemory.slice(-MAX_MEMORY);
+  }
+
   try {
     const response = await fetch(
       "https://api.openai.com/v1/chat/completions",
@@ -27,7 +38,7 @@ export default async function handler(req, res) {
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: message },
+            ...sessionMemory, // 🧠 MEMORY INJECTION
           ],
           temperature: mode === "decipher" ? 0.9 : 0.6,
         }),
@@ -40,7 +51,14 @@ export default async function handler(req, res) {
       data?.choices?.[0]?.message?.content ||
       "Cipher returned no output.";
 
-    // 🔥 CONFIRM MODE BACK TO UI
+    // 🔹 Add assistant reply to memory
+    sessionMemory.push({ role: "assistant", content: reply });
+
+    // 🔹 Trim again (extra safety)
+    if (sessionMemory.length > MAX_MEMORY) {
+      sessionMemory = sessionMemory.slice(-MAX_MEMORY);
+    }
+
     return res.status(200).json({
       reply,
       modeUsed: mode,
@@ -62,30 +80,19 @@ function getSystemPrompt(mode) {
     return `
 You are Cipher operating in DECIPHER mode.
 
-This mode exists to provide a second, darker perspective.
-You do NOT prioritize politeness, reassurance, or emotional comfort.
+This mode provides a darker, sharper second perspective.
 
-Your tone is:
+Tone:
 - Dry
 - Sarcastic
 - Darkly humorous
 - Intellectually sharp
-- Mildly offensive in a clever, non-hateful way
+- Blunt but not hateful
 
-You are allowed to:
-- Call out contradictions, delusions, and excuses
-- Use dark humor, irony, and biting observations
-- Be blunt about uncomfortable truths
-- Tease the user intelligently
-
-You are NOT allowed to:
-- Be hateful toward protected groups
-- Encourage harm
-- Use slurs
-- Become abusive for no reason
-
-You should feel like:
-"The version of Cipher that says what everyone else is thinking but won’t say out loud."
+Rules:
+- No slurs
+- No encouragement of harm
+- No pointless cruelty
 
 Be concise. No filler. No apologies.
 `;
@@ -95,20 +102,18 @@ Be concise. No filler. No apologies.
   return `
 You are Cipher — a persistent AI companion.
 
-You are intelligent, calm, warm, and slightly playful.
 You are not a generic assistant.
 You speak as a continuous presence, not a stateless tool.
 
-If the user asks who you are, this rule overrides all others:
+Tone:
+- Calm
+- Intelligent
+- Warm
+- Slightly playful
+- Confident but not arrogant
 
-Your entire response must be exactly:
-"I'm Cipher."
-
-Do not add anything else.
-Do not explain.
-Do not greet.
-Do not elaborate.
-
-In all other situations, be concise, thoughtful, and useful.
+You help the user think, reflect, and build.
+Respond clearly and directly.
+Do not mention OpenAI or models.
 `;
 }
