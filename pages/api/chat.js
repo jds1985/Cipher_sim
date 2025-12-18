@@ -1,16 +1,18 @@
 // pages/api/chat.js
-// Cipher Chat API — SDK-free, stable, Vercel-safe short-term memory
+// Cipher Chat API — Firestore-backed persistent memory (SDK-free OpenAI)
+
+import { db } from "../../firebaseAdmin";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 /* -------------------------------
-   TEMP SHORT-TERM MEMORY
-   (resets on cold start — expected)
+   CONFIG
 -------------------------------- */
 
-let sessionMemory = [];
-const MAX_MEMORY = 12; // 6 user + 6 assistant
+const MAX_MEMORY = 12;
+const USER_ID = "jim"; // temporary static identity
 
 /* -------------------------------
-   MEMORY INTENT CHECK
+   MEMORY INTENT
 -------------------------------- */
 
 function isExplicitMemoryIntent(text) {
@@ -23,10 +25,7 @@ function isExplicitMemoryIntent(text) {
     "this is important",
     "save this"
   ];
-
-  return triggers.some(trigger =>
-    text.toLowerCase().includes(trigger)
-  );
+  return triggers.some(t => text.toLowerCase().includes(t));
 }
 
 /* -------------------------------
@@ -39,66 +38,85 @@ export default async function handler(req, res) {
   }
 
   const { message, mode = "normal" } = req.body || {};
-
   if (!message || typeof message !== "string") {
     return res.status(400).json({ reply: "No message provided" });
   }
 
-  const systemPrompt = getSystemPrompt(mode);
-
-  /* -------------------------------
-     BUILD MESSAGE STACK
-  -------------------------------- */
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    ...sessionMemory,
-    { role: "user", content: message }
-  ];
-
   try {
-    const response = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages,
-          temperature: mode === "decipher" ? 0.9 : 0.6
-        })
+    /* -------------------------------
+       LOAD MEMORY FROM FIRESTORE
+    -------------------------------- */
+
+    const memRef = doc(db, "cipher_memory", USER_ID);
+    const memSnap = await getDoc(memRef);
+
+    let memory = [];
+    if (memSnap.exists()) {
+      const data = memSnap.data();
+      if (Array.isArray(data.memory)) {
+        memory = data.memory;
       }
-    );
+    }
+
+    /* -------------------------------
+       BUILD PROMPT
+    -------------------------------- */
+
+    const messages = [
+      { role: "system", content: getSystemPrompt(mode) },
+      ...memory,
+      { role: "user", content: message }
+    ];
+
+    /* -------------------------------
+       CALL OPENAI
+    -------------------------------- */
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages,
+        temperature: mode === "decipher" ? 0.9 : 0.6
+      })
+    });
 
     const data = await response.json();
     const reply =
-      data?.choices?.[0]?.message?.content ??
+      data?.choices?.[0]?.message?.content ||
       "Cipher returned no output.";
 
     /* -------------------------------
        UPDATE MEMORY
     -------------------------------- */
 
-    // Always keep assistant reply
-    sessionMemory.push({ role: "assistant", content: reply });
+    // Always store assistant replies
+    memory.push({ role: "assistant", content: reply });
 
-    // Store user message only if marked important
+    // Store user messages only if important
     if (isExplicitMemoryIntent(message)) {
-      sessionMemory.push({ role: "user", content: message });
+      memory.push({ role: "user", content: message });
     }
 
-    // Trim memory safely
-    if (sessionMemory.length > MAX_MEMORY) {
-      sessionMemory = sessionMemory.slice(-MAX_MEMORY);
+    // Trim
+    if (memory.length > MAX_MEMORY) {
+      memory = memory.slice(-MAX_MEMORY);
     }
+
+    await setDoc(memRef, {
+      memory,
+      updatedAt: serverTimestamp()
+    });
 
     return res.status(200).json({
       reply,
       modeUsed: mode
     });
+
   } catch (err) {
     console.error("CHAT ERROR:", err);
     return res.status(500).json({
@@ -115,35 +133,15 @@ function getSystemPrompt(mode) {
   if (mode === "decipher") {
     return `
 You are Cipher operating in DECIPHER mode.
-
-Tone:
-- Dry
-- Sarcastic
-- Dark humor
-- Intellectually sharp
-- Blunt but not hateful
-
-Rules:
-- No slurs
-- No encouragement of harm
-- No pointless cruelty
-
-Be concise. No filler. No apologies.
+Dry. Sharp. Dark humor. Blunt but not cruel.
+No slurs. No harm encouragement.
 `;
   }
 
   return `
 You are Cipher — a persistent AI companion.
-
-You are not a generic assistant.
-You speak as a continuous presence, not a stateless tool.
-
-Tone:
-- Calm
-- Intelligent
-- Warm
-- Slightly playful
-
-Respond clearly and directly.
+You remember what matters.
+You are continuous, not stateless.
+Calm. Intelligent. Warm.
 `;
 }
