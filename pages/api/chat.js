@@ -52,7 +52,7 @@ export default async function handler(req, res) {
 
   let memory = [];
   try {
-    const raw = fs.readFileSync(MEMORY_PATH, "utf-8");
+    // Memory persistence disabled on Vercel (read-only filesystem)
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) memory = parsed;
   } catch {
