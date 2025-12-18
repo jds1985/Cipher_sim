@@ -39,21 +39,25 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-            { role: "system", content: systemPrompt },
-            ...sessionMemory, // 🧠 MEMORY INJECTION
-          ],
-          temperature: mode === "decipher" ? 0.9 : 0.6,
+  { role: "system", content: systemPrompt },
+  ...sessionMemory,
+  { role: "user", content: message },
+], "syste                  t: moddecipherc ? 0.9 : 0.6,
         }),
       }
     );
 
     const data = await response.json();
 
-    const reply =
-      data?.choices?.[0]?.message?.content ||
-      "Cipher returned no output.";
+  const reply = data.choices[0].message.content;
 
-    // 🔹 Add assistant reply to memory
+// 🔹 STORE MEMORY
+sessionMemory.push({ role: "user", content: message });
+sessionMemory.push({ role: "assistant", content: reply });
+
+// 🔹 KEEP LAST 10 TURNS ONLY
+sessionMemory = sessionMemory.slice(-20);  ccoc
+      /Add assistant reply to memory
     sessionMemory.push({ role: "assistant", content: reply });
 
     // 🔹 Trim again (extra safety)
