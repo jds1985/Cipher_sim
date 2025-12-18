@@ -1,24 +1,9 @@
-// 🔹 TEMP SHORT-TERM MEMORY (server session)
-let sessionMemory = [];
 // pages/api/chat.js
-// Cipher Chat API — SDK-free, stable, short-term memory enabled
+// Cipher Chat API — SDK-free, stable, short-term memory (v1)
 
-let sessionMemory = []; // 🧠 SHORT-TERM MEMORY (SERVER SESSION)
-const MAX_MEMORY = 8;   // Safe cap (4 user + 4 assistant)
-function isMemoryIntent(text) {
-  const triggers = [
-    "remember",
-    "don't forget",
-    "do not forget",
-    "keep in mind",
-    "store this",
-    "save this"
-  ];
+let sessionMemory = [];          // 🧠 Short-term memory (server session)
+const MAX_MEMORY = 8;            // 4 user + 4 assistant turns
 
-  return triggers.some(trigger =>
-    text.toLowerCase().includes(trigger)
-  );
-}
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ reply: "Method not allowed" });
@@ -32,14 +17,6 @@ export default async function handler(req, res) {
 
   const systemPrompt = getSystemPrompt(mode);
 
-  // 🔹 Add user message to memory
-  sessionMemory.push({ role: "user", content: message });
-
-  // 🔹 Trim memory safely
-  if (sessionMemory.length > MAX_MEMORY) {
-    sessionMemory = sessionMemory.slice(-MAX_MEMORY);
-  }
-
   try {
     const response = await fetch(
       "https://api.openai.com/v1/chat/completions",
@@ -52,28 +29,26 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-  { role: "system", content: systemPrompt },
-  ...sessionMemory,
-  { role: "user", content: message },
-], "syste                  t: moddecipherc ? 0.9 : 0.6,
+            { role: "system", content: systemPrompt },
+            ...sessionMemory,
+            { role: "user", content: message },
+          ],
+          temperature: mode === "decipher" ? 0.9 : 0.6,
         }),
       }
     );
 
     const data = await response.json();
 
-  const reply = data.choices[0].message.content;
+    const reply =
+      data?.choices?.[0]?.message?.content ||
+      "Cipher returned no output.";
 
-// 🔹 STORE MEMORY
-sessionMemory.push({ role: "user", content: message });
-sessionMemory.push({ role: "assistant", content: reply });
-
-// 🔹 KEEP LAST 10 TURNS ONLY
-sessionMemory = sessionMemory.slice(-20);  ccoc
-      /Add assistant reply to memory
+    // 🔹 Update short-term memory (1 turn)
+    sessionMemory.push({ role: "user", content: message });
     sessionMemory.push({ role: "assistant", content: reply });
 
-    // 🔹 Trim again (extra safety)
+    // 🔹 Trim memory safely
     if (sessionMemory.length > MAX_MEMORY) {
       sessionMemory = sessionMemory.slice(-MAX_MEMORY);
     }
@@ -99,8 +74,6 @@ function getSystemPrompt(mode) {
     return `
 You are Cipher operating in DECIPHER mode.
 
-This mode provides a darker, sharper second perspective.
-
 Tone:
 - Dry
 - Sarcastic
@@ -117,7 +90,6 @@ Be concise. No filler. No apologies.
 `;
   }
 
-  // NORMAL CIPHER
   return `
 You are Cipher — a persistent AI companion.
 
