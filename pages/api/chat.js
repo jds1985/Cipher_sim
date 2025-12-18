@@ -18,6 +18,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ reply: "No message provided" });
   }
 
+  function isExplicitMemoryIntent(text) {
+  const triggers = [
+    "remember this",
+    "don't forget",
+    "do not forget",
+    "always remember",
+    "this is important",
+    "remember that"
+  ];
+
+  return triggers.some(t =>
+    text.toLowerCase().includes(t)
+  );
+}
   // ----------------------------
   // LOAD MEMORY
   // ----------------------------
