@@ -1,3 +1,5 @@
+// 🔹 TEMP SHORT-TERM MEMORY (server session)
+let sessionMemory = [];
 // pages/api/chat.js
 // Cipher Chat API — SDK-free, stable, short-term memory enabled
 
