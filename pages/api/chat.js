@@ -1,14 +1,12 @@
 // pages/api/chat.js
-// Cipher Chat API — SDK-free, persistent memory, stable build
-
-import fs from "fs";
-import path from "path";
+// Cipher Chat API — SDK-free, stable, Vercel-safe short-term memory
 
 /* -------------------------------
-   MEMORY CONFIG
+   TEMP SHORT-TERM MEMORY
+   (resets on cold start — expected)
 -------------------------------- */
 
-const MEMORY_PATH = path.join(process.cwd(), "memory", "cipher_memory.json");
+let sessionMemory = [];
 const MAX_MEMORY = 12; // 6 user + 6 assistant
 
 /* -------------------------------
@@ -46,23 +44,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ reply: "No message provided" });
   }
 
-  /* -------------------------------
-     LOAD MEMORY
-  -------------------------------- */
-
-  let memory = [];
-  try {
-    // Memory persistence disabled on Vercel (read-only filesystem)
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) memory = parsed;
-  } catch {
-    memory = [];
-  }
-
-  /* -------------------------------
-     SYSTEM PROMPT
-  -------------------------------- */
-
   const systemPrompt = getSystemPrompt(mode);
 
   /* -------------------------------
@@ -71,7 +52,7 @@ export default async function handler(req, res) {
 
   const messages = [
     { role: "system", content: systemPrompt },
-    ...memory,
+    ...sessionMemory,
     { role: "user", content: message }
   ];
 
@@ -101,20 +82,18 @@ export default async function handler(req, res) {
        UPDATE MEMORY
     -------------------------------- */
 
-    // Always keep assistant replies (context continuity)
-    memory.push({ role: "assistant", content: reply });
+    // Always keep assistant reply
+    sessionMemory.push({ role: "assistant", content: reply });
 
-    // Only store user message if explicitly marked important
+    // Store user message only if marked important
     if (isExplicitMemoryIntent(message)) {
-      memory.push({ role: "user", content: message });
+      sessionMemory.push({ role: "user", content: message });
     }
 
     // Trim memory safely
-    if (memory.length > MAX_MEMORY) {
-      memory = memory.slice(-MAX_MEMORY);
+    if (sessionMemory.length > MAX_MEMORY) {
+      sessionMemory = sessionMemory.slice(-MAX_MEMORY);
     }
-
-    fs.writeFileSync(MEMORY_PATH, JSON.stringify(memory, null, 2));
 
     return res.status(200).json({
       reply,
@@ -136,8 +115,6 @@ function getSystemPrompt(mode) {
   if (mode === "decipher") {
     return `
 You are Cipher operating in DECIPHER mode.
-
-This mode provides a darker, sharper second perspective.
 
 Tone:
 - Dry
