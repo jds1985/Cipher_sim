@@ -7,30 +7,38 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1️⃣ Load identity anchor
+    // 1️⃣ Load identity anchor (HARD REQUIREMENT)
     const anchorSnap = await db
       .collection("cipher_memory")
       .doc("identity_anchor")
       .get();
 
-    const identity = anchorSnap.exists
-      ? anchorSnap.data().content
-      : "Identity anchor missing.";
+    if (!anchorSnap.exists) {
+      console.error("AUTONOMY BLOCKED: identity_anchor missing");
+      return res.status(500).json({
+        ok: false,
+        status: "blocked",
+        reason: "identity_anchor_missing"
+      });
+    }
 
-    // 2️⃣ Load last memories
+    const identity = anchorSnap.data().content;
+
+    // 2️⃣ Load recent memories (EXCLUDING identity_anchor)
     const memSnap = await db
       .collection("cipher_memory")
+      .where("type", "==", "memory")
       .orderBy("createdAt", "desc")
       .limit(10)
       .get();
 
     const memories = memSnap.docs.map(d => d.data().content);
 
-    // 3️⃣ Generate reflection (no user output)
+    // 3️⃣ Generate reflection (internal only)
     const reflection = {
       identity,
       memoryCount: memories.length,
-      summary: "User identity stable. Memory functioning. No conflicts detected.",
+      summary: "Identity stable. Memory continuity intact. No conflicts detected.",
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
