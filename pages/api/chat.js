@@ -5,7 +5,20 @@ let sessionMemory = [];
 
 let sessionMemory = []; // 🧠 SHORT-TERM MEMORY (SERVER SESSION)
 const MAX_MEMORY = 8;   // Safe cap (4 user + 4 assistant)
+function isMemoryIntent(text) {
+  const triggers = [
+    "remember",
+    "don't forget",
+    "do not forget",
+    "keep in mind",
+    "store this",
+    "save this"
+  ];
 
+  return triggers.some(trigger =>
+    text.toLowerCase().includes(trigger)
+  );
+}
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ reply: "Method not allowed" });
