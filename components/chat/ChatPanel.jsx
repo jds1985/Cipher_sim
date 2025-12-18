@@ -18,7 +18,7 @@ export default function ChatPanel() {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     message: userInput,
-    userId: "test_user"
+    userId: "jim"
   })
 });
 
