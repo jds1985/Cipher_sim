@@ -13,14 +13,15 @@ export default function ChatPanel() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    await fetch("/api/chat", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    message: userInput,
-    userId: "jim"
-  })
-});
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: input,
+          userId: "jim"
+        }),
+      });
 
       const data = await res.json();
 
