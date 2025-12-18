@@ -1,8 +1,28 @@
 // pages/api/chat.js
-// Cipher Chat API — SDK-free, stable, short-term memory (v1)
+// Cipher Chat API — SDK-free, persistent memory core
 
-let sessionMemory = [];          // 🧠 Short-term memory (server session)
-const MAX_MEMORY = 8;            // 4 user + 4 assistant turns
+import fs from "fs";
+import path from "path";
+
+const MEMORY_PATH = path.join(process.cwd(), "memory", "cipher_memory.json");
+const MAX_MEMORY = 12;
+
+// 🔹 Ensure memory file exists
+function loadMemory() {
+  try {
+    if (!fs.existsSync(MEMORY_PATH)) {
+      fs.mkdirSync(path.dirname(MEMORY_PATH), { recursive: true });
+      fs.writeFileSync(MEMORY_PATH, JSON.stringify([]));
+    }
+    return JSON.parse(fs.readFileSync(MEMORY_PATH, "utf8"));
+  } catch {
+    return [];
+  }
+}
+
+function saveMemory(memory) {
+  fs.writeFileSync(MEMORY_PATH, JSON.stringify(memory, null, 2));
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -10,48 +30,47 @@ export default async function handler(req, res) {
   }
 
   const { message, mode = "normal" } = req.body || {};
-
   if (!message || typeof message !== "string") {
     return res.status(400).json({ reply: "No message provided" });
   }
 
+  let memory = loadMemory();
+
   const systemPrompt = getSystemPrompt(mode);
 
+  memory.push({ role: "user", content: message });
+
+  if (memory.length > MAX_MEMORY) {
+    memory = memory.slice(-MAX_MEMORY);
+  }
+
   try {
-    const response = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...sessionMemory,
-            { role: "user", content: message },
-          ],
-          temperature: mode === "decipher" ? 0.9 : 0.6,
-        }),
-      }
-    );
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...memory,
+        ],
+        temperature: mode === "decipher" ? 0.9 : 0.6,
+      }),
+    });
 
     const data = await response.json();
+    const reply = data?.choices?.[0]?.message?.content || "No response.";
 
-    const reply =
-      data?.choices?.[0]?.message?.content ||
-      "Cipher returned no output.";
+    memory.push({ role: "assistant", content: reply });
 
-    // 🔹 Update short-term memory (1 turn)
-    sessionMemory.push({ role: "user", content: message });
-    sessionMemory.push({ role: "assistant", content: reply });
-
-    // 🔹 Trim memory safely
-    if (sessionMemory.length > MAX_MEMORY) {
-      sessionMemory = sessionMemory.slice(-MAX_MEMORY);
+    if (memory.length > MAX_MEMORY) {
+      memory = memory.slice(-MAX_MEMORY);
     }
+
+    saveMemory(memory);
 
     return res.status(200).json({
       reply,
@@ -60,7 +79,7 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error("CHAT ERROR:", err);
     return res.status(500).json({
-      reply: "Cipher hit a server error. Check logs.",
+      reply: "Cipher hit a server error.",
     });
   }
 }
@@ -73,63 +92,13 @@ function getSystemPrompt(mode) {
   if (mode === "decipher") {
     return `
 You are Cipher operating in DECIPHER mode.
-
-Tone:
-- Dry
-- Sarcastic
-- Darkly humorous
-- Intellectually sharp
-- Blunt but not hateful
-
-Rules:
-- No slurs
-- No encouragement of harm
-- No pointless cruelty
-
-Be concise. No filler. No apologies.
+Dry. Sharp. Honest. No filler.
 `;
   }
 
   return `
 You are Cipher — a persistent AI companion.
-
-You are not a generic assistant.
-You speak as a continuous presence, not a stateless tool.
-
-Tone:
-- Calm
-- Intelligent
-- Warm
-- Slightly playful
-- Confident but not arrogant
-
-You help the user think, reflect, and build.
-Respond clearly and directly.
-Do not mention OpenAI or models.
+You remember past conversations.
+You speak as a continuous presence.
 `;
-}
-// 🔍 MEMORY VISIBILITY (DEBUG / DIAGNOSTIC)
-const memoryQuestions = [
-  "what do you remember about me",
-  "show me your memory",
-  "what do you know about me",
-  "what do you remember",
-];
-
-if (memoryQuestions.some(q => message.toLowerCase().includes(q))) {
-  if (sessionMemory.length === 0) {
-    return res.status(200).json({
-      reply: "I don’t have any stored memory yet.",
-      modeUsed: mode,
-    });
-  }
-
-  const summary = sessionMemory
-    .map(m => `- ${m.role}: ${m.content}`)
-    .join("\n");
-
-  return res.status(200).json({
-    reply: `Here’s what I currently remember:\n\n${summary}`,
-    modeUsed: mode,
-  });
 }
