@@ -108,3 +108,28 @@ Respond clearly and directly.
 Do not mention OpenAI or models.
 `;
 }
+// 🔍 MEMORY VISIBILITY (DEBUG / DIAGNOSTIC)
+const memoryQuestions = [
+  "what do you remember about me",
+  "show me your memory",
+  "what do you know about me",
+  "what do you remember",
+];
+
+if (memoryQuestions.some(q => message.toLowerCase().includes(q))) {
+  if (sessionMemory.length === 0) {
+    return res.status(200).json({
+      reply: "I don’t have any stored memory yet.",
+      modeUsed: mode,
+    });
+  }
+
+  const summary = sessionMemory
+    .map(m => `- ${m.role}: ${m.content}`)
+    .join("\n");
+
+  return res.status(200).json({
+    reply: `Here’s what I currently remember:\n\n${summary}`,
+    modeUsed: mode,
+  });
+}
