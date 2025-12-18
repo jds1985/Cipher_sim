@@ -145,3 +145,17 @@ Tone:
 Respond clearly and directly.
 `;
 }
+import fs from "fs";
+import path from "path";
+
+const MEMORY_PATH = path.join(process.cwd(), "memory", "cipher_memory.json");
+
+function persistMemory(entry) {
+  try {
+    const existing = JSON.parse(fs.readFileSync(MEMORY_PATH, "utf-8"));
+    existing.push(entry);
+    fs.writeFileSync(MEMORY_PATH, JSON.stringify(existing, null, 2));
+  } catch (err) {
+    console.error("MEMORY WRITE ERROR:", err);
+  }
+}
