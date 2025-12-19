@@ -19,7 +19,7 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: input,
-          userId: "jim"
+          userId: "jim",
         }),
       });
 
@@ -55,6 +55,7 @@ export default function ChatPanel() {
         placeholder="Type a message"
         style={{ width: "70%", padding: 8 }}
       />
+
       <button onClick={sendMessage} style={{ marginLeft: 8, padding: 8 }}>
         Send
       </button>
