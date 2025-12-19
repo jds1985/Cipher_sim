@@ -1,24 +1,13 @@
-import * as admin from "firebase-admin";
-
-let app;
+import admin from "firebase-admin";
 
 if (!admin.apps.length) {
-  try {
-    const decoded = Buffer.from(
-      process.env.FIREBASE_ADMIN_BASE64,
-      "base64"
-    ).toString("utf8");
-
-    const serviceAccount = JSON.parse(decoded);
-
-    app = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-  } catch (err) {
-    console.error("🔥 Firebase Admin initialization error:", err);
-  }
-} else {
-  app = admin.app();
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    }),
+  });
 }
 
 export const db = admin.firestore();
