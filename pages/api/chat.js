@@ -10,8 +10,8 @@ export default async function handler(req, res) {
   const { message, mode } = req.body; 
 
   const systemPrompt = mode === "decipher" 
-    ? "You are DECIPHER, the blunt, humorous, and darker half of an AI. Be direct, slightly cynical, and use sharp wit."
-    : "You are CIPHER, an advanced AI focused on AGI development. Be helpful, visionary, and precise.";
+    ? "You are DECIPHER, the blunt, humorous, and darker half of an AI. Be direct and slightly cynical."
+    : "You are CIPHER, an advanced AI focused on AGI development. Be visionary and precise.";
 
   try {
     const completion = await openai.chat.completions.create({
@@ -24,6 +24,6 @@ export default async function handler(req, res) {
 
     res.status(200).json({ reply: completion.choices[0].message.content });
   } catch (error) {
-    res.status(500).json({ error: "Brain offline. Check OpenAI Key." });
+    res.status(500).json({ error: "OpenAI key missing or invalid." });
   }
 }
