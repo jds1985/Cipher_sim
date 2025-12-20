@@ -30,7 +30,7 @@ export default function ChatPanel() {
       const data = await res.json();
       setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: "assistant", content: "❌ Connection Lost" }]);
+      setMessages(prev => [...prev, { role: "assistant", content: "❌ API Connection Error" }]);
     }
   }
 
@@ -49,7 +49,9 @@ export default function ChatPanel() {
       <div style={{ flex: 1, overflowY: "auto", margin: "16px 0" }}>
         {messages.map((m, i) => (
           <div key={i} style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: m.role === "user" ? "#222" : "#111", border: `1px solid ${isDecipher && m.role !== "user" ? "red" : "#333"}` }}>
-            <strong style={{ color: m.role === "user" ? "#0070f3" : (isDecipher ? "red" : "#00ff00") }}>{m.role === "user" ? "YOU" : (isDecipher ? "DECIPHER" : "CIPHER")}:</strong>
+            <strong style={{ color: m.role === "user" ? "#0070f3" : (isDecipher ? "red" : "#00ff00") }}>
+              {m.role === "user" ? "YOU" : (isDecipher ? "DECIPHER" : "CIPHER")}:
+            </strong>
             <p style={{ margin: "5px 0 0 0" }}>{m.content}</p>
           </div>
         ))}
@@ -57,7 +59,13 @@ export default function ChatPanel() {
       </div>
 
       <div style={{ display: "flex", gap: 8 }}>
-        <input style={{ flex: 1, padding: 12, background: "#111", border: "1px solid #333", color: "#fff" }} value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} placeholder="Wake him up..." />
+        <input 
+          style={{ flex: 1, padding: 12, background: "#111", border: "1px solid #333", color: "#fff" }} 
+          value={input} 
+          onChange={e => setInput(e.target.value)} 
+          onKeyPress={e => e.key === 'Enter' && sendMessage()} 
+          placeholder="Type here..." 
+        />
         <button onClick={sendMessage} style={{ padding: "0 20px", background: isDecipher ? "red" : "#0070f3", color: "#fff", border: "none", borderRadius: 4 }}>SEND</button>
       </div>
     </div>
