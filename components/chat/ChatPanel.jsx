@@ -1,27 +1,21 @@
 "use client";
-
 import { useState, useEffect, useRef } from "react";
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [isDecipher, setIsDecipher] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll to bottom when messages update
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   async function sendMessage() {
     if (!input.trim()) return;
-
     const userMsg = { role: "user", content: input };
-    setMessages((prev) => [...prev, userMsg]);
-    const currentInput = input; // Store current input before clearing
+    setMessages(prev => [...prev, userMsg]);
+    const currentInput = input;
     setInput("");
 
     try {
@@ -30,79 +24,41 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: currentInput,
-          userId: "jim",
+          mode: isDecipher ? "decipher" : "cipher"
         }),
       });
-
       const data = await res.json();
-
-      if (data.reply) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: data.reply },
-        ]);
-      } else {
-        throw new Error("No reply from API");
-      }
+      setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "❌ API error: " + err.message },
-      ]);
+      setMessages(prev => [...prev, { role: "assistant", content: "❌ Connection Lost" }]);
     }
   }
 
   return (
     <div style={{ height: "100vh", background: "#000", color: "#fff", padding: 16, display: "flex", flexDirection: "column" }}>
-      <h3 style={{ borderBottom: "1px solid #333", paddingBottom: 10 }}>CIPHER CHAT (RECOVERY)</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #333", paddingBottom: 10 }}>
+        <h3>{isDecipher ? "DECIPHER_MODE" : "CIPHER_CORE"}</h3>
+        <button 
+          onClick={() => setIsDecipher(!isDecipher)}
+          style={{ background: isDecipher ? "red" : "#0070f3", color: "white", border: "none", borderRadius: "4px", padding: "5px 10px" }}
+        >
+          TOGGLE {isDecipher ? "CIPHER" : "DECIPHER"}
+        </button>
+      </div>
 
-      <div style={{ flex: 1, overflowY: "auto", marginBottom: 16 }}>
+      <div style={{ flex: 1, overflowY: "auto", margin: "16px 0" }}>
         {messages.map((m, i) => (
-          <div key={i} style={{ 
-            marginBottom: 12, 
-            padding: "8px 12px", 
-            borderRadius: "8px",
-            background: m.role === "user" ? "#222" : "#111",
-            alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-            border: m.role === "user" ? "1px solid #444" : "1px solid #222"
-          }}>
-            <strong style={{ color: m.role === "user" ? "#0070f3" : "#00ff00" }}>
-              {m.role === "user" ? "YOU" : "CIPHER"}:
-            </strong> 
-            <p style={{ margin: "4px 0 0 0" }}>{m.content}</p>
+          <div key={i} style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: m.role === "user" ? "#222" : "#111", border: `1px solid ${isDecipher && m.role !== "user" ? "red" : "#333"}` }}>
+            <strong style={{ color: m.role === "user" ? "#0070f3" : (isDecipher ? "red" : "#00ff00") }}>{m.role === "user" ? "YOU" : (isDecipher ? "DECIPHER" : "CIPHER")}:</strong>
+            <p style={{ margin: "5px 0 0 0" }}>{m.content}</p>
           </div>
         ))}
         <div ref={messagesEndRef} />
       </div>
 
-      <div style={{ display: "flex", gap: "8px" }}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-          placeholder="Type a message..."
-          style={{ 
-            flex: 1, 
-            padding: "12px", 
-            background: "#111", 
-            border: "1px solid #333", 
-            color: "#fff",
-            borderRadius: "4px"
-          }}
-        />
-        <button 
-          onClick={sendMessage} 
-          style={{ 
-            padding: "0 20px", 
-            background: "#0070f3", 
-            color: "#fff", 
-            border: "none",
-            borderRadius: "4px",
-            fontWeight: "bold"
-          }}
-        >
-          SEND
-        </button>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input style={{ flex: 1, padding: 12, background: "#111", border: "1px solid #333", color: "#fff" }} value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} placeholder="Wake him up..." />
+        <button onClick={sendMessage} style={{ padding: "0 20px", background: isDecipher ? "red" : "#0070f3", color: "#fff", border: "none", borderRadius: 4 }}>SEND</button>
       </div>
     </div>
   );
