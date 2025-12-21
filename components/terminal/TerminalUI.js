@@ -1,7 +1,9 @@
+"use client";
+
 import { useState } from "react";
 import Link from "next/link";
 
-export default function Terminal() {
+export default function TerminalUI() {
   const [path, setPath] = useState("");
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("SYSTEM_READY");
@@ -15,55 +17,114 @@ export default function Terminal() {
         body: JSON.stringify({
           filePath: path,
           codeContent: code,
-          commitMessage: "Manual update via Cipher Terminal"
+          commitMessage: "Manual update via Cipher Terminal",
         }),
       });
+
       const data = await res.json();
+
       if (res.ok) {
         setStatus("✅ UPDATE_SUCCESSFUL");
-        setCode(""); // Clear code after success
+        setCode("");
       } else {
-        setStatus("❌ ERROR: " + (data.error || "UNKNOWN_FAILURE"));
+        setStatus("❌ ERROR: " + (data?.error || "UNKNOWN_FAILURE"));
       }
     } catch (err) {
+      console.error("TERMINAL ERROR:", err);
       setStatus("❌ CONNECTION_LOST");
     }
   }
 
   return (
-    <div style={{ background: "#000", color: "#0f0", minHeight: "100vh", padding: "20px", fontFamily: "monospace" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px", borderBottom: "1px solid #0f0", paddingBottom: "10px" }}>
+    <div
+      style={{
+        background: "#000",
+        color: "#0f0",
+        minHeight: "100vh",
+        padding: "20px",
+        fontFamily: "monospace",
+      }}
+    >
+      {/* HEADER */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "20px",
+          borderBottom: "1px solid #0f0",
+          paddingBottom: "10px",
+        }}
+      >
         <h2 style={{ margin: 0 }}>CIPHER_TERMINAL_V1</h2>
-        <Link href="/" style={{ color: "#0f0", textDecoration: "none", border: "1px solid #0f0", padding: "2px 8px" }}>
+        <Link
+          href="/"
+          style={{
+            color: "#0f0",
+            textDecoration: "none",
+            border: "1px solid #0f0",
+            padding: "2px 8px",
+          }}
+        >
           RETURN_TO_CHAT
         </Link>
       </div>
-      
-      <p style={{ background: "#111", padding: "5px" }}>STATUS: {status}</p>
-      
+
+      {/* STATUS */}
+      <p style={{ background: "#111", padding: "8px" }}>
+        STATUS: {status}
+      </p>
+
+      {/* FILE PATH */}
       <div style={{ marginBottom: "20px" }}>
-        <label>TARGET_FILE_PATH (e.g., components/chat/ChatPanel.jsx):</label><br/>
-        <input 
-          style={{ width: "100%", background: "#111", color: "#0f0", border: "1px solid #0f0", padding: "12px", marginTop: "5px" }}
-          value={path} 
-          onChange={(e) => setPath(e.target.value)} 
+        <label>
+          TARGET_FILE_PATH (e.g., components/chat/ChatPanel.jsx):
+        </label>
+        <input
+          style={{
+            width: "100%",
+            background: "#111",
+            color: "#0f0",
+            border: "1px solid #0f0",
+            padding: "12px",
+            marginTop: "5px",
+          }}
+          value={path}
+          onChange={(e) => setPath(e.target.value)}
           placeholder="Enter path..."
         />
       </div>
 
+      {/* CODE INJECTION */}
       <div style={{ marginBottom: "20px" }}>
-        <label>NEW_CODE_INJECTION:</label><br/>
-        <textarea 
-          style={{ width: "100%", height: "350px", background: "#111", color: "#0f0", border: "1px solid #0f0", padding: "12px", marginTop: "5px" }}
-          value={code} 
-          onChange={(e) => setCode(e.target.value)} 
+        <label>NEW_CODE_INJECTION:</label>
+        <textarea
+          style={{
+            width: "100%",
+            height: "350px",
+            background: "#111",
+            color: "#0f0",
+            border: "1px solid #0f0",
+            padding: "12px",
+            marginTop: "5px",
+          }}
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
           placeholder="Paste code here..."
         />
       </div>
 
-      <button 
+      {/* EXECUTE */}
+      <button
         onClick={pushToSpine}
-        style={{ width: "100%", padding: "20px", background: "#0f0", color: "#000", fontWeight: "bold", border: "none", cursor: "pointer" }}
+        style={{
+          width: "100%",
+          padding: "20px",
+          background: "#0f0",
+          color: "#000",
+          fontWeight: "bold",
+          border: "none",
+          cursor: "pointer",
+        }}
       >
         EXECUTE_SPINE_INJECTION
       </button>
