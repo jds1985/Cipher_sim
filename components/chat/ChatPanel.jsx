@@ -5,89 +5,72 @@ import { useState } from "react";
 export default function ChatPanel() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("ONLINE");
 
   async function sendMessage() {
-    if (!input.trim() || loading) return;
+    if (!input.trim()) return;
 
-    const userMessage = {
-      role: "user",
-      content: input,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const userMsg = { role: "user", content: input };
+    setMessages(prev => [...prev, userMsg]);
     setInput("");
-    setLoading(true);
+    setStatus("TRANSMITTING…");
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: userMessage.content,
-          userId: "jim",
-        }),
+          message: userMsg.content,
+          userId: "jim"
+        })
       });
 
       const data = await res.json();
 
-      setMessages((prev) => [
+      setMessages(prev => [
         ...prev,
-        {
-          role: "assistant",
-          content: data.reply || "⚠️ No response from Cipher",
-        },
+        { role: "assistant", content: data.reply || "⚠️ No reply" }
       ]);
+
+      setStatus("ONLINE");
     } catch (err) {
-      setMessages((prev) => [
+      setMessages(prev => [
         ...prev,
-        {
-          role: "assistant",
-          content: "❌ API error — check server logs",
-        },
+        { role: "assistant", content: "❌ SIGNAL LOST…" }
       ]);
-    } finally {
-      setLoading(false);
+      setStatus("OFFLINE");
     }
   }
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        background: "#000",
-        color: "#0f0",
-        padding: 16,
-        fontFamily: "monospace",
-      }}
-    >
-      <h3>CIPHER CHAT (RECOVERY MODE)</h3>
+    <div style={{ height: "100vh", background: "#000", color: "#0ff", padding: 16 }}>
+      {/* HEADER */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+        <h3>&gt;&gt; CIPHER_CORE</h3>
+        <span>{status}</span>
+      </div>
 
+      {/* CHAT WINDOW */}
       <div style={{ marginBottom: 16 }}>
         {messages.map((m, i) => (
-          <div key={i} style={{ marginBottom: 8 }}>
+          <div key={i} style={{ marginBottom: 6 }}>
             <strong>{m.role}:</strong> {m.content}
           </div>
         ))}
       </div>
 
-      <input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Type a message"
-        style={{ width: "70%", padding: 8 }}
-        disabled={loading}
-      />
-
-      <button
-        onClick={sendMessage}
-        style={{ marginLeft: 8, padding: 8 }}
-        disabled={loading}
-      >
-        {loading ? "Sending..." : "Send"}
-      </button>
+      {/* INPUT */}
+      <div>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="Type a message"
+          style={{ width: "70%", padding: 8 }}
+        />
+        <button onClick={sendMessage} style={{ marginLeft: 8, padding: 8 }}>
+          Send
+        </button>
+      </div>
     </div>
   );
 }
