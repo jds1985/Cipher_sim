@@ -1,1 +1,3 @@
-import ChatPanel from "../components/chat/ChatPanel.jsx";
+export default function Home() {
+  return <div>BOOT</div>;
+}
