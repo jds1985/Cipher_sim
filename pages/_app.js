@@ -1,15 +1,17 @@
-// pages/_app.js
 import "../styles/globals.css";
+import Head from "next/head";
 
 export default function App({ Component, pageProps }) {
   return (
     <>
-      <link rel="manifest" href="/manifest.json" />
-      <meta name="theme-color" content="#000000" />
-
-      {/* Ensures camera + mic permissions show on Android Chrome */}
-      <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=()" />
-
+      <Head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#000000" />
+        <meta
+          httpEquiv="Permissions-Policy"
+          content="camera=(), microphone=()"
+        />
+      </Head>
       <Component {...pageProps} />
     </>
   );
