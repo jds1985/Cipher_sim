@@ -4,21 +4,35 @@ import { useState } from "react";
 import Link from "next/link";
 
 export default function TerminalUI() {
+  const [mode, setMode] = useState("WRITE_FILE");
   const [path, setPath] = useState("");
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("SYSTEM_READY");
 
   async function pushToSpine() {
     setStatus("UPLOADING_TO_SPINE...");
+
     try {
+      const payload =
+        mode === "WRITE_FILE"
+          ? {
+              mode: "WRITE_FILE",
+              filePath: path,
+              codeContent: code,
+              commitMessage: "Manual update via Cipher Terminal",
+            }
+          : {
+              mode: "FILESYSTEM",
+              operation: "flatten",
+              sourceDir: "Cipher_sim",
+              commitMessage:
+                "chore: flatten repo structure for Vercel compatibility",
+            };
+
       const res = await fetch("/api/diag-spine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filePath: path,
-          codeContent: code,
-          commitMessage: "Manual update via Cipher Terminal",
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -26,6 +40,7 @@ export default function TerminalUI() {
       if (res.ok) {
         setStatus("✅ UPDATE_SUCCESSFUL");
         setCode("");
+        setPath("");
       } else {
         setStatus("❌ ERROR: " + (data?.error || "UNKNOWN_FAILURE"));
       }
@@ -55,7 +70,7 @@ export default function TerminalUI() {
           paddingBottom: "10px",
         }}
       >
-        <h2 style={{ margin: 0 }}>CIPHER_TERMINAL_V1</h2>
+        <h2 style={{ margin: 0 }}>CIPHER_TERMINAL_V1.1</h2>
         <Link
           href="/"
           style={{
@@ -74,12 +89,12 @@ export default function TerminalUI() {
         STATUS: {status}
       </p>
 
-      {/* FILE PATH */}
+      {/* MODE SELECT */}
       <div style={{ marginBottom: "20px" }}>
-        <label>
-          TARGET_FILE_PATH (e.g., components/chat/ChatPanel.jsx):
-        </label>
-        <input
+        <label>MODE:</label>
+        <select
+          value={mode}
+          onChange={(e) => setMode(e.target.value)}
           style={{
             width: "100%",
             background: "#111",
@@ -88,15 +103,42 @@ export default function TerminalUI() {
             padding: "12px",
             marginTop: "5px",
           }}
+        >
+          <option value="WRITE_FILE">WRITE_FILE</option>
+          <option value="FILESYSTEM">FILESYSTEM</option>
+        </select>
+      </div>
+
+      {/* FILE PATH */}
+      <div style={{ marginBottom: "20px" }}>
+        <label>TARGET_FILE_PATH (disabled in FILESYSTEM mode):</label>
+        <input
+          disabled={mode === "FILESYSTEM"}
+          style={{
+            width: "100%",
+            background: "#111",
+            color: mode === "FILESYSTEM" ? "#555" : "#0f0",
+            border: "1px solid #0f0",
+            padding: "12px",
+            marginTop: "5px",
+          }}
           value={path}
           onChange={(e) => setPath(e.target.value)}
-          placeholder="Enter path..."
+          placeholder={
+            mode === "FILESYSTEM"
+              ? "Not used in FILESYSTEM mode"
+              : "Enter file path..."
+          }
         />
       </div>
 
       {/* CODE INJECTION */}
       <div style={{ marginBottom: "20px" }}>
-        <label>NEW_CODE_INJECTION:</label>
+        <label>
+          {mode === "FILESYSTEM"
+            ? "FILESYSTEM_OPERATION_PAYLOAD (ignored)"
+            : "NEW_CODE_INJECTION:"}
+        </label>
         <textarea
           style={{
             width: "100%",
@@ -109,7 +151,11 @@ export default function TerminalUI() {
           }}
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder="Paste code here..."
+          placeholder={
+            mode === "FILESYSTEM"
+              ? "Nothing required here for FILESYSTEM mode."
+              : "Paste code here..."
+          }
         />
       </div>
 
