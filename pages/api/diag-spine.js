@@ -1,13 +1,19 @@
 import fs from "fs";
 import path from "path";
+
+// FIX: correct absolute-style relative path
 import {
   planBuildTask,
   generateFileEdit,
   validateTargetPath
-} from "../../logic/sivaSwarm";
+} from "../../../logic/sivaSwarm";
 
 export default async function handler(req, res) {
   try {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+    }
+
     const { instruction, targetPath, content } = req.body;
 
     if (!instruction || !targetPath || !content) {
@@ -27,6 +33,7 @@ export default async function handler(req, res) {
       path: targetPath
     });
   } catch (err) {
+    console.error("SIVA_SPINE_ERROR:", err);
     return res.status(500).json({
       error: err.message || "SIVA_FAILURE"
     });
