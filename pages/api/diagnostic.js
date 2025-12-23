@@ -1,3 +1,3 @@
-import handler from "../../logic/api/diagnostic";
+import handler from "../../../logic/diagnostic";
 
 export default handler;
