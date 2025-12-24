@@ -1,5 +1,6 @@
-export default function handler(req, res) {
+export default async function handler(req, res) {
   return res.status(200).json({
-    status: "SIVA_READY"
+    status: "DIAGNOSTIC_OK",
+    message: "Basic diagnostic online"
   });
 }
