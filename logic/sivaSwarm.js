@@ -1,30 +1,19 @@
-export const ALLOWED_PATHS = [
-  "components/",
-  "logic/",
-  "styles/",
-  "utils/"
-];
+import { SIVA_TASK_SCHEMAS } from "./sivaSchemas";
 
-export function validateTargetPath(path) {
-  return ALLOWED_PATHS.some((allowed) => path.startsWith(allowed));
-}
+export function planBuildTask(task) {
+  if (!task || !task.type) {
+    throw new Error("TASK_TYPE_REQUIRED");
+  }
 
-export function planBuildTask(instruction) {
-  return {
-    intent: instruction,
-    files: [],
-    notes: "SivaSwarm planning phase only"
-  };
-}
-
-export function generateFileEdit({ path, content }) {
-  if (!validateTargetPath(path)) {
-    throw new Error("SIVA_BLOCKED_PATH");
+  if (!SIVA_TASK_SCHEMAS[task.type]) {
+    throw new Error("TASK_TYPE_NOT_ALLOWED");
   }
 
   return {
-    path,
-    content,
-    action: "WRITE"
+    mode: "PLANNER_ONLY",
+    taskType: task.type,
+    summary: task.summary,
+    output: task.plan,
+    nextStep: "REVIEW_AND_APPROVE"
   };
 }
