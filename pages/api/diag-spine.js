@@ -1,12 +1,11 @@
 import fs from "fs";
 import path from "path";
 
-// FIX: correct absolute-style relative path
 import {
   planBuildTask,
   generateFileEdit,
   validateTargetPath
-} from "../../../logic/sivaSwarm";
+} from "../../../logic/sivaSwarm.js";
 
 export default async function handler(req, res) {
   try {
