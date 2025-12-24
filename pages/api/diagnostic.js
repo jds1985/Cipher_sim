@@ -1,3 +1,5 @@
-import handler from "../../logic/diagnostic.js";
-
-export default handler;
+export default function handler(req, res) {
+  return res.status(200).json({
+    status: "SIVA_READY"
+  });
+}
