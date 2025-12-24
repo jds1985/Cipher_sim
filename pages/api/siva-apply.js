@@ -1,8 +1,6 @@
 // pages/api/siva-apply.js
 // SIVA — APPLY PHASE (GitHub Commit Engine)
 
-import fetch from "node-fetch";
-
 const {
   GITHUB_TOKEN,
   GITHUB_OWNER,
@@ -41,12 +39,14 @@ export default async function handler(req, res) {
 
       const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
 
-      // Step 1: Check if file already exists (to get SHA)
       let sha = null;
+
+      // Check if file exists
       const existing = await fetch(apiUrl, {
         headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
         },
       });
 
@@ -55,18 +55,19 @@ export default async function handler(req, res) {
         sha = data.sha;
       }
 
-      // Step 2: Commit file
+      // Commit file
       const commitRes = await fetch(apiUrl, {
         method: "PUT",
         headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
           Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
         },
         body: JSON.stringify({
           message: `SIVA APPLY: ${taskId} → ${path}`,
-          content: Buffer.from(content).toString("base64"),
+          content: Buffer.from(content, "utf8").toString("base64"),
           branch: GITHUB_BRANCH,
-          sha,
+          ...(sha ? { sha } : {}),
         }),
       });
 
