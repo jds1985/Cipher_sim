@@ -1,3 +1,6 @@
+// pages/api/siva-apply.js
+// SIVA — APPLY PHASE (GitHub Commit Engine)
+
 import fetch from "node-fetch";
 
 const {
@@ -9,68 +12,87 @@ const {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
+    return res.status(500).json({
+      error: "GitHub environment variables not configured",
+    });
   }
 
   const { taskId, files } = req.body;
 
-  if (!taskId || !Array.isArray(files)) {
-    return res.status(400).json({ error: "INVALID_PAYLOAD" });
+  if (!taskId || !Array.isArray(files) || files.length === 0) {
+    return res.status(400).json({
+      error: "Missing taskId or files[]",
+    });
   }
 
-  const results = [];
+  try {
+    const results = [];
 
-  for (const file of files) {
-    const { path, content } = file;
+    for (const file of files) {
+      const { path, content } = file;
 
-    if (!path || typeof content !== "string") continue;
+      if (!path || typeof content !== "string") {
+        throw new Error(`Invalid file payload for ${path}`);
+      }
 
-    const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
+      const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
 
-    // Check if file exists (to get SHA)
-    let sha = null;
-    const check = await fetch(apiUrl, {
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github+json",
-      },
-    });
+      // Step 1: Check if file already exists (to get SHA)
+      let sha = null;
+      const existing = await fetch(apiUrl, {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: "application/vnd.github+json",
+        },
+      });
 
-    if (check.ok) {
-      const existing = await check.json();
-      sha = existing.sha;
-    }
+      if (existing.status === 200) {
+        const data = await existing.json();
+        sha = data.sha;
+      }
 
-    const response = await fetch(apiUrl, {
-      method: "PUT",
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        message: `Siva apply: ${taskId}`,
-        content: Buffer.from(content).toString("base64"),
-        branch: GITHUB_BRANCH,
-        sha,
-      }),
-    });
+      // Step 2: Commit file
+      const commitRes = await fetch(apiUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          Accept: "application/vnd.github+json",
+        },
+        body: JSON.stringify({
+          message: `SIVA APPLY: ${taskId} → ${path}`,
+          content: Buffer.from(content).toString("base64"),
+          branch: GITHUB_BRANCH,
+          sha,
+        }),
+      });
 
-    const data = await response.json();
+      if (!commitRes.ok) {
+        const err = await commitRes.text();
+        throw new Error(`GitHub commit failed for ${path}: ${err}`);
+      }
 
-    if (!response.ok) {
-      return res.status(500).json({
-        error: "GITHUB_WRITE_FAILED",
-        details: data,
+      const commitData = await commitRes.json();
+
+      results.push({
+        path,
+        commit: commitData.commit.sha,
+        url: commitData.content.html_url,
       });
     }
 
-    results.push({ path, committed: true });
+    return res.status(200).json({
+      status: "SIVA_APPLY_OK",
+      taskId,
+      committed: results,
+    });
+  } catch (err) {
+    console.error("SIVA APPLY ERROR:", err);
+    return res.status(500).json({
+      error: err.message,
+    });
   }
-
-  return res.status(200).json({
-    status: "SIVA_APPLY_COMPLETE",
-    taskId,
-    results,
-  });
 }
