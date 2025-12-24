@@ -1,6 +1,5 @@
 // pages/api/siva-generate.js
-
-import { generateTaskCode } from "../../logic/sivaSwarm";
+// SIVA — Code Generator (NO FILE WRITES)
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -13,17 +12,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "MISSING_FIELDS" });
   }
 
-  try {
-    const output = await generateTaskCode({ taskId, route });
-
-    return res.status(200).json({
-      status: "SIVA_GENERATE_OK",
-      output
-    });
-  } catch (err) {
-    console.error("SIVA_GENERATE_ERROR:", err);
-    return res.status(500).json({
-      error: err.message || "GENERATION_FAILED"
-    });
-  }
+  return res.status(200).json({
+    status: "SIVA_GENERATE_READY",
+    taskId,
+    route,
+    files: [
+      {
+        path: "pages/settings.js",
+        content: "// TODO: Generated Settings page"
+      },
+      {
+        path: "components/SettingsPanel.js",
+        content: "// TODO: Generated Settings panel"
+      }
+    ],
+    note: "Dry-run only. No files written."
+  });
 }
