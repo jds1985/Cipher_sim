@@ -39,9 +39,17 @@ export default async function handler(req, res) {
 
       const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
 
+      // 🔍 TEMP DEBUG LOG (DO NOT REMOVE YET)
+      console.log("🧠 SIVA APPLY TARGET", {
+        owner: GITHUB_OWNER,
+        repo: GITHUB_REPO,
+        branch: GITHUB_BRANCH,
+        path,
+      });
+
       let sha = null;
 
-      // Check if file exists
+      // 🔍 Check if file already exists
       const existing = await fetch(apiUrl, {
         headers: {
           Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -50,12 +58,17 @@ export default async function handler(req, res) {
         },
       });
 
+      console.log("📄 EXISTING FILE STATUS", existing.status);
+
       if (existing.status === 200) {
         const data = await existing.json();
         sha = data.sha;
+        console.log("📄 EXISTING FILE SHA", sha);
+      } else {
+        console.log("📄 FILE DOES NOT EXIST — CREATING NEW");
       }
 
-      // Commit file
+      // 🚀 Commit file
       const commitRes = await fetch(apiUrl, {
         method: "PUT",
         headers: {
@@ -71,12 +84,21 @@ export default async function handler(req, res) {
         }),
       });
 
+      console.log("🚀 COMMIT STATUS", commitRes.status);
+
       if (!commitRes.ok) {
         const err = await commitRes.text();
+        console.error("❌ GITHUB COMMIT ERROR", err);
         throw new Error(`GitHub commit failed for ${path}: ${err}`);
       }
 
       const commitData = await commitRes.json();
+
+      console.log("✅ COMMIT SUCCESS", {
+        path,
+        commitSha: commitData.commit?.sha,
+        url: commitData.content?.html_url,
+      });
 
       results.push({
         path,
@@ -91,7 +113,7 @@ export default async function handler(req, res) {
       committed: results,
     });
   } catch (err) {
-    console.error("SIVA APPLY ERROR:", err);
+    console.error("🔥 SIVA APPLY ERROR:", err);
     return res.status(500).json({
       error: err.message,
     });
