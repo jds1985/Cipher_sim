@@ -5,7 +5,7 @@ import {
   planBuildTask,
   generateFileEdit,
   validateTargetPath
-} from "../../../logic/sivaSwarm.js";
+} from "../../logic/sivaSwarm.js";
 
 export default async function handler(req, res) {
   try {
@@ -24,7 +24,6 @@ export default async function handler(req, res) {
     }
 
     const fullPath = path.join(process.cwd(), targetPath);
-
     fs.writeFileSync(fullPath, content, "utf8");
 
     return res.status(200).json({
