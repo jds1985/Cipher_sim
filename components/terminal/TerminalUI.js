@@ -28,22 +28,11 @@ export default function TerminalUI() {
       const data = await res.json();
 
       if (!res.ok) {
-        console.error(data);
         setStatus("❌ PLAN FAILED");
         return;
       }
 
-      // 🔑 NORMALIZE CONTRACT (THIS FIXES IT)
-      const normalizedPlan = {
-        taskId: data.taskId,
-        intent: data.intent,
-        summary: data.summary,
-        files: data.files || [],
-        safeguards: data.safeguards,
-        checksum: data.checksum,
-      };
-
-      setPlan(normalizedPlan);
+      setPlan(data);
       setStatus("🧠 PLAN_READY");
     } catch (err) {
       console.error(err);
@@ -52,7 +41,7 @@ export default function TerminalUI() {
   }
 
   async function approveAndApply() {
-    if (!plan || !plan.files?.length) return;
+    if (!plan?.files?.length) return;
 
     setStatus("SIVA_APPLYING...");
 
@@ -66,10 +55,7 @@ export default function TerminalUI() {
         }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        console.error(data);
         setStatus("❌ APPLY FAILED");
         return;
       }
@@ -84,124 +70,80 @@ export default function TerminalUI() {
   }
 
   return (
-    <div
-      style={{
-        background: "#000",
-        color: "#0f0",
-        minHeight: "100vh",
-        padding: "20px",
-        fontFamily: "monospace",
-      }}
-    >
+    <div style={{ background: "#000", color: "#0f0", minHeight: "100vh", padding: "20px", fontFamily: "monospace" }}>
       {/* HEADER */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: "20px",
-          borderBottom: "1px solid #0f0",
-          paddingBottom: "10px",
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #0f0", paddingBottom: "10px" }}>
         <h2>CIPHER_TERMINAL_V2 — SIVA COMMAND</h2>
-        <Link
-          href="/"
-          style={{
-            color: "#0f0",
-            textDecoration: "none",
-            border: "1px solid #0f0",
-            padding: "2px 8px",
-          }}
-        >
+        <Link href="/" style={{ color: "#0f0", border: "1px solid #0f0", padding: "4px 10px" }}>
           RETURN_TO_CHAT
         </Link>
       </div>
 
       {/* STATUS */}
-      <p style={{ background: "#111", padding: "8px" }}>
+      <p style={{ background: "#111", padding: "8px", marginTop: "15px" }}>
         STATUS: {status}
       </p>
 
       {/* MODE */}
-      <div style={{ marginBottom: "20px" }}>
-        <label>MODE:</label>
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-          style={{
-            width: "100%",
-            background: "#111",
-            color: "#0f0",
-            border: "1px solid #0f0",
-            padding: "12px",
-            marginTop: "5px",
-          }}
-        >
-          <option value="COMMAND">COMMAND (SIVA)</option>
-        </select>
-      </div>
+      <label>MODE:</label>
+      <select
+        value={mode}
+        onChange={(e) => setMode(e.target.value)}
+        style={{ width: "100%", background: "#111", color: "#0f0", border: "1px solid #0f0", padding: "12px" }}
+      >
+        <option value="COMMAND">COMMAND (SIVA)</option>
+      </select>
 
-      {/* COMMAND INPUT */}
-      <div style={{ marginBottom: "20px" }}>
-        <label>SIVA COMMAND:</label>
-        <textarea
-          style={{
-            width: "100%",
-            height: "120px",
-            background: "#111",
-            color: "#0f0",
-            border: "1px solid #0f0",
-            padding: "12px",
-            marginTop: "5px",
-          }}
-          value={command}
-          onChange={(e) => setCommand(e.target.value)}
-        />
+      {/* COMMAND */}
+      <label style={{ marginTop: "20px", display: "block" }}>SIVA COMMAND:</label>
+      <textarea
+        value={command}
+        onChange={(e) => setCommand(e.target.value)}
+        placeholder="e.g. Siva build a settings page with autonomy toggle"
+        style={{ width: "100%", height: "120px", background: "#111", color: "#0f0", border: "1px solid #0f0", padding: "12px" }}
+      />
 
-        <button
-          onClick={runSivaPlan}
-          style={{
-            width: "100%",
-            padding: "15px",
-            background: "#0f0",
-            color: "#000",
-            fontWeight: "bold",
-            border: "none",
-            cursor: "pointer",
-            marginTop: "10px",
-          }}
-        >
-          RUN SIVA PLAN
-        </button>
-      </div>
+      <button
+        onClick={runSivaPlan}
+        style={{ width: "100%", marginTop: "10px", padding: "15px", background: "#0f0", color: "#000", fontWeight: "bold" }}
+      >
+        RUN SIVA PLAN
+      </button>
 
-      {/* PLAN */}
-      {plan && (
-        <div
-          style={{
-            background: "#111",
-            border: "1px solid #0f0",
-            padding: "15px",
-          }}
-        >
+      {/* DIFF PREVIEW */}
+      {plan?.files && (
+        <div style={{ marginTop: "30px", border: "1px solid #0f0", padding: "15px", background: "#050505" }}>
           <h3>🧠 SIVA PLAN (READ-ONLY)</h3>
 
-          <pre style={{ whiteSpace: "pre-wrap", fontSize: "13px" }}>
-            {JSON.stringify(plan.files, null, 2)}
-          </pre>
+          {plan.files.map((file, idx) => (
+            <div key={idx} style={{ marginTop: "20px", border: "1px dashed #0f0", padding: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <strong>{file.path}</strong>
+                <span style={{ color: file.action === "CREATE" ? "#00ff99" : "#ffaa00" }}>
+                  {file.action}
+                </span>
+              </div>
+
+              <p style={{ fontSize: "12px", opacity: 0.8 }}>{file.description}</p>
+
+              <pre
+                style={{
+                  background: "#000",
+                  padding: "10px",
+                  fontSize: "12px",
+                  maxHeight: "300px",
+                  overflow: "auto",
+                  border: "1px solid #033",
+                }}
+              >
+{file.content}
+              </pre>
+            </div>
+          ))}
 
           <button
             onClick={approveAndApply}
-            style={{
-              width: "100%",
-              padding: "15px",
-              background: "#00ff99",
-              color: "#000",
-              fontWeight: "bold",
-              border: "none",
-              cursor: "pointer",
-              marginTop: "10px",
-            }}
+            style={{ width: "100%", marginTop: "20px", padding: "15px", background: "#00ff99", color: "#000", fontWeight: "bold" }}
           >
             APPROVE & APPLY
           </button>
