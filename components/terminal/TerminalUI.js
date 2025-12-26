@@ -4,19 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 
 export default function TerminalUI() {
-  // --- CORE TERMINAL STATE ---
   const [mode, setMode] = useState("COMMAND");
   const [command, setCommand] = useState("");
   const [plan, setPlan] = useState(null);
   const [status, setStatus] = useState("SYSTEM_READY");
 
-  // --- LEGACY (kept for safety, not used now) ---
-  const [path, setPath] = useState("");
-  const [code, setCode] = useState("");
-
-  // --------------------------------------------------
-  // STEP 1: ASK SIVA TO GENERATE A PLAN (NO WRITES)
-  // --------------------------------------------------
   async function runSivaPlan() {
     if (!command.trim()) return;
 
@@ -35,35 +27,32 @@ export default function TerminalUI() {
 
       const data = await res.json();
 
-      // 🔴 HARD FAILURE CHECK
-      if (!res.ok || data.status !== "SIVA_PLAN_OK") {
-        console.error("SIVA PLAN ERROR:", data);
+      if (!res.ok) {
+        console.error(data);
         setStatus("❌ PLAN FAILED");
         return;
       }
 
-      // ✅ NORMALIZE RESPONSE (THIS WAS THE BUG FIX)
-      setPlan({
-        taskId: data.taskId || "TERMINAL_TASK",
-        files: data.plan?.files || [],
-        rawPlan: data.plan,
-      });
+      // 🔑 NORMALIZE CONTRACT (THIS FIXES IT)
+      const normalizedPlan = {
+        taskId: data.taskId,
+        intent: data.intent,
+        summary: data.summary,
+        files: data.files || [],
+        safeguards: data.safeguards,
+        checksum: data.checksum,
+      };
 
+      setPlan(normalizedPlan);
       setStatus("🧠 PLAN_READY");
     } catch (err) {
-      console.error("PLAN CONNECTION ERROR:", err);
+      console.error(err);
       setStatus("❌ CONNECTION_ERROR");
     }
   }
 
-  // --------------------------------------------------
-  // STEP 2: HUMAN APPROVAL → APPLY TO GITHUB
-  // --------------------------------------------------
   async function approveAndApply() {
-    if (!plan || !plan.files || plan.files.length === 0) {
-      setStatus("❌ NO_FILES_TO_APPLY");
-      return;
-    }
+    if (!plan || !plan.files?.length) return;
 
     setStatus("SIVA_APPLYING...");
 
@@ -80,7 +69,7 @@ export default function TerminalUI() {
       const data = await res.json();
 
       if (!res.ok) {
-        console.error("SIVA APPLY ERROR:", data);
+        console.error(data);
         setStatus("❌ APPLY FAILED");
         return;
       }
@@ -89,7 +78,7 @@ export default function TerminalUI() {
       setCommand("");
       setPlan(null);
     } catch (err) {
-      console.error("APPLY CONNECTION ERROR:", err);
+      console.error(err);
       setStatus("❌ APPLY_CONNECTION_ERROR");
     }
   }
@@ -114,9 +103,7 @@ export default function TerminalUI() {
           paddingBottom: "10px",
         }}
       >
-        <h2 style={{ margin: 0 }}>
-          CIPHER_TERMINAL_V2 — SIVA COMMAND
-        </h2>
+        <h2>CIPHER_TERMINAL_V2 — SIVA COMMAND</h2>
         <Link
           href="/"
           style={{
@@ -135,7 +122,7 @@ export default function TerminalUI() {
         STATUS: {status}
       </p>
 
-      {/* MODE SELECT */}
+      {/* MODE */}
       <div style={{ marginBottom: "20px" }}>
         <label>MODE:</label>
         <select
@@ -151,66 +138,55 @@ export default function TerminalUI() {
           }}
         >
           <option value="COMMAND">COMMAND (SIVA)</option>
-          <option value="LEGACY">LEGACY (DISABLED)</option>
         </select>
       </div>
 
       {/* COMMAND INPUT */}
-      {mode === "COMMAND" && (
-        <div style={{ marginBottom: "20px" }}>
-          <label>SIVA COMMAND:</label>
-          <textarea
-            style={{
-              width: "100%",
-              height: "120px",
-              background: "#111",
-              color: "#0f0",
-              border: "1px solid #0f0",
-              padding: "12px",
-              marginTop: "5px",
-            }}
-            value={command}
-            onChange={(e) => setCommand(e.target.value)}
-            placeholder="e.g. Siva build a settings UI with autonomy toggle"
-          />
+      <div style={{ marginBottom: "20px" }}>
+        <label>SIVA COMMAND:</label>
+        <textarea
+          style={{
+            width: "100%",
+            height: "120px",
+            background: "#111",
+            color: "#0f0",
+            border: "1px solid #0f0",
+            padding: "12px",
+            marginTop: "5px",
+          }}
+          value={command}
+          onChange={(e) => setCommand(e.target.value)}
+        />
 
-          <button
-            onClick={runSivaPlan}
-            style={{
-              width: "100%",
-              padding: "15px",
-              background: "#0f0",
-              color: "#000",
-              fontWeight: "bold",
-              border: "none",
-              cursor: "pointer",
-              marginTop: "10px",
-            }}
-          >
-            RUN SIVA PLAN
-          </button>
-        </div>
-      )}
+        <button
+          onClick={runSivaPlan}
+          style={{
+            width: "100%",
+            padding: "15px",
+            background: "#0f0",
+            color: "#000",
+            fontWeight: "bold",
+            border: "none",
+            cursor: "pointer",
+            marginTop: "10px",
+          }}
+        >
+          RUN SIVA PLAN
+        </button>
+      </div>
 
-      {/* PLAN PREVIEW + APPROVAL */}
+      {/* PLAN */}
       {plan && (
         <div
           style={{
             background: "#111",
             border: "1px solid #0f0",
             padding: "15px",
-            marginTop: "20px",
           }}
         >
           <h3>🧠 SIVA PLAN (READ-ONLY)</h3>
 
-          <pre
-            style={{
-              whiteSpace: "pre-wrap",
-              fontSize: "13px",
-              marginBottom: "15px",
-            }}
-          >
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: "13px" }}>
             {JSON.stringify(plan.files, null, 2)}
           </pre>
 
@@ -224,6 +200,7 @@ export default function TerminalUI() {
               fontWeight: "bold",
               border: "none",
               cursor: "pointer",
+              marginTop: "10px",
             }}
           >
             APPROVE & APPLY
