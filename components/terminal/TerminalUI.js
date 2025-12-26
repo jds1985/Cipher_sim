@@ -9,11 +9,16 @@ export default function TerminalUI() {
   const [plan, setPlan] = useState(null);
   const [status, setStatus] = useState("SYSTEM_READY");
 
+  // 🔹 NEW: store BEFORE versions for diff
+  const [diffs, setDiffs] = useState({});
+
+  // --- STEP 1: PLAN ---
   async function runSivaPlan() {
     if (!command.trim()) return;
 
     setStatus("SIVA_PLANNING...");
     setPlan(null);
+    setDiffs({});
 
     try {
       const res = await fetch("/api/siva-plan", {
@@ -32,6 +37,19 @@ export default function TerminalUI() {
         return;
       }
 
+      // 🔹 Fetch BEFORE versions for diff preview
+      const beforeMap = {};
+
+      for (const file of data.files || []) {
+        const r = await fetch(`/api/siva-read?path=${encodeURIComponent(file.path)}`);
+        const before = await r.json();
+
+        beforeMap[file.path] = before.exists
+          ? before.content
+          : "// FILE DOES NOT EXIST";
+      }
+
+      setDiffs(beforeMap);
       setPlan(data);
       setStatus("🧠 PLAN_READY");
     } catch (err) {
@@ -40,6 +58,7 @@ export default function TerminalUI() {
     }
   }
 
+  // --- STEP 2: APPLY ---
   async function approveAndApply() {
     if (!plan?.files?.length) return;
 
@@ -63,6 +82,7 @@ export default function TerminalUI() {
       setStatus("✅ SIVA_COMMITTED");
       setCommand("");
       setPlan(null);
+      setDiffs({});
     } catch (err) {
       console.error(err);
       setStatus("❌ APPLY_CONNECTION_ERROR");
@@ -70,11 +90,34 @@ export default function TerminalUI() {
   }
 
   return (
-    <div style={{ background: "#000", color: "#0f0", minHeight: "100vh", padding: "20px", fontFamily: "monospace" }}>
+    <div
+      style={{
+        background: "#000",
+        color: "#0f0",
+        minHeight: "100vh",
+        padding: "20px",
+        fontFamily: "monospace",
+      }}
+    >
       {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #0f0", paddingBottom: "10px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #0f0",
+          paddingBottom: "10px",
+        }}
+      >
         <h2>CIPHER_TERMINAL_V2 — SIVA COMMAND</h2>
-        <Link href="/" style={{ color: "#0f0", border: "1px solid #0f0", padding: "4px 10px" }}>
+        <Link
+          href="/"
+          style={{
+            color: "#0f0",
+            border: "1px solid #0f0",
+            padding: "4px 10px",
+            textDecoration: "none",
+          }}
+        >
           RETURN_TO_CHAT
         </Link>
       </div>
@@ -89,61 +132,142 @@ export default function TerminalUI() {
       <select
         value={mode}
         onChange={(e) => setMode(e.target.value)}
-        style={{ width: "100%", background: "#111", color: "#0f0", border: "1px solid #0f0", padding: "12px" }}
+        style={{
+          width: "100%",
+          background: "#111",
+          color: "#0f0",
+          border: "1px solid #0f0",
+          padding: "12px",
+        }}
       >
         <option value="COMMAND">COMMAND (SIVA)</option>
       </select>
 
       {/* COMMAND */}
-      <label style={{ marginTop: "20px", display: "block" }}>SIVA COMMAND:</label>
+      <label style={{ marginTop: "20px", display: "block" }}>
+        SIVA COMMAND:
+      </label>
       <textarea
         value={command}
         onChange={(e) => setCommand(e.target.value)}
         placeholder="e.g. Siva build a settings page with autonomy toggle"
-        style={{ width: "100%", height: "120px", background: "#111", color: "#0f0", border: "1px solid #0f0", padding: "12px" }}
+        style={{
+          width: "100%",
+          height: "120px",
+          background: "#111",
+          color: "#0f0",
+          border: "1px solid #0f0",
+          padding: "12px",
+        }}
       />
 
       <button
         onClick={runSivaPlan}
-        style={{ width: "100%", marginTop: "10px", padding: "15px", background: "#0f0", color: "#000", fontWeight: "bold" }}
+        style={{
+          width: "100%",
+          marginTop: "10px",
+          padding: "15px",
+          background: "#0f0",
+          color: "#000",
+          fontWeight: "bold",
+          border: "none",
+          cursor: "pointer",
+        }}
       >
         RUN SIVA PLAN
       </button>
 
       {/* DIFF PREVIEW */}
       {plan?.files && (
-        <div style={{ marginTop: "30px", border: "1px solid #0f0", padding: "15px", background: "#050505" }}>
-          <h3>🧠 SIVA PLAN (READ-ONLY)</h3>
+        <div
+          style={{
+            marginTop: "30px",
+            border: "1px solid #0f0",
+            padding: "15px",
+            background: "#050505",
+          }}
+        >
+          <h3>🧠 SIVA PLAN — DIFF PREVIEW</h3>
 
           {plan.files.map((file, idx) => (
-            <div key={idx} style={{ marginTop: "20px", border: "1px dashed #0f0", padding: "10px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <strong>{file.path}</strong>
-                <span style={{ color: file.action === "CREATE" ? "#00ff99" : "#ffaa00" }}>
-                  {file.action}
-                </span>
-              </div>
-
-              <p style={{ fontSize: "12px", opacity: 0.8 }}>{file.description}</p>
-
-              <pre
+            <div
+              key={idx}
+              style={{
+                marginTop: "20px",
+                border: "1px dashed #0f0",
+                padding: "10px",
+              }}
+            >
+              <div
                 style={{
-                  background: "#000",
-                  padding: "10px",
-                  fontSize: "12px",
-                  maxHeight: "300px",
-                  overflow: "auto",
-                  border: "1px solid #033",
+                  display: "flex",
+                  justifyContent: "space-between",
                 }}
               >
+                <strong>{file.path}</strong>
+                <span style={{ opacity: 0.8 }}>{file.action}</span>
+              </div>
+
+              <p style={{ fontSize: "12px", opacity: 0.8 }}>
+                {file.description}
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px",
+                }}
+              >
+                {/* BEFORE */}
+                <div>
+                  <div style={{ color: "#ff5555" }}>--- BEFORE</div>
+                  <pre
+                    style={{
+                      background: "#000",
+                      padding: "10px",
+                      fontSize: "11px",
+                      maxHeight: "250px",
+                      overflow: "auto",
+                      border: "1px solid #300",
+                    }}
+                  >
+{diffs[file.path]}
+                  </pre>
+                </div>
+
+                {/* AFTER */}
+                <div>
+                  <div style={{ color: "#55ff55" }}>+++ AFTER</div>
+                  <pre
+                    style={{
+                      background: "#000",
+                      padding: "10px",
+                      fontSize: "11px",
+                      maxHeight: "250px",
+                      overflow: "auto",
+                      border: "1px solid #030",
+                    }}
+                  >
 {file.content}
-              </pre>
+                  </pre>
+                </div>
+              </div>
             </div>
           ))}
 
           <button
             onClick={approveAndApply}
-            style={{ width: "100%", marginTop: "20px", padding: "15px", background: "#00ff99", color: "#000", fontWeight: "bold" }}
+            style={{
+              width: "100%",
+              marginTop: "20px",
+              padding: "15px",
+              background: "#00ff99",
+              color: "#000",
+              fontWeight: "bold",
+              border: "none",
+              cursor: "pointer",
+            }}
           >
             APPROVE & APPLY
           </button>
