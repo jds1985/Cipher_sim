@@ -1,5 +1,7 @@
 // pages/api/siva-plan.js
-// SIVA — PLAN PHASE (READ-ONLY, NO COMMITS)
+// SIVA — PLAN PHASE (READ-ONLY, NO COMMITS, HUMAN APPROVAL REQUIRED)
+
+import crypto from "crypto";
 
 export default function handler(req, res) {
   if (req.method !== "POST") {
@@ -8,7 +10,8 @@ export default function handler(req, res) {
     });
   }
 
-  const { instruction, command } = req.body || {};
+  // Accept either `instruction` (terminal) or `command` (legacy/tests)
+  const { instruction, command, source = "unknown" } = req.body || {};
   const input = instruction || command;
 
   if (!input || typeof input !== "string") {
@@ -20,57 +23,82 @@ export default function handler(req, res) {
 
   const taskId = "SIVA_PLAN_" + Date.now();
 
-  return res.status(200).json({
-    status: "SIVA_PLAN_OK",
-    time: new Date().toISOString(),
-
-    // 🔑 FLATTENED CONTRACT (this is the key)
-    taskId,
-    summary: "Build a basic Settings UI with an Autonomy toggle",
-    intent: input,
-
-    files: [
-      {
-        path: "pages/settings.js",
-        action: "CREATE_OR_UPDATE",
-        description: "Settings page UI with Autonomy toggle",
-        content: `
+  // --- FILE INTENT (DETERMINISTIC, SAFE) ---
+  const files = [
+    {
+      path: "pages/settings.js",
+      action: "CREATE_OR_UPDATE",
+      description: "Settings page UI with Autonomy toggle",
+      content: `
 export default function Settings() {
   return (
     <div style={{ padding: "20px" }}>
       <h1>Settings</h1>
-      <label>
-        <input type="checkbox" /> Autonomy Enabled
+      <label style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <input type="checkbox" />
+        Autonomy Enabled
       </label>
     </div>
   );
 }
-        `.trim(),
-      },
-      {
-        path: "components/AutonomyToggle.js",
-        action: "CREATE",
-        description: "Reusable autonomy on/off switch",
-        content: `
-export default function AutonomyToggle({ value, onChange }) {
+      `.trim(),
+    },
+    {
+      path: "components/AutonomyToggle.js",
+      action: "CREATE",
+      description: "Reusable autonomy on/off switch",
+      content: `
+export default function AutonomyToggle({ value = false, onChange }) {
   return (
-    <label>
+    <label style={{ display: "flex", gap: "6px", alignItems: "center" }}>
       <input
         type="checkbox"
         checked={value}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={(e) => onChange?.(e.target.checked)}
       />
       Autonomy
     </label>
   );
 }
-        `.trim(),
-      },
-    ],
+      `.trim(),
+    },
+  ];
 
+  // --- INTEGRITY CHECKSUM (ANTI-TAMPER / AUDIT) ---
+  const checksum = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(files))
+    .digest("hex");
+
+  return res.status(200).json({
+    status: "SIVA_PLAN_OK",
+    time: new Date().toISOString(),
+
+    // 🔑 FLAT CONTRACT (Terminal-safe)
+    taskId,
+    intent: input,
+    source,
+    summary: "Build a basic Settings UI with an Autonomy toggle",
+
+    files,
+
+    // 🔒 SAFEGUARDS (THIS IS IMPORTANT)
     safeguards: {
-      applyChanges: false,
-      requiresApproval: true,
+      dryRun: true,              // Cannot apply from plan phase
+      applyChanges: false,       // Enforced server-side
+      requiresApproval: true,    // Human-in-the-loop
+      immutablePlan: true,       // Plan must match checksum to apply
+    },
+
+    // 🔍 FUTURE EXTENSION POINTS
+    diffPreview: "Not generated (V1 planner)",
+    checksum,
+
+    capabilities: {
+      canApply: false,
+      canModifyFiles: false,
+      canEscalate: false,
+      phase: "PLAN_ONLY",
     },
 
     nextStep: "Await human approval before apply phase",
