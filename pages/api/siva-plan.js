@@ -1,5 +1,6 @@
 // pages/api/siva-plan.js
-// SIVA — PLAN PHASE (READ-ONLY, NO COMMITS, HUMAN APPROVAL REQUIRED)
+// SIVA — PLAN PHASE (PHASE 1 ROUTER)
+// READ-ONLY · NO COMMITS · HUMAN APPROVAL REQUIRED
 
 import crypto from "crypto";
 
@@ -8,8 +9,7 @@ export default function handler(req, res) {
     return res.status(405).json({ status: "METHOD_NOT_ALLOWED" });
   }
 
-  // Accept either `instruction` (terminal) or `command` (legacy/tests)
-  const { instruction, command, source = "unknown" } = req.body || {};
+  const { instruction, command, source = "terminal" } = req.body || {};
   const input = instruction || command;
 
   if (!input || typeof input !== "string") {
@@ -20,75 +20,52 @@ export default function handler(req, res) {
   }
 
   const taskId = "SIVA_PLAN_" + Date.now();
-  const intent = input.toLowerCase();
+  const intentRaw = input.trim();
+  const intent = intentRaw.toLowerCase();
 
-  let files = [];
   let summary = "";
+  let files = [];
+  let planType = "NO_OP";
 
   // ======================================================
-  // 🔀 INTENT ROUTER (DETERMINISTIC V1)
+  // 🧭 PHASE 1 INTENT ROUTER (EXPLICIT, NON-AMBIENT)
   // ======================================================
 
-  if (intent.includes("chat") || intent.includes("restore")) {
-    summary = "Restore main chat UI with cyberpunk terminal aesthetic";
+  // --- CHAT UI PLANNING ---
+  if (
+    intent.includes("chat ui") ||
+    intent.includes("restore chat") ||
+    intent.includes("cipher chat")
+  ) {
+    planType = "CHAT_UI_PLAN";
+    summary = "Plan improvements to Cipher Chat UI (cyberpunk terminal aesthetic)";
 
     files = [
       {
         path: "pages/index.js",
         action: "CREATE_OR_UPDATE",
-        description: "Primary Cipher chat UI",
-        content: `
-export default function Chat() {
-  return (
-    <div style={{
-      background: "#000",
-      color: "#0f0",
-      minHeight: "100vh",
-      padding: "20px",
-      fontFamily: "monospace"
-    }}>
-      <h1>CIPHER CHAT</h1>
-
-      <div style={{
-        border: "1px solid #0f0",
-        padding: "10px",
-        height: "60vh",
-        overflowY: "auto",
-        marginBottom: "10px"
-      }}>
-        <p>&gt; System online.</p>
-        <p>&gt; Awaiting input...</p>
-      </div>
-
-      <div style={{ display: "flex", gap: "10px" }}>
-        <textarea
-          placeholder="Type message..."
-          style={{
-            flex: 1,
-            background: "#000",
-            color: "#0f0",
-            border: "1px solid #0f0",
-            padding: "10px"
-          }}
-        />
-        <button style={{
-          background: "#0f0",
-          color: "#000",
-          fontWeight: "bold",
-          padding: "10px 20px"
-        }}>
-          SEND
-        </button>
-      </div>
-    </div>
-  );
-}
-        `.trim(),
+        description:
+          "Primary Cipher Chat UI with message bubbles, typing indicator, scrollable history (planned)",
+        mode: "DESIGN_ONLY", // 🔑 critical
+      },
+      {
+        path: "components/ChatMessage.js",
+        action: "CREATE",
+        description: "Message bubble component (user vs Cipher)",
+        mode: "DESIGN_ONLY",
+      },
+      {
+        path: "components/TypingIndicator.js",
+        action: "CREATE",
+        description: "Animated typing indicator for Cipher responses",
+        mode: "DESIGN_ONLY",
       },
     ];
   }
 
+  // --- SETTINGS UI ---
   else if (intent.includes("settings")) {
+    planType = "SETTINGS_UI_PLAN";
     summary = "Build settings UI with Autonomy toggle";
 
     files = [
@@ -96,6 +73,7 @@ export default function Chat() {
         path: "pages/settings.js",
         action: "CREATE_OR_UPDATE",
         description: "Settings page UI with Autonomy toggle",
+        mode: "FULL_CONTENT",
         content: `
 export default function Settings() {
   return (
@@ -114,6 +92,7 @@ export default function Settings() {
         path: "components/AutonomyToggle.js",
         action: "CREATE",
         description: "Reusable autonomy on/off switch",
+        mode: "FULL_CONTENT",
         content: `
 export default function AutonomyToggle({ value = false, onChange }) {
   return (
@@ -132,33 +111,72 @@ export default function AutonomyToggle({ value = false, onChange }) {
     ];
   }
 
+  // --- SANDBOX TERMINAL (READ-ONLY REASONING SPACE) ---
+  else if (intent.includes("sandbox")) {
+    planType = "SANDBOX_PLAN";
+    summary = "Design Sandbox Terminal (read-only, simulation, no writes)";
+
+    files = [
+      {
+        path: "pages/sandbox.js",
+        action: "CREATE",
+        description:
+          "Sandbox Terminal UI for Cipher analysis, simulation, and risk reasoning",
+        mode: "DESIGN_ONLY",
+      },
+      {
+        path: "pages/api/sandbox-analyze.js",
+        action: "CREATE",
+        description:
+          "Read-only analysis endpoint (no filesystem writes, no apply)",
+        mode: "DESIGN_ONLY",
+      },
+    ];
+  }
+
+  // --- CORE / META REQUESTS (BLOCKED BY DESIGN) ---
+  else if (
+    intent.includes("self evolve") ||
+    intent.includes("modify siva") ||
+    intent.includes("change planner")
+  ) {
+    planType = "BLOCKED_META";
+    summary =
+      "Meta-evolution requests are not allowed in Phase 1 (proposal-only later)";
+    files = [];
+  }
+
+  // --- SAFE NO-OP ---
   else {
+    planType = "NO_OP";
     summary = "No actionable intent detected (safe no-op)";
     files = [];
   }
 
   // ======================================================
-  // 🔒 INTEGRITY CHECKSUM (ANTI-TAMPER)
+  // 🔒 CHECKSUM (IMMUTABLE PLAN GUARANTEE)
   // ======================================================
 
   const checksum = crypto
     .createHash("sha256")
-    .update(JSON.stringify(files))
+    .update(JSON.stringify({ planType, files }))
     .digest("hex");
 
   // ======================================================
-  // ✅ RESPONSE (FLAT, TERMINAL-SAFE)
+  // 📤 RESPONSE (TERMINAL-SAFE, FLAT)
   // ======================================================
 
   return res.status(200).json({
     status: "SIVA_PLAN_OK",
+    phase: "PHASE_1_ROUTER",
+
     time: new Date().toISOString(),
-
     taskId,
-    intent: input,
+    intent: intentRaw,
     source,
-    summary,
 
+    planType,
+    summary,
     files,
 
     safeguards: {
@@ -166,6 +184,7 @@ export default function AutonomyToggle({ value = false, onChange }) {
       applyChanges: false,
       requiresApproval: true,
       immutablePlan: true,
+      selfModification: false,
     },
 
     checksum,
@@ -173,10 +192,13 @@ export default function AutonomyToggle({ value = false, onChange }) {
     capabilities: {
       canApply: false,
       canModifyFiles: false,
-      canEscalate: false,
-      phase: "PLAN_ONLY",
+      canSelfEvolve: false,
+      allowedNext:
+        planType === "SANDBOX_PLAN"
+          ? ["SANDBOX_IMPLEMENTATION"]
+          : ["UI_IMPLEMENTATION"],
     },
 
-    nextStep: "Await human approval before apply phase",
+    nextStep: "Human review → selective approval → apply phase",
   });
 }
