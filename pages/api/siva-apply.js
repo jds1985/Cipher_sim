@@ -1,6 +1,8 @@
 // pages/api/siva-apply.js
 // SIVA — APPLY PHASE (GitHub Commit Engine) — UPGRADED
+
 console.log("🔥 SIVA APPLY HIT");
+
 const {
   GITHUB_TOKEN,
   GITHUB_OWNER,
@@ -17,64 +19,57 @@ const BLOCKED_PATH_PREFIXES = [
   "dist/",
   "build/",
 ];
+
 const BLOCKED_PATH_EXACT = new Set([
   ".env",
   ".env.local",
   ".env.production",
   ".env.development",
-  "package-lock.json", // optional (keep or remove)
-  "yarn.lock",         // optional
-  "pnpm-lock.yaml",    // optional
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
 ]);
 
-// If you want to restrict apply to only certain folders, add allowlist here.
-// Leave empty to allow all (minus blocked rules).
-const ALLOWLIST_PREFIXES = [
-  // "pages/",
-  // "components/",
-  // "cipher_core/",
-];
+// Optional allowlist (leave empty to allow all except blocked)
+const ALLOWLIST_PREFIXES = [];
 
-// GitHub content API size limit for a single file content is effectively limited;
-// we keep a conservative cap to avoid weird failures.
-const MAX_FILE_BYTES = 800_000; // ~0.8 MB
+// Conservative file size cap
+const MAX_FILE_BYTES = 800_000; // ~0.8MB
 
 function json(res, status, payload) {
   return res.status(status).json(payload);
 }
 
 function isAllowedPath(path) {
-  if (!path || typeof path !== "string") return { ok: false, reason: "Missing path" };
+  if (!path || typeof path !== "string") {
+    return { ok: false, reason: "Missing path" };
+  }
 
-  // normalize slashes
   const p = path.replace(/\\/g, "/").trim();
 
-  // block absolute paths and traversal
   if (p.startsWith("/") || p.includes("..")) {
-    return { ok: false, reason: "Path traversal or absolute path is not allowed" };
+    return { ok: false, reason: "Path traversal or absolute path not allowed" };
   }
 
-  // block weird characters
   if (!/^[a-zA-Z0-9._\-\/]+$/.test(p)) {
-    return { ok: false, reason: "Path contains invalid characters" };
+    return { ok: false, reason: "Invalid characters in path" };
   }
 
-  // block exact files
   if (BLOCKED_PATH_EXACT.has(p)) {
-    return { ok: false, reason: `Blocked target: ${p}` };
+    return { ok: false, reason: `Blocked file: ${p}` };
   }
 
-  // block prefixes
   for (const prefix of BLOCKED_PATH_PREFIXES) {
     if (p.startsWith(prefix)) {
       return { ok: false, reason: `Blocked directory: ${prefix}` };
     }
   }
 
-  // optional allowlist
   if (ALLOWLIST_PREFIXES.length > 0) {
-    const allowed = ALLOWLIST_PREFIXES.some((prefix) => p.startsWith(prefix));
-    if (!allowed) return { ok: false, reason: "Path is not in allowlist" };
+    const allowed = ALLOWLIST_PREFIXES.some((pre) => p.startsWith(pre));
+    if (!allowed) {
+      return { ok: false, reason: "Path not in allowlist" };
+    }
   }
 
   return { ok: true, normalized: p };
@@ -82,7 +77,6 @@ function isAllowedPath(path) {
 
 function shouldApplyAction(action) {
   const a = (action || "").toUpperCase();
-  // Only these should produce commits
   return a === "CREATE" || a === "UPDATE" || a === "CREATE_OR_UPDATE";
 }
 
@@ -101,40 +95,31 @@ async function ghFetch(url, opts = {}) {
   let data = null;
   try {
     data = text ? JSON.parse(text) : null;
-  } catch {
-    // leave as text
-  }
+  } catch {}
 
   return { ok: res.ok, status: res.status, data, raw: text };
 }
 
 async function getExistingSha(path) {
-  // Important: include ref so we check the correct branch
-  const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(
     path
   )}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
 
-  const existing = await ghFetch(apiUrl, { method: "GET" });
+  const res = await ghFetch(url, { method: "GET" });
 
-  if (existing.status === 200 && existing.data?.sha) {
-    return { exists: true, sha: existing.data.sha };
+  if (res.status === 200 && res.data?.sha) {
+    return { exists: true, sha: res.data.sha };
   }
 
-  if (existing.status === 404) {
+  if (res.status === 404) {
     return { exists: false, sha: null };
   }
 
-  // Other statuses mean permission/branch/API issues
-  const msg =
-    typeof existing.data === "object"
-      ? existing.data?.message || existing.raw
-      : existing.raw;
-
-  throw new Error(`GitHub read failed (${existing.status}) for ${path}: ${msg}`);
+  throw new Error(`GitHub read failed (${res.status}): ${res.raw}`);
 }
 
 async function putFile(path, content, sha, message) {
-  const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(
     path
   )}`;
 
@@ -145,23 +130,22 @@ async function putFile(path, content, sha, message) {
     ...(sha ? { sha } : {}),
   };
 
-  const commitRes = await ghFetch(apiUrl, {
+  const res = await ghFetch(url, {
     method: "PUT",
     body: JSON.stringify(body),
   });
 
-  if (!commitRes.ok) {
-    const msg =
-      typeof commitRes.data === "object"
-        ? commitRes.data?.message || commitRes.raw
-        : commitRes.raw;
-
-    throw new Error(`GitHub commit failed (${commitRes.status}) for ${path}: ${msg}`);
+  if (!res.ok) {
+    throw new Error(
+      `GitHub commit failed (${res.status}): ${
+        res.data?.message || res.raw
+      }`
+    );
   }
 
   return {
-    commitSha: commitRes.data?.commit?.sha,
-    url: commitRes.data?.content?.html_url,
+    commitSha: res.data?.commit?.sha,
+    url: res.data?.content?.html_url,
   };
 }
 
@@ -174,25 +158,25 @@ export default async function handler(req, res) {
     return json(res, 500, {
       status: "ENV_MISSING",
       error: "GitHub environment variables not configured",
-      missing: {
-        GITHUB_TOKEN: !GITHUB_TOKEN,
-        GITHUB_OWNER: !GITHUB_OWNER,
-        GITHUB_REPO: !GITHUB_REPO,
-      },
     });
   }
 
   const { taskId, files, dryRun = false, commitMessage } = req.body || {};
 
   if (!taskId || typeof taskId !== "string") {
-    return json(res, 400, { status: "BAD_REQUEST", error: "Missing taskId (string)" });
+    return json(res, 400, {
+      status: "BAD_REQUEST",
+      error: "Missing taskId",
+    });
   }
 
   if (!Array.isArray(files) || files.length === 0) {
-    return json(res, 400, { status: "BAD_REQUEST", error: "Missing files[] array" });
+    return json(res, 400, {
+      status: "BAD_REQUEST",
+      error: "Missing files[]",
+    });
   }
 
-  // Process sequentially (simpler + avoids GitHub secondary rate-limit spikes)
   const results = [];
   let committedCount = 0;
 
@@ -202,7 +186,17 @@ export default async function handler(req, res) {
       const action = (file?.action || "CREATE_OR_UPDATE").toUpperCase();
       const content = file?.content;
 
-      // Skip describe-only entries and anything that shouldn't apply
+      // 🔒 NEW HARD GATE — ONLY FULL_CONTENT MAY WRITE
+      if (file?.mode && file.mode !== "FULL_CONTENT") {
+        results.push({
+          path: path || "(missing)",
+          action,
+          status: "SKIPPED",
+          reason: `Mode ${file.mode} is not writable`,
+        });
+        continue;
+      }
+
       if (!shouldApplyAction(action)) {
         results.push({
           path: path || "(missing)",
@@ -234,19 +228,19 @@ export default async function handler(req, res) {
         continue;
       }
 
-      const bytes = Buffer.byteLength(content, "utf8");
-      if (bytes > MAX_FILE_BYTES) {
+      const size = Buffer.byteLength(content, "utf8");
+      if (size > MAX_FILE_BYTES) {
         results.push({
           path: check.normalized,
           action,
           status: "FAILED",
-          reason: `File too large (${bytes} bytes). Max is ${MAX_FILE_BYTES}.`,
+          reason: `File too large (${size} bytes)`,
         });
         continue;
       }
 
-      // For UPDATE, ensure it exists
       const existing = await getExistingSha(check.normalized);
+
       if (action === "UPDATE" && !existing.exists) {
         results.push({
           path: check.normalized,
@@ -257,7 +251,6 @@ export default async function handler(req, res) {
         continue;
       }
 
-      // For CREATE, ensure it doesn't exist
       if (action === "CREATE" && existing.exists) {
         results.push({
           path: check.normalized,
@@ -273,32 +266,30 @@ export default async function handler(req, res) {
           path: check.normalized,
           action,
           status: "DRY_RUN_OK",
-          wouldUpdate: existing.exists,
           branch: GITHUB_BRANCH,
         });
         continue;
       }
 
       const msg =
-        typeof commitMessage === "string" && commitMessage.trim()
-          ? commitMessage.trim()
-          : `SIVA APPLY: ${taskId} → ${check.normalized}`;
+        commitMessage?.trim() ||
+        `SIVA APPLY: ${taskId} → ${check.normalized}`;
 
-      const commitInfo = await putFile(
+      const commit = await putFile(
         check.normalized,
         content,
         existing.sha,
         msg
       );
 
-      committedCount += 1;
+      committedCount++;
 
       results.push({
         path: check.normalized,
         action,
         status: "COMMITTED",
-        commit: commitInfo.commitSha,
-        url: commitInfo.url,
+        commit: commit.commitSha,
+        url: commit.url,
         branch: GITHUB_BRANCH,
       });
     }
@@ -306,16 +297,14 @@ export default async function handler(req, res) {
     return json(res, 200, {
       status: "SIVA_APPLY_OK",
       taskId,
-      dryRun: !!dryRun,
       committedCount,
       results,
     });
   } catch (err) {
-    // Return partial results too so it doesn't feel like "nothing happened"
     return json(res, 500, {
       status: "SIVA_APPLY_ERROR",
       taskId,
-      error: err?.message || String(err),
+      error: err.message,
       committedCount,
       results,
     });
