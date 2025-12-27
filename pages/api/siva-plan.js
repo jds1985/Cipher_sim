@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   const taskId = "SIVA_" + Date.now();
 
   // ─────────────────────────────────────────────
-  // 🧠 INTENT CLASSIFICATION
+  // 🧠 INTENT DETECTION
   // ─────────────────────────────────────────────
 
   const wantsApply =
@@ -30,18 +30,14 @@ export default async function handler(req, res) {
     intent.includes("apply") ||
     intent.includes("commit");
 
-  const wantsSettings =
-    intent.includes("settings");
+  const wantsSettings = intent.includes("settings");
+  const wantsAutonomy = intent.includes("autonomy");
 
-  const wantsAutonomy =
-    intent.includes("autonomy");
-
-  // Default outputs
   let summary = "No actionable intent detected";
   let files = [];
 
   // ─────────────────────────────────────────────
-  // 🖤 SETTINGS PAGE INTENT
+  // 🖤 SETTINGS PAGE
   // ─────────────────────────────────────────────
 
   if (wantsSettings) {
@@ -52,49 +48,65 @@ export default async function handler(req, res) {
     files.push({
       path: "pages/settings.js",
       action: "CREATE_OR_UPDATE",
-      description: "Settings page UI with Autonomy toggle",
+      description: "Settings page UI with autonomy toggle",
       mode: wantsApply ? "FULL_CONTENT" : "DESIGN_ONLY",
       content: wantsApply
         ? `
+import AutonomyToggle from "../components/AutonomyToggle";
+
 export default function Settings() {
   return (
-    <div style={{ padding: "20px", color: "#0f0", background: "#000" }}>
+    <div style={{
+      padding: "24px",
+      background: "#000",
+      color: "#0f0",
+      minHeight: "100vh",
+      fontFamily: "monospace"
+    }}>
       <h1>Settings</h1>
-      <label style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-        <input type="checkbox" />
-        Autonomy Enabled
-      </label>
+
+      <div style={{
+        marginTop: "20px",
+        border: "1px solid #0f0",
+        padding: "12px",
+        maxWidth: "320px"
+      }}>
+        <AutonomyToggle />
+      </div>
     </div>
   );
 }
-`.trim()
+        `.trim()
         : undefined,
     });
 
-    if (wantsAutonomy) {
-      files.push({
-        path: "components/AutonomyToggle.js",
-        action: "CREATE",
-        description: "Reusable autonomy toggle component",
-        mode: wantsApply ? "FULL_CONTENT" : "DESIGN_ONLY",
-        content: wantsApply
-          ? `
+    files.push({
+      path: "components/AutonomyToggle.js",
+      action: "CREATE_OR_UPDATE",
+      description: "Reusable autonomy toggle component",
+      mode: wantsApply ? "FULL_CONTENT" : "DESIGN_ONLY",
+      content: wantsApply
+        ? `
 export default function AutonomyToggle({ value = false, onChange }) {
   return (
-    <label style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+    <label style={{
+      display: "flex",
+      gap: "8px",
+      alignItems: "center",
+      cursor: "pointer"
+    }}>
       <input
         type="checkbox"
         checked={value}
         onChange={(e) => onChange?.(e.target.checked)}
       />
-      Autonomy
+      Autonomy Enabled
     </label>
   );
 }
-`.trim()
-          : undefined,
-      });
-    }
+        `.trim()
+        : undefined,
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -114,9 +126,9 @@ export default function AutonomyToggle({ value = false, onChange }) {
     files,
 
     safeguards: {
-      planOnly: true,
-      commitsAllowed: false,
+      planOnly: !wantsApply,
       requiresHumanApproval: true,
+      selfModification: false,
     },
 
     capabilities: {
@@ -125,6 +137,6 @@ export default function AutonomyToggle({ value = false, onChange }) {
 
     nextStep: wantsApply
       ? "Review diff → Approve & Apply"
-      : "Refine request or use IMPLEMENT to enable apply",
+      : "Use IMPLEMENT to enable apply",
   });
 }
