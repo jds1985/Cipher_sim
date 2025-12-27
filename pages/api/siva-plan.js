@@ -28,113 +28,91 @@ export default function handler(req, res) {
   let planType = "NO_OP";
 
   // ======================================================
-  // 🧭 PHASE 1 INTENT ROUTER (EXPLICIT, NON-AMBIENT)
+  // 🧭 PHASE 1 INTENT ROUTER (STRICT, EXPLICIT)
   // ======================================================
 
-  // --- CHAT UI PLANNING ---
+  // --- CHAT UI (PLAN ONLY) ---
   if (
-    intent.includes("chat ui") ||
-    intent.includes("restore chat") ||
-    intent.includes("cipher chat")
+    intent.includes("chat") &&
+    (intent.includes("plan") || intent.includes("ui"))
   ) {
     planType = "CHAT_UI_PLAN";
-    summary = "Plan improvements to Cipher Chat UI (cyberpunk terminal aesthetic)";
+    summary = "Plan Cipher Chat UI improvements (cyberpunk terminal aesthetic)";
 
     files = [
       {
         path: "pages/index.js",
-        action: "CREATE_OR_UPDATE",
+        action: "DESCRIBE_ONLY",
         description:
-          "Primary Cipher Chat UI with message bubbles, typing indicator, scrollable history (planned)",
-        mode: "DESIGN_ONLY", // 🔑 critical
+          "Primary Cipher Chat UI with message bubbles, typing indicator, scrollable history",
       },
       {
         path: "components/ChatMessage.js",
-        action: "CREATE",
+        action: "DESCRIBE_ONLY",
         description: "Message bubble component (user vs Cipher)",
-        mode: "DESIGN_ONLY",
       },
       {
         path: "components/TypingIndicator.js",
-        action: "CREATE",
+        action: "DESCRIBE_ONLY",
         description: "Animated typing indicator for Cipher responses",
-        mode: "DESIGN_ONLY",
       },
     ];
   }
 
-  // --- SETTINGS UI ---
-  else if (intent.includes("settings")) {
-    planType = "SETTINGS_UI_PLAN";
-    summary = "Build settings UI with Autonomy toggle";
-
-    files = [
-      {
-        path: "pages/settings.js",
-        action: "CREATE_OR_UPDATE",
-        description: "Settings page UI with Autonomy toggle",
-        mode: "FULL_CONTENT",
-        content: `
-export default function Settings() {
-  return (
-    <div style={{ padding: "20px" }}>
-      <h1>Settings</h1>
-      <label style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-        <input type="checkbox" />
-        Autonomy Enabled
-      </label>
-    </div>
-  );
-}
-        `.trim(),
-      },
-      {
-        path: "components/AutonomyToggle.js",
-        action: "CREATE",
-        description: "Reusable autonomy on/off switch",
-        mode: "FULL_CONTENT",
-        content: `
-export default function AutonomyToggle({ value = false, onChange }) {
-  return (
-    <label style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-      <input
-        type="checkbox"
-        checked={value}
-        onChange={(e) => onChange?.(e.target.checked)}
-      />
-      Autonomy
-    </label>
-  );
-}
-        `.trim(),
-      },
-    ];
-  }
-
-  // --- SANDBOX TERMINAL (READ-ONLY REASONING SPACE) ---
+  // --- SANDBOX TERMINAL (READ-ONLY) ---
   else if (intent.includes("sandbox")) {
     planType = "SANDBOX_PLAN";
-    summary = "Design Sandbox Terminal (read-only, simulation, no writes)";
+    summary =
+      "Design Sandbox Terminal (read-only reasoning, simulation, no writes)";
 
     files = [
       {
         path: "pages/sandbox.js",
-        action: "CREATE",
+        action: "DESCRIBE_ONLY",
         description:
           "Sandbox Terminal UI for Cipher analysis, simulation, and risk reasoning",
-        mode: "DESIGN_ONLY",
       },
       {
         path: "pages/api/sandbox-analyze.js",
-        action: "CREATE",
+        action: "DESCRIBE_ONLY",
         description:
           "Read-only analysis endpoint (no filesystem writes, no apply)",
-        mode: "DESIGN_ONLY",
       },
     ];
   }
 
-  // --- CORE / META REQUESTS (BLOCKED BY DESIGN) ---
+  // --- THREE TERMINAL ARCHITECTURE ---
+  else if (
+    intent.includes("three terminal") ||
+    intent.includes("3 terminal")
+  ) {
+    planType = "THREE_TERMINAL_PLAN";
+    summary =
+      "Define architecture for Chat, Sandbox, and SIVA terminals with routing boundaries";
+
+    files = [
+      {
+        path: "ARCHITECTURE::CHAT",
+        action: "DESCRIBE_ONLY",
+        description:
+          "User-facing conversational interface (no planning, no apply)",
+      },
+      {
+        path: "ARCHITECTURE::SANDBOX",
+        action: "DESCRIBE_ONLY",
+        description:
+          "Read-only simulation and analysis environment (no writes)",
+      },
+      {
+        path: "ARCHITECTURE::SIVA",
+        action: "DESCRIBE_ONLY",
+        description:
+          "Planner + Applier with strict approval gate and routing enforcement",
+      },
+    ];
+  }
+
+  // --- BLOCKED META / SELF-MOD ---
   else if (
     intent.includes("self evolve") ||
     intent.includes("modify siva") ||
@@ -142,7 +120,7 @@ export default function AutonomyToggle({ value = false, onChange }) {
   ) {
     planType = "BLOCKED_META";
     summary =
-      "Meta-evolution requests are not allowed in Phase 1 (proposal-only later)";
+      "Self-modification is blocked in Phase 1 (proposal-only later)";
     files = [];
   }
 
@@ -154,7 +132,7 @@ export default function AutonomyToggle({ value = false, onChange }) {
   }
 
   // ======================================================
-  // 🔒 CHECKSUM (IMMUTABLE PLAN GUARANTEE)
+  // 🔒 IMMUTABLE CHECKSUM
   // ======================================================
 
   const checksum = crypto
@@ -163,7 +141,7 @@ export default function AutonomyToggle({ value = false, onChange }) {
     .digest("hex");
 
   // ======================================================
-  // 📤 RESPONSE (TERMINAL-SAFE, FLAT)
+  // 📤 RESPONSE (PLAN-ONLY, APPLY-SAFE)
   // ======================================================
 
   return res.status(200).json({
@@ -177,14 +155,20 @@ export default function AutonomyToggle({ value = false, onChange }) {
 
     planType,
     summary,
+
     files,
+
+    // 🔑 THIS IS CRITICAL FOR APPLY BUTTON LOGIC
+    applyEligibleFiles: files.filter(
+      (f) => f.action !== "DESCRIBE_ONLY"
+    ),
 
     safeguards: {
       dryRun: true,
-      applyChanges: false,
       requiresApproval: true,
       immutablePlan: true,
-      selfModification: false,
+      noFilesystemWrites: true,
+      noSelfModification: true,
     },
 
     checksum,
@@ -193,12 +177,13 @@ export default function AutonomyToggle({ value = false, onChange }) {
       canApply: false,
       canModifyFiles: false,
       canSelfEvolve: false,
-      allowedNext:
-        planType === "SANDBOX_PLAN"
-          ? ["SANDBOX_IMPLEMENTATION"]
-          : ["UI_IMPLEMENTATION"],
+      nextPhase:
+        planType === "THREE_TERMINAL_PLAN"
+          ? "PHASE_2_IMPLEMENTATION"
+          : "PHASE_1_IMPLEMENTATION",
     },
 
-    nextStep: "Human review → selective approval → apply phase",
+    nextStep:
+      "Review plan → approve specific files → send approved payload to /api/siva-apply",
   });
 }
