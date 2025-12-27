@@ -9,7 +9,7 @@ export default function TerminalUI() {
   const [plan, setPlan] = useState(null);
   const [status, setStatus] = useState("SYSTEM_READY");
 
-  // 🔹 NEW: store BEFORE versions for diff
+  // BEFORE versions for diff
   const [diffs, setDiffs] = useState({});
 
   // --- STEP 1: PLAN ---
@@ -37,11 +37,19 @@ export default function TerminalUI() {
         return;
       }
 
-      // 🔹 Fetch BEFORE versions for diff preview
+      // Fetch BEFORE versions for diff preview
       const beforeMap = {};
 
       for (const file of data.files || []) {
-        const r = await fetch(`/api/siva-read?path=${encodeURIComponent(file.path)}`);
+        // Skip architecture pseudo-paths
+        if (file.path.startsWith("ARCHITECTURE::")) {
+          beforeMap[file.path] = "// ARCHITECTURE DESCRIPTION";
+          continue;
+        }
+
+        const r = await fetch(
+          `/api/siva-read?path=${encodeURIComponent(file.path)}`
+        );
         const before = await r.json();
 
         beforeMap[file.path] = before.exists
@@ -51,7 +59,12 @@ export default function TerminalUI() {
 
       setDiffs(beforeMap);
       setPlan(data);
-      setStatus("🧠 PLAN_READY");
+
+      if (data.applyEligibleFiles?.length > 0) {
+        setStatus("🧠 PLAN_READY — APPLY AVAILABLE");
+      } else {
+        setStatus("🧠 PLAN_READY — NO APPLY (DESIGN ONLY)");
+      }
     } catch (err) {
       console.error(err);
       setStatus("❌ CONNECTION_ERROR");
@@ -60,7 +73,10 @@ export default function TerminalUI() {
 
   // --- STEP 2: APPLY ---
   async function approveAndApply() {
-    if (!plan?.files?.length) return;
+    if (!plan?.applyEligibleFiles?.length) {
+      setStatus("⚠️ NOTHING TO APPLY");
+      return;
+    }
 
     setStatus("SIVA_APPLYING...");
 
@@ -70,22 +86,25 @@ export default function TerminalUI() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId: plan.taskId,
-          files: plan.files,
+          files: plan.applyEligibleFiles,
         }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
+        console.error(data);
         setStatus("❌ APPLY FAILED");
         return;
       }
 
-      setStatus("✅ SIVA_COMMITTED");
+      setStatus(`✅ APPLIED (${data.committedCount || 0} files)`);
       setCommand("");
       setPlan(null);
       setDiffs({});
     } catch (err) {
       console.error(err);
-      setStatus("❌ APPLY_CONNECTION_ERROR");
+      setStatus("❌ APPLY CONNECTION ERROR");
     }
   }
 
@@ -150,7 +169,7 @@ export default function TerminalUI() {
       <textarea
         value={command}
         onChange={(e) => setCommand(e.target.value)}
-        placeholder="e.g. Siva build a settings page with autonomy toggle"
+        placeholder="e.g. Plan Cipher chat UI improvements"
         style={{
           width: "100%",
           height: "120px",
@@ -198,12 +217,7 @@ export default function TerminalUI() {
                 padding: "10px",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                }}
-              >
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <strong>{file.path}</strong>
                 <span style={{ opacity: 0.8 }}>{file.action}</span>
               </div>
@@ -249,28 +263,31 @@ export default function TerminalUI() {
                       border: "1px solid #030",
                     }}
                   >
-{file.content}
+{file.content || "// NO CONTENT (DESIGN ONLY)"}
                   </pre>
                 </div>
               </div>
             </div>
           ))}
 
-          <button
-            onClick={approveAndApply}
-            style={{
-              width: "100%",
-              marginTop: "20px",
-              padding: "15px",
-              background: "#00ff99",
-              color: "#000",
-              fontWeight: "bold",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            APPROVE & APPLY
-          </button>
+          {/* APPLY BUTTON — ONLY WHEN VALID */}
+          {plan.applyEligibleFiles?.length > 0 && (
+            <button
+              onClick={approveAndApply}
+              style={{
+                width: "100%",
+                marginTop: "20px",
+                padding: "15px",
+                background: "#00ff99",
+                color: "#000",
+                fontWeight: "bold",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              APPROVE & APPLY
+            </button>
+          )}
         </div>
       )}
     </div>
