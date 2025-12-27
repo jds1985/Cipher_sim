@@ -1,6 +1,6 @@
 // pages/api/siva-apply.js
 // SIVA — APPLY PHASE (GitHub Commit Engine) — UPGRADED
-
+console.log("🔥 SIVA APPLY HIT");
 const {
   GITHUB_TOKEN,
   GITHUB_OWNER,
