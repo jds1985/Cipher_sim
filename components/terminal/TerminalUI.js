@@ -9,6 +9,7 @@ export default function TerminalUI() {
   const [sandbox, setSandbox] = useState(null);
   const [status, setStatus] = useState("SYSTEM_READY");
 
+  // Files eligible for APPLY (from plan)
   const applyEligibleFiles = useMemo(() => {
     if (!plan?.capabilities?.canApply) return [];
     return (plan.files || []).filter(
@@ -16,6 +17,9 @@ export default function TerminalUI() {
     );
   }, [plan]);
 
+  // ─────────────────────────────
+  // RUN PLAN + SANDBOX
+  // ─────────────────────────────
   async function runSivaPlan() {
     if (!command.trim()) return;
 
@@ -23,6 +27,7 @@ export default function TerminalUI() {
     setPlan(null);
     setSandbox(null);
 
+    // 1️⃣ PLAN
     const res = await fetch("/api/siva-plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -38,26 +43,40 @@ export default function TerminalUI() {
     setPlan(data);
     setStatus("🧠 PLAN_READY — SANDBOXING...");
 
-    // 🔒 AUTO SANDBOX
+    // 2️⃣ SANDBOX (derive files directly from plan result)
+    const filesForSandbox = (data.files || []).filter(
+      (f) => f.mode === "FULL_CONTENT" && typeof f.content === "string"
+    );
+
     const sb = await fetch("/api/siva-sandbox", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         taskId: data.taskId,
-        files: applyEligibleFiles,
+        files: filesForSandbox,
       }),
     });
 
     const sbData = await sb.json();
-    setSandbox(sbData);
+
+    // 🔑 AUTHORITATIVE RULE
+    const allowApply = sbData.verdict !== "FAILED";
+
+    setSandbox({
+      ...sbData,
+      allowApply,
+    });
 
     setStatus(
-      sbData.allowApply
+      allowApply
         ? "🟢 SANDBOX PASSED — APPLY READY"
         : "🔴 SANDBOX FAILED — APPLY BLOCKED"
     );
   }
 
+  // ─────────────────────────────
+  // APPLY
+  // ─────────────────────────────
   async function approveAndApply() {
     if (!sandbox?.allowApply) {
       setStatus("⛔ APPLY BLOCKED BY SANDBOX");
@@ -86,11 +105,35 @@ export default function TerminalUI() {
     setSandbox(null);
   }
 
+  // ─────────────────────────────
+  // UI
+  // ─────────────────────────────
   return (
-    <div style={{ background: "#000", color: "#0f0", minHeight: "100vh", padding: 20, fontFamily: "monospace" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #0f0" }}>
+    <div
+      style={{
+        background: "#000",
+        color: "#0f0",
+        minHeight: "100vh",
+        padding: 20,
+        fontFamily: "monospace",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #0f0",
+        }}
+      >
         <h2>CIPHER_TERMINAL_V2 — SIVA</h2>
-        <Link href="/" style={{ color: "#0f0", border: "1px solid #0f0", padding: "4px 10px" }}>
+        <Link
+          href="/"
+          style={{
+            color: "#0f0",
+            border: "1px solid #0f0",
+            padding: "4px 10px",
+          }}
+        >
           RETURN_TO_CHAT
         </Link>
       </div>
@@ -103,26 +146,51 @@ export default function TerminalUI() {
         value={command}
         onChange={(e) => setCommand(e.target.value)}
         placeholder="Siva IMPLEMENT a settings page with autonomy toggle"
-        style={{ width: "100%", height: 120, background: "#111", color: "#0f0", border: "1px solid #0f0", padding: 12 }}
+        style={{
+          width: "100%",
+          height: 120,
+          background: "#111",
+          color: "#0f0",
+          border: "1px solid #0f0",
+          padding: 12,
+        }}
       />
 
       <button
         onClick={runSivaPlan}
-        style={{ width: "100%", marginTop: 10, padding: 15, background: "#0f0", color: "#000", fontWeight: "bold" }}
+        style={{
+          width: "100%",
+          marginTop: 10,
+          padding: 15,
+          background: "#0f0",
+          color: "#000",
+          fontWeight: "bold",
+        }}
       >
         RUN SIVA PLAN
       </button>
 
       {sandbox && (
-        <div style={{ marginTop: 20, border: "1px solid #0f0", padding: 15 }}>
+        <div
+          style={{
+            marginTop: 20,
+            border: "1px solid #0f0",
+            padding: 15,
+          }}
+        >
           <h3>SANDBOX VERDICT: {sandbox.verdict}</h3>
-          <p>Confidence: {sandbox.confidence}%</p>
+          <p>
+            Confidence:{" "}
+            {typeof sandbox.confidence === "number"
+              ? `${sandbox.confidence}%`
+              : "—"}
+          </p>
 
           {sandbox.issues?.length > 0 && (
             <ul>
               {sandbox.issues.map((i, idx) => (
                 <li key={idx}>
-                  [{i.severity}] {i.file}: {i.message}
+                  [{i.type}] {i.file}: {i.message}
                 </li>
               ))}
             </ul>
@@ -133,7 +201,14 @@ export default function TerminalUI() {
       {sandbox?.allowApply && (
         <button
           onClick={approveAndApply}
-          style={{ width: "100%", marginTop: 20, padding: 15, background: "#00ff99", color: "#000", fontWeight: "bold" }}
+          style={{
+            width: "100%",
+            marginTop: 20,
+            padding: 15,
+            background: "#00ff99",
+            color: "#000",
+            fontWeight: "bold",
+          }}
         >
           APPROVE & APPLY
         </button>
