@@ -1,7 +1,7 @@
 // pages/api/siva-sandbox.js
 // SIVA — SANDBOX PHASE
-// Dry-run verification · No commits · No writes
-// Calm judgment before action.
+// Deterministic dry-run verification · No commits · No writes
+// Judgment before action.
 
 const BLOCKED_PATH_PREFIXES = [
   ".git/",
@@ -28,34 +28,35 @@ function isBlockedPath(path) {
   return BLOCKED_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
-function hasSyntaxRedFlags(content) {
-  const flags = [];
-  if (content.includes("require(")) {
-    flags.push("CommonJS require() detected — prefer ES imports");
-  }
-  if (content.includes("eval(")) {
-    flags.push("eval() detected — blocked in sandbox");
-  }
-  return flags;
-}
-
-function checkImports(content, filePath) {
+function analyzeContent(content) {
   const issues = [];
-  const importRegex =
-    /import\s+.*?\s+from\s+['"](.+?)['"]/g;
 
+  if (content.includes("eval(")) {
+    issues.push({
+      type: "FORBIDDEN_SYNTAX",
+      severity: "CRITICAL",
+      message: "eval() detected — execution blocked",
+    });
+  }
+
+  if (content.includes("require(")) {
+    issues.push({
+      type: "LEGACY_IMPORT",
+      severity: "LOW",
+      message: "CommonJS require() detected — prefer ES modules",
+    });
+  }
+
+  const importRegex = /import\s+.*?\s+from\s+['"](.+?)['"]/g;
   let match;
   while ((match = importRegex.exec(content))) {
     const target = match[1];
-    if (target.startsWith(".")) {
-      // relative import sanity check
-      if (!target.endsWith(".js") && !target.endsWith(".jsx")) {
-        issues.push({
-          type: "IMPORT_WARNING",
-          file: filePath,
-          message: `Relative import "${target}" has no extension`,
-        });
-      }
+    if (target.startsWith(".") && !target.endsWith(".js") && !target.endsWith(".jsx")) {
+      issues.push({
+        type: "IMPORT_WARNING",
+        severity: "MEDIUM",
+        message: `Relative import "${target}" missing extension`,
+      });
     }
   }
 
@@ -64,9 +65,7 @@ function checkImports(content, filePath) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({
-      status: "METHOD_NOT_ALLOWED",
-    });
+    return res.status(405).json({ status: "METHOD_NOT_ALLOWED" });
   }
 
   const { taskId, files } = req.body || {};
@@ -79,67 +78,77 @@ export default async function handler(req, res) {
   }
 
   const issues = [];
+  let score = 100;
   let verdict = "CLEAN";
 
   for (const file of files) {
-    const rawPath = file?.path;
+    const path = normalizePath(file?.path || "");
     const content = file?.content;
 
-    if (!rawPath) continue;
+    if (!path) continue;
 
-    const path = normalizePath(rawPath);
-
-    // 🔒 Path safety
     if (isBlockedPath(path)) {
       issues.push({
-        type: "BLOCKED_PATH",
         file: path,
-        message: "Target path is blocked in sandbox",
+        type: "BLOCKED_PATH",
+        severity: "CRITICAL",
+        message: "Target path is blocked",
       });
       verdict = "FAILED";
+      score -= 40;
       continue;
     }
 
-    // 🧠 Content checks
-    if (typeof content === "string") {
-      const redFlags = hasSyntaxRedFlags(content);
-      if (redFlags.length > 0) {
-        verdict = verdict === "FAILED" ? "FAILED" : "WARNINGS";
-        redFlags.forEach((msg) =>
-          issues.push({
-            type: "SYNTAX_WARNING",
-            file: path,
-            message: msg,
-          })
-        );
-      }
-
-      const importIssues = checkImports(content, path);
-      if (importIssues.length > 0) {
-        verdict = verdict === "FAILED" ? "FAILED" : "WARNINGS";
-        issues.push(...importIssues);
-      }
-    } else {
-      // DESIGN_ONLY or missing content
-      verdict = verdict === "FAILED" ? "FAILED" : "WARNINGS";
+    if (typeof content !== "string") {
       issues.push({
-        type: "NO_CONTENT",
         file: path,
+        type: "NO_CONTENT",
+        severity: "MEDIUM",
         message: "No content provided (design-only or placeholder)",
       });
+      verdict = verdict === "FAILED" ? "FAILED" : "WARNINGS";
+      score -= 10;
+      continue;
+    }
+
+    const contentIssues = analyzeContent(content);
+    for (const issue of contentIssues) {
+      issues.push({ file: path, ...issue });
+
+      if (issue.severity === "CRITICAL") score -= 40;
+      if (issue.severity === "MEDIUM") score -= 10;
+      if (issue.severity === "LOW") score -= 5;
+
+      verdict =
+        issue.severity === "CRITICAL"
+          ? "FAILED"
+          : verdict === "CLEAN"
+          ? "WARNINGS"
+          : verdict;
     }
   }
+
+  score = Math.max(0, score);
+
+  const allowApply = verdict !== "FAILED";
 
   return res.status(200).json({
     status: "SIVA_SANDBOX_OK",
     taskId,
     verdict,
+    confidence: score,
+    allowApply,
     issues,
     summary:
       verdict === "CLEAN"
         ? "Sandbox passed with no issues"
         : verdict === "WARNINGS"
-        ? "Sandbox completed with warnings"
+        ? "Sandbox passed with warnings"
         : "Sandbox failed — apply blocked",
+    meta: {
+      phase: "SANDBOX",
+      timestamp: new Date().toISOString(),
+      futureCompatible: true,
+    },
   });
 }
