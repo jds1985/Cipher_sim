@@ -27,7 +27,6 @@ export default function TerminalUI() {
     setPlan(null);
     setSandbox(null);
 
-    // 1️⃣ PLAN
     const res = await fetch("/api/siva-plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -43,7 +42,6 @@ export default function TerminalUI() {
     setPlan(data);
     setStatus("🧠 PLAN_READY — SANDBOXING...");
 
-    // 2️⃣ SANDBOX (derive files directly from plan response)
     const filesForSandbox = (data.files || []).filter(
       (f) => f.mode === "FULL_CONTENT" && typeof f.content === "string"
     );
@@ -58,13 +56,9 @@ export default function TerminalUI() {
     });
 
     const sbData = await sb.json();
-
     const allowApply = sbData.verdict !== "FAILED";
 
-    setSandbox({
-      ...sbData,
-      allowApply,
-    });
+    setSandbox({ ...sbData, allowApply });
 
     setStatus(
       allowApply
@@ -74,7 +68,7 @@ export default function TerminalUI() {
   }
 
   // ─────────────────────────────
-  // APPLY
+  // APPLY  ✅ FIXED
   // ─────────────────────────────
   async function approveAndApply() {
     if (!sandbox?.allowApply || !plan) {
@@ -84,10 +78,13 @@ export default function TerminalUI() {
 
     setStatus("SIVA_APPLYING...");
 
-    // 🔑 RE-DERIVE FILES AT APPLY TIME (critical fix)
-    const filesForApply = (plan.files || []).filter(
-      (f) => f.mode === "FULL_CONTENT" && typeof f.content === "string"
-    );
+    // 🔑 ADD ACTION FIELD (THE MISSING LINK)
+    const filesForApply = (plan.files || [])
+      .filter((f) => f.mode === "FULL_CONTENT" && typeof f.content === "string")
+      .map((f) => ({
+        ...f,
+        action: "CREATE_OR_UPDATE",
+      }));
 
     const res = await fetch("/api/siva-apply", {
       method: "POST",
@@ -189,16 +186,6 @@ export default function TerminalUI() {
               ? `${sandbox.confidence}%`
               : "—"}
           </p>
-
-          {sandbox.issues?.length > 0 && (
-            <ul>
-              {sandbox.issues.map((i, idx) => (
-                <li key={idx}>
-                  [{i.type}] {i.file}: {i.message}
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       )}
 
