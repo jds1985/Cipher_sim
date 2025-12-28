@@ -9,7 +9,7 @@ export default function TerminalUI() {
   const [sandbox, setSandbox] = useState(null);
   const [status, setStatus] = useState("SYSTEM_READY");
 
-  // Files eligible for APPLY (from plan)
+  // Files eligible for APPLY (derived from plan)
   const applyEligibleFiles = useMemo(() => {
     if (!plan?.capabilities?.canApply) return [];
     return (plan.files || []).filter(
@@ -43,7 +43,7 @@ export default function TerminalUI() {
     setPlan(data);
     setStatus("🧠 PLAN_READY — SANDBOXING...");
 
-    // 2️⃣ SANDBOX (derive files directly from plan result)
+    // 2️⃣ SANDBOX (derive files directly from plan response)
     const filesForSandbox = (data.files || []).filter(
       (f) => f.mode === "FULL_CONTENT" && typeof f.content === "string"
     );
@@ -59,7 +59,6 @@ export default function TerminalUI() {
 
     const sbData = await sb.json();
 
-    // 🔑 AUTHORITATIVE RULE
     const allowApply = sbData.verdict !== "FAILED";
 
     setSandbox({
@@ -78,19 +77,24 @@ export default function TerminalUI() {
   // APPLY
   // ─────────────────────────────
   async function approveAndApply() {
-    if (!sandbox?.allowApply) {
+    if (!sandbox?.allowApply || !plan) {
       setStatus("⛔ APPLY BLOCKED BY SANDBOX");
       return;
     }
 
     setStatus("SIVA_APPLYING...");
 
+    // 🔑 RE-DERIVE FILES AT APPLY TIME (critical fix)
+    const filesForApply = (plan.files || []).filter(
+      (f) => f.mode === "FULL_CONTENT" && typeof f.content === "string"
+    );
+
     const res = await fetch("/api/siva-apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         taskId: plan.taskId,
-        files: applyEligibleFiles,
+        files: filesForApply,
       }),
     });
 
