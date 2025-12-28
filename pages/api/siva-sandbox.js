@@ -1,7 +1,6 @@
 // pages/api/siva-sandbox.js
-// SIVA — SANDBOX PHASE
-// Deterministic dry-run verification · No commits · No writes
-// Judgment before action.
+// SIVA — SANDBOX PHASE v1.1
+// Semantic awareness · Dry-run · No commits
 
 const BLOCKED_PATH_PREFIXES = [
   ".git/",
@@ -28,40 +27,111 @@ function isBlockedPath(path) {
   return BLOCKED_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
-function analyzeContent(content) {
-  const issues = [];
+/* ───────── Syntax Checks ───────── */
 
-  if (content.includes("eval(")) {
-    issues.push({
-      type: "FORBIDDEN_SYNTAX",
-      severity: "CRITICAL",
-      message: "eval() detected — execution blocked",
-    });
-  }
-
+function hasSyntaxRedFlags(content) {
+  const flags = [];
   if (content.includes("require(")) {
-    issues.push({
-      type: "LEGACY_IMPORT",
-      severity: "LOW",
-      message: "CommonJS require() detected — prefer ES modules",
-    });
+    flags.push("CommonJS require() detected — prefer ES imports");
   }
+  if (content.includes("eval(")) {
+    flags.push("eval() detected — blocked in sandbox");
+  }
+  return flags;
+}
 
-  const importRegex = /import\s+.*?\s+from\s+['"](.+?)['"]/g;
+function checkImports(content, filePath) {
+  const issues = [];
+  const importRegex =
+    /import\s+.*?\s+from\s+['"](.+?)['"]/g;
+
   let match;
   while ((match = importRegex.exec(content))) {
     const target = match[1];
-    if (target.startsWith(".") && !target.endsWith(".js") && !target.endsWith(".jsx")) {
+    if (target.startsWith(".") && !target.match(/\.(js|jsx)$/)) {
       issues.push({
         type: "IMPORT_WARNING",
-        severity: "MEDIUM",
-        message: `Relative import "${target}" missing extension`,
+        file: filePath,
+        message: `Relative import "${target}" has no extension`,
+      });
+    }
+  }
+  return issues;
+}
+
+/* ───────── Semantic Checks (NEW) ───────── */
+
+function semanticScan(file) {
+  const issues = [];
+  const { path, content } = file;
+
+  // API surface changes
+  if (path.startsWith("pages/api/")) {
+    issues.push({
+      type: "SEMANTIC_WARNING",
+      file: path,
+      message: "Modifies or introduces API endpoint",
+    });
+  }
+
+  // Public routes
+  if (path.startsWith("pages/") && !path.startsWith("pages/api/")) {
+    issues.push({
+      type: "SEMANTIC_INFO",
+      file: path,
+      message: "Creates or modifies public route",
+    });
+  }
+
+  if (typeof content === "string") {
+    const lower = content.toLowerCase();
+
+    if (lower.includes("process.env")) {
+      issues.push({
+        type: "SEMANTIC_WARNING",
+        file: path,
+        message: "Accesses environment variables",
+      });
+    }
+
+    if (
+      lower.includes("auth") ||
+      lower.includes("token") ||
+      lower.includes("session")
+    ) {
+      issues.push({
+        type: "SEMANTIC_WARNING",
+        file: path,
+        message: "Touches authentication boundary",
+      });
+    }
+
+    if (
+      lower.includes("firebase") ||
+      lower.includes("firestore") ||
+      lower.includes("database") ||
+      lower.includes("db.")
+    ) {
+      issues.push({
+        type: "SEMANTIC_WARNING",
+        file: path,
+        message: "Touches persistence layer",
+      });
+    }
+
+    if (content.includes("fetch(")) {
+      issues.push({
+        type: "SEMANTIC_INFO",
+        file: path,
+        message: "Performs external or internal fetch",
       });
     }
   }
 
   return issues;
 }
+
+/* ───────── Handler ───────── */
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -78,77 +148,67 @@ export default async function handler(req, res) {
   }
 
   const issues = [];
-  let score = 100;
   let verdict = "CLEAN";
 
   for (const file of files) {
-    const path = normalizePath(file?.path || "");
+    const rawPath = file?.path;
     const content = file?.content;
 
-    if (!path) continue;
+    if (!rawPath) continue;
 
+    const path = normalizePath(rawPath);
+
+    // 🔒 Path safety
     if (isBlockedPath(path)) {
       issues.push({
-        file: path,
         type: "BLOCKED_PATH",
-        severity: "CRITICAL",
-        message: "Target path is blocked",
+        file: path,
+        message: "Target path is blocked in sandbox",
       });
       verdict = "FAILED";
-      score -= 40;
       continue;
     }
 
-    if (typeof content !== "string") {
+    // 🧠 Syntax checks
+    if (typeof content === "string") {
+      hasSyntaxRedFlags(content).forEach((msg) => {
+        verdict = verdict === "FAILED" ? "FAILED" : "WARNINGS";
+        issues.push({
+          type: "SYNTAX_WARNING",
+          file: path,
+          message: msg,
+        });
+      });
+
+      issues.push(...checkImports(content, path));
+    } else {
+      verdict = verdict === "FAILED" ? "FAILED" : "WARNINGS";
       issues.push({
-        file: path,
         type: "NO_CONTENT",
-        severity: "MEDIUM",
+        file: path,
         message: "No content provided (design-only or placeholder)",
       });
-      verdict = verdict === "FAILED" ? "FAILED" : "WARNINGS";
-      score -= 10;
-      continue;
     }
 
-    const contentIssues = analyzeContent(content);
-    for (const issue of contentIssues) {
-      issues.push({ file: path, ...issue });
-
-      if (issue.severity === "CRITICAL") score -= 40;
-      if (issue.severity === "MEDIUM") score -= 10;
-      if (issue.severity === "LOW") score -= 5;
-
-      verdict =
-        issue.severity === "CRITICAL"
-          ? "FAILED"
-          : verdict === "CLEAN"
-          ? "WARNINGS"
-          : verdict;
-    }
+    // 🧠 Semantic scan (NEW)
+    semanticScan({ path, content }).forEach((i) => {
+      if (i.type.includes("WARNING") && verdict !== "FAILED") {
+        verdict = "WARNINGS";
+      }
+      issues.push(i);
+    });
   }
-
-  score = Math.max(0, score);
-
-  const allowApply = verdict !== "FAILED";
 
   return res.status(200).json({
     status: "SIVA_SANDBOX_OK",
     taskId,
     verdict,
-    confidence: score,
-    allowApply,
     issues,
     summary:
       verdict === "CLEAN"
         ? "Sandbox passed with no issues"
         : verdict === "WARNINGS"
-        ? "Sandbox passed with warnings"
+        ? "Sandbox completed with semantic warnings"
         : "Sandbox failed — apply blocked",
-    meta: {
-      phase: "SANDBOX",
-      timestamp: new Date().toISOString(),
-      futureCompatible: true,
-    },
   });
 }
