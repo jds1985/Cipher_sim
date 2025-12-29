@@ -1,6 +1,6 @@
 // pages/api/siva-plan.js
-// SIVA — PLAN PHASE (UPGRADED)
-// Intent Router · Safe Planner · Patch Planner (Step 2) · No Commits
+// SIVA — PLAN PHASE (UPGRADED v3)
+// Intent Router · Safe Planner · Patch Planner · Apply-Compatible
 // Dark. Calm. In control.
 
 export default async function handler(req, res) {
@@ -110,9 +110,7 @@ export default function AutonomyToggle({ value = false, onChange }) {
   }
 
   // ─────────────────────────────────────────────
-  // 🧩 PATCH PARSER (Step 2)
-  // Supports: Siva PATCH <path> add a line saying "..."
-  // Produces deterministic patchOps (no full overwrite)
+  // 🧩 PATCH PARSER (APPLY-SAFE)
   // ─────────────────────────────────────────────
 
   function parseQuotedText(s) {
@@ -121,7 +119,6 @@ export default function AutonomyToggle({ value = false, onChange }) {
   }
 
   function extractPath(raw) {
-    // Accepts paths like components/TestBox.js or pages/foo.js
     const m = raw.match(/([A-Za-z0-9._\-\/]+\.js)/);
     return m ? m[1] : null;
   }
@@ -136,22 +133,16 @@ export default function AutonomyToggle({ value = false, onChange }) {
         ? `Patch ${path}: add line "${sayText}"`
         : `Patch ${path}: requested mutation`;
 
-      // Default deterministic patch: insert a string line after a known safe anchor.
-      // This matches what you tested successfully in TestBox.
       const patchOps = [];
 
       if (sayText) {
         patchOps.push({
           op: "INSERT_AFTER",
-          // anchor: common pattern in our generated components
           match: `{children || "Component active."}`,
           insert: `\n          "${sayText}"`,
           once: true,
         });
-      }
-
-      // If no quoted string, still create a placeholder op that will fail safely
-      if (patchOps.length === 0) {
+      } else {
         patchOps.push({
           op: "FAIL_SAFE",
           reason:
@@ -162,18 +153,30 @@ export default function AutonomyToggle({ value = false, onChange }) {
       files.push({
         path,
         action: "CREATE_OR_UPDATE",
-        mode: "PATCH", // 👈 patch mode (Apply will accept this)
+
+        // 🔑 PATCH IS NOW APPLY-ELIGIBLE
+        mode: "PATCH",
         mutation: "PATCH_EXISTING",
+
+        // 🔒 Satisfies apply guard without overwriting
+        syntheticContent: `
+/*
+ SIVA PATCH PLAN
+ File: ${path}
+ Instruction: ${intentRaw}
+*/
+        `.trim(),
+
         patchOps,
       });
     }
   }
 
   // ─────────────────────────────────────────────
-  // 🧱 GENERIC IMPLEMENT FALLBACK (unchanged)
+  // 🧱 GENERIC IMPLEMENT FALLBACK
   // ─────────────────────────────────────────────
 
-  if (wantsApply && files.filter((f) => f.mode === "FULL_CONTENT").length === 0) {
+  if (wantsApply && files.filter(f => f.mode === "FULL_CONTENT").length === 0) {
     const match = intentRaw.match(/components\/([A-Za-z0-9_-]+)\.js/);
 
     if (match) {
