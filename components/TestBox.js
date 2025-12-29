@@ -32,6 +32,7 @@ export default function TestBox({
       {active && (
         <div style={{ marginTop: "12px" }}>
           {children || "Component active."}
+          "patched successfully"
         </div>
       )}
     </div>
