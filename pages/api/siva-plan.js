@@ -1,5 +1,5 @@
 // pages/api/siva-plan.js
-// SIVA — PLAN PHASE (FIX MODE ENABLED)
+// SIVA — PLAN PHASE (FIX MODE ENABLED + APPLY GUARDS)
 // Intent Router · Safe Planner · Patch Planner · Fix Planner · No Commits
 // Dark. Calm. In control.
 
@@ -39,30 +39,29 @@ export default async function handler(req, res) {
   let files = [];
 
   // ─────────────────────────────────────────────
-  // 🛠️ FIX MODE (DIAGNOSTIC PATCHING)
+  // 🔎 PATH EXTRACTION
   // ─────────────────────────────────────────────
-  // Examples:
-  // - Siva FIX components/TestBox.js
-  // - Siva FIX sandbox warnings
 
   function extractPath(raw) {
     const m = raw.match(/([A-Za-z0-9._\-\/]+\.js)/);
     return m ? m[1] : null;
   }
 
+  // ─────────────────────────────────────────────
+  // 🛠️ FIX MODE (DIAGNOSTIC ONLY — NO APPLY)
+  // ─────────────────────────────────────────────
+
   if (wantsFix && files.length === 0) {
     const path = extractPath(intentRaw);
 
     if (path) {
-      summary = `Fix detected issues in ${path}`;
+      summary = `Analyze and prepare safe fixes for ${path}`;
 
       files.push({
         path,
-        action: "CREATE_OR_UPDATE",
+        action: "ANALYZE_ONLY",
         mode: "FIX",
         mutation: "FIX_EXISTING",
-
-        // Fix ops are still patchOps — just semantically different
         fixStrategy: {
           scope: "SAFE_UI_FIXES",
           allowJSXWrap: true,
@@ -75,13 +74,36 @@ export default async function handler(req, res) {
   }
 
   // ─────────────────────────────────────────────
-  // 🧩 PATCH MODE (unchanged)
+  // 🧩 PATCH MODE (STRICT + GUARDED)
   // ─────────────────────────────────────────────
 
   if (wantsPatch && files.length === 0) {
     const path = extractPath(intentRaw);
     const quoted = intentRaw.match(/"([^"]+)"/);
 
+    // ❌ FAIL-SAFE — PATCH WITHOUT QUOTES
+    if (path && !quoted) {
+      return res.status(200).json({
+        status: "SIVA_PLAN_REJECTED",
+        phase: "PLAN",
+        taskId,
+        summary: "Patch rejected: missing quoted string",
+        files: [],
+        safeguards: {
+          planOnly: true,
+          requiresHumanApproval: true,
+          selfModification: false,
+        },
+        capabilities: {
+          canApply: false,
+          canPatch: true,
+          canFix: false,
+        },
+        nextStep: 'Use: Siva PATCH <path> add a line saying "..."',
+      });
+    }
+
+    // ✅ VALID PATCH
     if (path && quoted) {
       summary = `Patch ${path}: add line "${quoted[1]}"`;
 
@@ -103,7 +125,7 @@ export default async function handler(req, res) {
   }
 
   // ─────────────────────────────────────────────
-  // 🧱 IMPLEMENT FALLBACK (unchanged)
+  // 🧱 IMPLEMENT FALLBACK (FULL CONTENT)
   // ─────────────────────────────────────────────
 
   if (wantsApply && files.filter(f => f.mode === "FULL_CONTENT").length === 0) {
@@ -165,6 +187,10 @@ export default function ${name}({ title = "${name}", children }) {
   // 📤 RESPONSE
   // ─────────────────────────────────────────────
 
+  const canApply =
+    wantsApply ||
+    wantsPatch; // FIX never auto-applies
+
   return res.status(200).json({
     status: "SIVA_PLAN_OK",
     phase: "PLAN",
@@ -176,20 +202,22 @@ export default function ${name}({ title = "${name}", children }) {
     files,
 
     safeguards: {
-      planOnly: !wantsApply && !wantsPatch && !wantsFix,
+      planOnly: !canApply,
       requiresHumanApproval: true,
       selfModification: false,
     },
 
     capabilities: {
-      canApply: wantsApply || wantsPatch || wantsFix,
+      canApply,
       canPatch: wantsPatch,
       canFix: wantsFix,
     },
 
     nextStep:
-      wantsApply || wantsPatch || wantsFix
-        ? "Review → Sandbox → Approve & Apply"
-        : "Use IMPLEMENT, PATCH, or FIX to proceed",
+      wantsFix
+        ? "Review diagnostics → Convert to PATCH or IMPLEMENT"
+        : canApply
+          ? "Review → Sandbox → Approve & Apply"
+          : "Use IMPLEMENT, PATCH, or FIX to proceed",
   });
 }
