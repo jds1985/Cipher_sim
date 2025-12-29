@@ -9,14 +9,28 @@ export default function TerminalUI() {
   const [sandbox, setSandbox] = useState(null);
   const [status, setStatus] = useState("SYSTEM_READY");
 
-  // Files eligible for APPLY (FULL_CONTENT or PATCH)
+  // ─────────────────────────────
+  // APPLY-ELIGIBLE FILES (FIXED)
+  // FULL_CONTENT OR PATCH w/ syntheticContent
+  // ─────────────────────────────
   const applyEligibleFiles = useMemo(() => {
     if (!plan?.capabilities?.canApply) return [];
-    return (plan.files || []).filter(
-      (f) =>
-        (f.mode === "FULL_CONTENT" || f.mutation === "PATCH_EXISTING") &&
-        typeof f.content === "string"
-    );
+
+    return (plan.files || []).filter((f) => {
+      if (f.mode === "FULL_CONTENT" && typeof f.content === "string") {
+        return true;
+      }
+
+      if (
+        f.mode === "PATCH" &&
+        typeof f.syntheticContent === "string" &&
+        Array.isArray(f.patchOps)
+      ) {
+        return true;
+      }
+
+      return false;
+    });
   }, [plan]);
 
   // ─────────────────────────────
@@ -44,11 +58,11 @@ export default function TerminalUI() {
     setPlan(data);
     setStatus("🧠 PLAN_READY — SANDBOXING...");
 
-    // Sandbox FULL_CONTENT + PATCH files
+    // Sandbox FULL_CONTENT + PATCH
     const filesForSandbox = (data.files || []).filter(
       (f) =>
-        (f.mode === "FULL_CONTENT" || f.mutation === "PATCH_EXISTING") &&
-        typeof f.content === "string"
+        (f.mode === "FULL_CONTENT" && typeof f.content === "string") ||
+        (f.mode === "PATCH" && typeof f.syntheticContent === "string")
     );
 
     const sb = await fetch("/api/siva-sandbox", {
@@ -73,7 +87,7 @@ export default function TerminalUI() {
   }
 
   // ─────────────────────────────
-  // APPLY
+  // APPLY (PATCH + FULL CONTENT)
   // ─────────────────────────────
   async function approveAndApply() {
     if (!sandbox?.allowApply || !plan) {
@@ -81,17 +95,10 @@ export default function TerminalUI() {
       return;
     }
 
-    // FINAL SOURCE OF TRUTH — FULL + PATCH
-    const filesForApply = (plan.files || [])
-      .filter(
-        (f) =>
-          (f.mode === "FULL_CONTENT" || f.mutation === "PATCH_EXISTING") &&
-          typeof f.content === "string"
-      )
-      .map((f) => ({
-        ...f,
-        action: "CREATE_OR_UPDATE",
-      }));
+    const filesForApply = applyEligibleFiles.map((f) => ({
+      ...f,
+      action: "CREATE_OR_UPDATE",
+    }));
 
     if (filesForApply.length === 0) {
       setStatus("⛔ NO WRITABLE FILES");
@@ -160,7 +167,7 @@ export default function TerminalUI() {
       <textarea
         value={command}
         onChange={(e) => setCommand(e.target.value)}
-        placeholder="Siva IMPLEMENT components/TestBox.js"
+        placeholder='Siva PATCH components/TestBox.js add a line saying "patched successfully v4"'
         style={{
           width: "100%",
           height: 120,
