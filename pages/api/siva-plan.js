@@ -1,6 +1,6 @@
 // pages/api/siva-plan.js
-// SIVA — PLAN PHASE
-// Intent Router · Safe Planner · No Commits
+// SIVA — PLAN PHASE (UPGRADED)
+// Intent Router · Safe Planner · Patch Planner (Step 2) · No Commits
 // Dark. Calm. In control.
 
 export default async function handler(req, res) {
@@ -22,16 +22,16 @@ export default async function handler(req, res) {
   const taskId = "SIVA_" + Date.now();
 
   // ─────────────────────────────────────────────
-  // 🧠 INTENT DETECTION (UPGRADED)
+  // 🧠 INTENT DETECTION
   // ─────────────────────────────────────────────
 
   const wantsApply =
     intent.includes("implement") ||
     intent.includes("apply") ||
-    intent.includes("commit") ||
-    intent.includes("patch"); // 🔑 PATCH IS APPLY
+    intent.includes("commit");
 
   const wantsPatch = intent.includes("patch");
+
   const wantsSettings = intent.includes("settings");
   const wantsAutonomy = intent.includes("autonomy");
 
@@ -110,28 +110,82 @@ export default function AutonomyToggle({ value = false, onChange }) {
   }
 
   // ─────────────────────────────────────────────
-  // 🧱 GENERIC IMPLEMENT / PATCH — STEP 2 ENABLED
+  // 🧩 PATCH PARSER (Step 2)
+  // Supports: Siva PATCH <path> add a line saying "..."
+  // Produces deterministic patchOps (no full overwrite)
   // ─────────────────────────────────────────────
 
-  if (wantsApply && files.filter(f => f.mode === "FULL_CONTENT").length === 0) {
+  function parseQuotedText(s) {
+    const m = s.match(/"([^"]+)"/);
+    return m ? m[1] : null;
+  }
+
+  function extractPath(raw) {
+    // Accepts paths like components/TestBox.js or pages/foo.js
+    const m = raw.match(/([A-Za-z0-9._\-\/]+\.js)/);
+    return m ? m[1] : null;
+  }
+
+  if (wantsPatch && files.length === 0) {
+    const path = extractPath(intentRaw);
+
+    if (path) {
+      const sayText = parseQuotedText(intentRaw);
+
+      summary = sayText
+        ? `Patch ${path}: add line "${sayText}"`
+        : `Patch ${path}: requested mutation`;
+
+      // Default deterministic patch: insert a string line after a known safe anchor.
+      // This matches what you tested successfully in TestBox.
+      const patchOps = [];
+
+      if (sayText) {
+        patchOps.push({
+          op: "INSERT_AFTER",
+          // anchor: common pattern in our generated components
+          match: `{children || "Component active."}`,
+          insert: `\n          "${sayText}"`,
+          once: true,
+        });
+      }
+
+      // If no quoted string, still create a placeholder op that will fail safely
+      if (patchOps.length === 0) {
+        patchOps.push({
+          op: "FAIL_SAFE",
+          reason:
+            'No quoted string found. Use: Siva PATCH <path> add a line saying "..."',
+        });
+      }
+
+      files.push({
+        path,
+        action: "CREATE_OR_UPDATE",
+        mode: "PATCH", // 👈 patch mode (Apply will accept this)
+        mutation: "PATCH_EXISTING",
+        patchOps,
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 🧱 GENERIC IMPLEMENT FALLBACK (unchanged)
+  // ─────────────────────────────────────────────
+
+  if (wantsApply && files.filter((f) => f.mode === "FULL_CONTENT").length === 0) {
     const match = intentRaw.match(/components\/([A-Za-z0-9_-]+)\.js/);
 
     if (match) {
       const componentName = match[1];
       const path = `components/${componentName}.js`;
 
-      summary = wantsPatch
-        ? `Patch existing ${path}`
-        : `Implement ${path}`;
+      summary = `Implement ${path}`;
 
       files.push({
         path,
         action: "CREATE_OR_UPDATE",
         mode: "FULL_CONTENT",
-
-        // 🔑 STEP 2 — PATCH AWARE
-        mutation: wantsPatch ? "PATCH_EXISTING" : undefined,
-
         content: `
 import { useState } from "react";
 
@@ -167,7 +221,6 @@ export default function ${componentName}({
       {active && (
         <div style={{ marginTop: "12px" }}>
           {children || "Component active."}
-          ${wantsPatch ? `"patched successfully"` : ""}
         </div>
       )}
     </div>
@@ -193,17 +246,17 @@ export default function ${componentName}({
     files,
 
     safeguards: {
-      planOnly: !wantsApply,
+      planOnly: !wantsApply && !wantsPatch,
       requiresHumanApproval: true,
       selfModification: false,
     },
 
     capabilities: {
-      canApply: wantsApply,
+      canApply: wantsApply || wantsPatch,
       canPatch: wantsPatch,
     },
 
-    nextStep: wantsApply
+    nextStep: wantsApply || wantsPatch
       ? "Review → Sandbox → Approve & Apply"
       : "Use IMPLEMENT or PATCH to enable apply",
   });
