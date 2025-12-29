@@ -1,5 +1,5 @@
 // pages/api/siva-apply.js
-// SIVA — APPLY PHASE (GitHub Commit Engine) — UPGRADED
+// SIVA — APPLY PHASE (GitHub Commit Engine) — STEP 2 ENABLED
 
 console.log("🔥 SIVA APPLY HIT");
 
@@ -30,11 +30,8 @@ const BLOCKED_PATH_EXACT = new Set([
   "pnpm-lock.yaml",
 ]);
 
-// Optional allowlist (leave empty to allow all except blocked)
 const ALLOWLIST_PREFIXES = [];
-
-// Conservative file size cap
-const MAX_FILE_BYTES = 800_000; // ~0.8MB
+const MAX_FILE_BYTES = 800_000;
 
 function json(res, status, payload) {
   return res.status(status).json(payload);
@@ -100,7 +97,7 @@ async function ghFetch(url, opts = {}) {
   return { ok: res.ok, status: res.status, data, raw: text };
 }
 
-async function getExistingSha(path) {
+async function getExistingFile(path) {
   const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(
     path
   )}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
@@ -108,11 +105,15 @@ async function getExistingSha(path) {
   const res = await ghFetch(url, { method: "GET" });
 
   if (res.status === 200 && res.data?.sha) {
-    return { exists: true, sha: res.data.sha };
+    const content = res.data.content
+      ? Buffer.from(res.data.content, "base64").toString("utf8")
+      : null;
+
+    return { exists: true, sha: res.data.sha, content };
   }
 
   if (res.status === 404) {
-    return { exists: false, sha: null };
+    return { exists: false, sha: null, content: null };
   }
 
   throw new Error(`GitHub read failed (${res.status}): ${res.raw}`);
@@ -164,17 +165,11 @@ export default async function handler(req, res) {
   const { taskId, files, dryRun = false, commitMessage } = req.body || {};
 
   if (!taskId || typeof taskId !== "string") {
-    return json(res, 400, {
-      status: "BAD_REQUEST",
-      error: "Missing taskId",
-    });
+    return json(res, 400, { status: "BAD_REQUEST", error: "Missing taskId" });
   }
 
   if (!Array.isArray(files) || files.length === 0) {
-    return json(res, 400, {
-      status: "BAD_REQUEST",
-      error: "Missing files[]",
-    });
+    return json(res, 400, { status: "BAD_REQUEST", error: "Missing files[]" });
   }
 
   const results = [];
@@ -185,8 +180,8 @@ export default async function handler(req, res) {
       const path = file?.path;
       const action = (file?.action || "CREATE_OR_UPDATE").toUpperCase();
       const content = file?.content;
+      const mutation = file?.mutation;
 
-      // 🔒 NEW HARD GATE — ONLY FULL_CONTENT MAY WRITE
       if (file?.mode && file.mode !== "FULL_CONTENT") {
         results.push({
           path: path || "(missing)",
@@ -239,26 +234,16 @@ export default async function handler(req, res) {
         continue;
       }
 
-      const existing = await getExistingSha(check.normalized);
+      const existing = await getExistingFile(check.normalized);
 
-      if (action === "UPDATE" && !existing.exists) {
+      // 🔑 STEP 2: READ BEFORE MODIFY
+      if (mutation === "PATCH_EXISTING" && existing.exists) {
         results.push({
           path: check.normalized,
           action,
-          status: "FAILED",
-          reason: "UPDATE requested but file does not exist",
+          status: "READ_OK",
+          note: "Existing content loaded for mutation",
         });
-        continue;
-      }
-
-      if (action === "CREATE" && existing.exists) {
-        results.push({
-          path: check.normalized,
-          action,
-          status: "FAILED",
-          reason: "CREATE requested but file already exists",
-        });
-        continue;
       }
 
       if (dryRun) {
