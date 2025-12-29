@@ -42,6 +42,7 @@ export default function TerminalUI() {
     setPlan(data);
     setStatus("🧠 PLAN_READY — SANDBOXING...");
 
+    // Sandbox only FULL_CONTENT files (matches apply rules)
     const filesForSandbox = (data.files || []).filter(
       (f) => f.mode === "FULL_CONTENT" && typeof f.content === "string"
     );
@@ -68,7 +69,7 @@ export default function TerminalUI() {
   }
 
   // ─────────────────────────────
-  // APPLY  ✅ FIXED
+  // APPLY  ✅ HARDENED
   // ─────────────────────────────
   async function approveAndApply() {
     if (!sandbox?.allowApply || !plan) {
@@ -76,15 +77,21 @@ export default function TerminalUI() {
       return;
     }
 
-    setStatus("SIVA_APPLYING...");
-
-    // 🔑 ADD ACTION FIELD (THE MISSING LINK)
+    // 🔑 FINAL SOURCE OF TRUTH
     const filesForApply = (plan.files || [])
       .filter((f) => f.mode === "FULL_CONTENT" && typeof f.content === "string")
       .map((f) => ({
         ...f,
         action: "CREATE_OR_UPDATE",
       }));
+
+    // 🚨 PREVENT 400s
+    if (filesForApply.length === 0) {
+      setStatus("⛔ NO WRITABLE FILES (FULL_CONTENT REQUIRED)");
+      return;
+    }
+
+    setStatus("SIVA_APPLYING...");
 
     const res = await fetch("/api/siva-apply", {
       method: "POST",
@@ -146,7 +153,7 @@ export default function TerminalUI() {
       <textarea
         value={command}
         onChange={(e) => setCommand(e.target.value)}
-        placeholder="Siva IMPLEMENT a settings page with autonomy toggle"
+        placeholder="Siva IMPLEMENT components/TestBox.js"
         style={{
           width: "100%",
           height: 120,
