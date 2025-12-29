@@ -1,6 +1,6 @@
 // pages/api/siva-plan.js
-// SIVA — PLAN PHASE (UPGRADED v3)
-// Intent Router · Safe Planner · Patch Planner · Apply-Compatible
+// SIVA — PLAN PHASE (FIX MODE ENABLED)
+// Intent Router · Safe Planner · Patch Planner · Fix Planner · No Commits
 // Dark. Calm. In control.
 
 export default async function handler(req, res) {
@@ -31,157 +31,87 @@ export default async function handler(req, res) {
     intent.includes("commit");
 
   const wantsPatch = intent.includes("patch");
-
-  const wantsSettings = intent.includes("settings");
-  const wantsAutonomy = intent.includes("autonomy");
+  const wantsFix =
+    intent.includes("fix") ||
+    intent.includes("repair");
 
   let summary = "No actionable intent detected";
   let files = [];
 
   // ─────────────────────────────────────────────
-  // 🖤 SETTINGS PAGE
+  // 🛠️ FIX MODE (DIAGNOSTIC PATCHING)
   // ─────────────────────────────────────────────
-
-  if (wantsSettings) {
-    summary = wantsApply
-      ? "Implement settings page with autonomy toggle"
-      : "Design settings page with autonomy toggle";
-
-    files.push({
-      path: "pages/settings.js",
-      action: "CREATE_OR_UPDATE",
-      mode: wantsApply ? "FULL_CONTENT" : "DESIGN_ONLY",
-      content: wantsApply
-        ? `
-import AutonomyToggle from "../components/AutonomyToggle";
-
-export default function Settings() {
-  return (
-    <div style={{
-      padding: "24px",
-      background: "#000",
-      color: "#0f0",
-      minHeight: "100vh",
-      fontFamily: "monospace"
-    }}>
-      <h1>Settings</h1>
-
-      <div style={{
-        marginTop: "20px",
-        border: "1px solid #0f0",
-        padding: "12px",
-        maxWidth: "320px"
-      }}>
-        <AutonomyToggle />
-      </div>
-    </div>
-  );
-}
-        `.trim()
-        : undefined,
-    });
-
-    files.push({
-      path: "components/AutonomyToggle.js",
-      action: "CREATE_OR_UPDATE",
-      mode: wantsApply ? "FULL_CONTENT" : "DESIGN_ONLY",
-      content: wantsApply
-        ? `
-export default function AutonomyToggle({ value = false, onChange }) {
-  return (
-    <label style={{
-      display: "flex",
-      gap: "8px",
-      alignItems: "center",
-      cursor: "pointer"
-    }}>
-      <input
-        type="checkbox"
-        checked={value}
-        onChange={(e) => onChange?.(e.target.checked)}
-      />
-      Autonomy Enabled
-    </label>
-  );
-}
-        `.trim()
-        : undefined,
-    });
-  }
-
-  // ─────────────────────────────────────────────
-  // 🧩 PATCH PARSER (APPLY-SAFE)
-  // ─────────────────────────────────────────────
-
-  function parseQuotedText(s) {
-    const m = s.match(/"([^"]+)"/);
-    return m ? m[1] : null;
-  }
+  // Examples:
+  // - Siva FIX components/TestBox.js
+  // - Siva FIX sandbox warnings
 
   function extractPath(raw) {
     const m = raw.match(/([A-Za-z0-9._\-\/]+\.js)/);
     return m ? m[1] : null;
   }
 
-  if (wantsPatch && files.length === 0) {
+  if (wantsFix && files.length === 0) {
     const path = extractPath(intentRaw);
 
     if (path) {
-      const sayText = parseQuotedText(intentRaw);
-
-      summary = sayText
-        ? `Patch ${path}: add line "${sayText}"`
-        : `Patch ${path}: requested mutation`;
-
-      const patchOps = [];
-
-      if (sayText) {
-        patchOps.push({
-          op: "INSERT_AFTER",
-          match: `{children || "Component active."}`,
-          insert: `\n          "${sayText}"`,
-          once: true,
-        });
-      } else {
-        patchOps.push({
-          op: "FAIL_SAFE",
-          reason:
-            'No quoted string found. Use: Siva PATCH <path> add a line saying "..."',
-        });
-      }
+      summary = `Fix detected issues in ${path}`;
 
       files.push({
         path,
         action: "CREATE_OR_UPDATE",
+        mode: "FIX",
+        mutation: "FIX_EXISTING",
 
-        // 🔑 PATCH IS NOW APPLY-ELIGIBLE
-        mode: "PATCH",
-        mutation: "PATCH_EXISTING",
-
-        // 🔒 Satisfies apply guard without overwriting
-        syntheticContent: `
-/*
- SIVA PATCH PLAN
- File: ${path}
- Instruction: ${intentRaw}
-*/
-        `.trim(),
-
-        patchOps,
+        // Fix ops are still patchOps — just semantically different
+        fixStrategy: {
+          scope: "SAFE_UI_FIXES",
+          allowJSXWrap: true,
+          allowLiteralNormalization: true,
+          allowMissingKeyFix: true,
+          allowWarningResolution: true,
+        },
       });
     }
   }
 
   // ─────────────────────────────────────────────
-  // 🧱 GENERIC IMPLEMENT FALLBACK
+  // 🧩 PATCH MODE (unchanged)
+  // ─────────────────────────────────────────────
+
+  if (wantsPatch && files.length === 0) {
+    const path = extractPath(intentRaw);
+    const quoted = intentRaw.match(/"([^"]+)"/);
+
+    if (path && quoted) {
+      summary = `Patch ${path}: add line "${quoted[1]}"`;
+
+      files.push({
+        path,
+        action: "CREATE_OR_UPDATE",
+        mode: "PATCH",
+        mutation: "PATCH_EXISTING",
+        patchOps: [
+          {
+            op: "INSERT_AFTER",
+            match: `{children || "Component active."}`,
+            insert: `\n          "${quoted[1]}"`,
+            once: true,
+          },
+        ],
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 🧱 IMPLEMENT FALLBACK (unchanged)
   // ─────────────────────────────────────────────
 
   if (wantsApply && files.filter(f => f.mode === "FULL_CONTENT").length === 0) {
     const match = intentRaw.match(/components\/([A-Za-z0-9_-]+)\.js/);
 
     if (match) {
-      const componentName = match[1];
-      const path = `components/${componentName}.js`;
+      const name = match[1];
+      const path = `components/${name}.js`;
 
       summary = `Implement ${path}`;
 
@@ -192,10 +122,7 @@ export default function AutonomyToggle({ value = false, onChange }) {
         content: `
 import { useState } from "react";
 
-export default function ${componentName}({
-  title = "${componentName}",
-  children
-}) {
+export default function ${name}({ title = "${name}", children }) {
   const [active, setActive] = useState(false);
 
   return (
@@ -249,18 +176,20 @@ export default function ${componentName}({
     files,
 
     safeguards: {
-      planOnly: !wantsApply && !wantsPatch,
+      planOnly: !wantsApply && !wantsPatch && !wantsFix,
       requiresHumanApproval: true,
       selfModification: false,
     },
 
     capabilities: {
-      canApply: wantsApply || wantsPatch,
+      canApply: wantsApply || wantsPatch || wantsFix,
       canPatch: wantsPatch,
+      canFix: wantsFix,
     },
 
-    nextStep: wantsApply || wantsPatch
-      ? "Review → Sandbox → Approve & Apply"
-      : "Use IMPLEMENT or PATCH to enable apply",
+    nextStep:
+      wantsApply || wantsPatch || wantsFix
+        ? "Review → Sandbox → Approve & Apply"
+        : "Use IMPLEMENT, PATCH, or FIX to proceed",
   });
 }
