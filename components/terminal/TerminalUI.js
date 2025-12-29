@@ -10,8 +10,7 @@ export default function TerminalUI() {
   const [status, setStatus] = useState("SYSTEM_READY");
 
   // ─────────────────────────────
-  // APPLY-ELIGIBLE FILES
-  // FULL_CONTENT or PATCH only
+  // APPLY-ELIGIBLE FILES (STATE)
   // ─────────────────────────────
   const applyEligibleFiles = useMemo(() => {
     if (!plan?.capabilities?.canApply) return [];
@@ -58,7 +57,7 @@ export default function TerminalUI() {
     setPlan(data);
     setStatus("🧠 PLAN_READY — SANDBOXING...");
 
-    // Only sandbox FULL_CONTENT + PATCH
+    // ⛱️ Sandbox ONLY writable file types
     const filesForSandbox = (data.files || []).filter(
       (f) =>
         (f.mode === "FULL_CONTENT" && typeof f.content === "string") ||
@@ -76,10 +75,15 @@ export default function TerminalUI() {
 
     const sbData = await sb.json();
 
-    // ✅ FIX: apply allowed ONLY if writable files exist
+    // ✅ CORRECT: compute writable files from *data*, not state
+    const writableFiles = (data.files || []).filter(
+      (f) =>
+        (f.mode === "FULL_CONTENT" && typeof f.content === "string") ||
+        (f.mode === "PATCH" && Array.isArray(f.patchOps))
+    );
+
     const allowApply =
-      sbData.verdict !== "FAILED" &&
-      applyEligibleFiles.length > 0;
+      sbData.verdict !== "FAILED" && writableFiles.length > 0;
 
     setSandbox({ ...sbData, allowApply });
 
@@ -91,7 +95,7 @@ export default function TerminalUI() {
   }
 
   // ─────────────────────────────
-  // APPLY (PATCH + FULL CONTENT ONLY)
+  // APPLY
   // ─────────────────────────────
   async function approveAndApply() {
     if (!sandbox?.allowApply || !plan) {
