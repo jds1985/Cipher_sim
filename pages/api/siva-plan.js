@@ -108,7 +108,7 @@ export default function AutonomyToggle({ value = false, onChange }) {
   }
 
   // ─────────────────────────────────────────────
-  // 🧱 GENERIC IMPLEMENT FALLBACK — UPGRADED
+  // 🧱 GENERIC IMPLEMENT FALLBACK — STEP 2 ENABLED
   // ─────────────────────────────────────────────
 
   if (wantsApply && files.filter(f => f.mode === "FULL_CONTENT").length === 0) {
@@ -124,6 +124,10 @@ export default function AutonomyToggle({ value = false, onChange }) {
         path,
         action: "CREATE_OR_UPDATE",
         mode: "FULL_CONTENT",
+
+        // 🔑 STEP 2 FLAG — READ BEFORE MODIFY
+        mutation: "PATCH_EXISTING",
+
         content: `
 import { useState } from "react";
 
