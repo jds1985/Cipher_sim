@@ -1,5 +1,5 @@
 // pages/api/siva-apply.js
-// SIVA — APPLY PHASE (GitHub Commit Engine) — STEP 2 ENABLED
+// SIVA — APPLY PHASE (GitHub Commit Engine) — PATCH ENABLED (Step 2)
 
 console.log("🔥 SIVA APPLY HIT");
 
@@ -31,7 +31,7 @@ const BLOCKED_PATH_EXACT = new Set([
 ]);
 
 const ALLOWLIST_PREFIXES = [];
-const MAX_FILE_BYTES = 800_000;
+const MAX_FILE_BYTES = 800_000; // ~0.8MB
 
 function json(res, status, payload) {
   return res.status(status).json(payload);
@@ -138,9 +138,7 @@ async function putFile(path, content, sha, message) {
 
   if (!res.ok) {
     throw new Error(
-      `GitHub commit failed (${res.status}): ${
-        res.data?.message || res.raw
-      }`
+      `GitHub commit failed (${res.status}): ${res.data?.message || res.raw}`
     );
   }
 
@@ -148,6 +146,108 @@ async function putFile(path, content, sha, message) {
     commitSha: res.data?.commit?.sha,
     url: res.data?.content?.html_url,
   };
+}
+
+// ─────────────────────────────────────────────
+// 🧠 PATCH ENGINE (deterministic)
+// patchOps: [{ op, match, insert, replace, once }]
+// Supported ops: INSERT_AFTER, INSERT_BEFORE, REPLACE, APPEND, PREPEND
+// ─────────────────────────────────────────────
+
+function applyPatchOps(original, patchOps = []) {
+  if (typeof original !== "string") throw new Error("No original content loaded");
+  if (!Array.isArray(patchOps) || patchOps.length === 0) {
+    throw new Error("Missing patchOps[]");
+  }
+
+  let content = original;
+  let changed = false;
+  const applied = [];
+
+  const safeMaxOps = 20;
+  if (patchOps.length > safeMaxOps) {
+    throw new Error(`Too many patchOps (${patchOps.length}). Max ${safeMaxOps}.`);
+  }
+
+  for (const op of patchOps) {
+    const kind = (op?.op || "").toUpperCase();
+
+    if (kind === "FAIL_SAFE") {
+      throw new Error(op?.reason || "Patch failed safe");
+    }
+
+    const once = op?.once !== false; // default true
+    const match = op?.match;
+
+    if (kind === "APPEND") {
+      const insert = op?.insert ?? "";
+      content = content + insert;
+      changed = true;
+      applied.push({ op: "APPEND" });
+      continue;
+    }
+
+    if (kind === "PREPEND") {
+      const insert = op?.insert ?? "";
+      content = insert + content;
+      changed = true;
+      applied.push({ op: "PREPEND" });
+      continue;
+    }
+
+    if (typeof match !== "string" || match.length === 0) {
+      throw new Error(`Patch op ${kind} missing match string`);
+    }
+
+    const idx = content.indexOf(match);
+    if (idx === -1) {
+      throw new Error(`Patch match not found: ${match}`);
+    }
+
+    if (kind === "INSERT_AFTER") {
+      const insert = op?.insert ?? "";
+      const at = idx + match.length;
+      content = content.slice(0, at) + insert + content.slice(at);
+      changed = true;
+      applied.push({ op: "INSERT_AFTER", match });
+      if (!once) {
+        // optional: could loop; staying conservative for now
+      }
+      continue;
+    }
+
+    if (kind === "INSERT_BEFORE") {
+      const insert = op?.insert ?? "";
+      content = content.slice(0, idx) + insert + content.slice(idx);
+      changed = true;
+      applied.push({ op: "INSERT_BEFORE", match });
+      continue;
+    }
+
+    if (kind === "REPLACE") {
+      const replace = op?.replace;
+      if (typeof replace !== "string") {
+        throw new Error("REPLACE op missing replace string");
+      }
+      content = content.replace(match, replace);
+      changed = true;
+      applied.push({ op: "REPLACE", match });
+      continue;
+    }
+
+    throw new Error(`Unsupported patch op: ${kind}`);
+  }
+
+  return { content, changed, applied };
+}
+
+function diffSummary(a, b) {
+  // lightweight summary (no external deps)
+  const aLines = (a || "").split("\n").length;
+  const bLines = (b || "").split("\n").length;
+  const deltaLines = bLines - aLines;
+  const deltaBytes = Buffer.byteLength(b || "", "utf8") - Buffer.byteLength(a || "", "utf8");
+  return { aLines, bLines, deltaLines, deltaBytes };
 }
 
 export default async function handler(req, res) {
@@ -179,15 +279,17 @@ export default async function handler(req, res) {
     for (const file of files) {
       const path = file?.path;
       const action = (file?.action || "CREATE_OR_UPDATE").toUpperCase();
-      const content = file?.content;
-      const mutation = file?.mutation;
+      const mode = (file?.mode || "FULL_CONTENT").toUpperCase();
+      const mutation = (file?.mutation || "").toUpperCase();
 
-      if (file?.mode && file.mode !== "FULL_CONTENT") {
+      // Writable modes: FULL_CONTENT, PATCH
+      const writable = mode === "FULL_CONTENT" || mode === "PATCH";
+      if (!writable) {
         results.push({
           path: path || "(missing)",
           action,
           status: "SKIPPED",
-          reason: `Mode ${file.mode} is not writable`,
+          reason: `Mode ${mode} is not writable`,
         });
         continue;
       }
@@ -213,6 +315,90 @@ export default async function handler(req, res) {
         continue;
       }
 
+      const existing = await getExistingFile(check.normalized);
+
+      // PATCH mode: read → mutate → commit
+      if (mode === "PATCH" || mutation === "PATCH_EXISTING") {
+        if (!existing.exists || typeof existing.content !== "string") {
+          results.push({
+            path: check.normalized,
+            action,
+            status: "FAILED",
+            reason: "PATCH requested but file does not exist or could not be read",
+          });
+          continue;
+        }
+
+        const patchOps = file?.patchOps || [];
+
+        const patched = applyPatchOps(existing.content, patchOps);
+        const newContent = patched.content;
+
+        const size = Buffer.byteLength(newContent, "utf8");
+        if (size > MAX_FILE_BYTES) {
+          results.push({
+            path: check.normalized,
+            action,
+            status: "FAILED",
+            reason: `Patched file too large (${size} bytes)`,
+          });
+          continue;
+        }
+
+        if (!patched.changed || newContent === existing.content) {
+          results.push({
+            path: check.normalized,
+            action,
+            status: "SKIPPED",
+            reason: "Patch produced no changes",
+          });
+          continue;
+        }
+
+        const summary = diffSummary(existing.content, newContent);
+
+        if (dryRun) {
+          results.push({
+            path: check.normalized,
+            action,
+            status: "DRY_RUN_OK",
+            branch: GITHUB_BRANCH,
+            patchApplied: patched.applied,
+            diff: summary,
+          });
+          continue;
+        }
+
+        const msg =
+          commitMessage?.trim() ||
+          `SIVA PATCH: ${taskId} → ${check.normalized}`;
+
+        const commit = await putFile(
+          check.normalized,
+          newContent,
+          existing.sha,
+          msg
+        );
+
+        committedCount++;
+
+        results.push({
+          path: check.normalized,
+          action,
+          status: "COMMITTED",
+          commit: commit.commitSha,
+          url: commit.url,
+          branch: GITHUB_BRANCH,
+          patchApplied: patched.applied,
+          diff: summary,
+        });
+
+        continue;
+      }
+
+      // FULL_CONTENT mode: write as provided (your original behavior)
+      const content = file?.content;
+
       if (typeof content !== "string") {
         results.push({
           path: check.normalized,
@@ -234,24 +420,22 @@ export default async function handler(req, res) {
         continue;
       }
 
-      const existing = await getExistingFile(check.normalized);
-
-      // 🔑 STEP 2 — READ IS ALWAYS ACKNOWLEDGED
-      if (existing.exists) {
-        results.push({
-          path: check.normalized,
-          status: "READ_OK",
-          sha: existing.sha,
-        });
-      }
-
-      // 🔒 PATCH SAFETY
-      if (mutation === "PATCH_EXISTING" && !existing.exists) {
+      if (action === "UPDATE" && !existing.exists) {
         results.push({
           path: check.normalized,
           action,
           status: "FAILED",
-          reason: "PATCH_EXISTING requested but file does not exist",
+          reason: "UPDATE requested but file does not exist",
+        });
+        continue;
+      }
+
+      if (action === "CREATE" && existing.exists) {
+        results.push({
+          path: check.normalized,
+          action,
+          status: "FAILED",
+          reason: "CREATE requested but file already exists",
         });
         continue;
       }
