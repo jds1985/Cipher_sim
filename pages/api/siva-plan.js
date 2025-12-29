@@ -22,14 +22,16 @@ export default async function handler(req, res) {
   const taskId = "SIVA_" + Date.now();
 
   // ─────────────────────────────────────────────
-  // 🧠 INTENT DETECTION
+  // 🧠 INTENT DETECTION (UPGRADED)
   // ─────────────────────────────────────────────
 
   const wantsApply =
     intent.includes("implement") ||
     intent.includes("apply") ||
-    intent.includes("commit");
+    intent.includes("commit") ||
+    intent.includes("patch"); // 🔑 PATCH IS APPLY
 
+  const wantsPatch = intent.includes("patch");
   const wantsSettings = intent.includes("settings");
   const wantsAutonomy = intent.includes("autonomy");
 
@@ -108,7 +110,7 @@ export default function AutonomyToggle({ value = false, onChange }) {
   }
 
   // ─────────────────────────────────────────────
-  // 🧱 GENERIC IMPLEMENT FALLBACK — STEP 2 ENABLED
+  // 🧱 GENERIC IMPLEMENT / PATCH — STEP 2 ENABLED
   // ─────────────────────────────────────────────
 
   if (wantsApply && files.filter(f => f.mode === "FULL_CONTENT").length === 0) {
@@ -118,15 +120,17 @@ export default function AutonomyToggle({ value = false, onChange }) {
       const componentName = match[1];
       const path = `components/${componentName}.js`;
 
-      summary = `Implement ${path}`;
+      summary = wantsPatch
+        ? `Patch existing ${path}`
+        : `Implement ${path}`;
 
       files.push({
         path,
         action: "CREATE_OR_UPDATE",
         mode: "FULL_CONTENT",
 
-        // 🔑 STEP 2 FLAG — READ BEFORE MODIFY
-        mutation: "PATCH_EXISTING",
+        // 🔑 STEP 2 — PATCH AWARE
+        mutation: wantsPatch ? "PATCH_EXISTING" : undefined,
 
         content: `
 import { useState } from "react";
@@ -163,6 +167,7 @@ export default function ${componentName}({
       {active && (
         <div style={{ marginTop: "12px" }}>
           {children || "Component active."}
+          ${wantsPatch ? `"patched successfully"` : ""}
         </div>
       )}
     </div>
@@ -195,10 +200,11 @@ export default function ${componentName}({
 
     capabilities: {
       canApply: wantsApply,
+      canPatch: wantsPatch,
     },
 
     nextStep: wantsApply
       ? "Review → Sandbox → Approve & Apply"
-      : "Use IMPLEMENT to enable apply",
+      : "Use IMPLEMENT or PATCH to enable apply",
   });
 }
