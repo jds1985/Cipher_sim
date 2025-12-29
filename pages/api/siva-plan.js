@@ -48,7 +48,6 @@ export default async function handler(req, res) {
     files.push({
       path: "pages/settings.js",
       action: "CREATE_OR_UPDATE",
-      description: "Settings page UI with autonomy toggle",
       mode: wantsApply ? "FULL_CONTENT" : "DESIGN_ONLY",
       content: wantsApply
         ? `
@@ -83,7 +82,6 @@ export default function Settings() {
     files.push({
       path: "components/AutonomyToggle.js",
       action: "CREATE_OR_UPDATE",
-      description: "Reusable autonomy toggle component",
       mode: wantsApply ? "FULL_CONTENT" : "DESIGN_ONLY",
       content: wantsApply
         ? `
@@ -110,18 +108,54 @@ export default function AutonomyToggle({ value = false, onChange }) {
   }
 
   // ─────────────────────────────────────────────
+  // 🧱 GENERIC IMPLEMENT FALLBACK (CRITICAL FIX)
+  // ─────────────────────────────────────────────
+
+  if (wantsApply && files.filter(f => f.mode === "FULL_CONTENT").length === 0) {
+    const match = intentRaw.match(/components\/[A-Za-z0-9_-]+\.js/);
+
+    if (match) {
+      const path = match[0];
+
+      summary = `Implement ${path}`;
+
+      files.push({
+        path,
+        action: "CREATE_OR_UPDATE",
+        mode: "FULL_CONTENT",
+        content: `
+export default function ${path
+          .split("/")
+          .pop()
+          .replace(".js", "")}() {
+  return (
+    <div style={{
+      padding: "20px",
+      border: "1px solid #0f0",
+      color: "#0f0",
+      background: "#000",
+      fontFamily: "monospace"
+    }}>
+      ${path} ready.
+    </div>
+  );
+}
+        `.trim(),
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // 📤 RESPONSE
   // ─────────────────────────────────────────────
 
   return res.status(200).json({
     status: "SIVA_PLAN_OK",
     phase: "PLAN",
-
     taskId,
     time: new Date().toISOString(),
     source,
     intent: intentRaw,
-
     summary,
     files,
 
@@ -136,7 +170,7 @@ export default function AutonomyToggle({ value = false, onChange }) {
     },
 
     nextStep: wantsApply
-      ? "Review diff → Approve & Apply"
+      ? "Review → Sandbox → Approve & Apply"
       : "Use IMPLEMENT to enable apply",
   });
 }
