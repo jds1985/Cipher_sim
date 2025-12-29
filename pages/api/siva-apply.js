@@ -236,14 +236,24 @@ export default async function handler(req, res) {
 
       const existing = await getExistingFile(check.normalized);
 
-      // 🔑 STEP 2: READ BEFORE MODIFY
-      if (mutation === "PATCH_EXISTING" && existing.exists) {
+      // 🔑 STEP 2 — READ IS ALWAYS ACKNOWLEDGED
+      if (existing.exists) {
+        results.push({
+          path: check.normalized,
+          status: "READ_OK",
+          sha: existing.sha,
+        });
+      }
+
+      // 🔒 PATCH SAFETY
+      if (mutation === "PATCH_EXISTING" && !existing.exists) {
         results.push({
           path: check.normalized,
           action,
-          status: "READ_OK",
-          note: "Existing content loaded for mutation",
+          status: "FAILED",
+          reason: "PATCH_EXISTING requested but file does not exist",
         });
+        continue;
       }
 
       if (dryRun) {
