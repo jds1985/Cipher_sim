@@ -9,11 +9,13 @@ export default function TerminalUI() {
   const [sandbox, setSandbox] = useState(null);
   const [status, setStatus] = useState("SYSTEM_READY");
 
-  // Files eligible for APPLY (derived from plan)
+  // Files eligible for APPLY (FULL_CONTENT or PATCH)
   const applyEligibleFiles = useMemo(() => {
     if (!plan?.capabilities?.canApply) return [];
     return (plan.files || []).filter(
-      (f) => f.mode === "FULL_CONTENT" && typeof f.content === "string"
+      (f) =>
+        (f.mode === "FULL_CONTENT" || f.mutation === "PATCH_EXISTING") &&
+        typeof f.content === "string"
     );
   }, [plan]);
 
@@ -42,9 +44,11 @@ export default function TerminalUI() {
     setPlan(data);
     setStatus("🧠 PLAN_READY — SANDBOXING...");
 
-    // Sandbox only FULL_CONTENT files (matches apply rules)
+    // Sandbox FULL_CONTENT + PATCH files
     const filesForSandbox = (data.files || []).filter(
-      (f) => f.mode === "FULL_CONTENT" && typeof f.content === "string"
+      (f) =>
+        (f.mode === "FULL_CONTENT" || f.mutation === "PATCH_EXISTING") &&
+        typeof f.content === "string"
     );
 
     const sb = await fetch("/api/siva-sandbox", {
@@ -69,7 +73,7 @@ export default function TerminalUI() {
   }
 
   // ─────────────────────────────
-  // APPLY  ✅ HARDENED
+  // APPLY
   // ─────────────────────────────
   async function approveAndApply() {
     if (!sandbox?.allowApply || !plan) {
@@ -77,17 +81,20 @@ export default function TerminalUI() {
       return;
     }
 
-    // 🔑 FINAL SOURCE OF TRUTH
+    // FINAL SOURCE OF TRUTH — FULL + PATCH
     const filesForApply = (plan.files || [])
-      .filter((f) => f.mode === "FULL_CONTENT" && typeof f.content === "string")
+      .filter(
+        (f) =>
+          (f.mode === "FULL_CONTENT" || f.mutation === "PATCH_EXISTING") &&
+          typeof f.content === "string"
+      )
       .map((f) => ({
         ...f,
         action: "CREATE_OR_UPDATE",
       }));
 
-    // 🚨 PREVENT 400s
     if (filesForApply.length === 0) {
-      setStatus("⛔ NO WRITABLE FILES (FULL_CONTENT REQUIRED)");
+      setStatus("⛔ NO WRITABLE FILES");
       return;
     }
 
