@@ -10,8 +10,8 @@ export default function TerminalUI() {
   const [status, setStatus] = useState("SYSTEM_READY");
 
   // ─────────────────────────────
-  // APPLY-ELIGIBLE FILES (FIXED)
-  // FULL_CONTENT OR PATCH w/ syntheticContent
+  // APPLY-ELIGIBLE FILES
+  // FULL_CONTENT or PATCH only
   // ─────────────────────────────
   const applyEligibleFiles = useMemo(() => {
     if (!plan?.capabilities?.canApply) return [];
@@ -58,7 +58,7 @@ export default function TerminalUI() {
     setPlan(data);
     setStatus("🧠 PLAN_READY — SANDBOXING...");
 
-    // Sandbox FULL_CONTENT + PATCH
+    // Only sandbox FULL_CONTENT + PATCH
     const filesForSandbox = (data.files || []).filter(
       (f) =>
         (f.mode === "FULL_CONTENT" && typeof f.content === "string") ||
@@ -75,23 +75,27 @@ export default function TerminalUI() {
     });
 
     const sbData = await sb.json();
-    const allowApply = sbData.verdict !== "FAILED";
+
+    // ✅ FIX: apply allowed ONLY if writable files exist
+    const allowApply =
+      sbData.verdict !== "FAILED" &&
+      applyEligibleFiles.length > 0;
 
     setSandbox({ ...sbData, allowApply });
 
     setStatus(
       allowApply
         ? "🟢 SANDBOX PASSED — APPLY READY"
-        : "🔴 SANDBOX FAILED — APPLY BLOCKED"
+        : "🟡 SANDBOX COMPLETE — NO WRITABLE FILES"
     );
   }
 
   // ─────────────────────────────
-  // APPLY (PATCH + FULL CONTENT)
+  // APPLY (PATCH + FULL CONTENT ONLY)
   // ─────────────────────────────
   async function approveAndApply() {
     if (!sandbox?.allowApply || !plan) {
-      setStatus("⛔ APPLY BLOCKED BY SANDBOX");
+      setStatus("⛔ APPLY BLOCKED");
       return;
     }
 
