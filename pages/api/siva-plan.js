@@ -108,14 +108,15 @@ export default function AutonomyToggle({ value = false, onChange }) {
   }
 
   // ─────────────────────────────────────────────
-  // 🧱 GENERIC IMPLEMENT FALLBACK (CRITICAL FIX)
+  // 🧱 GENERIC IMPLEMENT FALLBACK — UPGRADED
   // ─────────────────────────────────────────────
 
   if (wantsApply && files.filter(f => f.mode === "FULL_CONTENT").length === 0) {
-    const match = intentRaw.match(/components\/[A-Za-z0-9_-]+\.js/);
+    const match = intentRaw.match(/components\/([A-Za-z0-9_-]+)\.js/);
 
     if (match) {
-      const path = match[0];
+      const componentName = match[1];
+      const path = `components/${componentName}.js`;
 
       summary = `Implement ${path}`;
 
@@ -124,19 +125,42 @@ export default function AutonomyToggle({ value = false, onChange }) {
         action: "CREATE_OR_UPDATE",
         mode: "FULL_CONTENT",
         content: `
-export default function ${path
-          .split("/")
-          .pop()
-          .replace(".js", "")}() {
+import { useState } from "react";
+
+export default function ${componentName}({
+  title = "${componentName}",
+  children
+}) {
+  const [active, setActive] = useState(false);
+
   return (
     <div style={{
       padding: "20px",
       border: "1px solid #0f0",
-      color: "#0f0",
       background: "#000",
+      color: "#0f0",
       fontFamily: "monospace"
     }}>
-      ${path} ready.
+      <h3>{title}</h3>
+
+      <button
+        onClick={() => setActive(!active)}
+        style={{
+          background: "#000",
+          color: "#0f0",
+          border: "1px solid #0f0",
+          padding: "6px 10px",
+          cursor: "pointer"
+        }}
+      >
+        {active ? "Deactivate" : "Activate"}
+      </button>
+
+      {active && (
+        <div style={{ marginTop: "12px" }}>
+          {children || "Component active."}
+        </div>
+      )}
     </div>
   );
 }
