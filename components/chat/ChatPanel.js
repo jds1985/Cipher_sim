@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 
 const MEMORY_KEY = "cipher_memory";
@@ -6,7 +5,7 @@ const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
 const MAX_REPLY_CHARS = 1200;
 
-// 🔑 NEW: session flag to detect refresh
+// 🔑 Session flag (clears chat on hard refresh / new tab)
 const SESSION_FLAG = "cipher_session_active";
 
 export default function ChatPanel() {
@@ -16,7 +15,7 @@ export default function ChatPanel() {
     }
 
     try {
-      // 🔥 CLEAR MEMORY ON HARD REFRESH / NEW TAB
+      // 🔥 CLEAR CHAT ON HARD REFRESH / NEW TAB
       if (!sessionStorage.getItem(SESSION_FLAG)) {
         sessionStorage.setItem(SESSION_FLAG, "true");
         localStorage.removeItem(MEMORY_KEY);
@@ -46,8 +45,12 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
+  // 🧠 Persist ONLY during active session
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(SESSION_FLAG)
+    ) {
       localStorage.setItem(
         MEMORY_KEY,
         JSON.stringify(messages.slice(-MEMORY_LIMIT))
@@ -55,6 +58,7 @@ export default function ChatPanel() {
     }
   }, [messages]);
 
+  // 🧹 Cleanup typing loop
   useEffect(() => {
     return () => {
       if (typingIntervalRef.current) {
@@ -71,11 +75,13 @@ export default function ChatPanel() {
 
   function resetCipher() {
     localStorage.removeItem(MEMORY_KEY);
-    sessionStorage.removeItem(SESSION_FLAG); // 🔄 allow clean restart
+    sessionStorage.removeItem(SESSION_FLAG); // 🔄 allow full reset on reload
+
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
       typingIntervalRef.current = null;
     }
+
     setTyping(false);
     setMessages([{ role: "assistant", content: "Cipher online." }]);
   }
@@ -114,7 +120,8 @@ export default function ChatPanel() {
       let fullText = String(data.reply ?? "…");
 
       if (fullText.length > MAX_REPLY_CHARS) {
-        fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
+        fullText =
+          fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
       }
 
       if (typingIntervalRef.current) {
@@ -122,7 +129,7 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
-      // ensure ONE typing bubble
+      // ensure ONE assistant typing bubble
       setMessages((m) => [
         ...m.filter(
           (msg) => !(msg.role === "assistant" && msg.content === "")
