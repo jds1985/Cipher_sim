@@ -7,10 +7,11 @@ export default function TerminalUI() {
   const [command, setCommand] = useState("");
   const [plan, setPlan] = useState(null);
   const [sandbox, setSandbox] = useState(null);
+  const [thoughts, setThoughts] = useState([]);
   const [status, setStatus] = useState("SYSTEM_READY");
 
   // ─────────────────────────────
-  // APPLY-ELIGIBLE FILES (STATE)
+  // APPLY-ELIGIBLE FILES
   // ─────────────────────────────
   const applyEligibleFiles = useMemo(() => {
     if (!plan?.capabilities?.canApply) return [];
@@ -33,7 +34,7 @@ export default function TerminalUI() {
   }, [plan]);
 
   // ─────────────────────────────
-  // RUN PLAN + SANDBOX
+  // RUN PLAN (+ THINK SUPPORT)
   // ─────────────────────────────
   async function runSivaPlan() {
     if (!command.trim()) return;
@@ -41,6 +42,7 @@ export default function TerminalUI() {
     setStatus("SIVA_PLANNING...");
     setPlan(null);
     setSandbox(null);
+    setThoughts([]);
 
     const res = await fetch("/api/siva-plan", {
       method: "POST",
@@ -55,9 +57,17 @@ export default function TerminalUI() {
     }
 
     setPlan(data);
+    setThoughts(data.thoughts || []);
+
+    // 🧠 THINK-ONLY MODE — NO SANDBOX, NO APPLY
+    if (data.capabilities?.canThink && !data.capabilities?.canApply) {
+      setStatus("🧠 THINK MODE — NO FILE CHANGES");
+      return;
+    }
+
     setStatus("🧠 PLAN_READY — SANDBOXING...");
 
-    // ⛱️ Sandbox ONLY writable file types
+    // Sandbox only writable types
     const filesForSandbox = (data.files || []).filter(
       (f) =>
         (f.mode === "FULL_CONTENT" && typeof f.content === "string") ||
@@ -75,15 +85,10 @@ export default function TerminalUI() {
 
     const sbData = await sb.json();
 
-    // ✅ CORRECT: compute writable files from *data*, not state
-    const writableFiles = (data.files || []).filter(
-      (f) =>
-        (f.mode === "FULL_CONTENT" && typeof f.content === "string") ||
-        (f.mode === "PATCH" && Array.isArray(f.patchOps))
-    );
+    const writableFiles = filesForSandbox.length;
 
     const allowApply =
-      sbData.verdict !== "FAILED" && writableFiles.length > 0;
+      sbData.verdict !== "FAILED" && writableFiles > 0;
 
     setSandbox({ ...sbData, allowApply });
 
@@ -133,6 +138,7 @@ export default function TerminalUI() {
     setCommand("");
     setPlan(null);
     setSandbox(null);
+    setThoughts([]);
   }
 
   // ─────────────────────────────
@@ -175,7 +181,7 @@ export default function TerminalUI() {
       <textarea
         value={command}
         onChange={(e) => setCommand(e.target.value)}
-        placeholder='Siva PATCH components/TestBox.js add a line saying "patched successfully v4"'
+        placeholder='Cipher THINK about restoring chat and voice'
         style={{
           width: "100%",
           height: 120,
@@ -200,6 +206,26 @@ export default function TerminalUI() {
         RUN SIVA PLAN
       </button>
 
+      {/* THINK OUTPUT */}
+      {thoughts.length > 0 && (
+        <div
+          style={{
+            marginTop: 20,
+            border: "1px solid #0f0",
+            padding: 15,
+            background: "#010",
+          }}
+        >
+          <h3>CIPHER THINKING</h3>
+          {thoughts.map((t, i) => (
+            <p key={i} style={{ margin: "6px 0" }}>
+              ▸ {t}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* SANDBOX */}
       {sandbox && (
         <div
           style={{
@@ -218,6 +244,7 @@ export default function TerminalUI() {
         </div>
       )}
 
+      {/* APPLY */}
       {sandbox?.allowApply && (
         <button
           onClick={approveAndApply}
