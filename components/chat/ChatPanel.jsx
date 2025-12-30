@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "Cipher online. How can I help?" }
+    { role: "assistant", content: "Cipher online." },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -10,7 +10,7 @@ export default function ChatPanel() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, loading]);
 
   async function sendMessage() {
     if (!input.trim() || loading) return;
@@ -25,33 +25,28 @@ export default function ChatPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: input,
-          history: [...messages, userMessage],
+          message: userMessage.content,
+          messages: [...messages, userMessage],
         }),
       });
 
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Chat API error");
-      }
-
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: data.reply || "…" },
+        { role: "assistant", content: data.reply || "(no reply)" },
       ]);
     } catch (err) {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "⚠️ Cipher encountered an error." },
+        { role: "assistant", content: "⚠️ Network error." },
       ]);
-      console.error(err);
     } finally {
       setLoading(false);
     }
   }
 
-  function handleKey(e) {
+  function onKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -60,18 +55,15 @@ export default function ChatPanel() {
 
   return (
     <div style={styles.wrap}>
+      <div style={styles.header}>CIPHER</div>
+
       <div style={styles.chat}>
         {messages.map((m, i) => (
-          <div
-            key={i}
-            style={{
-              ...styles.bubble,
-              ...(m.role === "user" ? styles.user : styles.assistant),
-            }}
-          >
+          <div key={i} style={bubble(m.role)}>
             {m.content}
           </div>
         ))}
+        {loading && <div style={bubble("assistant")}>…</div>}
         <div ref={bottomRef} />
       </div>
 
@@ -79,12 +71,12 @@ export default function ChatPanel() {
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Message Cipher…"
+          onKeyDown={onKeyDown}
+          placeholder="Talk to Cipher…"
           style={styles.input}
         />
         <button onClick={sendMessage} style={styles.send}>
-          {loading ? "…" : "Send"}
+          Send
         </button>
       </div>
     </div>
@@ -96,7 +88,16 @@ const styles = {
     height: "100%",
     display: "flex",
     flexDirection: "column",
-    background: "#0b0b12",
+    background: "radial-gradient(circle at top, #0a0f2a, #05050b)",
+    color: "white",
+  },
+  header: {
+    padding: 20,
+    fontSize: 22,
+    fontWeight: 700,
+    letterSpacing: 2,
+    textAlign: "center",
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
   },
   chat: {
     flex: 1,
@@ -104,48 +105,44 @@ const styles = {
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
-    gap: 12,
-  },
-  bubble: {
-    maxWidth: "80%",
-    padding: "12px 16px",
-    borderRadius: 16,
-    lineHeight: 1.4,
-    fontSize: 15,
-  },
-  user: {
-    alignSelf: "flex-end",
-    background: "#5b5bff",
-    color: "white",
-  },
-  assistant: {
-    alignSelf: "flex-start",
-    background: "#1a1a28",
-    color: "#e6e6ff",
+    gap: 14,
   },
   inputRow: {
     display: "flex",
-    gap: 10,
-    padding: 14,
-    borderTop: "1px solid #1f1f2f",
+    gap: 12,
+    padding: 16,
+    borderTop: "1px solid rgba(255,255,255,0.08)",
   },
   input: {
     flex: 1,
-    resize: "none",
-    borderRadius: 12,
+    minHeight: 48,
+    maxHeight: 120,
     padding: 12,
-    background: "#11111a",
+    borderRadius: 14,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.12)",
     color: "white",
-    border: "1px solid #2a2a3a",
-    outline: "none",
+    resize: "none",
   },
   send: {
     padding: "0 18px",
-    borderRadius: 12,
+    borderRadius: 14,
+    background: "linear-gradient(135deg,#6b7cff,#9b6bff)",
     border: "none",
-    background: "#6f6fff",
     color: "white",
-    fontWeight: 600,
-    cursor: "pointer",
+    fontWeight: 700,
   },
 };
+
+function bubble(role) {
+  return {
+    maxWidth: "85%",
+    padding: 14,
+    borderRadius: 18,
+    alignSelf: role === "user" ? "flex-end" : "flex-start",
+    background:
+      role === "user"
+        ? "linear-gradient(135deg,#3a4bff,#6b7cff)"
+        : "rgba(255,255,255,0.08)",
+  };
+}
