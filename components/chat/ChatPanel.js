@@ -17,7 +17,7 @@ export default function ChatPanel() {
 
     const userMessage = { role: "user", content: input };
 
-    // optimistic UI
+    // Optimistic UI
     setMessages((m) => [...m, userMessage]);
     setInput("");
     setLoading(true);
@@ -28,9 +28,13 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.content,
-          history: [...messages, userMessage], // ✅ FIXED
+          history: [...messages, userMessage],
         }),
       });
+
+      if (!res.ok) {
+        throw new Error("API response not OK");
+      }
 
       const data = await res.json();
 
@@ -38,13 +42,13 @@ export default function ChatPanel() {
         ...m,
         {
           role: "assistant",
-          content: data.message || "…", // ✅ FIXED
+          content: data.message || "(no reply)",
         },
       ]);
     } catch (err) {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "⚠️ Network error." },
+        { role: "assistant", content: "⚠️ Cipher failed to respond." },
       ]);
     } finally {
       setLoading(false);
