@@ -1,9 +1,3 @@
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -13,29 +7,49 @@ export default async function handler(req, res) {
     const { message, history = [] } = req.body;
 
     if (!message) {
-      return res.status(400).json({ error: "No message provided" });
+      return res.status(400).json({ error: "Missing message" });
     }
 
-    // Convert chat history into plain text context
-    const context = history
-      .map((m) => `${m.role === "user" ? "User" : "Cipher"}: ${m.content}`)
-      .join("\n");
-
-    const response = await client.responses.create({
-      model: "gpt-4o-mini",
-      input: `${context}\nUser: ${message}\nCipher:`,
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini",
+        input: [
+          {
+            role: "system",
+            content: "You are Cipher. Calm, concise, intelligent.",
+          },
+          ...history,
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+      }),
     });
 
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("OpenAI error:", data);
+      return res.status(500).json({
+        error: "OpenAI request failed",
+        details: data,
+      });
+    }
+
     const reply =
-      response.output_text ||
-      response.output?.[0]?.content?.[0]?.text ||
+      data.output_text ||
+      data.output?.[0]?.content?.[0]?.text ||
       "…";
 
     return res.status(200).json({ reply });
-  } catch (error) {
-    console.error("CHAT API ERROR:", error);
-    return res.status(500).json({
-      reply: "⚠️ Cipher failed to respond.",
-    });
+  } catch (err) {
+    console.error("CHAT API CRASH:", err);
+    return res.status(500).json({ error: "Cipher failed hard." });
   }
 }
