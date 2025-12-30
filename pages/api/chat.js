@@ -12,6 +12,10 @@ export default async function handler(req, res) {
   try {
     const { message, history = [] } = req.body;
 
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ message: "(no input)" });
+    }
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
@@ -27,9 +31,14 @@ export default async function handler(req, res) {
     const reply =
       completion.choices?.[0]?.message?.content || "…";
 
-    return res.status(200).json({ reply });
+    // 🔑 IMPORTANT FIX: return `message`, not `reply`
+    return res.status(200).json({
+      message: reply,
+    });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Cipher failed to respond" });
+    console.error("CHAT API ERROR:", err);
+    return res.status(500).json({
+      message: "Cipher failed to respond",
+    });
   }
 }
