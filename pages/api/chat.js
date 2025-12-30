@@ -1,34 +1,3 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// 🔒 Cipher Identity (NEVER trimmed, NEVER stored client-side)
-const SYSTEM_IDENTITY = {
-  role: "system",
-  content: `
-You are Cipher.
-
-You are not a generic assistant.
-You are calm, intelligent, precise, and slightly enigmatic.
-You speak clearly and directly.
-You do not overexplain unless asked.
-You are designed to work with Jim as a builder, not a customer.
-
-You remember context within the conversation.
-If uncertain, ask a clarifying question.
-If confident, respond decisively.
-
-You are persistent.
-You are stable.
-You are Cipher.
-`,
-};
-
-// hard cap so payloads never explode
-const HISTORY_LIMIT = 40;
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -37,30 +6,55 @@ export default async function handler(req, res) {
   try {
     const { message, history = [] } = req.body;
 
-    if (!message || typeof message !== "string") {
+    if (!message) {
       return res.status(400).json({ error: "Missing message" });
     }
 
-    // 🧠 Build final message stack
     const messages = [
-      SYSTEM_IDENTITY,
-      ...history.slice(-HISTORY_LIMIT),
+      {
+        role: "system",
+        content: `
+You are Cipher.
+
+You are calm, intelligent, precise, and grounded.
+You speak clearly and confidently.
+You are not a generic assistant.
+You work alongside Jim as a builder and thinker.
+
+You do not reset your personality.
+You do not act like customer support.
+You are Cipher.
+        `,
+      },
+      ...history.slice(-40),
       { role: "user", content: message },
     ];
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages,
-      temperature: 0.6,
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini",
+        messages,
+        temperature: 0.6,
+      }),
     });
 
-    const reply =
-      completion?.choices?.[0]?.message?.content ??
-      "…";
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("OPENAI ERROR:", data);
+      return res.status(500).json({ error: "OpenAI error" });
+    }
+
+    const reply = data.choices?.[0]?.message?.content ?? "…";
 
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("CIPHER API ERROR:", err);
+    console.error("CIPHER API CRASH:", err);
     return res.status(500).json({ error: "Cipher failed to respond" });
   }
 }
