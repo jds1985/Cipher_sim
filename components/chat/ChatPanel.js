@@ -1,9 +1,13 @@
+
 import { useState, useRef, useEffect } from "react";
 
 const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
 const MAX_REPLY_CHARS = 1200;
+
+// 🔑 NEW: session flag to detect refresh
+const SESSION_FLAG = "cipher_session_active";
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
@@ -12,8 +16,16 @@ export default function ChatPanel() {
     }
 
     try {
+      // 🔥 CLEAR MEMORY ON HARD REFRESH / NEW TAB
+      if (!sessionStorage.getItem(SESSION_FLAG)) {
+        sessionStorage.setItem(SESSION_FLAG, "true");
+        localStorage.removeItem(MEMORY_KEY);
+        return [{ role: "assistant", content: "Cipher online." }];
+      }
+
       const saved = localStorage.getItem(MEMORY_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
+
       return Array.isArray(parsed) && parsed.length
         ? parsed.slice(-MEMORY_LIMIT)
         : [{ role: "assistant", content: "Cipher online." }];
@@ -59,6 +71,7 @@ export default function ChatPanel() {
 
   function resetCipher() {
     localStorage.removeItem(MEMORY_KEY);
+    sessionStorage.removeItem(SESSION_FLAG); // 🔄 allow clean restart
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
       typingIntervalRef.current = null;
@@ -104,13 +117,12 @@ export default function ChatPanel() {
         fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
       }
 
-      // clear any previous typing loop
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
         typingIntervalRef.current = null;
       }
 
-      // ensure ONE assistant typing bubble
+      // ensure ONE typing bubble
       setMessages((m) => [
         ...m.filter(
           (msg) => !(msg.role === "assistant" && msg.content === "")
