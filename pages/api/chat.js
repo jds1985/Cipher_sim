@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
+const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
@@ -12,33 +12,33 @@ export default async function handler(req, res) {
   try {
     const { message, history = [] } = req.body;
 
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({ message: "(no input)" });
+    if (!message) {
+      return res.status(400).json({ error: "Missing message" });
     }
 
-    const completion = await openai.chat.completions.create({
+    const response = await client.responses.create({
       model: "gpt-4.1-mini",
-      messages: [
+      input: [
         {
           role: "system",
           content: "You are Cipher. Calm, concise, intelligent.",
         },
         ...history,
-        { role: "user", content: message },
+        {
+          role: "user",
+          content: message,
+        },
       ],
     });
 
     const reply =
-      completion.choices?.[0]?.message?.content || "…";
+      response.output_text ||
+      response.output?.[0]?.content?.[0]?.text ||
+      "…";
 
-    // 🔑 IMPORTANT FIX: return `message`, not `reply`
-    return res.status(200).json({
-      message: reply,
-    });
+    return res.status(200).json({ message: reply });
   } catch (err) {
-    console.error("CHAT API ERROR:", err);
-    return res.status(500).json({
-      message: "Cipher failed to respond",
-    });
+    console.error("CIPHER API ERROR:", err);
+    return res.status(500).json({ error: "Cipher failed to respond" });
   }
 }
