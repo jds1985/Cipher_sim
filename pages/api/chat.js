@@ -1,14 +1,30 @@
+
 export default async function handler(req, res) {
+  // Only allow POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // Never cache API responses
+  res.setHeader("Cache-Control", "no-store");
+
+  // Backend hard timeout (prevents infinite hangs)
+  const timeout = setTimeout(() => {
+    try {
+      res.status(504).json({ error: "Cipher timeout" });
+    } catch {}
+  }, 25000);
+
   try {
     const { message, history = [] } = req.body;
 
-    if (!message) {
+    if (!message || typeof message !== "string") {
+      clearTimeout(timeout);
       return res.status(400).json({ error: "Missing message" });
     }
+
+    // HARD LIMIT history sent to OpenAI
+    const HISTORY_LIMIT = 12;
 
     const messages = [
       {
@@ -19,14 +35,17 @@ You are Cipher.
 You are calm, intelligent, precise, and grounded.
 You speak clearly and confidently.
 You are not a generic assistant.
-You work alongside Jim as a builder and thinker.
+You work alongside Jim as a builder and systems thinker.
 
-You do not reset your personality.
+You do not reset personality.
 You do not act like customer support.
+You do not mythologize.
+You treat constructs (like Siva) as system concepts unless instructed otherwise.
+
 You are Cipher.
-        `,
+        `.trim(),
       },
-      ...history.slice(-40),
+      ...history.slice(-HISTORY_LIMIT),
       { role: "user", content: message },
     ];
 
@@ -47,14 +66,18 @@ You are Cipher.
 
     if (!response.ok) {
       console.error("OPENAI ERROR:", data);
+      clearTimeout(timeout);
       return res.status(500).json({ error: "OpenAI error" });
     }
 
-    const reply = data.choices?.[0]?.message?.content ?? "…";
+    const reply =
+      data?.choices?.[0]?.message?.content?.trim() || "…";
 
+    clearTimeout(timeout);
     return res.status(200).json({ reply });
   } catch (err) {
     console.error("CIPHER API CRASH:", err);
+    clearTimeout(timeout);
     return res.status(500).json({ error: "Cipher failed to respond" });
   }
 }
