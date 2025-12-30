@@ -12,13 +12,13 @@ export default function ChatPanel() {
   });
 
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [typing, setTyping] = useState(false);
   const bottomRef = useRef(null);
 
   // auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, typing]);
 
   // persist memory
   useEffect(() => {
@@ -28,13 +28,13 @@ export default function ChatPanel() {
   }, [messages]);
 
   async function sendMessage() {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || typing) return;
 
     const userMessage = { role: "user", content: input };
 
     setMessages((m) => [...m, userMessage]);
     setInput("");
-    setLoading(true);
+    setTyping(true);
 
     try {
       const res = await fetch("/api/chat", {
@@ -51,12 +51,13 @@ export default function ChatPanel() {
       const data = await res.json();
       const fullText = data.reply || "…";
 
-      // typing effect
+      // create empty assistant bubble
       setMessages((m) => [...m, { role: "assistant", content: "" }]);
 
       let index = 0;
       const interval = setInterval(() => {
         index++;
+
         setMessages((m) => {
           const updated = [...m];
           updated[updated.length - 1] = {
@@ -66,15 +67,17 @@ export default function ChatPanel() {
           return updated;
         });
 
-        if (index >= fullText.length) clearInterval(interval);
+        if (index >= fullText.length) {
+          clearInterval(interval);
+          setTyping(false);
+        }
       }, 20);
     } catch (err) {
       setMessages((m) => [
         ...m,
         { role: "assistant", content: "⚠️ Cipher failed to respond." },
       ]);
-    } finally {
-      setLoading(false);
+      setTyping(false);
     }
   }
 
@@ -92,10 +95,9 @@ export default function ChatPanel() {
       <div style={styles.chat}>
         {messages.map((m, i) => (
           <div key={i} style={bubble(m.role)}>
-            {m.content}
+            {m.content || "…"}
           </div>
         ))}
-        {loading && <div style={bubble("assistant")}>…</div>}
         <div ref={bottomRef} />
       </div>
 
@@ -106,8 +108,13 @@ export default function ChatPanel() {
           onKeyDown={onKeyDown}
           placeholder="Talk to Cipher…"
           style={styles.input}
+          disabled={typing}
         />
-        <button onClick={sendMessage} style={styles.send}>
+        <button
+          onClick={sendMessage}
+          style={styles.send}
+          disabled={typing}
+        >
           Send
         </button>
       </div>
@@ -163,6 +170,7 @@ const styles = {
     border: "none",
     color: "white",
     fontWeight: 700,
+    opacity: 1,
   },
 };
 
