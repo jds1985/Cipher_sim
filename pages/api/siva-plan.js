@@ -1,6 +1,6 @@
 // pages/api/siva-plan.js
-// SIVA — PLAN PHASE (FIX MODE ENABLED + APPLY GUARDS)
-// Intent Router · Safe Planner · Patch Planner · Fix Planner · No Commits
+// SIVA — PLAN PHASE (THINK + FIX + PATCH + APPLY)
+// Intent Router · Cognitive Planner · Safe Executor
 // Dark. Calm. In control.
 
 export default async function handler(req, res) {
@@ -25,6 +25,11 @@ export default async function handler(req, res) {
   // 🧠 INTENT DETECTION
   // ─────────────────────────────────────────────
 
+  const wantsThink =
+    intent.includes("think") ||
+    intent.includes("analyze") ||
+    intent.includes("reason");
+
   const wantsApply =
     intent.includes("implement") ||
     intent.includes("apply") ||
@@ -37,6 +42,47 @@ export default async function handler(req, res) {
 
   let summary = "No actionable intent detected";
   let files = [];
+  let thoughts = null;
+
+  // ─────────────────────────────────────────────
+  // 🧠 THINK MODE (COGNITION ONLY — NO FILES)
+  // ─────────────────────────────────────────────
+
+  if (wantsThink) {
+    summary = "Cognitive analysis requested";
+
+    thoughts = [
+      "Chat and voice likely broke due to API route mismatch or missing client hydration",
+      "Terminal works because it bypasses chat pipeline",
+      "Fix order should be: API health → chat UI state → voice binding",
+      "Once chat responds, voice can be reattached safely",
+      "SIVA should be used to PATCH incrementally, not bulk-fix",
+    ];
+
+    return res.status(200).json({
+      status: "SIVA_THINK_OK",
+      phase: "THINK",
+      taskId,
+      time: new Date().toISOString(),
+      source,
+      intent: intentRaw,
+      summary,
+      thoughts,
+      files: [],
+      safeguards: {
+        planOnly: true,
+        requiresHumanApproval: false,
+        selfModification: false,
+      },
+      capabilities: {
+        canThink: true,
+        canApply: false,
+        canPatch: false,
+        canFix: false,
+      },
+      nextStep: "Convert insight → FIX or PATCH",
+    });
+  }
 
   // ─────────────────────────────────────────────
   // 🔎 PATH EXTRACTION
@@ -48,7 +94,7 @@ export default async function handler(req, res) {
   }
 
   // ─────────────────────────────────────────────
-  // 🛠️ FIX MODE (DIAGNOSTIC ONLY — NO APPLY)
+  // 🛠️ FIX MODE (DIAGNOSTIC ONLY)
   // ─────────────────────────────────────────────
 
   if (wantsFix && files.length === 0) {
@@ -74,14 +120,13 @@ export default async function handler(req, res) {
   }
 
   // ─────────────────────────────────────────────
-  // 🧩 PATCH MODE (STRICT + GUARDED)
+  // 🧩 PATCH MODE (GUARDED)
   // ─────────────────────────────────────────────
 
   if (wantsPatch && files.length === 0) {
     const path = extractPath(intentRaw);
     const quoted = intentRaw.match(/"([^"]+)"/);
 
-    // ❌ FAIL-SAFE — PATCH WITHOUT QUOTES
     if (path && !quoted) {
       return res.status(200).json({
         status: "SIVA_PLAN_REJECTED",
@@ -103,7 +148,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // ✅ VALID PATCH
     if (path && quoted) {
       summary = `Patch ${path}: add line "${quoted[1]}"`;
 
@@ -125,7 +169,7 @@ export default async function handler(req, res) {
   }
 
   // ─────────────────────────────────────────────
-  // 🧱 IMPLEMENT FALLBACK (FULL CONTENT)
+  // 🧱 IMPLEMENT MODE (FULL CONTENT)
   // ─────────────────────────────────────────────
 
   if (wantsApply && files.filter(f => f.mode === "FULL_CONTENT").length === 0) {
@@ -187,9 +231,7 @@ export default function ${name}({ title = "${name}", children }) {
   // 📤 RESPONSE
   // ─────────────────────────────────────────────
 
-  const canApply =
-    wantsApply ||
-    wantsPatch; // FIX never auto-applies
+  const canApply = wantsApply || wantsPatch;
 
   return res.status(200).json({
     status: "SIVA_PLAN_OK",
@@ -200,24 +242,22 @@ export default function ${name}({ title = "${name}", children }) {
     intent: intentRaw,
     summary,
     files,
-
     safeguards: {
       planOnly: !canApply,
       requiresHumanApproval: true,
       selfModification: false,
     },
-
     capabilities: {
+      canThink: false,
       canApply,
       canPatch: wantsPatch,
       canFix: wantsFix,
     },
-
     nextStep:
       wantsFix
         ? "Review diagnostics → Convert to PATCH or IMPLEMENT"
         : canApply
           ? "Review → Sandbox → Approve & Apply"
-          : "Use IMPLEMENT, PATCH, or FIX to proceed",
+          : "Use THINK, FIX, PATCH, or IMPLEMENT",
   });
 }
