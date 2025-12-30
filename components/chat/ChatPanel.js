@@ -28,7 +28,7 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
 
-  /* ---------------- lifecycle ---------------- */
+  /* ---------- lifecycle ---------- */
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,7 +51,7 @@ export default function ChatPanel() {
     };
   }, []);
 
-  /* ---------------- helpers ---------------- */
+  /* ---------- helpers ---------- */
 
   function trimHistory(history) {
     return history.slice(-HISTORY_WINDOW);
@@ -67,7 +67,7 @@ export default function ChatPanel() {
     setMessages([{ role: "assistant", content: "Cipher online." }]);
   }
 
-  /* ---------------- messaging ---------------- */
+  /* ---------- messaging ---------- */
 
   async function sendMessage() {
     if (!input.trim() || typing) return;
@@ -79,7 +79,6 @@ export default function ChatPanel() {
     setInput("");
     setTyping(true);
 
-    // Abort controller for frontend timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);
 
@@ -102,17 +101,16 @@ export default function ChatPanel() {
       let fullText = String(data.reply ?? "…");
 
       if (fullText.length > MAX_REPLY_CHARS) {
-        fullText =
-          fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
+        fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
       }
 
-      // clear any existing typing interval
+      // clear any previous typing loop
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
         typingIntervalRef.current = null;
       }
 
-      // ensure only one typing bubble
+      // ensure ONE assistant typing bubble
       setMessages((m) => [
         ...m.filter(
           (msg) => !(msg.role === "assistant" && msg.content === "")
@@ -169,7 +167,7 @@ export default function ChatPanel() {
     }
   }
 
-  /* ---------------- UI ---------------- */
+  /* ---------- UI ---------- */
 
   return (
     <div style={styles.wrap}>
@@ -206,7 +204,7 @@ export default function ChatPanel() {
   );
 }
 
-/* ---------------- styles ---------------- */
+/* ---------- styles ---------- */
 
 const styles = {
   wrap: {
