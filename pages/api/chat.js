@@ -1,14 +1,10 @@
-
 export default async function handler(req, res) {
-  // Only allow POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Never cache API responses
   res.setHeader("Cache-Control", "no-store");
 
-  // Backend hard timeout (prevents infinite hangs)
   const timeout = setTimeout(() => {
     try {
       res.status(504).json({ error: "Cipher timeout" });
@@ -23,7 +19,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing message" });
     }
 
-    // HARD LIMIT history sent to OpenAI
     const HISTORY_LIMIT = 12;
 
     const messages = [
