@@ -1,23 +1,37 @@
 import { useState, useRef, useEffect } from "react";
 
 export default function ChatPanel() {
-  const [messages, setMessages] = useState([
-    { role: "assistant", content: "Cipher online." },
-  ]);
+  const [messages, setMessages] = useState(() => {
+    if (typeof window === "undefined") {
+      return [{ role: "assistant", content: "Cipher online." }];
+    }
+    const saved = localStorage.getItem("cipher_memory");
+    return saved
+      ? JSON.parse(saved)
+      : [{ role: "assistant", content: "Cipher online." }];
+  });
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
 
+  // auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // persist memory
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cipher_memory", JSON.stringify(messages));
+    }
+  }, [messages]);
 
   async function sendMessage() {
     if (!input.trim() || loading) return;
 
     const userMessage = { role: "user", content: input };
 
-    // Optimistic UI
     setMessages((m) => [...m, userMessage]);
     setInput("");
     setLoading(true);
@@ -32,19 +46,28 @@ export default function ChatPanel() {
         }),
       });
 
-      if (!res.ok) {
-        throw new Error("API response not OK");
-      }
+      if (!res.ok) throw new Error("API error");
 
       const data = await res.json();
+      const fullText = data.reply || "…";
 
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          content: data.message || "(no reply)",
-        },
-      ]);
+      // typing effect
+      setMessages((m) => [...m, { role: "assistant", content: "" }]);
+
+      let index = 0;
+      const interval = setInterval(() => {
+        index++;
+        setMessages((m) => {
+          const updated = [...m];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: fullText.slice(0, index),
+          };
+          return updated;
+        });
+
+        if (index >= fullText.length) clearInterval(interval);
+      }, 20);
     } catch (err) {
       setMessages((m) => [
         ...m,
