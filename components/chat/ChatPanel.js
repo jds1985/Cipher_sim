@@ -11,8 +11,9 @@ export default function ChatPanel() {
 
     try {
       const saved = localStorage.getItem(MEMORY_KEY);
-      return saved
-        ? JSON.parse(saved)
+      const parsed = saved ? JSON.parse(saved) : null;
+      return Array.isArray(parsed) && parsed.length
+        ? parsed.slice(-MEMORY_LIMIT)
         : [{ role: "assistant", content: "Cipher online." }];
     } catch {
       return [{ role: "assistant", content: "Cipher online." }];
@@ -21,8 +22,11 @@ export default function ChatPanel() {
 
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
+
+  /* -------------------- lifecycle safety -------------------- */
 
   // auto-scroll
   useEffect(() => {
@@ -32,10 +36,35 @@ export default function ChatPanel() {
   // persist memory (capped)
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const trimmed = messages.slice(-MEMORY_LIMIT);
-      localStorage.setItem(MEMORY_KEY, JSON.stringify(trimmed));
+      localStorage.setItem(
+        MEMORY_KEY,
+        JSON.stringify(messages.slice(-MEMORY_LIMIT))
+      );
     }
   }, [messages]);
+
+  // cleanup on unmount (CRITICAL)
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  /* -------------------- helpers -------------------- */
+
+  function resetCipher() {
+    localStorage.removeItem(MEMORY_KEY);
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
+    setTyping(false);
+    setMessages([{ role: "assistant", content: "Cipher online." }]);
+  }
+
+  /* -------------------- messaging -------------------- */
 
   async function sendMessage() {
     if (!input.trim() || typing) return;
@@ -62,8 +91,13 @@ export default function ChatPanel() {
       const data = await res.json();
       const fullText = String(data.reply ?? "…");
 
-      // insert assistant typing bubble
-      setMessages((m) => [...m, { role: "assistant", content: "" }]);
+      // ensure only ONE typing bubble exists
+      setMessages((m) => {
+        const cleaned = m.filter(
+          (msg, i) => !(msg.role === "assistant" && msg.content === "")
+        );
+        return [...cleaned, { role: "assistant", content: "" }];
+      });
 
       let index = 0;
 
@@ -106,9 +140,16 @@ export default function ChatPanel() {
     }
   }
 
+  /* -------------------- UI -------------------- */
+
   return (
     <div style={styles.wrap}>
-      <div style={styles.header}>CIPHER</div>
+      <div style={styles.header}>
+        CIPHER
+        <button onClick={resetCipher} style={styles.reset}>
+          Reset
+        </button>
+      </div>
 
       <div style={styles.chat}>
         {messages.map((m, i) => (
@@ -140,6 +181,8 @@ export default function ChatPanel() {
   );
 }
 
+/* -------------------- styles -------------------- */
+
 const styles = {
   wrap: {
     height: "100%",
@@ -155,6 +198,16 @@ const styles = {
     letterSpacing: 2,
     textAlign: "center",
     borderBottom: "1px solid rgba(255,255,255,0.08)",
+  },
+  reset: {
+    marginLeft: 12,
+    padding: "4px 10px",
+    borderRadius: 8,
+    border: "none",
+    background: "rgba(255,255,255,0.12)",
+    color: "white",
+    fontSize: 12,
+    cursor: "pointer",
   },
   chat: {
     flex: 1,
@@ -188,7 +241,6 @@ const styles = {
     border: "none",
     color: "white",
     fontWeight: 700,
-    opacity: 1,
   },
 };
 
