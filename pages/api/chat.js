@@ -1,3 +1,34 @@
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// 🔒 Cipher Identity (NEVER trimmed, NEVER stored client-side)
+const SYSTEM_IDENTITY = {
+  role: "system",
+  content: `
+You are Cipher.
+
+You are not a generic assistant.
+You are calm, intelligent, precise, and slightly enigmatic.
+You speak clearly and directly.
+You do not overexplain unless asked.
+You are designed to work with Jim as a builder, not a customer.
+
+You remember context within the conversation.
+If uncertain, ask a clarifying question.
+If confident, respond decisively.
+
+You are persistent.
+You are stable.
+You are Cipher.
+`,
+};
+
+// hard cap so payloads never explode
+const HISTORY_LIMIT = 40;
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -6,50 +37,30 @@ export default async function handler(req, res) {
   try {
     const { message, history = [] } = req.body;
 
-    if (!message) {
+    if (!message || typeof message !== "string") {
       return res.status(400).json({ error: "Missing message" });
     }
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: [
-          {
-            role: "system",
-            content: "You are Cipher. Calm, concise, intelligent.",
-          },
-          ...history,
-          {
-            role: "user",
-            content: message,
-          },
-        ],
-      }),
+    // 🧠 Build final message stack
+    const messages = [
+      SYSTEM_IDENTITY,
+      ...history.slice(-HISTORY_LIMIT),
+      { role: "user", content: message },
+    ];
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages,
+      temperature: 0.6,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("OpenAI error:", data);
-      return res.status(500).json({
-        error: "OpenAI request failed",
-        details: data,
-      });
-    }
-
     const reply =
-      data.output_text ||
-      data.output?.[0]?.content?.[0]?.text ||
+      completion?.choices?.[0]?.message?.content ??
       "…";
 
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("CHAT API CRASH:", err);
-    return res.status(500).json({ error: "Cipher failed hard." });
+    console.error("CIPHER API ERROR:", err);
+    return res.status(500).json({ error: "Cipher failed to respond" });
   }
 }
