@@ -1,90 +1,90 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState([
-    { role: "system", content: "> System online." },
-    { role: "system", content: "> Awaiting input..." },
+    { role: "assistant", content: "Cipher online. How can I help?" }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   async function sendMessage() {
-    const text = input.trim();
-    if (!text || loading) return;
+    if (!input.trim() || loading) return;
 
+    const userMessage = { role: "user", content: input };
+    setMessages((m) => [...m, userMessage]);
     setInput("");
     setLoading(true);
-
-    const nextMessages = [
-      ...messages,
-      { role: "user", content: `> ${text}` },
-    ];
-    setMessages(nextMessages);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: text,
-          messages: nextMessages,
+          message: input,
+          history: [...messages, userMessage],
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data?.error || "API error");
+        throw new Error(data?.error || "Chat API error");
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `> ${data.reply || "(no response)"}`,
-        },
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: data.reply || "…" },
       ]);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "system",
-          content: `> ERROR: ${err.message}`,
-        },
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: "⚠️ Cipher encountered an error." },
       ]);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   }
 
-  function onKeyDown(e) {
-    if (e.key === "Enter") {
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.log}>
+    <div style={styles.wrap}>
+      <div style={styles.chat}>
         {messages.map((m, i) => (
-          <div key={i} style={styles.line}>
+          <div
+            key={i}
+            style={{
+              ...styles.bubble,
+              ...(m.role === "user" ? styles.user : styles.assistant),
+            }}
+          >
             {m.content}
           </div>
         ))}
+        <div ref={bottomRef} />
       </div>
 
       <div style={styles.inputRow}>
-        <input
+        <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder={loading ? "Cipher thinking..." : "Type here"}
+          onKeyDown={handleKey}
+          placeholder="Message Cipher…"
           style={styles.input}
-          disabled={loading}
         />
-        <button onClick={sendMessage} style={styles.button}>
-          SEND
+        <button onClick={sendMessage} style={styles.send}>
+          {loading ? "…" : "Send"}
         </button>
       </div>
     </div>
@@ -92,44 +92,60 @@ export default function ChatPanel() {
 }
 
 const styles = {
-  container: {
+  wrap: {
     height: "100%",
     display: "flex",
     flexDirection: "column",
-    background: "black",
-    color: "#00ff00",
-    fontFamily: "monospace",
-    border: "2px solid #00ff00",
-    padding: 12,
+    background: "#0b0b12",
   },
-  log: {
+  chat: {
     flex: 1,
+    padding: 20,
     overflowY: "auto",
-    marginBottom: 12,
-    whiteSpace: "pre-wrap",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
   },
-  line: {
-    marginBottom: 6,
+  bubble: {
+    maxWidth: "80%",
+    padding: "12px 16px",
+    borderRadius: 16,
+    lineHeight: 1.4,
+    fontSize: 15,
+  },
+  user: {
+    alignSelf: "flex-end",
+    background: "#5b5bff",
+    color: "white",
+  },
+  assistant: {
+    alignSelf: "flex-start",
+    background: "#1a1a28",
+    color: "#e6e6ff",
   },
   inputRow: {
     display: "flex",
-    gap: 8,
+    gap: 10,
+    padding: 14,
+    borderTop: "1px solid #1f1f2f",
   },
   input: {
     flex: 1,
-    background: "black",
-    border: "1px solid #00ff00",
-    color: "#00ff00",
-    padding: 10,
-    fontFamily: "monospace",
+    resize: "none",
+    borderRadius: 12,
+    padding: 12,
+    background: "#11111a",
+    color: "white",
+    border: "1px solid #2a2a3a",
     outline: "none",
   },
-  button: {
-    background: "#00ff00",
-    color: "black",
+  send: {
+    padding: "0 18px",
+    borderRadius: 12,
     border: "none",
-    padding: "0 16px",
-    fontWeight: "bold",
+    background: "#6f6fff",
+    color: "white",
+    fontWeight: 600,
     cursor: "pointer",
   },
 };
