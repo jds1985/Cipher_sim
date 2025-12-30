@@ -1,29 +1,39 @@
 import { useState, useRef, useEffect } from "react";
 
+const MEMORY_KEY = "cipher_memory";
+const MEMORY_LIMIT = 50;
+
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
     if (typeof window === "undefined") {
       return [{ role: "assistant", content: "Cipher online." }];
     }
-    const saved = localStorage.getItem("cipher_memory");
-    return saved
-      ? JSON.parse(saved)
-      : [{ role: "assistant", content: "Cipher online." }];
+
+    try {
+      const saved = localStorage.getItem(MEMORY_KEY);
+      return saved
+        ? JSON.parse(saved)
+        : [{ role: "assistant", content: "Cipher online." }];
+    } catch {
+      return [{ role: "assistant", content: "Cipher online." }];
+    }
   });
 
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const bottomRef = useRef(null);
+  const typingIntervalRef = useRef(null);
 
   // auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  // persist memory
+  // persist memory (capped)
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("cipher_memory", JSON.stringify(messages));
+      const trimmed = messages.slice(-MEMORY_LIMIT);
+      localStorage.setItem(MEMORY_KEY, JSON.stringify(trimmed));
     }
   }, [messages]);
 
@@ -31,8 +41,9 @@ export default function ChatPanel() {
     if (!input.trim() || typing) return;
 
     const userMessage = { role: "user", content: input };
+    const historySnapshot = [...messages, userMessage];
 
-    setMessages((m) => [...m, userMessage]);
+    setMessages(historySnapshot);
     setInput("");
     setTyping(true);
 
@@ -42,20 +53,21 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.content,
-          history: [...messages, userMessage],
+          history: historySnapshot,
         }),
       });
 
       if (!res.ok) throw new Error("API error");
 
       const data = await res.json();
-      const fullText = data.reply || "…";
+      const fullText = String(data.reply ?? "…");
 
-      // create empty assistant bubble
+      // insert assistant typing bubble
       setMessages((m) => [...m, { role: "assistant", content: "" }]);
 
       let index = 0;
-      const interval = setInterval(() => {
+
+      typingIntervalRef.current = setInterval(() => {
         index++;
 
         setMessages((m) => {
@@ -68,11 +80,17 @@ export default function ChatPanel() {
         });
 
         if (index >= fullText.length) {
-          clearInterval(interval);
+          clearInterval(typingIntervalRef.current);
+          typingIntervalRef.current = null;
           setTyping(false);
         }
       }, 20);
-    } catch (err) {
+    } catch {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+
       setMessages((m) => [
         ...m,
         { role: "assistant", content: "⚠️ Cipher failed to respond." },
