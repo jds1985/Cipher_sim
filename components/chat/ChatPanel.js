@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 
 const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
+const HISTORY_WINDOW = 12;
+const MAX_REPLY_CHARS = 1200;
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
@@ -26,14 +28,12 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
 
-  /* -------------------- lifecycle safety -------------------- */
+  /* ---------------- lifecycle ---------------- */
 
-  // auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  // persist memory (capped)
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem(
@@ -43,7 +43,6 @@ export default function ChatPanel() {
     }
   }, [messages]);
 
-  // cleanup on unmount (CRITICAL)
   useEffect(() => {
     return () => {
       if (typingIntervalRef.current) {
@@ -52,7 +51,11 @@ export default function ChatPanel() {
     };
   }, []);
 
-  /* -------------------- helpers -------------------- */
+  /* ---------------- helpers ---------------- */
+
+  function trimHistory(history) {
+    return history.slice(-HISTORY_WINDOW);
+  }
 
   function resetCipher() {
     localStorage.removeItem(MEMORY_KEY);
@@ -64,7 +67,7 @@ export default function ChatPanel() {
     setMessages([{ role: "assistant", content: "Cipher online." }]);
   }
 
-  /* -------------------- messaging -------------------- */
+  /* ---------------- messaging ---------------- */
 
   async function sendMessage() {
     if (!input.trim() || typing) return;
@@ -76,28 +79,46 @@ export default function ChatPanel() {
     setInput("");
     setTyping(true);
 
+    // Abort controller for frontend timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.content,
-          history: historySnapshot,
+          history: trimHistory(historySnapshot),
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!res.ok) throw new Error("API error");
 
       const data = await res.json();
-      const fullText = String(data.reply ?? "…");
+      let fullText = String(data.reply ?? "…");
 
-      // ensure only ONE typing bubble exists
-      setMessages((m) => {
-        const cleaned = m.filter(
-          (msg, i) => !(msg.role === "assistant" && msg.content === "")
-        );
-        return [...cleaned, { role: "assistant", content: "" }];
-      });
+      if (fullText.length > MAX_REPLY_CHARS) {
+        fullText =
+          fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
+      }
+
+      // clear any existing typing interval
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+
+      // ensure only one typing bubble
+      setMessages((m) => [
+        ...m.filter(
+          (msg) => !(msg.role === "assistant" && msg.content === "")
+        ),
+        { role: "assistant", content: "" },
+      ]);
 
       let index = 0;
 
@@ -119,7 +140,9 @@ export default function ChatPanel() {
           setTyping(false);
         }
       }, 20);
-    } catch {
+    } catch (err) {
+      clearTimeout(timeoutId);
+
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
         typingIntervalRef.current = null;
@@ -127,7 +150,13 @@ export default function ChatPanel() {
 
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "⚠️ Cipher failed to respond." },
+        {
+          role: "assistant",
+          content:
+            err.name === "AbortError"
+              ? "⚠️ Response timed out."
+              : "⚠️ Cipher failed to respond.",
+        },
       ]);
       setTyping(false);
     }
@@ -140,7 +169,7 @@ export default function ChatPanel() {
     }
   }
 
-  /* -------------------- UI -------------------- */
+  /* ---------------- UI ---------------- */
 
   return (
     <div style={styles.wrap}>
@@ -169,11 +198,7 @@ export default function ChatPanel() {
           style={styles.input}
           disabled={typing}
         />
-        <button
-          onClick={sendMessage}
-          style={styles.send}
-          disabled={typing}
-        >
+        <button onClick={sendMessage} style={styles.send} disabled={typing}>
           Send
         </button>
       </div>
@@ -181,7 +206,7 @@ export default function ChatPanel() {
   );
 }
 
-/* -------------------- styles -------------------- */
+/* ---------------- styles ---------------- */
 
 const styles = {
   wrap: {
