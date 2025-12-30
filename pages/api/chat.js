@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
+const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
@@ -13,32 +13,27 @@ export default async function handler(req, res) {
     const { message, history = [] } = req.body;
 
     if (!message) {
-      return res.status(400).json({ reply: "…" });
+      return res.status(400).json({ error: "No message provided" });
     }
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are Cipher. Calm, concise, intelligent.",
-        },
-        ...history,
-        { role: "user", content: message },
-      ],
+    // Convert chat history into plain text context
+    const context = history
+      .map((m) => `${m.role === "user" ? "User" : "Cipher"}: ${m.content}`)
+      .join("\n");
+
+    const response = await client.responses.create({
+      model: "gpt-4o-mini",
+      input: `${context}\nUser: ${message}\nCipher:`,
     });
 
     const reply =
-      completion?.choices?.[0]?.message?.content?.trim();
-
-    if (!reply) {
-      console.error("⚠️ Empty completion:", completion);
-      return res.status(200).json({ reply: "…" });
-    }
+      response.output_text ||
+      response.output?.[0]?.content?.[0]?.text ||
+      "…";
 
     return res.status(200).json({ reply });
-  } catch (err) {
-    console.error("❌ CHAT API ERROR:", err);
+  } catch (error) {
+    console.error("CHAT API ERROR:", error);
     return res.status(500).json({
       reply: "⚠️ Cipher failed to respond.",
     });
