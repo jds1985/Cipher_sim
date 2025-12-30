@@ -16,6 +16,8 @@ export default function ChatPanel() {
     if (!input.trim() || loading) return;
 
     const userMessage = { role: "user", content: input };
+
+    // optimistic UI
     setMessages((m) => [...m, userMessage]);
     setInput("");
     setLoading(true);
@@ -26,7 +28,7 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.content,
-          messages: [...messages, userMessage],
+          history: [...messages, userMessage], // ✅ FIXED
         }),
       });
 
@@ -34,7 +36,10 @@ export default function ChatPanel() {
 
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: data.reply || "(no reply)" },
+        {
+          role: "assistant",
+          content: data.message || "…", // ✅ FIXED
+        },
       ]);
     } catch (err) {
       setMessages((m) => [
