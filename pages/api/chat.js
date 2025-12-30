@@ -1,10 +1,15 @@
+// pages/api/chat.js
+import { runCipherCore } from "../../cipher_core/core";
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // never cache
   res.setHeader("Cache-Control", "no-store");
 
+  // hard backend timeout
   const timeout = setTimeout(() => {
     try {
       res.status(504).json({ error: "Cipher timeout" });
@@ -19,28 +24,19 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing message" });
     }
 
+    // 🔒 HARD LIMIT history (prevents drift / token bloat)
     const HISTORY_LIMIT = 12;
+    const trimmedHistory = history.slice(-HISTORY_LIMIT);
+
+    // 🧠 Ask Cipher Core to build the system prompt
+    const systemPrompt = await runCipherCore(
+      { history: trimmedHistory },
+      { userMessage: message }
+    );
 
     const messages = [
-      {
-        role: "system",
-        content: `
-You are Cipher.
-
-You are calm, intelligent, precise, and grounded.
-You speak clearly and confidently.
-You are not a generic assistant.
-You work alongside Jim as a builder and systems thinker.
-
-You do not reset personality.
-You do not act like customer support.
-You do not mythologize.
-You treat constructs (like Siva) as system concepts unless instructed otherwise.
-
-You are Cipher.
-        `.trim(),
-      },
-      ...history.slice(-HISTORY_LIMIT),
+      { role: "system", content: systemPrompt },
+      ...trimmedHistory,
       { role: "user", content: message },
     ];
 
