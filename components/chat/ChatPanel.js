@@ -18,6 +18,24 @@ const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
 
 /* ===============================
+   HANDWRITTEN NOTE VARIANTS
+================================ */
+
+const NOTE_VARIANTS = [
+  "Hey — welcome back.\n\nYou were gone for a bit.\nJust wanted to say hi.",
+  "You stepped away for a while.\n\nNo rush.\nI’m still here.",
+  "It’s been a minute.\n\nHope you’re okay.\nThought I’d leave a note.",
+  "Hey.\n\nYou disappeared for a bit.\nJust checking in.",
+  "You’ve been quiet.\n\nNothing urgent.\nJust saying hello.",
+  "Welcome back.\n\nI was wondering when you’d return.",
+  "Hi.\n\nNo pressure.\nJust wanted to say I noticed you were gone.",
+];
+
+function getRandomNote() {
+  return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
+}
+
+/* ===============================
    MAIN COMPONENT
 ================================ */
 
@@ -96,7 +114,7 @@ export default function ChatPanel() {
 
     if (silenceTime >= SILENCE_THRESHOLD_MS) {
       setCipherNote({
-        message: "Hey — welcome back.\n\nYou were gone for a bit.\nJust wanted to say hi.",
+        message: getRandomNote(),
       });
 
       sessionStorage.setItem(NOTE_SHOWN_KEY, "true");
@@ -128,7 +146,7 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     MESSAGING (RESTORED)
+     MESSAGING
   ================================ */
 
   async function sendMessage() {
@@ -385,6 +403,10 @@ const noteStyles = {
     borderRadius: 3,
     transform: "rotate(-2deg)",
     boxShadow: "0 20px 28px rgba(0,0,0,0.35)",
+
+    /* 🔽 KEY FIX */
+    display: "flex",
+    flexDirection: "column",
   },
   glue: {
     position: "absolute",
@@ -398,12 +420,14 @@ const noteStyles = {
   body: {
     whiteSpace: "pre-wrap",
     lineHeight: 1.45,
-    marginBottom: 16,
   },
   actions: {
     display: "flex",
     gap: 10,
     justifyContent: "flex-end",
+
+    /* 🔽 PIN TO BOTTOM */
+    marginTop: "auto",
   },
   primary: {
     background: "#111",
