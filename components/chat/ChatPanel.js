@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 
+/* ===============================
+   CONFIG
+================================ */
+
 const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
@@ -7,6 +11,10 @@ const MAX_REPLY_CHARS = 1200;
 
 // 🔑 Session flag (clears chat on hard refresh / new tab)
 const SESSION_FLAG = "cipher_session_active";
+
+/* ===============================
+   MAIN COMPONENT
+================================ */
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
@@ -36,10 +44,15 @@ export default function ChatPanel() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
 
+  // 🟨 NEW: Cipher Note state
+  const [cipherNote, setCipherNote] = useState(null);
+
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
 
-  /* ---------- lifecycle ---------- */
+  /* ===============================
+     LIFECYCLE
+  ================================ */
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -67,7 +80,24 @@ export default function ChatPanel() {
     };
   }, []);
 
-  /* ---------- helpers ---------- */
+  // 🟨 NEW: Load Cipher Note (stubbed for now)
+  useEffect(() => {
+    // 🔧 TEMP: replace this with real reach-out fetch later
+    const hasSeenNote = sessionStorage.getItem("cipher_note_seen");
+
+    if (!hasSeenNote) {
+      setCipherNote({
+        header: "Cipher noticed some space.",
+        message:
+          "You went quiet after saying this mattered.\nI’m still holding the thread.",
+      });
+      sessionStorage.setItem("cipher_note_seen", "true");
+    }
+  }, []);
+
+  /* ===============================
+     HELPERS
+  ================================ */
 
   function trimHistory(history) {
     return history.slice(-HISTORY_WINDOW);
@@ -75,7 +105,8 @@ export default function ChatPanel() {
 
   function resetCipher() {
     localStorage.removeItem(MEMORY_KEY);
-    sessionStorage.removeItem(SESSION_FLAG); // 🔄 allow full reset on reload
+    sessionStorage.removeItem(SESSION_FLAG);
+    sessionStorage.removeItem("cipher_note_seen");
 
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
@@ -86,7 +117,9 @@ export default function ChatPanel() {
     setMessages([{ role: "assistant", content: "Cipher online." }]);
   }
 
-  /* ---------- messaging ---------- */
+  /* ===============================
+     MESSAGING
+  ================================ */
 
   async function sendMessage() {
     if (!input.trim() || typing) return;
@@ -129,7 +162,6 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
-      // ensure ONE assistant typing bubble
       setMessages((m) => [
         ...m.filter(
           (msg) => !(msg.role === "assistant" && msg.content === "")
@@ -186,10 +218,21 @@ export default function ChatPanel() {
     }
   }
 
-  /* ---------- UI ---------- */
+  /* ===============================
+     UI
+  ================================ */
 
   return (
     <div style={styles.wrap}>
+      {/* 🟨 Cipher Note Overlay */}
+      {cipherNote && (
+        <CipherNote
+          note={cipherNote}
+          onOpen={() => setCipherNote(null)}
+          onDismiss={() => setCipherNote(null)}
+        />
+      )}
+
       <div style={styles.header}>
         CIPHER
         <button onClick={resetCipher} style={styles.reset}>
@@ -223,7 +266,32 @@ export default function ChatPanel() {
   );
 }
 
-/* ---------- styles ---------- */
+/* ===============================
+   CIPHER NOTE COMPONENT
+================================ */
+
+function CipherNote({ note, onOpen, onDismiss }) {
+  return (
+    <div style={noteStyles.wrap}>
+      <div style={noteStyles.note}>
+        <div style={noteStyles.header}>{note.header}</div>
+        <div style={noteStyles.body}>{note.message}</div>
+        <div style={noteStyles.actions}>
+          <button style={noteStyles.primary} onClick={onOpen}>
+            Open chat
+          </button>
+          <button style={noteStyles.secondary} onClick={onDismiss}>
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===============================
+   STYLES
+================================ */
 
 const styles = {
   wrap: {
@@ -283,6 +351,59 @@ const styles = {
     border: "none",
     color: "white",
     fontWeight: 700,
+  },
+};
+
+const noteStyles = {
+  wrap: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 9999,
+    pointerEvents: "none",
+  },
+  note: {
+    pointerEvents: "auto",
+    position: "absolute",
+    top: 90,
+    right: 18,
+    width: 320,
+    padding: 16,
+    borderRadius: 14,
+    background: "rgba(255, 244, 181, 0.98)",
+    color: "#1a1a1a",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+    transform: "rotate(-1.5deg)",
+  },
+  header: {
+    fontWeight: 700,
+    marginBottom: 8,
+  },
+  body: {
+    whiteSpace: "pre-wrap",
+    lineHeight: 1.35,
+    marginBottom: 14,
+  },
+  actions: {
+    display: "flex",
+    gap: 10,
+    justifyContent: "flex-end",
+  },
+  primary: {
+    background: "#111",
+    color: "white",
+    border: "none",
+    borderRadius: 10,
+    padding: "8px 12px",
+    cursor: "pointer",
+    fontWeight: 600,
+  },
+  secondary: {
+    background: "rgba(255,255,255,0.6)",
+    border: "1px solid rgba(0,0,0,0.2)",
+    borderRadius: 10,
+    padding: "8px 12px",
+    cursor: "pointer",
+    fontWeight: 600,
   },
 };
 
