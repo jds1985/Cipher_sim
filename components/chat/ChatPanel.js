@@ -12,6 +12,11 @@ const MAX_REPLY_CHARS = 1200;
 // 🔑 Session flag (clears chat on hard refresh / new tab)
 const SESSION_FLAG = "cipher_session_active";
 
+// 🆕 Silence detection config
+const SILENCE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
+const NOTE_SHOWN_KEY = "cipher_note_shown";
+
 /* ===============================
    MAIN COMPONENT
 ================================ */
@@ -23,7 +28,6 @@ export default function ChatPanel() {
     }
 
     try {
-      // 🔥 CLEAR CHAT ON HARD REFRESH / NEW TAB
       if (!sessionStorage.getItem(SESSION_FLAG)) {
         sessionStorage.setItem(SESSION_FLAG, "true");
         localStorage.removeItem(MEMORY_KEY);
@@ -44,7 +48,7 @@ export default function ChatPanel() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
 
-  // 🟨 NEW: Cipher Note state
+  // 🟨 Cipher Note state
   const [cipherNote, setCipherNote] = useState(null);
 
   const bottomRef = useRef(null);
@@ -80,18 +84,28 @@ export default function ChatPanel() {
     };
   }, []);
 
-  // 🟨 NEW: Load Cipher Note (stubbed for now)
-  useEffect(() => {
-    // 🔧 TEMP: replace this with real reach-out fetch later
-    const hasSeenNote = sessionStorage.getItem("cipher_note_seen");
+  /* ===============================
+     🆕 SILENCE DETECTION
+  ================================ */
 
-    if (!hasSeenNote) {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const lastMessage = localStorage.getItem(LAST_USER_MESSAGE_KEY);
+    const noteShown = sessionStorage.getItem(NOTE_SHOWN_KEY);
+
+    if (!lastMessage || noteShown) return;
+
+    const silenceTime = Date.now() - Number(lastMessage);
+
+    if (silenceTime >= SILENCE_THRESHOLD_MS) {
       setCipherNote({
         header: "Cipher noticed some space.",
         message:
           "You went quiet after saying this mattered.\nI’m still holding the thread.",
       });
-      sessionStorage.setItem("cipher_note_seen", "true");
+
+      sessionStorage.setItem(NOTE_SHOWN_KEY, "true");
     }
   }, []);
 
@@ -105,8 +119,9 @@ export default function ChatPanel() {
 
   function resetCipher() {
     localStorage.removeItem(MEMORY_KEY);
+    localStorage.removeItem(LAST_USER_MESSAGE_KEY);
     sessionStorage.removeItem(SESSION_FLAG);
-    sessionStorage.removeItem("cipher_note_seen");
+    sessionStorage.removeItem(NOTE_SHOWN_KEY);
 
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
@@ -114,6 +129,7 @@ export default function ChatPanel() {
     }
 
     setTyping(false);
+    setCipherNote(null);
     setMessages([{ role: "assistant", content: "Cipher online." }]);
   }
 
@@ -126,6 +142,14 @@ export default function ChatPanel() {
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
+
+    // 🆕 Track last user activity
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        LAST_USER_MESSAGE_KEY,
+        String(Date.now())
+      );
+    }
 
     setMessages(historySnapshot);
     setInput("");
@@ -224,7 +248,6 @@ export default function ChatPanel() {
 
   return (
     <div style={styles.wrap}>
-      {/* 🟨 Cipher Note Overlay */}
       {cipherNote && (
         <CipherNote
           note={cipherNote}
