@@ -62,7 +62,6 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  // 🧠 Persist ONLY during active session
   useEffect(() => {
     if (
       typeof window !== "undefined" &&
@@ -75,7 +74,6 @@ export default function ChatPanel() {
     }
   }, [messages]);
 
-  // 🧹 Cleanup typing loop
   useEffect(() => {
     return () => {
       if (typingIntervalRef.current) {
@@ -100,9 +98,9 @@ export default function ChatPanel() {
 
     if (silenceTime >= SILENCE_THRESHOLD_MS) {
       setCipherNote({
-        header: "I left this here.",
+        header: "Hey — welcome back.",
         message:
-          "You stepped away after saying this mattered.\n\nNo rush — I’m still holding it.",
+          "You were gone for a bit.\nJust wanted to say hi.",
       });
 
       sessionStorage.setItem(NOTE_SHOWN_KEY, "true");
@@ -143,13 +141,7 @@ export default function ChatPanel() {
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
 
-    // Track last user activity
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        LAST_USER_MESSAGE_KEY,
-        String(Date.now())
-      );
-    }
+    localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
 
     setMessages(historySnapshot);
     setInput("");
@@ -213,23 +205,10 @@ export default function ChatPanel() {
           setTyping(false);
         }
       }, 20);
-    } catch (err) {
-      clearTimeout(timeoutId);
-
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-        typingIntervalRef.current = null;
-      }
-
+    } catch {
       setMessages((m) => [
         ...m,
-        {
-          role: "assistant",
-          content:
-            err.name === "AbortError"
-              ? "⚠️ Response timed out."
-              : "⚠️ Cipher failed to respond.",
-        },
+        { role: "assistant", content: "⚠️ Cipher failed to respond." },
       ]);
       setTyping(false);
     }
@@ -297,6 +276,7 @@ function CipherNote({ note, onOpen, onDismiss }) {
   return (
     <div style={noteStyles.wrap}>
       <div style={noteStyles.note}>
+        <div style={noteStyles.glue} />
         <div style={noteStyles.header}>{note.header}</div>
         <div style={noteStyles.body}>{note.message}</div>
         <div style={noteStyles.actions}>
@@ -387,17 +367,26 @@ const noteStyles = {
   note: {
     pointerEvents: "auto",
     position: "absolute",
-    top: 80,
-    right: 16,
-    width: 360,
-    minHeight: 200,
-    padding: 22,
-    borderRadius: 10,
-    background: "rgba(255, 244, 181, 0.98)",
+    top: 72,
+    right: 18,
+    width: 220,
+    height: 220,
+    padding: "26px 18px 20px",
+    background: "#FFF4B5",
     color: "#1a1a1a",
-    boxShadow:
-      "0 18px 35px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(0,0,0,0.05)",
+    borderRadius: 3,
     transform: "rotate(-2deg)",
+    boxShadow:
+      "0 20px 28px rgba(0,0,0,0.35)",
+  },
+  glue: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 14,
+    background:
+      "linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,0))",
   },
   header: {
     fontWeight: 700,
@@ -406,7 +395,7 @@ const noteStyles = {
   body: {
     whiteSpace: "pre-wrap",
     lineHeight: 1.4,
-    marginBottom: 18,
+    marginBottom: 14,
   },
   actions: {
     display: "flex",
@@ -417,8 +406,8 @@ const noteStyles = {
     background: "#111",
     color: "white",
     border: "none",
-    borderRadius: 10,
-    padding: "8px 12px",
+    borderRadius: 8,
+    padding: "6px 10px",
     cursor: "pointer",
     fontWeight: 600,
   },
@@ -426,7 +415,7 @@ const noteStyles = {
     background: "transparent",
     border: "none",
     color: "rgba(0,0,0,0.5)",
-    padding: "8px 10px",
+    padding: "6px 8px",
     cursor: "pointer",
     fontWeight: 500,
   },
