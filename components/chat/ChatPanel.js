@@ -9,8 +9,10 @@ const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
 const MAX_REPLY_CHARS = 1200;
 
+// 🔑 Session flag (clears chat on hard refresh / new tab)
 const SESSION_FLAG = "cipher_session_active";
 
+// 📝 Silence detection
 const SILENCE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
@@ -59,7 +61,10 @@ export default function ChatPanel() {
   }, [messages, typing]);
 
   useEffect(() => {
-    if (sessionStorage.getItem(SESSION_FLAG)) {
+    if (
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(SESSION_FLAG)
+    ) {
       localStorage.setItem(
         MEMORY_KEY,
         JSON.stringify(messages.slice(-MEMORY_LIMIT))
@@ -69,24 +74,29 @@ export default function ChatPanel() {
 
   useEffect(() => {
     return () => {
-      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
     };
   }, []);
 
   /* ===============================
-     SILENCE DETECTION
+     SILENCE DETECTION (ADDITIVE)
   ================================ */
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const lastMessage = localStorage.getItem(LAST_USER_MESSAGE_KEY);
     const noteShown = sessionStorage.getItem(NOTE_SHOWN_KEY);
 
     if (!lastMessage || noteShown) return;
 
-    if (Date.now() - Number(lastMessage) >= SILENCE_THRESHOLD_MS) {
+    const silenceTime = Date.now() - Number(lastMessage);
+
+    if (silenceTime >= SILENCE_THRESHOLD_MS) {
       setCipherNote({
-        header: "Hey — welcome back.",
-        message: "You were gone for a bit.\nJust wanted to say hi.",
+        message: "Hey — welcome back.\n\nYou were gone for a bit.\nJust wanted to say hi.",
       });
 
       sessionStorage.setItem(NOTE_SHOWN_KEY, "true");
@@ -104,7 +114,8 @@ export default function ChatPanel() {
   function resetCipher() {
     localStorage.removeItem(MEMORY_KEY);
     localStorage.removeItem(LAST_USER_MESSAGE_KEY);
-    sessionStorage.clear();
+    sessionStorage.removeItem(SESSION_FLAG);
+    sessionStorage.removeItem(NOTE_SHOWN_KEY);
 
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
@@ -117,20 +128,23 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     MESSAGING
+     MESSAGING (RESTORED)
   ================================ */
 
   async function sendMessage() {
     if (!input.trim() || typing) return;
 
-    localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
-
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
+
+    localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
 
     setMessages(historySnapshot);
     setInput("");
     setTyping(true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     try {
       const res = await fetch("/api/chat", {
@@ -140,17 +154,68 @@ export default function ChatPanel() {
           message: userMessage.content,
           history: trimHistory(historySnapshot),
         }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
-      const fullText = String(data.reply ?? "…");
+      clearTimeout(timeoutId);
+      if (!res.ok) throw new Error("API error");
 
-      setMessages((m) => [...m, { role: "assistant", content: fullText }]);
-      setTyping(false);
-    } catch {
+      const data = await res.json();
+      let fullText = String(data.reply ?? "…");
+
+      if (fullText.length > MAX_REPLY_CHARS) {
+        fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
+      }
+
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+
+      setMessages((m) => [
+        ...m.filter(
+          (msg) => !(msg.role === "assistant" && msg.content === "")
+        ),
+        { role: "assistant", content: "" },
+      ]);
+
+      let index = 0;
+
+      typingIntervalRef.current = setInterval(() => {
+        index++;
+
+        setMessages((m) => {
+          const updated = [...m];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: fullText.slice(0, index),
+          };
+          return updated;
+        });
+
+        if (index >= fullText.length) {
+          clearInterval(typingIntervalRef.current);
+          typingIntervalRef.current = null;
+          setTyping(false);
+        }
+      }, 20);
+    } catch (err) {
+      clearTimeout(timeoutId);
+
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "⚠️ Cipher failed to respond." },
+        {
+          role: "assistant",
+          content:
+            err.name === "AbortError"
+              ? "⚠️ Response timed out."
+              : "⚠️ Cipher failed to respond.",
+        },
       ]);
       setTyping(false);
     }
@@ -187,7 +252,7 @@ export default function ChatPanel() {
       <div style={styles.chat}>
         {messages.map((m, i) => (
           <div key={i} style={bubble(m.role)}>
-            {m.content}
+            {m.content || "…"}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -211,7 +276,7 @@ export default function ChatPanel() {
 }
 
 /* ===============================
-   CIPHER NOTE
+   POST-IT NOTE COMPONENT
 ================================ */
 
 function CipherNote({ note, onOpen, onDismiss }) {
@@ -219,8 +284,6 @@ function CipherNote({ note, onOpen, onDismiss }) {
     <div style={noteStyles.wrap}>
       <div style={noteStyles.note}>
         <div style={noteStyles.glue} />
-        <div style={noteStyles.curl} />
-        <div style={noteStyles.header}>{note.header}</div>
         <div style={noteStyles.body}>{note.message}</div>
         <div style={noteStyles.actions}>
           <button style={noteStyles.primary} onClick={onOpen}>
@@ -253,6 +316,7 @@ const styles = {
     fontWeight: 700,
     letterSpacing: 2,
     textAlign: "center",
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
   },
   reset: {
     marginLeft: 12,
@@ -261,6 +325,7 @@ const styles = {
     border: "none",
     background: "rgba(255,255,255,0.12)",
     color: "white",
+    fontSize: 12,
     cursor: "pointer",
   },
   chat: {
@@ -275,20 +340,26 @@ const styles = {
     display: "flex",
     gap: 12,
     padding: 16,
+    borderTop: "1px solid rgba(255,255,255,0.08)",
   },
   input: {
     flex: 1,
+    minHeight: 48,
+    maxHeight: 120,
     padding: 12,
     borderRadius: 14,
     background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.12)",
     color: "white",
+    resize: "none",
   },
   send: {
+    padding: "0 18px",
     borderRadius: 14,
     background: "linear-gradient(135deg,#6b7cff,#9b6bff)",
+    border: "none",
     color: "white",
     fontWeight: 700,
-    padding: "0 18px",
   },
 };
 
@@ -304,14 +375,16 @@ const noteStyles = {
     position: "absolute",
     top: 70,
     right: 18,
-    width: 210,
-    height: 210,
-    padding: "28px 16px 18px",
+    width: 220,
+    height: 220,
+    padding: "26px 18px 20px",
     background: "#FFF4B5",
-    borderRadius: 2,
+    color: "#1a1a1a",
+    fontFamily: "'Comic Sans MS', 'Bradley Hand', cursive",
+    fontSize: 15,
+    borderRadius: 3,
     transform: "rotate(-2deg)",
-    boxShadow: "0 18px 28px rgba(0,0,0,0.35)",
-    fontFamily: "'Patrick Hand', cursive",
+    boxShadow: "0 20px 28px rgba(0,0,0,0.35)",
   },
   glue: {
     position: "absolute",
@@ -320,45 +393,34 @@ const noteStyles = {
     right: 0,
     height: 14,
     background:
-      "linear-gradient(to bottom, rgba(255,255,255,0.85), rgba(255,255,255,0))",
-  },
-  curl: {
-    position: "absolute",
-    bottom: -6,
-    right: -6,
-    width: 22,
-    height: 22,
-    background: "#F3E89E",
-    transform: "rotate(12deg)",
-    boxShadow: "-2px -2px 6px rgba(0,0,0,0.15)",
-  },
-  header: {
-    fontSize: 18,
-    marginBottom: 8,
+      "linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0))",
   },
   body: {
-    fontSize: 17,
-    lineHeight: 1.35,
     whiteSpace: "pre-wrap",
+    lineHeight: 1.45,
+    marginBottom: 16,
   },
   actions: {
-    position: "absolute",
-    bottom: 10,
-    right: 10,
     display: "flex",
-    gap: 8,
+    gap: 10,
+    justifyContent: "flex-end",
   },
   primary: {
     background: "#111",
     color: "white",
     border: "none",
     borderRadius: 8,
-    padding: "4px 8px",
+    padding: "6px 10px",
+    cursor: "pointer",
+    fontWeight: 600,
   },
   secondary: {
     background: "transparent",
     border: "none",
     color: "rgba(0,0,0,0.5)",
+    padding: "6px 8px",
+    cursor: "pointer",
+    fontWeight: 500,
   },
 };
 
