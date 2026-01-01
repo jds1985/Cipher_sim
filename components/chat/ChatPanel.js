@@ -13,7 +13,7 @@ const MAX_REPLY_CHARS = 1200;
 const SESSION_FLAG = "cipher_session_active";
 
 // 📝 Silence detection
-const SILENCE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+const SILENCE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
 
