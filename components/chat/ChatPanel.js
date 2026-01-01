@@ -12,7 +12,7 @@ const MAX_REPLY_CHARS = 1200;
 // 🔑 Session flag (clears chat on hard refresh / new tab)
 const SESSION_FLAG = "cipher_session_active";
 
-// 🆕 Silence detection config
+// Silence detection config
 const SILENCE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
@@ -85,7 +85,7 @@ export default function ChatPanel() {
   }, []);
 
   /* ===============================
-     🆕 SILENCE DETECTION
+     SILENCE DETECTION
   ================================ */
 
   useEffect(() => {
@@ -100,9 +100,9 @@ export default function ChatPanel() {
 
     if (silenceTime >= SILENCE_THRESHOLD_MS) {
       setCipherNote({
-        header: "Cipher noticed some space.",
+        header: "I left this here.",
         message:
-          "You went quiet after saying this mattered.\nI’m still holding the thread.",
+          "You stepped away after saying this mattered.\n\nNo rush — I’m still holding it.",
       });
 
       sessionStorage.setItem(NOTE_SHOWN_KEY, "true");
@@ -143,7 +143,7 @@ export default function ChatPanel() {
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
 
-    // 🆕 Track last user activity
+    // Track last user activity
     if (typeof window !== "undefined") {
       localStorage.setItem(
         LAST_USER_MESSAGE_KEY,
@@ -387,24 +387,26 @@ const noteStyles = {
   note: {
     pointerEvents: "auto",
     position: "absolute",
-    top: 90,
-    right: 18,
-    width: 320,
-    padding: 16,
-    borderRadius: 14,
+    top: 80,
+    right: 16,
+    width: 360,
+    minHeight: 200,
+    padding: 22,
+    borderRadius: 10,
     background: "rgba(255, 244, 181, 0.98)",
     color: "#1a1a1a",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-    transform: "rotate(-1.5deg)",
+    boxShadow:
+      "0 18px 35px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(0,0,0,0.05)",
+    transform: "rotate(-2deg)",
   },
   header: {
     fontWeight: 700,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   body: {
     whiteSpace: "pre-wrap",
-    lineHeight: 1.35,
-    marginBottom: 14,
+    lineHeight: 1.4,
+    marginBottom: 18,
   },
   actions: {
     display: "flex",
@@ -421,12 +423,12 @@ const noteStyles = {
     fontWeight: 600,
   },
   secondary: {
-    background: "rgba(255,255,255,0.6)",
-    border: "1px solid rgba(0,0,0,0.2)",
-    borderRadius: 10,
-    padding: "8px 12px",
+    background: "transparent",
+    border: "none",
+    color: "rgba(0,0,0,0.5)",
+    padding: "8px 10px",
     cursor: "pointer",
-    fontWeight: 600,
+    fontWeight: 500,
   },
 };
 
