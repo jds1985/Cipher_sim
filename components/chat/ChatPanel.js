@@ -50,6 +50,22 @@ const RETURN_LINES = [
 const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 
 /* ===============================
+   🌓 DECIPHER MODE (ADDED)
+================================ */
+
+// UI mode flag
+const MODE_DEFAULT = "cipher"; // "cipher" | "decipher"
+
+// Optional text triggers (user can type these)
+const DECIPHER_TRIGGERS = ["decipher", "be blunt", "no sugar", "tell me straight"];
+
+// Tiny status line (optional)
+const MODE_LABELS = {
+  cipher: "CIPHER",
+  decipher: "DECIPHER",
+};
+
+/* ===============================
    MAIN COMPONENT
 ================================ */
 
@@ -80,6 +96,9 @@ export default function ChatPanel() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [cipherNote, setCipherNote] = useState(null);
+
+  // 🌓 Decipher mode state (ADDED)
+  const [mode, setMode] = useState(MODE_DEFAULT);
 
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
@@ -172,6 +191,7 @@ export default function ChatPanel() {
 
     setTyping(false);
     setCipherNote(null);
+    setMode(MODE_DEFAULT); // 🌓 reset mode too (ADDED)
     setMessages([{ role: "assistant", content: "Cipher online." }]);
   }
 
@@ -181,6 +201,13 @@ export default function ChatPanel() {
 
   async function sendMessage() {
     if (!input.trim() || typing) return;
+
+    // 🌓 Optional: detect text triggers (ADDED)
+    const lower = input.trim().toLowerCase();
+    const invokedDecipher = DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "));
+    if (invokedDecipher) {
+      setMode("decipher");
+    }
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
@@ -195,12 +222,19 @@ export default function ChatPanel() {
     const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     try {
-      const res = await fetch("/api/chat", {
+      // 🌓 Route to the correct endpoint (ADDED)
+      const endpoint = mode === "decipher" ? "/api/decipher" : "/api/chat";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.content,
           history: trimHistory(historySnapshot),
+
+          // 🌓 Optional context key for decipher.js (safe to include)
+          // If your decipher.js expects "context" instead of "history", it can map it.
+          context: trimHistory(historySnapshot),
         }),
         signal: controller.signal,
       });
@@ -220,11 +254,26 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
+      // 🌓 Create the response bubble with correct role (ADDED)
+      const replyRole = mode === "decipher" ? "decipher" : "assistant";
+
+      // 🌓 Decipher should feel instant + blunt (no typing animation) (ADDED)
+      if (mode === "decipher") {
+        setMessages((m) => [
+          ...m,
+          { role: replyRole, content: fullText },
+        ]);
+        setTyping(false);
+        setMode("cipher"); // auto return to Cipher after one response (ADDED)
+        return;
+      }
+
+      // Default Cipher typing animation (unchanged)
       setMessages((m) => [
         ...m.filter(
           (msg) => !(msg.role === "assistant" && msg.content === "")
         ),
-        { role: "assistant", content: "" },
+        { role: replyRole, content: "" },
       ]);
 
       let index = 0;
@@ -234,7 +283,7 @@ export default function ChatPanel() {
         setMessages((m) => {
           const updated = [...m];
           updated[updated.length - 1] = {
-            role: "assistant",
+            role: replyRole,
             content: fullText.slice(0, index),
           };
           return updated;
@@ -244,6 +293,7 @@ export default function ChatPanel() {
           clearInterval(typingIntervalRef.current);
           typingIntervalRef.current = null;
           setTyping(false);
+          setMode("cipher"); // 🌓 auto return (ADDED)
         }
       }, 20);
     } catch (err) {
@@ -265,6 +315,7 @@ export default function ChatPanel() {
         },
       ]);
       setTyping(false);
+      setMode("cipher"); // 🌓 fail-safe return (ADDED)
     }
   }
 
@@ -293,10 +344,24 @@ export default function ChatPanel() {
       )}
 
       <div style={styles.header}>
-        CIPHER
+        {MODE_LABELS[mode] || "CIPHER"}
         <button onClick={resetCipher} style={styles.reset}>
           Reset
         </button>
+
+        {/* 🌓 Decipher button (ADDED) */}
+        <button
+          onClick={() => setMode("decipher")}
+          style={styles.decipherBtn}
+          title="Blunt / dark-humor mode (one reply)"
+        >
+          Decipher
+        </button>
+
+        {/* 🌓 Optional: show current mode hint (ADDED) */}
+        {mode === "decipher" && (
+          <span style={styles.modeHint}>blunt mode</span>
+        )}
       </div>
 
       <div style={styles.chat}>
@@ -367,6 +432,7 @@ const styles = {
     letterSpacing: 2,
     textAlign: "center",
     borderBottom: "1px solid rgba(255,255,255,0.08)",
+    position: "relative",
   },
   reset: {
     marginLeft: 12,
@@ -378,6 +444,25 @@ const styles = {
     fontSize: 12,
     cursor: "pointer",
   },
+
+  // 🌓 Decipher button styles (ADDED)
+  decipherBtn: {
+    marginLeft: 8,
+    padding: "4px 10px",
+    borderRadius: 8,
+    border: "1px solid rgba(180,60,60,0.85)",
+    background: "rgba(180,60,60,0.18)",
+    color: "rgba(255,200,200,0.95)",
+    fontSize: 12,
+    cursor: "pointer",
+  },
+  modeHint: {
+    marginLeft: 10,
+    fontSize: 11,
+    letterSpacing: 1,
+    color: "rgba(255,255,255,0.55)",
+  },
+
   chat: {
     flex: 1,
     padding: 20,
@@ -477,6 +562,20 @@ const noteStyles = {
 };
 
 function bubble(role) {
+  // 🌓 Decipher bubble styling (ADDED)
+  if (role === "decipher") {
+    return {
+      maxWidth: "85%",
+      padding: 14,
+      borderRadius: 12,
+      alignSelf: "flex-start",
+      background: "rgba(20,20,20,0.92)",
+      border: "1px solid rgba(180,60,60,0.75)",
+      color: "rgba(245,245,245,0.96)",
+      fontWeight: 500,
+    };
+  }
+
   return {
     maxWidth: "85%",
     padding: 14,
