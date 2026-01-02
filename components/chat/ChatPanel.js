@@ -127,6 +127,7 @@ export default function ChatPanel() {
     return () => {
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
       }
     };
   }, []);
@@ -202,11 +203,18 @@ export default function ChatPanel() {
   async function sendMessage() {
     if (!input.trim() || typing) return;
 
+    // ✅ FIX: freeze mode for this send so state timing can't mis-route
+    let activeMode = mode;
+
     // 🌓 Optional: detect text triggers (ADDED)
     const lower = input.trim().toLowerCase();
-    const invokedDecipher = DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "));
+    const invokedDecipher = DECIPHER_TRIGGERS.some(
+      (t) => lower === t || lower.startsWith(t + " ")
+    );
+
     if (invokedDecipher) {
-      setMode("decipher");
+      activeMode = "decipher";      // ✅ use immediately for this send
+      setMode("decipher");          // keep UI consistent
     }
 
     const userMessage = { role: "user", content: input };
@@ -222,20 +230,27 @@ export default function ChatPanel() {
     const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     try {
-      // 🌓 Route to the correct endpoint (ADDED)
-      const endpoint = mode === "decipher" ? "/api/decipher" : "/api/chat";
+      // ✅ FIX: Route to the correct endpoint based on activeMode
+      const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+
+      // ✅ FIX: Payload matches each API file
+      // /api/chat expects { message, history }
+      // /api/decipher expects { message, context }
+      const payload =
+        activeMode === "decipher"
+          ? {
+              message: userMessage.content,
+              context: trimHistory(historySnapshot),
+            }
+          : {
+              message: userMessage.content,
+              history: trimHistory(historySnapshot),
+            };
 
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage.content,
-          history: trimHistory(historySnapshot),
-
-          // 🌓 Optional context key for decipher.js (safe to include)
-          // If your decipher.js expects "context" instead of "history", it can map it.
-          context: trimHistory(historySnapshot),
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       });
 
@@ -255,14 +270,11 @@ export default function ChatPanel() {
       }
 
       // 🌓 Create the response bubble with correct role (ADDED)
-      const replyRole = mode === "decipher" ? "decipher" : "assistant";
+      const replyRole = activeMode === "decipher" ? "decipher" : "assistant";
 
       // 🌓 Decipher should feel instant + blunt (no typing animation) (ADDED)
-      if (mode === "decipher") {
-        setMessages((m) => [
-          ...m,
-          { role: replyRole, content: fullText },
-        ]);
+      if (activeMode === "decipher") {
+        setMessages((m) => [...m, { role: replyRole, content: fullText }]);
         setTyping(false);
         setMode("cipher"); // auto return to Cipher after one response (ADDED)
         return;
@@ -304,14 +316,19 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
+      // ✅ FIX: correct error string per mode
+      const failText =
+        activeMode === "decipher"
+          ? "⚠️ Decipher failed to respond."
+          : err.name === "AbortError"
+          ? "⚠️ Response timed out."
+          : "⚠️ Cipher failed to respond.";
+
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
-          content:
-            err.name === "AbortError"
-              ? "⚠️ Response timed out."
-              : "⚠️ Cipher failed to respond.",
+          content: failText,
         },
       ]);
       setTyping(false);
