@@ -36,6 +36,20 @@ function getRandomNote() {
 }
 
 /* ===============================
+   RETURN ENTRY LINES (ADDED)
+================================ */
+
+const RETURN_LINES = [
+  "Hey.",
+  "I’m here.",
+  "Yeah?",
+  "What’s up.",
+  "Hey — I’m still here.",
+];
+
+const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
+
+/* ===============================
    MAIN COMPONENT
 ================================ */
 
@@ -99,7 +113,7 @@ export default function ChatPanel() {
   }, []);
 
   /* ===============================
-     SILENCE DETECTION (ADDITIVE)
+     SILENCE DETECTION
   ================================ */
 
   useEffect(() => {
@@ -113,12 +127,27 @@ export default function ChatPanel() {
     const silenceTime = Date.now() - Number(lastMessage);
 
     if (silenceTime >= SILENCE_THRESHOLD_MS) {
-      setCipherNote({
-        message: getRandomNote(),
-      });
-
+      setCipherNote({ message: getRandomNote() });
       sessionStorage.setItem(NOTE_SHOWN_KEY, "true");
     }
+  }, []);
+
+  /* ===============================
+     RETURN CONTINUITY (ADDED)
+  ================================ */
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const returning = sessionStorage.getItem(RETURN_FROM_NOTE_KEY);
+    if (!returning) return;
+
+    const line =
+      RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)];
+
+    setMessages((m) => [...m, { role: "assistant", content: line }]);
+
+    sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
   /* ===============================
@@ -134,6 +163,7 @@ export default function ChatPanel() {
     localStorage.removeItem(LAST_USER_MESSAGE_KEY);
     sessionStorage.removeItem(SESSION_FLAG);
     sessionStorage.removeItem(NOTE_SHOWN_KEY);
+    sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
 
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
@@ -201,7 +231,6 @@ export default function ChatPanel() {
 
       typingIntervalRef.current = setInterval(() => {
         index++;
-
         setMessages((m) => {
           const updated = [...m];
           updated[updated.length - 1] = {
@@ -255,7 +284,10 @@ export default function ChatPanel() {
       {cipherNote && (
         <CipherNote
           note={cipherNote}
-          onOpen={() => setCipherNote(null)}
+          onOpen={() => {
+            sessionStorage.setItem(RETURN_FROM_NOTE_KEY, "true");
+            setCipherNote(null);
+          }}
           onDismiss={() => setCipherNote(null)}
         />
       )}
@@ -403,8 +435,6 @@ const noteStyles = {
     borderRadius: 3,
     transform: "rotate(-2deg)",
     boxShadow: "0 20px 28px rgba(0,0,0,0.35)",
-
-    /* 🔽 KEY FIX */
     display: "flex",
     flexDirection: "column",
   },
@@ -425,8 +455,6 @@ const noteStyles = {
     display: "flex",
     gap: 10,
     justifyContent: "flex-end",
-
-    /* 🔽 PIN TO BOTTOM */
     marginTop: "auto",
   },
   primary: {
