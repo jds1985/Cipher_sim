@@ -1,3 +1,9 @@
+export default async function handler(req, res) {
+  return res.status(200).json({
+    reply: "Decipher is alive."
+  });
+}
+
 import OpenAI from "openai";
 
 const openai = new OpenAI({
