@@ -57,13 +57,177 @@ const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 const MODE_DEFAULT = "cipher"; // "cipher" | "decipher"
 
 // Optional text triggers (user can type these)
-const DECIPHER_TRIGGERS = ["decipher", "be blunt", "no sugar", "tell me straight"];
+const DECIPHER_TRIGGERS = [
+  "decipher",
+  "be blunt",
+  "no sugar",
+  "tell me straight",
+];
 
 // Tiny status line (optional)
 const MODE_LABELS = {
   cipher: "CIPHER",
   decipher: "DECIPHER",
 };
+
+/* ===============================
+   🧊 DECIPHER COOLDOWN (ADDED)
+   - Free: 30 min cooldown
+   - $10 tier: 15 min cooldown
+   - Premium: bursty (few uses), not unlimited
+================================ */
+
+// Where we store client-side cooldown state
+const DECIPHER_LAST_KEY = "cipher_decipher_last";
+const DECIPHER_BURST_KEY = "cipher_decipher_burst";
+const USER_TIER_KEY = "cipher_user_tier"; // optional: "free" | "plus" | "premium"
+
+// Tier defaults (you can later swap this to real auth/subscription)
+const DEFAULT_TIER = "free"; // "free" | "plus" | "premium"
+
+// Cooldown rules
+const DECIPHER_COOLDOWNS_MS = {
+  free: 30 * 60 * 1000, // 30 min
+  plus: 15 * 60 * 1000, // 15 min
+  // premium handled via bursts
+};
+
+// Premium burst rules: allow a few uses in a short window, then cooldown
+const PREMIUM_BURST_WINDOW_MS = 10 * 60 * 1000; // 10 minutes rolling window
+const PREMIUM_BURST_COUNT = 3; // "few bursts"
+const PREMIUM_COOLDOWN_MS = 10 * 60 * 1000; // cooldown after bursts
+
+const DECIPHER_COOLDOWN_MESSAGE =
+  "Cool down.\n\nYou don’t need me every five seconds.\nGo do something real for a bit.\nThen come back if you still feel like it.";
+
+function safeParseJSON(value, fallback) {
+  try {
+    const parsed = JSON.parse(value);
+    return parsed ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function formatRemaining(ms) {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) return `${seconds}s`;
+  return `${minutes}m ${seconds}s`;
+}
+
+function getTier() {
+  if (typeof window === "undefined") return DEFAULT_TIER;
+  const t = localStorage.getItem(USER_TIER_KEY);
+  if (t === "free" || t === "plus" || t === "premium") return t;
+  return DEFAULT_TIER;
+}
+
+function getNow() {
+  return Date.now();
+}
+
+function getBurstTimestamps() {
+  if (typeof window === "undefined") return [];
+  const raw = localStorage.getItem(DECIPHER_BURST_KEY);
+  const arr = safeParseJSON(raw, []);
+  return Array.isArray(arr) ? arr.filter((n) => typeof n === "number") : [];
+}
+
+function setBurstTimestamps(arr) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(DECIPHER_BURST_KEY, JSON.stringify(arr));
+}
+
+function getLastDecipherAt() {
+  if (typeof window === "undefined") return 0;
+  const raw = localStorage.getItem(DECIPHER_LAST_KEY);
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function setLastDecipherAt(ts) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(DECIPHER_LAST_KEY, String(ts));
+}
+
+/**
+ * Returns:
+ * { allowed: boolean, remainingMs: number, reason: string }
+ */
+function canUseDecipher() {
+  if (typeof window === "undefined") {
+    return { allowed: true, remainingMs: 0, reason: "" };
+  }
+
+  const tier = getTier();
+  const now = getNow();
+
+  // Premium: burst logic
+  if (tier === "premium") {
+    const last = getLastDecipherAt();
+    const lastCooldownRemaining = last
+      ? Math.max(0, last + PREMIUM_COOLDOWN_MS - now)
+      : 0;
+
+    // If we're in cooldown, block immediately
+    if (lastCooldownRemaining > 0) {
+      return {
+        allowed: false,
+        remainingMs: lastCooldownRemaining,
+        reason: "premium_cooldown",
+      };
+    }
+
+    // Otherwise check bursts in rolling window
+    const stamps = getBurstTimestamps();
+    const recent = stamps.filter((t) => now - t <= PREMIUM_BURST_WINDOW_MS);
+
+    if (recent.length >= PREMIUM_BURST_COUNT) {
+      // Hit burst cap: start cooldown now
+      setLastDecipherAt(now);
+      setBurstTimestamps(recent); // keep trimmed
+      return {
+        allowed: false,
+        remainingMs: PREMIUM_COOLDOWN_MS,
+        reason: "premium_burst_cap",
+      };
+    }
+
+    return { allowed: true, remainingMs: 0, reason: "" };
+  }
+
+  // Free/Plus: simple cooldown based on last use timestamp
+  const cooldownMs = DECIPHER_COOLDOWNS_MS[tier] ?? DECIPHER_COOLDOWNS_MS.free;
+  const last = getLastDecipherAt();
+  const remaining = last ? Math.max(0, last + cooldownMs - now) : 0;
+
+  if (remaining > 0) {
+    return { allowed: false, remainingMs: remaining, reason: "cooldown" };
+  }
+
+  return { allowed: true, remainingMs: 0, reason: "" };
+}
+
+function recordDecipherUse() {
+  if (typeof window === "undefined") return;
+
+  const tier = getTier();
+  const now = getNow();
+
+  if (tier === "premium") {
+    const stamps = getBurstTimestamps();
+    const recent = stamps.filter((t) => now - t <= PREMIUM_BURST_WINDOW_MS);
+    recent.push(now);
+    setBurstTimestamps(recent);
+    // Do NOT setLastDecipherAt here unless we enter cooldown; we use last as cooldown anchor.
+    return;
+  }
+
+  // Free/Plus: timestamp anchors cooldown
+  setLastDecipherAt(now);
+}
 
 /* ===============================
    MAIN COMPONENT
@@ -99,6 +263,9 @@ export default function ChatPanel() {
 
   // 🌓 Decipher mode state (ADDED)
   const [mode, setMode] = useState(MODE_DEFAULT);
+
+  // 🧊 Cooldown UI hint state (ADDED)
+  const [decipherRemaining, setDecipherRemaining] = useState(0);
 
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
@@ -162,12 +329,27 @@ export default function ChatPanel() {
     const returning = sessionStorage.getItem(RETURN_FROM_NOTE_KEY);
     if (!returning) return;
 
-    const line =
-      RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)];
+    const line = RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)];
 
     setMessages((m) => [...m, { role: "assistant", content: line }]);
 
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
+  }, []);
+
+  /* ===============================
+     DECIPHER COOLDOWN TICKER (ADDED)
+  ================================ */
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Lightweight ticker only when needed
+    const id = setInterval(() => {
+      const check = canUseDecipher();
+      setDecipherRemaining(check.allowed ? 0 : check.remainingMs);
+    }, 1000);
+
+    return () => clearInterval(id);
   }, []);
 
   /* ===============================
@@ -185,6 +367,10 @@ export default function ChatPanel() {
     sessionStorage.removeItem(NOTE_SHOWN_KEY);
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
 
+    // 🧊 Optional: reset cooldown too (ADDED)
+    localStorage.removeItem(DECIPHER_LAST_KEY);
+    localStorage.removeItem(DECIPHER_BURST_KEY);
+
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
       typingIntervalRef.current = null;
@@ -193,6 +379,7 @@ export default function ChatPanel() {
     setTyping(false);
     setCipherNote(null);
     setMode(MODE_DEFAULT); // 🌓 reset mode too (ADDED)
+    setDecipherRemaining(0);
     setMessages([{ role: "assistant", content: "Cipher online." }]);
   }
 
@@ -213,8 +400,24 @@ export default function ChatPanel() {
     );
 
     if (invokedDecipher) {
-      activeMode = "decipher";      // ✅ use immediately for this send
-      setMode("decipher");          // keep UI consistent
+      activeMode = "decipher"; // ✅ use immediately for this send
+      setMode("decipher"); // keep UI consistent
+    }
+
+    // 🧊 COOLDOWN GATE (ADDED)
+    if (activeMode === "decipher") {
+      const gate = canUseDecipher();
+      if (!gate.allowed) {
+        const msg =
+          `${DECIPHER_COOLDOWN_MESSAGE}\n\n` +
+          `Try again in ${formatRemaining(gate.remainingMs)}.`;
+
+        setMessages((m) => [...m, { role: "decipher", content: msg }]);
+        setTyping(false);
+        setMode("cipher"); // auto return
+        setDecipherRemaining(gate.remainingMs);
+        return;
+      }
     }
 
     const userMessage = { role: "user", content: input };
@@ -231,7 +434,8 @@ export default function ChatPanel() {
 
     try {
       // ✅ FIX: Route to the correct endpoint based on activeMode
-      const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+      const endpoint =
+        activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
       // ✅ FIX: Payload matches each API file
       // /api/chat expects { message, history }
@@ -274,17 +478,23 @@ export default function ChatPanel() {
 
       // 🌓 Decipher should feel instant + blunt (no typing animation) (ADDED)
       if (activeMode === "decipher") {
+        // 🧊 record usage AFTER a successful response (ADDED)
+        recordDecipherUse();
+
         setMessages((m) => [...m, { role: replyRole, content: fullText }]);
         setTyping(false);
         setMode("cipher"); // auto return to Cipher after one response (ADDED)
+
+        // update cooldown UI hint quickly
+        const gate = canUseDecipher();
+        setDecipherRemaining(gate.allowed ? 0 : gate.remainingMs);
+
         return;
       }
 
       // Default Cipher typing animation (unchanged)
       setMessages((m) => [
-        ...m.filter(
-          (msg) => !(msg.role === "assistant" && msg.content === "")
-        ),
+        ...m.filter((msg) => !(msg.role === "assistant" && msg.content === "")),
         { role: replyRole, content: "" },
       ]);
 
@@ -369,14 +579,30 @@ export default function ChatPanel() {
         {/* 🌓 Decipher button (ADDED) */}
         <button
           onClick={() => setMode("decipher")}
-          style={styles.decipherBtn}
-          title="Blunt / dark-humor mode (one reply)"
+          style={{
+            ...styles.decipherBtn,
+            opacity: decipherRemaining > 0 ? 0.55 : 1,
+            cursor: decipherRemaining > 0 ? "not-allowed" : "pointer",
+          }}
+          title={
+            decipherRemaining > 0
+              ? `Decipher cooling down: ${formatRemaining(decipherRemaining)}`
+              : "Blunt / dark-humor mode (one reply)"
+          }
+          disabled={decipherRemaining > 0}
         >
           Decipher
         </button>
 
+        {/* 🧊 Cooldown hint (ADDED) */}
+        {decipherRemaining > 0 && (
+          <span style={styles.modeHint}>
+            cooldown {formatRemaining(decipherRemaining)}
+          </span>
+        )}
+
         {/* 🌓 Optional: show current mode hint (ADDED) */}
-        {mode === "decipher" && (
+        {mode === "decipher" && decipherRemaining <= 0 && (
           <span style={styles.modeHint}>blunt mode</span>
         )}
       </div>
