@@ -529,7 +529,7 @@ export default function ChatPanel() {
       // ✅ FIX: correct error string per mode
       const failText =
         activeMode === "decipher"
-          ? "⚠️ Decipher failed to respond."
+          ? "Decipher is cooling down."
           : err.name === "AbortError"
           ? "⚠️ Response timed out."
           : "⚠️ Cipher failed to respond.";
