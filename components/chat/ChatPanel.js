@@ -343,10 +343,17 @@ export default function ChatPanel() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Lightweight ticker only when needed
+    // 🔧 ADDED: force mode back to Cipher during cooldown so it never "sticks"
     const id = setInterval(() => {
       const check = canUseDecipher();
-      setDecipherRemaining(check.allowed ? 0 : check.remainingMs);
+      const remaining = check.allowed ? 0 : check.remainingMs;
+
+      setDecipherRemaining(remaining);
+
+      // If Decipher is cooling down, we never allow the UI to stay in Decipher mode
+      if (remaining > 0) {
+        setMode((m) => (m === "decipher" ? "cipher" : m));
+      }
     }, 1000);
 
     return () => clearInterval(id);
@@ -526,10 +533,10 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
-      // ✅ FIX: correct error string per mode
+      // 🔧 FIX: if a decipher request fails, it should not pretend it's "cooldown"
       const failText =
         activeMode === "decipher"
-          ? "Decipher is cooling down."
+          ? "⚠️ Decipher failed to respond."
           : err.name === "AbortError"
           ? "⚠️ Response timed out."
           : "⚠️ Cipher failed to respond.";
@@ -578,7 +585,11 @@ export default function ChatPanel() {
 
         {/* 🌓 Decipher button (ADDED) */}
         <button
-          onClick={() => setMode("decipher")}
+          // 🔧 ADDED: if it's cooling down, do nothing even if the browser lets a click through
+          onClick={() => {
+            if (decipherRemaining > 0) return;
+            setMode("decipher");
+          }}
           style={{
             ...styles.decipherBtn,
             opacity: decipherRemaining > 0 ? 0.55 : 1,
