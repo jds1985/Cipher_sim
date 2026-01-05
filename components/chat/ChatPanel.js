@@ -533,23 +533,33 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
-      // 🔧 FIX: if a decipher request fails, it should not pretend it's "cooldown"
+      // 🔧 FIX (Option 1): Separate Cipher vs Decipher failures cleanly
+      // - Decipher: always returns to Cipher (one-shot mode)
+      // - Cipher: DO NOT force mode reset; leave UI as-is and just show error bubble
       const failText =
         activeMode === "decipher"
           ? "⚠️ Decipher failed to respond."
-          : err.name === "AbortError"
+          : err?.name === "AbortError"
           ? "⚠️ Response timed out."
           : "⚠️ Cipher failed to respond.";
+
+      // 🔧 FIX (Option 1): error bubble role matches the mode that failed
+      const failRole = activeMode === "decipher" ? "decipher" : "assistant";
 
       setMessages((m) => [
         ...m,
         {
-          role: "assistant",
+          role: failRole, // 🔧 FIX
           content: failText,
         },
       ]);
+
       setTyping(false);
-      setMode("cipher"); // 🌓 fail-safe return (ADDED)
+
+      // 🔧 FIX (Option 1): Only force-reset mode for Decipher failures
+      if (activeMode === "decipher") {
+        setMode("cipher"); // 🔧 FIX
+      }
     }
   }
 
