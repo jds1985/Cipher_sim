@@ -1,4 +1,19 @@
+// components/chat/ChatPanel.js
 import { useState, useRef, useEffect } from "react";
+import { styles } from "./ChatStyles";
+import HeaderMenu from "./HeaderMenu";
+import MessageList from "./MessageList";
+import InputBar from "./InputBar";
+import CipherNote from "./CipherNote";
+
+import {
+  canUseDecipher,
+  recordDecipherUse,
+  DECIPHER_COOLDOWN_MESSAGE,
+  formatRemaining,
+  DECIPHER_LAST_KEY,
+  DECIPHER_BURST_KEY,
+} from "./decipherCooldown";
 
 /* ===============================
    CONFIG
@@ -9,18 +24,14 @@ const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
 const MAX_REPLY_CHARS = 1200;
 
-// 🔑 Session flag (clears chat on hard refresh / new tab)
 const SESSION_FLAG = "cipher_session_active";
 
-// 📝 Silence detection
-const SILENCE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+// Silence detection
+const SILENCE_THRESHOLD_MS = 30 * 60 * 1000;
 const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
 
-/* ===============================
-   HANDWRITTEN NOTE VARIANTS
-================================ */
-
+// Notes
 const NOTE_VARIANTS = [
   "Hey — welcome back.\n\nYou were gone for a bit.\nJust wanted to say hi.",
   "You stepped away for a while.\n\nNo rush.\nI’m still here.",
@@ -35,196 +46,17 @@ function getRandomNote() {
   return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
 }
 
-/* ===============================
-   RETURN ENTRY LINES (ADDED)
-================================ */
-
 const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
-
 const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 
-/* ===============================
-   🌓 DECIPHER MODE (ADDED)
-================================ */
-
-// UI mode flag
-const MODE_DEFAULT = "cipher"; // "cipher" | "decipher"
-
-// Optional text triggers (user can type these)
+// Modes
+const MODE_DEFAULT = "cipher";
 const DECIPHER_TRIGGERS = ["decipher", "be blunt", "no sugar", "tell me straight"];
-
-// Tiny status line (optional)
-const MODE_LABELS = {
-  cipher: "CIPHER",
-  decipher: "DECIPHER",
-};
-
-/* ===============================
-   🧊 DECIPHER COOLDOWN (ADDED)
-   - Free: 30 min cooldown
-   - $10 tier: 15 min cooldown
-   - Premium: bursty (few uses), not unlimited
-================================ */
-
-// Where we store client-side cooldown state
-const DECIPHER_LAST_KEY = "cipher_decipher_last";
-const DECIPHER_BURST_KEY = "cipher_decipher_burst";
-const USER_TIER_KEY = "cipher_user_tier"; // optional: "free" | "plus" | "premium"
-
-// Tier defaults (you can later swap this to real auth/subscription)
-const DEFAULT_TIER = "free"; // "free" | "plus" | "premium"
-
-// Cooldown rules
-const DECIPHER_COOLDOWNS_MS = {
-  free: 30 * 60 * 1000, // 30 min
-  plus: 15 * 60 * 1000, // 15 min
-  // premium handled via bursts
-};
-
-// Premium burst rules: allow a few uses in a short window, then cooldown
-const PREMIUM_BURST_WINDOW_MS = 10 * 60 * 1000; // 10 minutes rolling window
-const PREMIUM_BURST_COUNT = 3; // "few bursts"
-const PREMIUM_COOLDOWN_MS = 10 * 60 * 1000; // cooldown after bursts
-
-const DECIPHER_COOLDOWN_MESSAGE =
-  "Cool down.\n\nYou don’t need me every five seconds.\nGo do something real for a bit.\nThen come back if you still feel like it.";
-
-function safeParseJSON(value, fallback) {
-  try {
-    const parsed = JSON.parse(value);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function formatRemaining(ms) {
-  const totalSeconds = Math.ceil(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes <= 0) return `${seconds}s`;
-  return `${minutes}m ${seconds}s`;
-}
-
-function getTier() {
-  if (typeof window === "undefined") return DEFAULT_TIER;
-  const t = localStorage.getItem(USER_TIER_KEY);
-  if (t === "free" || t === "plus" || t === "premium") return t;
-  return DEFAULT_TIER;
-}
-
-function getNow() {
-  return Date.now();
-}
-
-function getBurstTimestamps() {
-  if (typeof window === "undefined") return [];
-  const raw = localStorage.getItem(DECIPHER_BURST_KEY);
-  const arr = safeParseJSON(raw, []);
-  return Array.isArray(arr) ? arr.filter((n) => typeof n === "number") : [];
-}
-
-function setBurstTimestamps(arr) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(DECIPHER_BURST_KEY, JSON.stringify(arr));
-}
-
-function getLastDecipherAt() {
-  if (typeof window === "undefined") return 0;
-  const raw = localStorage.getItem(DECIPHER_LAST_KEY);
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function setLastDecipherAt(ts) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(DECIPHER_LAST_KEY, String(ts));
-}
-
-/**
- * Returns:
- * { allowed: boolean, remainingMs: number, reason: string }
- */
-function canUseDecipher() {
-  if (typeof window === "undefined") {
-    return { allowed: true, remainingMs: 0, reason: "" };
-  }
-
-  const tier = getTier();
-  const now = getNow();
-
-  // Premium: burst logic
-  if (tier === "premium") {
-    const last = getLastDecipherAt();
-    const lastCooldownRemaining = last ? Math.max(0, last + PREMIUM_COOLDOWN_MS - now) : 0;
-
-    // If we're in cooldown, block immediately
-    if (lastCooldownRemaining > 0) {
-      return {
-        allowed: false,
-        remainingMs: lastCooldownRemaining,
-        reason: "premium_cooldown",
-      };
-    }
-
-    // Otherwise check bursts in rolling window
-    const stamps = getBurstTimestamps();
-    const recent = stamps.filter((t) => now - t <= PREMIUM_BURST_WINDOW_MS);
-
-    if (recent.length >= PREMIUM_BURST_COUNT) {
-      // Hit burst cap: start cooldown now
-      setLastDecipherAt(now);
-      setBurstTimestamps(recent); // keep trimmed
-      return {
-        allowed: false,
-        remainingMs: PREMIUM_COOLDOWN_MS,
-        reason: "premium_burst_cap",
-      };
-    }
-
-    return { allowed: true, remainingMs: 0, reason: "" };
-  }
-
-  // Free/Plus: simple cooldown based on last use timestamp
-  const cooldownMs = DECIPHER_COOLDOWNS_MS[tier] ?? DECIPHER_COOLDOWNS_MS.free;
-  const last = getLastDecipherAt();
-  const remaining = last ? Math.max(0, last + cooldownMs - now) : 0;
-
-  if (remaining > 0) {
-    return { allowed: false, remainingMs: remaining, reason: "cooldown" };
-  }
-
-  return { allowed: true, remainingMs: 0, reason: "" };
-}
-
-function recordDecipherUse() {
-  if (typeof window === "undefined") return;
-
-  const tier = getTier();
-  const now = getNow();
-
-  if (tier === "premium") {
-    const stamps = getBurstTimestamps();
-    const recent = stamps.filter((t) => now - t <= PREMIUM_BURST_WINDOW_MS);
-    recent.push(now);
-    setBurstTimestamps(recent);
-    // Do NOT setLastDecipherAt here unless we enter cooldown; we use last as cooldown anchor.
-    return;
-  }
-
-  // Free/Plus: timestamp anchors cooldown
-  setLastDecipherAt(now);
-}
-
-/* ===============================
-   MAIN COMPONENT
-================================ */
+const MODE_LABELS = { cipher: "CIPHER", decipher: "DECIPHER" };
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
-    if (typeof window === "undefined") {
-      return [{ role: "assistant", content: "Cipher online." }];
-    }
+    if (typeof window === "undefined") return [{ role: "assistant", content: "Cipher online." }];
 
     try {
       if (!sessionStorage.getItem(SESSION_FLAG)) {
@@ -247,33 +79,26 @@ export default function ChatPanel() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [cipherNote, setCipherNote] = useState(null);
-
-  // 🌓 Decipher mode state (ADDED)
   const [mode, setMode] = useState(MODE_DEFAULT);
-
-  // 🧊 Cooldown UI hint state (ADDED)
   const [decipherRemaining, setDecipherRemaining] = useState(0);
-
-  // ✅ NEW: menu
   const [menuOpen, setMenuOpen] = useState(false);
 
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
 
-  /* ===============================
-     LIFECYCLE
-  ================================ */
-
+  // ===== Scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
+  // ===== Persist messages
   useEffect(() => {
     if (typeof window !== "undefined" && sessionStorage.getItem(SESSION_FLAG)) {
       localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
     }
   }, [messages]);
 
+  // ===== Cleanup typing interval
   useEffect(() => {
     return () => {
       if (typingIntervalRef.current) {
@@ -283,58 +108,41 @@ export default function ChatPanel() {
     };
   }, []);
 
-  /* ===============================
-     SILENCE DETECTION
-  ================================ */
-
+  // ===== Silence note
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const lastMessage = localStorage.getItem(LAST_USER_MESSAGE_KEY);
     const noteShown = sessionStorage.getItem(NOTE_SHOWN_KEY);
-
     if (!lastMessage || noteShown) return;
 
     const silenceTime = Date.now() - Number(lastMessage);
-
     if (silenceTime >= SILENCE_THRESHOLD_MS) {
       setCipherNote({ message: getRandomNote() });
       sessionStorage.setItem(NOTE_SHOWN_KEY, "true");
     }
   }, []);
 
-  /* ===============================
-     RETURN CONTINUITY (ADDED)
-  ================================ */
-
+  // ===== Return continuity line
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     const returning = sessionStorage.getItem(RETURN_FROM_NOTE_KEY);
     if (!returning) return;
 
     const line = RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)];
-
     setMessages((m) => [...m, { role: "assistant", content: line }]);
-
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
-  /* ===============================
-     DECIPHER COOLDOWN TICKER (ADDED)
-  ================================ */
-
+  // ===== Cooldown ticker (THIS restores your missing cooldown behavior)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // 🔧 ADDED: force mode back to Cipher during cooldown so it never "sticks"
     const id = setInterval(() => {
       const check = canUseDecipher();
       const remaining = check.allowed ? 0 : check.remainingMs;
-
       setDecipherRemaining(remaining);
 
-      // If Decipher is cooling down, we never allow the UI to stay in Decipher mode
       if (remaining > 0) {
         setMode((m) => (m === "decipher" ? "cipher" : m));
       }
@@ -342,10 +150,6 @@ export default function ChatPanel() {
 
     return () => clearInterval(id);
   }, []);
-
-  /* ===============================
-     HELPERS
-  ================================ */
 
   function trimHistory(history) {
     return history.slice(-HISTORY_WINDOW);
@@ -358,7 +162,7 @@ export default function ChatPanel() {
     sessionStorage.removeItem(NOTE_SHOWN_KEY);
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
 
-    // 🧊 Optional: reset cooldown too (ADDED)
+    // cooldown reset
     localStorage.removeItem(DECIPHER_LAST_KEY);
     localStorage.removeItem(DECIPHER_BURST_KEY);
 
@@ -369,41 +173,33 @@ export default function ChatPanel() {
 
     setTyping(false);
     setCipherNote(null);
-    setMenuOpen(false); // ✅ close menu
-    setMode(MODE_DEFAULT); // 🌓 reset mode too (ADDED)
+    setMenuOpen(false);
+    setMode(MODE_DEFAULT);
     setDecipherRemaining(0);
     setMessages([{ role: "assistant", content: "Cipher online." }]);
   }
 
-  /* ===============================
-     MESSAGING
-  ================================ */
-
   async function sendMessage() {
     if (!input.trim() || typing) return;
 
-    // ✅ FIX: freeze mode for this send so state timing can't mis-route
     let activeMode = mode;
 
-    // 🌓 Optional: detect text triggers (ADDED)
     const lower = input.trim().toLowerCase();
     const invokedDecipher = DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "));
-
     if (invokedDecipher) {
-      activeMode = "decipher"; // ✅ use immediately for this send
-      setMode("decipher"); // keep UI consistent
+      activeMode = "decipher";
+      setMode("decipher");
     }
 
-    // 🧊 COOLDOWN GATE (ADDED)
+    // Cooldown gate
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
       if (!gate.allowed) {
         const msg =
           `${DECIPHER_COOLDOWN_MESSAGE}\n\n` + `Try again in ${formatRemaining(gate.remainingMs)}.`;
-
         setMessages((m) => [...m, { role: "decipher", content: msg }]);
         setTyping(false);
-        setMode("cipher"); // auto return
+        setMode("cipher");
         setDecipherRemaining(gate.remainingMs);
         return;
       }
@@ -422,22 +218,12 @@ export default function ChatPanel() {
     const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     try {
-      // ✅ FIX: Route to the correct endpoint based on activeMode
       const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
-      // ✅ FIX: Payload matches each API file
-      // /api/chat expects { message, history }
-      // /api/decipher expects { message, context }
       const payload =
         activeMode === "decipher"
-          ? {
-              message: userMessage.content,
-              context: trimHistory(historySnapshot),
-            }
-          : {
-              message: userMessage.content,
-              history: trimHistory(historySnapshot),
-            };
+          ? { message: userMessage.content, context: trimHistory(historySnapshot) }
+          : { message: userMessage.content, history: trimHistory(historySnapshot) };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -451,51 +237,36 @@ export default function ChatPanel() {
 
       const data = await res.json();
       let fullText = String(data.reply ?? "…");
-
-      if (fullText.length > MAX_REPLY_CHARS) {
-        fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
-      }
+      if (fullText.length > MAX_REPLY_CHARS) fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
 
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
         typingIntervalRef.current = null;
       }
 
-      // 🌓 Create the response bubble with correct role (ADDED)
       const replyRole = activeMode === "decipher" ? "decipher" : "assistant";
 
-      // 🌓 Decipher should feel instant + blunt (no typing animation) (ADDED)
+      // Decipher: instant
       if (activeMode === "decipher") {
-        // 🧊 record usage AFTER a successful response (ADDED)
         recordDecipherUse();
-
         setMessages((m) => [...m, { role: replyRole, content: fullText }]);
         setTyping(false);
-        setMode("cipher"); // auto return to Cipher after one response (ADDED)
+        setMode("cipher");
 
-        // update cooldown UI hint quickly
         const gate = canUseDecipher();
         setDecipherRemaining(gate.allowed ? 0 : gate.remainingMs);
-
         return;
       }
 
-      // Default Cipher typing animation (unchanged)
-      setMessages((m) => [
-        ...m.filter((msg) => !(msg.role === "assistant" && msg.content === "")),
-        { role: replyRole, content: "" },
-      ]);
+      // Cipher: typing animation
+      setMessages((m) => [...m, { role: replyRole, content: "" }]);
 
       let index = 0;
-
       typingIntervalRef.current = setInterval(() => {
         index++;
         setMessages((m) => {
           const updated = [...m];
-          updated[updated.length - 1] = {
-            role: replyRole,
-            content: fullText.slice(0, index),
-          };
+          updated[updated.length - 1] = { role: replyRole, content: fullText.slice(0, index) };
           return updated;
         });
 
@@ -503,7 +274,7 @@ export default function ChatPanel() {
           clearInterval(typingIntervalRef.current);
           typingIntervalRef.current = null;
           setTyping(false);
-          setMode("cipher"); // 🌓 auto return (ADDED)
+          setMode("cipher");
         }
       }, 20);
     } catch (err) {
@@ -514,7 +285,6 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
-      // 🔧 FIX (Option 1): Separate Cipher vs Decipher failures cleanly
       const failText =
         activeMode === "decipher"
           ? "⚠️ Decipher failed to respond."
@@ -522,36 +292,13 @@ export default function ChatPanel() {
           ? "⚠️ Response timed out."
           : "⚠️ Cipher failed to respond.";
 
-      // 🔧 FIX (Option 1): error bubble role matches the mode that failed
       const failRole = activeMode === "decipher" ? "decipher" : "assistant";
 
-      setMessages((m) => [
-        ...m,
-        {
-          role: failRole, // 🔧 FIX
-          content: failText,
-        },
-      ]);
-
+      setMessages((m) => [...m, { role: failRole, content: failText }]);
       setTyping(false);
-
-      // 🔧 FIX (Option 1): Only force-reset mode for Decipher failures
-      if (activeMode === "decipher") {
-        setMode("cipher"); // 🔧 FIX
-      }
+      if (activeMode === "decipher") setMode("cipher");
     }
   }
-
-  function onKeyDown(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  }
-
-  /* ===============================
-     UI
-  ================================ */
 
   return (
     <div style={styles.wrap}>
@@ -566,437 +313,20 @@ export default function ChatPanel() {
         />
       )}
 
-      <div style={styles.header}>
-        {/* Center label */}
-        <span style={styles.headerLabel}>{MODE_LABELS[mode] || "CIPHER"}</span>
-
-        {/* ✅ Menu button (mobile safe) */}
-        <button
-          style={styles.menuBtn}
-          onClick={() => setMenuOpen((o) => !o)}
-          aria-label="Open menu"
-        >
-          ☰
-        </button>
-      </div>
-
-      {/* ✅ Dropdown menu */}
-      {menuOpen && (
-        <div style={styles.menu}>
-          <a href="/store" style={styles.menuItem} onClick={() => setMenuOpen(false)}>
-            Store
-          </a>
-
-          <button
-            style={styles.menuItem}
-            onClick={() => {
-              // stub (wire later)
-              setMenuOpen(false);
-            }}
-          >
-            Toggle Theme
-          </button>
-
-          <button
-            style={styles.menuItem}
-            onClick={() => {
-              // stub (wire later)
-              setMenuOpen(false);
-            }}
-          >
-            Voice (soon)
-          </button>
-
-          <button
-            onClick={() => {
-              if (decipherRemaining > 0) return;
-              setMode("decipher");
-              setMenuOpen(false);
-            }}
-            style={{
-              ...styles.menuItem,
-              opacity: decipherRemaining > 0 ? 0.55 : 1,
-              cursor: decipherRemaining > 0 ? "not-allowed" : "pointer",
-            }}
-            disabled={decipherRemaining > 0}
-            title={
-              decipherRemaining > 0
-                ? `Decipher cooling down: ${formatRemaining(decipherRemaining)}`
-                : "Blunt / dark-humor mode (one reply)"
-            }
-          >
-            Decipher{" "}
-            {decipherRemaining > 0 && (
-              <span style={styles.cooldownText}>({formatRemaining(decipherRemaining)})</span>
-            )}
-          </button>
-
-          <button
-            style={styles.menuItem}
-            onClick={() => {
-              resetCipher();
-            }}
-          >
-            Reset
-          </button>
-        </div>
-      )}
+      <HeaderMenu
+        title={MODE_LABELS[mode] || "CIPHER"}
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        onReset={resetCipher}
+        onDecipher={() => setMode("decipher")}
+        decipherRemaining={decipherRemaining}
+      />
 
       <div style={styles.chat}>
-        {messages.map((m, i) => (
-          <div key={i} style={bubble(m.role)}>
-            {m.content || "…"}
-          </div>
-        ))}
-        <div ref={bottomRef} />
+        <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
-      <div style={styles.inputRow}>
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Talk to Cipher…"
-          style={styles.input}
-          disabled={typing}
-        />
-        <button onClick={sendMessage} style={styles.send} disabled={typing}>
-          Send
-        </button>
-      </div>
+      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
     </div>
   );
-}
-
-/* ===============================
-   POST-IT NOTE COMPONENT
-================================ */
-
-function CipherNote({ note, onOpen, onDismiss }) {
-  return (
-    <div style={noteStyles.wrap}>
-      <div style={noteStyles.note}>
-        <div style={noteStyles.glue} />
-        <div style={noteStyles.body}>{note.message}</div>
-        <div style={noteStyles.actions}>
-          <button style={noteStyles.primary} onClick={onOpen}>
-            Open chat
-          </button>
-          <button style={noteStyles.secondary} onClick={onDismiss}>
-            Dismiss
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ===============================
-   STYLES (PURPLE GLASS + GLOW)
-================================ */
-
-const styles = {
-  wrap: {
-    height: "100%",
-    display: "flex",
-    flexDirection: "column",
-    background:
-      "radial-gradient(circle at top, rgba(160,110,255,0.22), rgba(10,4,20,0.92) 55%, #04010a)",
-    color: "white",
-  },
-
-  header: {
-    padding: 18,
-    fontSize: 22,
-    fontWeight: 800,
-    letterSpacing: 3,
-    textAlign: "center",
-    position: "relative",
-
-    // purple glass
-    background:
-      "linear-gradient(180deg, rgba(170,120,255,0.16), rgba(60,20,120,0.25))",
-    backdropFilter: "blur(16px)",
-    borderBottom: "1px solid rgba(210,170,255,0.28)",
-
-    // glow edge
-    boxShadow:
-      "0 10px 40px rgba(160,100,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.05)",
-  },
-
-  headerLabel: {
-    textShadow: "0 0 18px rgba(190,140,255,0.65)",
-  },
-
-  // ✅ NEW: menu button (purple glass)
-  menuBtn: {
-    position: "absolute",
-    right: 18,
-    top: "50%",
-    transform: "translateY(-50%)",
-    padding: "8px 12px",
-    borderRadius: 14,
-    border: "1px solid rgba(210,170,255,0.38)",
-    background: "rgba(160,110,255,0.16)",
-    color: "white",
-    fontSize: 16,
-    cursor: "pointer",
-    boxShadow: "0 0 16px rgba(180,130,255,0.55)",
-  },
-
-  // ✅ NEW: menu container (purple glass)
-  menu: {
-    position: "absolute",
-    top: 70,
-    right: 14,
-
-    // purple glass panel
-    background:
-      "linear-gradient(180deg, rgba(160,110,255,0.22), rgba(30,10,70,0.92))",
-    backdropFilter: "blur(18px)",
-
-    borderRadius: 18,
-    border: "1px solid rgba(210,170,255,0.30)",
-
-    boxShadow:
-      "0 24px 60px rgba(160,100,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.06)",
-
-    display: "flex",
-    flexDirection: "column",
-    minWidth: 210,
-    zIndex: 1000,
-    overflow: "hidden",
-  },
-
-  // ✅ NEW: menu item
-  menuItem: {
-    padding: "13px 16px",
-    background: "transparent",
-    border: "none",
-    color: "rgba(245,235,255,0.98)",
-    textAlign: "left",
-    fontSize: 14,
-    cursor: "pointer",
-    borderBottom: "1px solid rgba(255,255,255,0.08)",
-    textDecoration: "none",
-  },
-
-  cooldownText: {
-    fontSize: 12,
-    opacity: 0.75,
-  },
-
-  // (kept: these remain in file even if not used anymore; harmless)
-  headerActions: {
-    position: "absolute",
-    right: 20,
-    top: "50%",
-    transform: "translateY(-50%)",
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-
-  storeLink: {
-    padding: "4px 12px",
-    borderRadius: 10,
-    background: "rgba(255,255,255,0.06)",
-    color: "white",
-    textDecoration: "none",
-    fontSize: 12,
-    border: "1px solid rgba(255,255,255,0.12)",
-    cursor: "pointer",
-  },
-
-  reset: {
-    marginLeft: 0,
-    padding: "4px 10px",
-    borderRadius: 8,
-    border: "none",
-    background: "rgba(255,255,255,0.12)",
-    color: "white",
-    fontSize: 12,
-    cursor: "pointer",
-  },
-
-  decipherBtn: {
-    marginLeft: 0,
-    padding: "4px 10px",
-    borderRadius: 8,
-    border: "1px solid rgba(180,60,60,0.85)",
-    background: "rgba(180,60,60,0.18)",
-    color: "rgba(255,200,200,0.95)",
-    fontSize: 12,
-    cursor: "pointer",
-  },
-
-  modeHint: {
-    marginLeft: 2,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: "rgba(255,255,255,0.55)",
-    whiteSpace: "nowrap",
-  },
-
-  chat: {
-    flex: 1,
-    padding: 18,
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-  },
-
-  inputRow: {
-    display: "flex",
-    gap: 12,
-    padding: 14,
-
-    // purple glass footer bar
-    background: "rgba(140,90,255,0.10)",
-    backdropFilter: "blur(16px)",
-    borderTop: "1px solid rgba(210,170,255,0.18)",
-    boxShadow: "0 -10px 40px rgba(160,100,255,0.18)",
-  },
-
-  input: {
-    flex: 1,
-    minHeight: 48,
-    maxHeight: 120,
-    padding: 14,
-    borderRadius: 16,
-
-    background: "rgba(160,110,255,0.14)",
-    border: "1px solid rgba(210,170,255,0.28)",
-    color: "white",
-    resize: "none",
-
-    boxShadow:
-      "inset 0 0 14px rgba(180,130,255,0.22), 0 0 0px rgba(0,0,0,0)",
-    outline: "none",
-  },
-
-  send: {
-    padding: "0 20px",
-    borderRadius: 16,
-
-    background: "linear-gradient(135deg, #7f5bff, #c89bff)",
-    border: "1px solid rgba(210,170,255,0.22)",
-    color: "white",
-    fontWeight: 800,
-    cursor: "pointer",
-
-    boxShadow: "0 0 22px rgba(190,140,255,0.55)",
-  },
-};
-
-const noteStyles = {
-  wrap: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 9999,
-    pointerEvents: "none",
-  },
-  note: {
-    pointerEvents: "auto",
-    position: "absolute",
-    top: 70,
-    right: 18,
-    width: 220,
-    height: 220,
-    padding: "26px 18px 20px",
-    background: "#FFF4B5",
-    color: "#1a1a1a",
-    fontFamily: "'Comic Sans MS', 'Bradley Hand', cursive",
-    fontSize: 15,
-    borderRadius: 3,
-    transform: "rotate(-2deg)",
-    boxShadow: "0 20px 28px rgba(0,0,0,0.35)",
-    display: "flex",
-    flexDirection: "column",
-  },
-  glue: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 14,
-    background:
-      "linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0))",
-  },
-  body: {
-    whiteSpace: "pre-wrap",
-    lineHeight: 1.45,
-  },
-  actions: {
-    display: "flex",
-    gap: 10,
-    justifyContent: "flex-end",
-    marginTop: "auto",
-  },
-  primary: {
-    background: "#111",
-    color: "white",
-    border: "none",
-    borderRadius: 8,
-    padding: "6px 10px",
-    cursor: "pointer",
-    fontWeight: 600,
-  },
-  secondary: {
-    background: "transparent",
-    border: "none",
-    color: "rgba(0,0,0,0.5)",
-    padding: "6px 8px",
-    cursor: "pointer",
-    fontWeight: 500,
-  },
-};
-
-function bubble(role) {
-  // 🌓 Decipher bubble styling (kept, just made it fit purple-glass world)
-  if (role === "decipher") {
-    return {
-      maxWidth: "85%",
-      padding: 14,
-      borderRadius: 14,
-      alignSelf: "flex-start",
-      background:
-        "linear-gradient(180deg, rgba(70,10,20,0.82), rgba(20,10,10,0.92))",
-      border: "1px solid rgba(220,90,120,0.55)",
-      color: "rgba(245,245,245,0.96)",
-      fontWeight: 500,
-      boxShadow: "0 0 18px rgba(220,90,120,0.22)",
-      backdropFilter: "blur(10px)",
-      whiteSpace: "pre-wrap",
-    };
-  }
-
-  // User bubble (stronger glow)
-  if (role === "user") {
-    return {
-      maxWidth: "85%",
-      padding: 14,
-      borderRadius: 18,
-      alignSelf: "flex-end",
-      background: "linear-gradient(135deg, #7f5bff, #c89bff)",
-      boxShadow: "0 0 22px rgba(190,140,255,0.65)",
-      border: "1px solid rgba(210,170,255,0.22)",
-      whiteSpace: "pre-wrap",
-    };
-  }
-
-  // Assistant bubble (purple glass)
-  return {
-    maxWidth: "85%",
-    padding: 14,
-    borderRadius: 18,
-    alignSelf: "flex-start",
-    background:
-      "linear-gradient(180deg, rgba(160,110,255,0.16), rgba(60,20,120,0.46))",
-    border: "1px solid rgba(210,170,255,0.22)",
-    boxShadow: "0 0 18px rgba(160,100,255,0.22)",
-    backdropFilter: "blur(12px)",
-    whiteSpace: "pre-wrap",
-  };
 }
