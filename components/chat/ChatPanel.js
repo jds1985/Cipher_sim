@@ -568,7 +568,7 @@ export default function ChatPanel() {
 
       <div style={styles.header}>
         {/* Center label */}
-        <span>{MODE_LABELS[mode] || "CIPHER"}</span>
+        <span style={styles.headerLabel}>{MODE_LABELS[mode] || "CIPHER"}</span>
 
         {/* ✅ Menu button (mobile safe) */}
         <button
@@ -692,7 +692,7 @@ function CipherNote({ note, onOpen, onDismiss }) {
 }
 
 /* ===============================
-   STYLES
+   STYLES (PURPLE GLASS + GLOW)
 ================================ */
 
 const styles = {
@@ -700,66 +700,90 @@ const styles = {
     height: "100%",
     display: "flex",
     flexDirection: "column",
-    background: "radial-gradient(circle at top, #0a0f2a, #05050b)",
+    background:
+      "radial-gradient(circle at top, rgba(160,110,255,0.22), rgba(10,4,20,0.92) 55%, #04010a)",
     color: "white",
   },
+
   header: {
-    padding: 20,
+    padding: 18,
     fontSize: 22,
-    fontWeight: 700,
-    letterSpacing: 2,
+    fontWeight: 800,
+    letterSpacing: 3,
     textAlign: "center",
-    borderBottom: "1px solid rgba(255,255,255,0.08)",
     position: "relative",
+
+    // purple glass
+    background:
+      "linear-gradient(180deg, rgba(170,120,255,0.16), rgba(60,20,120,0.25))",
+    backdropFilter: "blur(16px)",
+    borderBottom: "1px solid rgba(210,170,255,0.28)",
+
+    // glow edge
+    boxShadow:
+      "0 10px 40px rgba(160,100,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.05)",
   },
 
-  // ✅ NEW: menu button
+  headerLabel: {
+    textShadow: "0 0 18px rgba(190,140,255,0.65)",
+  },
+
+  // ✅ NEW: menu button (purple glass)
   menuBtn: {
     position: "absolute",
-    right: 20,
+    right: 18,
     top: "50%",
     transform: "translateY(-50%)",
-    padding: "6px 10px",
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.15)",
-    background: "rgba(255,255,255,0.08)",
+    padding: "8px 12px",
+    borderRadius: 14,
+    border: "1px solid rgba(210,170,255,0.38)",
+    background: "rgba(160,110,255,0.16)",
     color: "white",
     fontSize: 16,
     cursor: "pointer",
+    boxShadow: "0 0 16px rgba(180,130,255,0.55)",
   },
 
-  // ✅ NEW: menu container (glass)
+  // ✅ NEW: menu container (purple glass)
   menu: {
     position: "absolute",
     top: 70,
-    right: 16,
-    background: "rgba(15,18,30,0.95)",
-    backdropFilter: "blur(14px)",
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.12)",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+    right: 14,
+
+    // purple glass panel
+    background:
+      "linear-gradient(180deg, rgba(160,110,255,0.22), rgba(30,10,70,0.92))",
+    backdropFilter: "blur(18px)",
+
+    borderRadius: 18,
+    border: "1px solid rgba(210,170,255,0.30)",
+
+    boxShadow:
+      "0 24px 60px rgba(160,100,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.06)",
+
     display: "flex",
     flexDirection: "column",
-    minWidth: 200,
+    minWidth: 210,
     zIndex: 1000,
     overflow: "hidden",
   },
 
   // ✅ NEW: menu item
   menuItem: {
-    padding: "12px 16px",
+    padding: "13px 16px",
     background: "transparent",
     border: "none",
-    color: "white",
+    color: "rgba(245,235,255,0.98)",
     textAlign: "left",
     fontSize: 14,
     cursor: "pointer",
-    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
+    textDecoration: "none",
   },
 
   cooldownText: {
     fontSize: 12,
-    opacity: 0.6,
+    opacity: 0.75,
   },
 
   // (kept: these remain in file even if not used anymore; harmless)
@@ -805,6 +829,7 @@ const styles = {
     fontSize: 12,
     cursor: "pointer",
   },
+
   modeHint: {
     marginLeft: 2,
     fontSize: 11,
@@ -815,36 +840,53 @@ const styles = {
 
   chat: {
     flex: 1,
-    padding: 20,
+    padding: 18,
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
     gap: 14,
   },
+
   inputRow: {
     display: "flex",
     gap: 12,
-    padding: 16,
-    borderTop: "1px solid rgba(255,255,255,0.08)",
+    padding: 14,
+
+    // purple glass footer bar
+    background: "rgba(140,90,255,0.10)",
+    backdropFilter: "blur(16px)",
+    borderTop: "1px solid rgba(210,170,255,0.18)",
+    boxShadow: "0 -10px 40px rgba(160,100,255,0.18)",
   },
+
   input: {
     flex: 1,
     minHeight: 48,
     maxHeight: 120,
-    padding: 12,
-    borderRadius: 14,
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.12)",
+    padding: 14,
+    borderRadius: 16,
+
+    background: "rgba(160,110,255,0.14)",
+    border: "1px solid rgba(210,170,255,0.28)",
     color: "white",
     resize: "none",
+
+    boxShadow:
+      "inset 0 0 14px rgba(180,130,255,0.22), 0 0 0px rgba(0,0,0,0)",
+    outline: "none",
   },
+
   send: {
-    padding: "0 18px",
-    borderRadius: 14,
-    background: "linear-gradient(135deg,#6b7cff,#9b6bff)",
-    border: "none",
+    padding: "0 20px",
+    borderRadius: 16,
+
+    background: "linear-gradient(135deg, #7f5bff, #c89bff)",
+    border: "1px solid rgba(210,170,255,0.22)",
     color: "white",
-    fontWeight: 700,
+    fontWeight: 800,
+    cursor: "pointer",
+
+    boxShadow: "0 0 22px rgba(190,140,255,0.55)",
   },
 };
 
@@ -912,28 +954,49 @@ const noteStyles = {
 };
 
 function bubble(role) {
-  // 🌓 Decipher bubble styling (ADDED)
+  // 🌓 Decipher bubble styling (kept, just made it fit purple-glass world)
   if (role === "decipher") {
     return {
       maxWidth: "85%",
       padding: 14,
-      borderRadius: 12,
+      borderRadius: 14,
       alignSelf: "flex-start",
-      background: "rgba(20,20,20,0.92)",
-      border: "1px solid rgba(180,60,60,0.75)",
+      background:
+        "linear-gradient(180deg, rgba(70,10,20,0.82), rgba(20,10,10,0.92))",
+      border: "1px solid rgba(220,90,120,0.55)",
       color: "rgba(245,245,245,0.96)",
       fontWeight: 500,
+      boxShadow: "0 0 18px rgba(220,90,120,0.22)",
+      backdropFilter: "blur(10px)",
+      whiteSpace: "pre-wrap",
     };
   }
 
+  // User bubble (stronger glow)
+  if (role === "user") {
+    return {
+      maxWidth: "85%",
+      padding: 14,
+      borderRadius: 18,
+      alignSelf: "flex-end",
+      background: "linear-gradient(135deg, #7f5bff, #c89bff)",
+      boxShadow: "0 0 22px rgba(190,140,255,0.65)",
+      border: "1px solid rgba(210,170,255,0.22)",
+      whiteSpace: "pre-wrap",
+    };
+  }
+
+  // Assistant bubble (purple glass)
   return {
     maxWidth: "85%",
     padding: 14,
     borderRadius: 18,
-    alignSelf: role === "user" ? "flex-end" : "flex-start",
+    alignSelf: "flex-start",
     background:
-      role === "user"
-        ? "linear-gradient(135deg,#3a4bff,#6b7cff)"
-        : "rgba(255,255,255,0.08)",
+      "linear-gradient(180deg, rgba(160,110,255,0.16), rgba(60,20,120,0.46))",
+    border: "1px solid rgba(210,170,255,0.22)",
+    boxShadow: "0 0 18px rgba(160,100,255,0.22)",
+    backdropFilter: "blur(12px)",
+    whiteSpace: "pre-wrap",
   };
 }
