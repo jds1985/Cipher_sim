@@ -39,13 +39,7 @@ function getRandomNote() {
    RETURN ENTRY LINES (ADDED)
 ================================ */
 
-const RETURN_LINES = [
-  "Hey.",
-  "I’m here.",
-  "Yeah?",
-  "What’s up.",
-  "Hey — I’m still here.",
-];
+const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
 
 const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 
@@ -57,12 +51,7 @@ const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 const MODE_DEFAULT = "cipher"; // "cipher" | "decipher"
 
 // Optional text triggers (user can type these)
-const DECIPHER_TRIGGERS = [
-  "decipher",
-  "be blunt",
-  "no sugar",
-  "tell me straight",
-];
+const DECIPHER_TRIGGERS = ["decipher", "be blunt", "no sugar", "tell me straight"];
 
 // Tiny status line (optional)
 const MODE_LABELS = {
@@ -167,9 +156,7 @@ function canUseDecipher() {
   // Premium: burst logic
   if (tier === "premium") {
     const last = getLastDecipherAt();
-    const lastCooldownRemaining = last
-      ? Math.max(0, last + PREMIUM_COOLDOWN_MS - now)
-      : 0;
+    const lastCooldownRemaining = last ? Math.max(0, last + PREMIUM_COOLDOWN_MS - now) : 0;
 
     // If we're in cooldown, block immediately
     if (lastCooldownRemaining > 0) {
@@ -279,14 +266,8 @@ export default function ChatPanel() {
   }, [messages, typing]);
 
   useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      sessionStorage.getItem(SESSION_FLAG)
-    ) {
-      localStorage.setItem(
-        MEMORY_KEY,
-        JSON.stringify(messages.slice(-MEMORY_LIMIT))
-      );
+    if (typeof window !== "undefined" && sessionStorage.getItem(SESSION_FLAG)) {
+      localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
     }
   }, [messages]);
 
@@ -402,9 +383,7 @@ export default function ChatPanel() {
 
     // 🌓 Optional: detect text triggers (ADDED)
     const lower = input.trim().toLowerCase();
-    const invokedDecipher = DECIPHER_TRIGGERS.some(
-      (t) => lower === t || lower.startsWith(t + " ")
-    );
+    const invokedDecipher = DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "));
 
     if (invokedDecipher) {
       activeMode = "decipher"; // ✅ use immediately for this send
@@ -416,8 +395,7 @@ export default function ChatPanel() {
       const gate = canUseDecipher();
       if (!gate.allowed) {
         const msg =
-          `${DECIPHER_COOLDOWN_MESSAGE}\n\n` +
-          `Try again in ${formatRemaining(gate.remainingMs)}.`;
+          `${DECIPHER_COOLDOWN_MESSAGE}\n\n` + `Try again in ${formatRemaining(gate.remainingMs)}.`;
 
         setMessages((m) => [...m, { role: "decipher", content: msg }]);
         setTyping(false);
@@ -441,12 +419,9 @@ export default function ChatPanel() {
 
     try {
       // ✅ FIX: Route to the correct endpoint based on activeMode
-      const endpoint =
-        activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+      const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
       // ✅ FIX: Payload matches each API file
-      // /api/chat expects { message, history }
-      // /api/decipher expects { message, context }
       const payload =
         activeMode === "decipher"
           ? {
@@ -480,26 +455,19 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
-      // 🌓 Create the response bubble with correct role (ADDED)
       const replyRole = activeMode === "decipher" ? "decipher" : "assistant";
 
-      // 🌓 Decipher should feel instant + blunt (no typing animation) (ADDED)
       if (activeMode === "decipher") {
-        // 🧊 record usage AFTER a successful response (ADDED)
         recordDecipherUse();
 
         setMessages((m) => [...m, { role: replyRole, content: fullText }]);
         setTyping(false);
-        setMode("cipher"); // auto return to Cipher after one response (ADDED)
-
-        // update cooldown UI hint quickly
+        setMode("cipher");
         const gate = canUseDecipher();
         setDecipherRemaining(gate.allowed ? 0 : gate.remainingMs);
-
         return;
       }
 
-      // Default Cipher typing animation (unchanged)
       setMessages((m) => [
         ...m.filter((msg) => !(msg.role === "assistant" && msg.content === "")),
         { role: replyRole, content: "" },
@@ -522,7 +490,7 @@ export default function ChatPanel() {
           clearInterval(typingIntervalRef.current);
           typingIntervalRef.current = null;
           setTyping(false);
-          setMode("cipher"); // 🌓 auto return (ADDED)
+          setMode("cipher");
         }
       }, 20);
     } catch (err) {
@@ -533,9 +501,6 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
-      // 🔧 FIX (Option 1): Separate Cipher vs Decipher failures cleanly
-      // - Decipher: always returns to Cipher (one-shot mode)
-      // - Cipher: DO NOT force mode reset; leave UI as-is and just show error bubble
       const failText =
         activeMode === "decipher"
           ? "⚠️ Decipher failed to respond."
@@ -543,22 +508,20 @@ export default function ChatPanel() {
           ? "⚠️ Response timed out."
           : "⚠️ Cipher failed to respond.";
 
-      // 🔧 FIX (Option 1): error bubble role matches the mode that failed
       const failRole = activeMode === "decipher" ? "decipher" : "assistant";
 
       setMessages((m) => [
         ...m,
         {
-          role: failRole, // 🔧 FIX
+          role: failRole,
           content: failText,
         },
       ]);
 
       setTyping(false);
 
-      // 🔧 FIX (Option 1): Only force-reset mode for Decipher failures
       if (activeMode === "decipher") {
-        setMode("cipher"); // 🔧 FIX
+        setMode("cipher");
       }
     }
   }
@@ -588,44 +551,50 @@ export default function ChatPanel() {
       )}
 
       <div style={styles.header}>
-        {MODE_LABELS[mode] || "CIPHER"}
-        <button onClick={resetCipher} style={styles.reset}>
-          Reset
-        </button>
+        {/* Center label */}
+        <span>{MODE_LABELS[mode] || "CIPHER"}</span>
 
-        {/* 🌓 Decipher button (ADDED) */}
-        <button
-          // 🔧 ADDED: if it's cooling down, do nothing even if the browser lets a click through
-          onClick={() => {
-            if (decipherRemaining > 0) return;
-            setMode("decipher");
-          }}
-          style={{
-            ...styles.decipherBtn,
-            opacity: decipherRemaining > 0 ? 0.55 : 1,
-            cursor: decipherRemaining > 0 ? "not-allowed" : "pointer",
-          }}
-          title={
-            decipherRemaining > 0
-              ? `Decipher cooling down: ${formatRemaining(decipherRemaining)}`
-              : "Blunt / dark-humor mode (one reply)"
-          }
-          disabled={decipherRemaining > 0}
-        >
-          Decipher
-        </button>
+        {/* Right-side actions cluster (Store + existing controls) */}
+        <div style={styles.headerActions}>
+          <a href="/store" style={styles.storeLink}>
+            Store
+          </a>
 
-        {/* 🧊 Cooldown hint (ADDED) */}
-        {decipherRemaining > 0 && (
-          <span style={styles.modeHint}>
-            cooldown {formatRemaining(decipherRemaining)}
-          </span>
-        )}
+          <button onClick={resetCipher} style={styles.reset}>
+            Reset
+          </button>
 
-        {/* 🌓 Optional: show current mode hint (ADDED) */}
-        {mode === "decipher" && decipherRemaining <= 0 && (
-          <span style={styles.modeHint}>blunt mode</span>
-        )}
+          {/* 🌓 Decipher button (ADDED) */}
+          <button
+            onClick={() => {
+              if (decipherRemaining > 0) return;
+              setMode("decipher");
+            }}
+            style={{
+              ...styles.decipherBtn,
+              opacity: decipherRemaining > 0 ? 0.55 : 1,
+              cursor: decipherRemaining > 0 ? "not-allowed" : "pointer",
+            }}
+            title={
+              decipherRemaining > 0
+                ? `Decipher cooling down: ${formatRemaining(decipherRemaining)}`
+                : "Blunt / dark-humor mode (one reply)"
+            }
+            disabled={decipherRemaining > 0}
+          >
+            Decipher
+          </button>
+
+          {/* 🧊 Cooldown hint (ADDED) */}
+          {decipherRemaining > 0 && (
+            <span style={styles.modeHint}>cooldown {formatRemaining(decipherRemaining)}</span>
+          )}
+
+          {/* 🌓 Optional: show current mode hint (ADDED) */}
+          {mode === "decipher" && decipherRemaining <= 0 && (
+            <span style={styles.modeHint}>blunt mode</span>
+          )}
+        </div>
       </div>
 
       <div style={styles.chat}>
@@ -698,8 +667,32 @@ const styles = {
     borderBottom: "1px solid rgba(255,255,255,0.08)",
     position: "relative",
   },
+
+  // ✅ ADDED: Right-side cluster so header stays centered
+  headerActions: {
+    position: "absolute",
+    right: 20,
+    top: "50%",
+    transform: "translateY(-50%)",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  // ✅ ADDED: Store link style (dark glass)
+  storeLink: {
+    padding: "4px 12px",
+    borderRadius: 10,
+    background: "rgba(255,255,255,0.06)",
+    color: "white",
+    textDecoration: "none",
+    fontSize: 12,
+    border: "1px solid rgba(255,255,255,0.12)",
+    cursor: "pointer",
+  },
+
   reset: {
-    marginLeft: 12,
+    marginLeft: 0,
     padding: "4px 10px",
     borderRadius: 8,
     border: "none",
@@ -711,7 +704,7 @@ const styles = {
 
   // 🌓 Decipher button styles (ADDED)
   decipherBtn: {
-    marginLeft: 8,
+    marginLeft: 0,
     padding: "4px 10px",
     borderRadius: 8,
     border: "1px solid rgba(180,60,60,0.85)",
@@ -721,10 +714,11 @@ const styles = {
     cursor: "pointer",
   },
   modeHint: {
-    marginLeft: 10,
+    marginLeft: 2,
     fontSize: 11,
     letterSpacing: 1,
     color: "rgba(255,255,255,0.55)",
+    whiteSpace: "nowrap",
   },
 
   chat: {
@@ -826,7 +820,6 @@ const noteStyles = {
 };
 
 function bubble(role) {
-  // 🌓 Decipher bubble styling (ADDED)
   if (role === "decipher") {
     return {
       maxWidth: "85%",
