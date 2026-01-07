@@ -254,6 +254,9 @@ export default function ChatPanel() {
   // 🧊 Cooldown UI hint state (ADDED)
   const [decipherRemaining, setDecipherRemaining] = useState(0);
 
+  // ✅ NEW: menu
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
 
@@ -366,6 +369,7 @@ export default function ChatPanel() {
 
     setTyping(false);
     setCipherNote(null);
+    setMenuOpen(false); // ✅ close menu
     setMode(MODE_DEFAULT); // 🌓 reset mode too (ADDED)
     setDecipherRemaining(0);
     setMessages([{ role: "assistant", content: "Cipher online." }]);
@@ -422,6 +426,8 @@ export default function ChatPanel() {
       const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
       // ✅ FIX: Payload matches each API file
+      // /api/chat expects { message, history }
+      // /api/decipher expects { message, context }
       const payload =
         activeMode === "decipher"
           ? {
@@ -455,19 +461,26 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
+      // 🌓 Create the response bubble with correct role (ADDED)
       const replyRole = activeMode === "decipher" ? "decipher" : "assistant";
 
+      // 🌓 Decipher should feel instant + blunt (no typing animation) (ADDED)
       if (activeMode === "decipher") {
+        // 🧊 record usage AFTER a successful response (ADDED)
         recordDecipherUse();
 
         setMessages((m) => [...m, { role: replyRole, content: fullText }]);
         setTyping(false);
-        setMode("cipher");
+        setMode("cipher"); // auto return to Cipher after one response (ADDED)
+
+        // update cooldown UI hint quickly
         const gate = canUseDecipher();
         setDecipherRemaining(gate.allowed ? 0 : gate.remainingMs);
+
         return;
       }
 
+      // Default Cipher typing animation (unchanged)
       setMessages((m) => [
         ...m.filter((msg) => !(msg.role === "assistant" && msg.content === "")),
         { role: replyRole, content: "" },
@@ -490,7 +503,7 @@ export default function ChatPanel() {
           clearInterval(typingIntervalRef.current);
           typingIntervalRef.current = null;
           setTyping(false);
-          setMode("cipher");
+          setMode("cipher"); // 🌓 auto return (ADDED)
         }
       }, 20);
     } catch (err) {
@@ -501,6 +514,7 @@ export default function ChatPanel() {
         typingIntervalRef.current = null;
       }
 
+      // 🔧 FIX (Option 1): Separate Cipher vs Decipher failures cleanly
       const failText =
         activeMode === "decipher"
           ? "⚠️ Decipher failed to respond."
@@ -508,20 +522,22 @@ export default function ChatPanel() {
           ? "⚠️ Response timed out."
           : "⚠️ Cipher failed to respond.";
 
+      // 🔧 FIX (Option 1): error bubble role matches the mode that failed
       const failRole = activeMode === "decipher" ? "decipher" : "assistant";
 
       setMessages((m) => [
         ...m,
         {
-          role: failRole,
+          role: failRole, // 🔧 FIX
           content: failText,
         },
       ]);
 
       setTyping(false);
 
+      // 🔧 FIX (Option 1): Only force-reset mode for Decipher failures
       if (activeMode === "decipher") {
-        setMode("cipher");
+        setMode("cipher"); // 🔧 FIX
       }
     }
   }
@@ -554,48 +570,77 @@ export default function ChatPanel() {
         {/* Center label */}
         <span>{MODE_LABELS[mode] || "CIPHER"}</span>
 
-        {/* Right-side actions cluster (Store + existing controls) */}
-        <div style={styles.headerActions}>
-          <a href="/store" style={styles.storeLink}>
+        {/* ✅ Menu button (mobile safe) */}
+        <button
+          style={styles.menuBtn}
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
+      </div>
+
+      {/* ✅ Dropdown menu */}
+      {menuOpen && (
+        <div style={styles.menu}>
+          <a href="/store" style={styles.menuItem} onClick={() => setMenuOpen(false)}>
             Store
           </a>
 
-          <button onClick={resetCipher} style={styles.reset}>
-            Reset
+          <button
+            style={styles.menuItem}
+            onClick={() => {
+              // stub (wire later)
+              setMenuOpen(false);
+            }}
+          >
+            Toggle Theme
           </button>
 
-          {/* 🌓 Decipher button (ADDED) */}
+          <button
+            style={styles.menuItem}
+            onClick={() => {
+              // stub (wire later)
+              setMenuOpen(false);
+            }}
+          >
+            Voice (soon)
+          </button>
+
           <button
             onClick={() => {
               if (decipherRemaining > 0) return;
               setMode("decipher");
+              setMenuOpen(false);
             }}
             style={{
-              ...styles.decipherBtn,
+              ...styles.menuItem,
               opacity: decipherRemaining > 0 ? 0.55 : 1,
               cursor: decipherRemaining > 0 ? "not-allowed" : "pointer",
             }}
+            disabled={decipherRemaining > 0}
             title={
               decipherRemaining > 0
                 ? `Decipher cooling down: ${formatRemaining(decipherRemaining)}`
                 : "Blunt / dark-humor mode (one reply)"
             }
-            disabled={decipherRemaining > 0}
           >
-            Decipher
+            Decipher{" "}
+            {decipherRemaining > 0 && (
+              <span style={styles.cooldownText}>({formatRemaining(decipherRemaining)})</span>
+            )}
           </button>
 
-          {/* 🧊 Cooldown hint (ADDED) */}
-          {decipherRemaining > 0 && (
-            <span style={styles.modeHint}>cooldown {formatRemaining(decipherRemaining)}</span>
-          )}
-
-          {/* 🌓 Optional: show current mode hint (ADDED) */}
-          {mode === "decipher" && decipherRemaining <= 0 && (
-            <span style={styles.modeHint}>blunt mode</span>
-          )}
+          <button
+            style={styles.menuItem}
+            onClick={() => {
+              resetCipher();
+            }}
+          >
+            Reset
+          </button>
         </div>
-      </div>
+      )}
 
       <div style={styles.chat}>
         {messages.map((m, i) => (
@@ -668,7 +713,56 @@ const styles = {
     position: "relative",
   },
 
-  // ✅ ADDED: Right-side cluster so header stays centered
+  // ✅ NEW: menu button
+  menuBtn: {
+    position: "absolute",
+    right: 20,
+    top: "50%",
+    transform: "translateY(-50%)",
+    padding: "6px 10px",
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.15)",
+    background: "rgba(255,255,255,0.08)",
+    color: "white",
+    fontSize: 16,
+    cursor: "pointer",
+  },
+
+  // ✅ NEW: menu container (glass)
+  menu: {
+    position: "absolute",
+    top: 70,
+    right: 16,
+    background: "rgba(15,18,30,0.95)",
+    backdropFilter: "blur(14px)",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.12)",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+    display: "flex",
+    flexDirection: "column",
+    minWidth: 200,
+    zIndex: 1000,
+    overflow: "hidden",
+  },
+
+  // ✅ NEW: menu item
+  menuItem: {
+    padding: "12px 16px",
+    background: "transparent",
+    border: "none",
+    color: "white",
+    textAlign: "left",
+    fontSize: 14,
+    cursor: "pointer",
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+  },
+
+  cooldownText: {
+    fontSize: 12,
+    opacity: 0.6,
+  },
+
+  // (kept: these remain in file even if not used anymore; harmless)
   headerActions: {
     position: "absolute",
     right: 20,
@@ -679,7 +773,6 @@ const styles = {
     gap: 8,
   },
 
-  // ✅ ADDED: Store link style (dark glass)
   storeLink: {
     padding: "4px 12px",
     borderRadius: 10,
@@ -702,7 +795,6 @@ const styles = {
     cursor: "pointer",
   },
 
-  // 🌓 Decipher button styles (ADDED)
   decipherBtn: {
     marginLeft: 0,
     padding: "4px 10px",
@@ -820,6 +912,7 @@ const noteStyles = {
 };
 
 function bubble(role) {
+  // 🌓 Decipher bubble styling (ADDED)
   if (role === "decipher") {
     return {
       maxWidth: "85%",
