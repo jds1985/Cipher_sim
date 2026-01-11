@@ -86,19 +86,20 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
 
-  // ===== Scroll
+  /* ===============================
+     EFFECTS
+  ================================ */
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  // ===== Persist messages
   useEffect(() => {
     if (typeof window !== "undefined" && sessionStorage.getItem(SESSION_FLAG)) {
       localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
     }
   }, [messages]);
 
-  // ===== Cleanup typing interval
   useEffect(() => {
     return () => {
       if (typingIntervalRef.current) {
@@ -108,7 +109,6 @@ export default function ChatPanel() {
     };
   }, []);
 
-  // ===== Silence note
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -123,7 +123,6 @@ export default function ChatPanel() {
     }
   }, []);
 
-  // ===== Return continuity line
   useEffect(() => {
     if (typeof window === "undefined") return;
     const returning = sessionStorage.getItem(RETURN_FROM_NOTE_KEY);
@@ -134,7 +133,6 @@ export default function ChatPanel() {
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
-  // ===== Cooldown ticker (THIS restores your missing cooldown behavior)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -161,15 +159,10 @@ export default function ChatPanel() {
     sessionStorage.removeItem(SESSION_FLAG);
     sessionStorage.removeItem(NOTE_SHOWN_KEY);
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
-
-    // cooldown reset
     localStorage.removeItem(DECIPHER_LAST_KEY);
     localStorage.removeItem(DECIPHER_BURST_KEY);
 
-    if (typingIntervalRef.current) {
-      clearInterval(typingIntervalRef.current);
-      typingIntervalRef.current = null;
-    }
+    if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
 
     setTyping(false);
     setCipherNote(null);
@@ -179,26 +172,33 @@ export default function ChatPanel() {
     setMessages([{ role: "assistant", content: "Cipher online." }]);
   }
 
+  /* ===============================
+     SEND MESSAGE (FIXED)
+  ================================ */
+
   async function sendMessage() {
     if (!input.trim() || typing) return;
 
     let activeMode = mode;
+    let didReceiveReply = false;
 
     const lower = input.trim().toLowerCase();
-    const invokedDecipher = DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "));
-    if (invokedDecipher) {
+    if (DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "))) {
       activeMode = "decipher";
       setMode("decipher");
     }
 
-    // Cooldown gate
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
       if (!gate.allowed) {
-        const msg =
-          `${DECIPHER_COOLDOWN_MESSAGE}\n\n` + `Try again in ${formatRemaining(gate.remainingMs)}.`;
-        setMessages((m) => [...m, { role: "decipher", content: msg }]);
-        setTyping(false);
+        setMessages((m) => [
+          ...m,
+          {
+            role: "decipher",
+            content:
+              `${DECIPHER_COOLDOWN_MESSAGE}\n\nTry again in ${formatRemaining(gate.remainingMs)}.`,
+          },
+        ]);
         setMode("cipher");
         setDecipherRemaining(gate.remainingMs);
         return;
@@ -207,7 +207,6 @@ export default function ChatPanel() {
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
-
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
 
     setMessages(historySnapshot);
@@ -219,7 +218,6 @@ export default function ChatPanel() {
 
     try {
       const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
-
       const payload =
         activeMode === "decipher"
           ? { message: userMessage.content, context: trimHistory(historySnapshot) }
@@ -237,28 +235,24 @@ export default function ChatPanel() {
 
       const data = await res.json();
       let fullText = String(data.reply ?? "…");
-      if (fullText.length > MAX_REPLY_CHARS) fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
-
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-        typingIntervalRef.current = null;
+      if (fullText.length > MAX_REPLY_CHARS) {
+        fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
       }
+
+      didReceiveReply = true;
+
+      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
 
       const replyRole = activeMode === "decipher" ? "decipher" : "assistant";
 
-      // Decipher: instant
       if (activeMode === "decipher") {
         recordDecipherUse();
         setMessages((m) => [...m, { role: replyRole, content: fullText }]);
         setTyping(false);
         setMode("cipher");
-
-        const gate = canUseDecipher();
-        setDecipherRemaining(gate.allowed ? 0 : gate.remainingMs);
         return;
       }
 
-      // Cipher: typing animation
       setMessages((m) => [...m, { role: replyRole, content: "" }]);
 
       let index = 0;
@@ -266,37 +260,37 @@ export default function ChatPanel() {
         index++;
         setMessages((m) => {
           const updated = [...m];
-          updated[updated.length - 1] = { role: replyRole, content: fullText.slice(0, index) };
+          updated[updated.length - 1] = {
+            role: replyRole,
+            content: fullText.slice(0, index),
+          };
           return updated;
         });
 
         if (index >= fullText.length) {
           clearInterval(typingIntervalRef.current);
-          typingIntervalRef.current = null;
           setTyping(false);
           setMode("cipher");
         }
       }, 20);
     } catch (err) {
       clearTimeout(timeoutId);
+      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
 
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-        typingIntervalRef.current = null;
-      }
+      if (didReceiveReply) return; // 🔒 KEY FIX
 
-      const failText =
-        activeMode === "decipher"
-          ? "⚠️ Decipher failed to respond."
-          : err?.name === "AbortError"
-          ? "⚠️ Response timed out."
-          : "⚠️ Cipher failed to respond.";
-
-      const failRole = activeMode === "decipher" ? "decipher" : "assistant";
-
-      setMessages((m) => [...m, { role: failRole, content: failText }]);
+      setMessages((m) => [
+        ...m,
+        {
+          role: activeMode === "decipher" ? "decipher" : "assistant",
+          content:
+            err?.name === "AbortError"
+              ? "⚠️ Response timed out."
+              : "⚠️ Cipher failed to respond.",
+        },
+      ]);
       setTyping(false);
-      if (activeMode === "decipher") setMode("cipher");
+      setMode("cipher");
     }
   }
 
