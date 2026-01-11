@@ -85,6 +85,7 @@ export default function ChatPanel() {
 
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
+  const sendingRef = useRef(false); // 🔒 HARD SEND LOCK
 
   /* ===============================
      EFFECTS
@@ -153,34 +154,17 @@ export default function ChatPanel() {
     return history.slice(-HISTORY_WINDOW);
   }
 
-  function resetCipher() {
-    localStorage.removeItem(MEMORY_KEY);
-    localStorage.removeItem(LAST_USER_MESSAGE_KEY);
-    sessionStorage.removeItem(SESSION_FLAG);
-    sessionStorage.removeItem(NOTE_SHOWN_KEY);
-    sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
-    localStorage.removeItem(DECIPHER_LAST_KEY);
-    localStorage.removeItem(DECIPHER_BURST_KEY);
-
-    if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
-
-    setTyping(false);
-    setCipherNote(null);
-    setMenuOpen(false);
-    setMode(MODE_DEFAULT);
-    setDecipherRemaining(0);
-    setMessages([{ role: "assistant", content: "Cipher online." }]);
-  }
-
   /* ===============================
-     SEND MESSAGE (FIXED)
+     SEND MESSAGE (FINAL FIX)
   ================================ */
 
   async function sendMessage() {
+    if (sendingRef.current) return;
     if (!input.trim() || typing) return;
 
+    sendingRef.current = true;
+
     let activeMode = mode;
-    let didReceiveReply = false;
 
     const lower = input.trim().toLowerCase();
     if (DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "))) {
@@ -195,18 +179,21 @@ export default function ChatPanel() {
           ...m,
           {
             role: "decipher",
-            content:
-              `${DECIPHER_COOLDOWN_MESSAGE}\n\nTry again in ${formatRemaining(gate.remainingMs)}.`,
+            content: `${DECIPHER_COOLDOWN_MESSAGE}\n\nTry again in ${formatRemaining(
+              gate.remainingMs
+            )}.`,
           },
         ]);
         setMode("cipher");
         setDecipherRemaining(gate.remainingMs);
+        sendingRef.current = false;
         return;
       }
     }
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
+
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
 
     setMessages(historySnapshot);
@@ -235,13 +222,10 @@ export default function ChatPanel() {
 
       const data = await res.json();
       let fullText = String(data.reply ?? "…");
+
       if (fullText.length > MAX_REPLY_CHARS) {
         fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
       }
-
-      didReceiveReply = true;
-
-      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
 
       const replyRole = activeMode === "decipher" ? "decipher" : "assistant";
 
@@ -250,6 +234,7 @@ export default function ChatPanel() {
         setMessages((m) => [...m, { role: replyRole, content: fullText }]);
         setTyping(false);
         setMode("cipher");
+        sendingRef.current = false;
         return;
       }
 
@@ -269,15 +254,15 @@ export default function ChatPanel() {
 
         if (index >= fullText.length) {
           clearInterval(typingIntervalRef.current);
+          typingIntervalRef.current = null;
           setTyping(false);
           setMode("cipher");
+          sendingRef.current = false;
         }
       }, 20);
     } catch (err) {
       clearTimeout(timeoutId);
       if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
-
-      if (didReceiveReply) return; // 🔒 KEY FIX
 
       setMessages((m) => [
         ...m,
@@ -291,6 +276,7 @@ export default function ChatPanel() {
       ]);
       setTyping(false);
       setMode("cipher");
+      sendingRef.current = false;
     }
   }
 
@@ -311,7 +297,7 @@ export default function ChatPanel() {
         title={MODE_LABELS[mode] || "CIPHER"}
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
-        onReset={resetCipher}
+        onReset={() => location.reload()}
         onDecipher={() => setMode("decipher")}
         decipherRemaining={decipherRemaining}
       />
