@@ -9,8 +9,12 @@ export default async function handler(req, res) {
   // never cache
   res.setHeader("Cache-Control", "no-store");
 
+  let responded = false;
+
   // hard backend timeout
   const timeout = setTimeout(() => {
+    if (responded) return;
+    responded = true;
     try {
       res.status(504).json({ error: "Cipher timeout" });
     } catch {}
@@ -21,14 +25,15 @@ export default async function handler(req, res) {
 
     if (!message || typeof message !== "string") {
       clearTimeout(timeout);
+      responded = true;
       return res.status(400).json({ error: "Missing message" });
     }
 
-    // 🔒 HARD LIMIT history (prevents drift / token bloat)
+    // 🔒 HARD LIMIT history
     const HISTORY_LIMIT = 12;
     const trimmedHistory = history.slice(-HISTORY_LIMIT);
 
-    // 🧠 Ask Cipher Core to build the system prompt
+    // 🧠 Build system prompt
     const systemPrompt = await runCipherCore(
       { history: trimmedHistory },
       { userMessage: message }
@@ -58,6 +63,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       console.error("OPENAI ERROR:", data);
       clearTimeout(timeout);
+      responded = true;
       return res.status(500).json({ error: "OpenAI error" });
     }
 
@@ -65,10 +71,14 @@ export default async function handler(req, res) {
       data?.choices?.[0]?.message?.content?.trim() || "…";
 
     clearTimeout(timeout);
+    responded = true;
     return res.status(200).json({ reply });
   } catch (err) {
     console.error("CIPHER API CRASH:", err);
     clearTimeout(timeout);
-    return res.status(500).json({ error: "Cipher failed to respond" });
+    if (!responded) {
+      responded = true;
+      return res.status(500).json({ error: "Cipher failed to respond" });
+    }
   }
 }
