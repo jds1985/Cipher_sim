@@ -56,7 +56,7 @@ const MODE_LABELS = { cipher: "CIPHER", decipher: "DECIPHER" };
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
-    if (typeof window === "undefined") return [{ role: "assistant", content: "Cipher online." }];
+    if (typeof window === "undefined") return [{ role: "assistant", content: "Cipher online." };
 
     try {
       if (!sessionStorage.getItem(SESSION_FLAG)) {
@@ -81,11 +81,12 @@ export default function ChatPanel() {
   const [cipherNote, setCipherNote] = useState(null);
   const [mode, setMode] = useState(MODE_DEFAULT);
   const [decipherRemaining, setDecipherRemaining] = useState(0);
-  const [menuOpen, setMenuOpen] = useState(false);
+
+  const [drawerOpen, setDrawerOpen] = useState(false); // 🔥 NEW (stub for slide-out)
 
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
-  const sendingRef = useRef(false); // 🔒 HARD SEND LOCK
+  const sendingRef = useRef(false);
 
   /* ===============================
      EFFECTS
@@ -155,7 +156,7 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     SEND MESSAGE (FINAL FIX)
+     SEND MESSAGE
   ================================ */
 
   async function sendMessage() {
@@ -193,7 +194,6 @@ export default function ChatPanel() {
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
-
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
 
     setMessages(historySnapshot);
@@ -295,8 +295,7 @@ export default function ChatPanel() {
 
       <HeaderMenu
         title={MODE_LABELS[mode] || "CIPHER"}
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
+        onOpenDrawer={() => setDrawerOpen(true)}
         onReset={() => location.reload()}
         onDecipher={() => setMode("decipher")}
         decipherRemaining={decipherRemaining}
