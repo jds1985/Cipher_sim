@@ -8,23 +8,17 @@ export default async function handler(req, res) {
   // never cache
   res.setHeader("Cache-Control", "no-store");
 
-  // hard backend timeout
-  const timeout = setTimeout(() => {
-    try {
-      res.status(504).json({ error: "Decipher timeout" });
-    } catch {}
-  }, 25000);
-
   try {
     const { message, context = [] } = req.body;
 
     if (!message || typeof message !== "string") {
-      clearTimeout(timeout);
       return res.status(400).json({ error: "Missing message" });
     }
 
     const HISTORY_LIMIT = 12;
-    const trimmedContext = context.slice(-HISTORY_LIMIT);
+    const trimmedContext = Array.isArray(context)
+      ? context.slice(-HISTORY_LIMIT)
+      : [];
 
     const messages = [
       {
@@ -70,7 +64,6 @@ drop humor and be grounded and direct.
 
     if (!response.ok) {
       console.error("DECIPHER OPENAI ERROR:", data);
-      clearTimeout(timeout);
       return res.status(500).json({ error: "OpenAI error" });
     }
 
@@ -78,11 +71,11 @@ drop humor and be grounded and direct.
       data?.choices?.[0]?.message?.content?.trim() ||
       "Yeah. That silence says enough.";
 
-    clearTimeout(timeout);
+    // ✅ SINGLE EXIT — NOTHING RUNS AFTER THIS
     return res.status(200).json({ reply });
+
   } catch (err) {
     console.error("DECIPHER API CRASH:", err);
-    clearTimeout(timeout);
     return res.status(500).json({ error: "Decipher failed" });
   }
 }
