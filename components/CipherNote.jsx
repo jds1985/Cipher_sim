@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 
 export default function CipherNote({
-  note,              // { id, message, header? }
-  onOpenChat,        // async () => void
-  onDismiss,         // async () => void
+  note,        // { message, header? }
+  onOpen,      // () => void
+  onDismiss,   // () => void
 }) {
   const [visible, setVisible] = useState(false);
   const header = note?.header || "Cipher noticed some space.";
@@ -23,9 +23,9 @@ export default function CipherNote({
         <div style={styles.actions}>
           <button
             style={{ ...styles.btn, ...styles.primary }}
-            onClick={async () => {
+            onClick={() => {
               setVisible(false);
-              await onOpenChat();
+              onOpen?.();
             }}
           >
             Open chat
@@ -33,9 +33,9 @@ export default function CipherNote({
 
           <button
             style={{ ...styles.btn, ...styles.secondary }}
-            onClick={async () => {
+            onClick={() => {
               setVisible(false);
-              await onDismiss();
+              onDismiss?.();
             }}
           >
             Dismiss
@@ -62,7 +62,7 @@ const styles = {
     maxWidth: "calc(100vw - 36px)",
     padding: 16,
     borderRadius: 14,
-    background: "rgba(255, 244, 181, 0.98)", // warm sticky note
+    background: "rgba(255, 244, 181, 0.98)",
     boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
     transform: "rotate(-1.5deg)",
     border: "1px solid rgba(0,0,0,0.08)",
@@ -92,7 +92,7 @@ const styles = {
     fontWeight: 600,
   },
   primary: {
-    background: "rgba(0,0,0,0.90)",
+    background: "rgba(0,0,0,0.9)",
     color: "white",
   },
   secondary: {
