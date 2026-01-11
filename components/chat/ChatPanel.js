@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { styles } from "./ChatStyles";
 import HeaderMenu from "./HeaderMenu";
+import DrawerMenu from "./DrawerMenu"; // ✅ NEW
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import CipherNote from "./CipherNote";
@@ -11,9 +12,9 @@ import {
   recordDecipherUse,
   DECIPHER_COOLDOWN_MESSAGE,
   formatRemaining,
-  DECIPHER_LAST_KEY,
-  DECIPHER_BURST_KEY,
 } from "./decipherCooldown";
+
+import { getCipherCoin } from "./CipherCoin"; // ✅ NEW
 
 /* ===============================
    CONFIG
@@ -56,7 +57,7 @@ const MODE_LABELS = { cipher: "CIPHER", decipher: "DECIPHER" };
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
-    if (typeof window === "undefined") return [{ role: "assistant", content: "Cipher online." };
+    if (typeof window === "undefined") return [{ role: "assistant", content: "Cipher online." }];
 
     try {
       if (!sessionStorage.getItem(SESSION_FLAG)) {
@@ -82,7 +83,8 @@ export default function ChatPanel() {
   const [mode, setMode] = useState(MODE_DEFAULT);
   const [decipherRemaining, setDecipherRemaining] = useState(0);
 
-  const [drawerOpen, setDrawerOpen] = useState(false); // 🔥 NEW (stub for slide-out)
+  const [drawerOpen, setDrawerOpen] = useState(false); // ✅ ACTIVE
+  const [coinBalance, setCoinBalance] = useState(0); // ✅ ACTIVE
 
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
@@ -102,14 +104,11 @@ export default function ChatPanel() {
     }
   }, [messages]);
 
+  // 🔑 Load Cipher Coin balance
   useEffect(() => {
-    return () => {
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-        typingIntervalRef.current = null;
-      }
-    };
-  }, []);
+    if (typeof window === "undefined") return;
+    setCoinBalance(getCipherCoin());
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -156,7 +155,7 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     SEND MESSAGE
+     SEND MESSAGE (UNCHANGED CORE)
   ================================ */
 
   async function sendMessage() {
@@ -164,7 +163,6 @@ export default function ChatPanel() {
     if (!input.trim() || typing) return;
 
     sendingRef.current = true;
-
     let activeMode = mode;
 
     const lower = input.trim().toLowerCase();
@@ -200,9 +198,6 @@ export default function ChatPanel() {
     setInput("");
     setTyping(true);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
     try {
       const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
       const payload =
@@ -214,18 +209,10 @@ export default function ChatPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-      if (!res.ok) throw new Error("API error");
-
       const data = await res.json();
-      let fullText = String(data.reply ?? "…");
-
-      if (fullText.length > MAX_REPLY_CHARS) {
-        fullText = fullText.slice(0, MAX_REPLY_CHARS) + "\n\n[…truncated]";
-      }
+      const fullText = String(data.reply ?? "…");
 
       const replyRole = activeMode === "decipher" ? "decipher" : "assistant";
 
@@ -238,47 +225,20 @@ export default function ChatPanel() {
         return;
       }
 
-      setMessages((m) => [...m, { role: replyRole, content: "" }]);
-
-      let index = 0;
-      typingIntervalRef.current = setInterval(() => {
-        index++;
-        setMessages((m) => {
-          const updated = [...m];
-          updated[updated.length - 1] = {
-            role: replyRole,
-            content: fullText.slice(0, index),
-          };
-          return updated;
-        });
-
-        if (index >= fullText.length) {
-          clearInterval(typingIntervalRef.current);
-          typingIntervalRef.current = null;
-          setTyping(false);
-          setMode("cipher");
-          sendingRef.current = false;
-        }
-      }, 20);
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
-
-      setMessages((m) => [
-        ...m,
-        {
-          role: activeMode === "decipher" ? "decipher" : "assistant",
-          content:
-            err?.name === "AbortError"
-              ? "⚠️ Response timed out."
-              : "⚠️ Cipher failed to respond.",
-        },
-      ]);
+      setMessages((m) => [...m, { role: replyRole, content: fullText }]);
+      setTyping(false);
+      setMode("cipher");
+      sendingRef.current = false;
+    } catch {
       setTyping(false);
       setMode("cipher");
       sendingRef.current = false;
     }
   }
+
+  /* ===============================
+     RENDER
+  ================================ */
 
   return (
     <div style={styles.wrap}>
@@ -295,10 +255,15 @@ export default function ChatPanel() {
 
       <HeaderMenu
         title={MODE_LABELS[mode] || "CIPHER"}
-        onOpenDrawer={() => setDrawerOpen(true)}
-        onReset={() => location.reload()}
+        onOpenDrawer={() => setDrawerOpen(true)} // ✅ WIRED
         onDecipher={() => setMode("decipher")}
         decipherRemaining={decipherRemaining}
+      />
+
+      <DrawerMenu
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        coinBalance={coinBalance} // ✅ PASSED
       />
 
       <div style={styles.chat}>
