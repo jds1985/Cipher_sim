@@ -1,5 +1,5 @@
 // components/chat/DrawerMenu.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function DrawerMenu({
   open,
@@ -11,6 +11,29 @@ export default function DrawerMenu({
 }) {
   const [showExplainer, setShowExplainer] = useState(false);
 
+  // 🔒 Reset explainer state when drawer closes
+  useEffect(() => {
+    if (!open) setShowExplainer(false);
+  }, [open]);
+
+  // ⌨️ Allow ESC to close drawer / explainer
+  useEffect(() => {
+    if (!open) return;
+
+    function onKey(e) {
+      if (e.key === "Escape") {
+        if (showExplainer) {
+          setShowExplainer(false);
+        } else {
+          onClose?.();
+        }
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, showExplainer, onClose]);
+
   if (!open) return null;
 
   return (
@@ -18,6 +41,8 @@ export default function DrawerMenu({
       <div
         style={styles.drawer}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         {/* HEADER */}
         <div style={styles.header}>
@@ -26,11 +51,12 @@ export default function DrawerMenu({
           </span>
           <button
             style={styles.close}
+            aria-label="Close drawer"
             onClick={() => {
               if (showExplainer) {
                 setShowExplainer(false);
               } else {
-                onClose();
+                onClose?.();
               }
             }}
           >
@@ -58,7 +84,11 @@ export default function DrawerMenu({
 
             {/* ACTIONS */}
             <div style={styles.section}>
-              <button style={styles.primary} onClick={onInvite}>
+              <button
+                style={styles.primary}
+                onClick={() => onInvite?.()}
+                disabled={!onInvite}
+              >
                 Invite friends (earn coins)
               </button>
 
@@ -71,7 +101,8 @@ export default function DrawerMenu({
 
               <button
                 style={styles.secondary}
-                onClick={onOpenStore}
+                onClick={() => onOpenStore?.()}
+                disabled={!onOpenStore}
               >
                 Open Store
               </button>
@@ -88,11 +119,11 @@ export default function DrawerMenu({
             </p>
 
             <p>
-              Coins unlock future themes, features, and perks inside Cipher.
+              Coins unlock themes, features, and perks inside Cipher.
             </p>
 
             <p style={{ opacity: 0.7 }}>
-              This system is designed to reward early supporters — not ads.
+              This system rewards early supporters — not ads.
             </p>
 
             <button
