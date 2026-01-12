@@ -6,6 +6,11 @@ export default function DrawerMenu({
   onClose,
   cipherCoin = 0,
   email = null,
+
+  // 🔌 NEW (safe optional hooks)
+  onOpenStore,
+  onInvite,
+  onExplainCoin,
 }) {
   if (!open) return null;
 
@@ -22,6 +27,7 @@ export default function DrawerMenu({
           </button>
         </div>
 
+        {/* ACCOUNT */}
         <div style={drawerStyles.section}>
           <div style={drawerStyles.label}>Account</div>
           <div style={drawerStyles.value}>
@@ -29,6 +35,7 @@ export default function DrawerMenu({
           </div>
         </div>
 
+        {/* COIN */}
         <div style={drawerStyles.section}>
           <div style={drawerStyles.label}>Cipher Coin</div>
           <div style={drawerStyles.coinRow}>
@@ -37,12 +44,28 @@ export default function DrawerMenu({
           </div>
         </div>
 
+        {/* ACTIONS */}
         <div style={drawerStyles.section}>
-          <button style={drawerStyles.action}>
+          <button
+            style={drawerStyles.action}
+            onClick={() => onInvite?.()}
+          >
             Invite friends (earn coins)
           </button>
-          <button style={drawerStyles.actionSecondary}>
+
+          <button
+            style={drawerStyles.actionSecondary}
+            onClick={() => onExplainCoin?.()}
+          >
             How Cipher Coin works
+          </button>
+
+          {/* 🛒 STORE (RESTORED) */}
+          <button
+            style={drawerStyles.actionSecondary}
+            onClick={() => onOpenStore?.()}
+          >
+            Open Store
           </button>
         </div>
       </div>
