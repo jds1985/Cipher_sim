@@ -1,80 +1,114 @@
 // components/chat/DrawerMenu.jsx
-import { styles } from "./ChatStyles";
+import { useState } from "react";
 
 export default function DrawerMenu({
   open,
   onClose,
   cipherCoin = 0,
   email = null,
-
-  // 🔌 optional hooks (safe)
   onOpenStore,
   onInvite,
-  onExplainCoin,
 }) {
+  const [showExplainer, setShowExplainer] = useState(false);
+
   if (!open) return null;
 
   return (
-    <div style={drawerStyles.overlay} onClick={onClose}>
+    <div style={styles.overlay} onClick={onClose}>
       <div
-        style={drawerStyles.drawer}
+        style={styles.drawer}
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER */}
-        <div style={drawerStyles.header}>
-          <span style={drawerStyles.title}>Profile</span>
-          <button style={drawerStyles.close} onClick={onClose}>
+        <div style={styles.header}>
+          <span style={styles.title}>
+            {showExplainer ? "Cipher Coin" : "Profile"}
+          </span>
+          <button
+            style={styles.close}
+            onClick={() => {
+              if (showExplainer) {
+                setShowExplainer(false);
+              } else {
+                onClose();
+              }
+            }}
+          >
             ✕
           </button>
         </div>
 
-        {/* ACCOUNT */}
-        <div style={drawerStyles.section}>
-          <div style={drawerStyles.label}>Account</div>
-          <div style={drawerStyles.value}>
-            {email || "Guest"}
+        {/* MAIN VIEW */}
+        {!showExplainer && (
+          <>
+            {/* ACCOUNT */}
+            <div style={styles.section}>
+              <div style={styles.label}>Account</div>
+              <div style={styles.value}>{email || "Guest"}</div>
+            </div>
+
+            {/* COIN */}
+            <div style={styles.section}>
+              <div style={styles.label}>Cipher Coin</div>
+              <div style={styles.coinRow}>
+                <span style={styles.coin}>🪙</span>
+                <span style={styles.value}>{cipherCoin}</span>
+              </div>
+            </div>
+
+            {/* ACTIONS */}
+            <div style={styles.section}>
+              <button style={styles.primary} onClick={onInvite}>
+                Invite friends (earn coins)
+              </button>
+
+              <button
+                style={styles.secondary}
+                onClick={() => setShowExplainer(true)}
+              >
+                How Cipher Coin works
+              </button>
+
+              <button
+                style={styles.secondary}
+                onClick={onOpenStore}
+              >
+                Open Store
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* EXPLAINER VIEW */}
+        {showExplainer && (
+          <div style={styles.explainer}>
+            <p>
+              <strong>Cipher Coin</strong> is earned by sharing Cipher and
+              inviting others.
+            </p>
+
+            <p>
+              Coins unlock future themes, features, and perks inside Cipher.
+            </p>
+
+            <p style={{ opacity: 0.7 }}>
+              This system is designed to reward early supporters — not ads.
+            </p>
+
+            <button
+              style={styles.secondary}
+              onClick={() => setShowExplainer(false)}
+            >
+              Got it
+            </button>
           </div>
-        </div>
-
-        {/* CIPHER COIN */}
-        <div style={drawerStyles.section}>
-          <div style={drawerStyles.label}>Cipher Coin</div>
-          <div style={drawerStyles.coinRow}>
-            <span style={drawerStyles.coin}>🪙</span>
-            <span style={drawerStyles.value}>{cipherCoin}</span>
-          </div>
-        </div>
-
-        {/* ACTIONS */}
-        <div style={drawerStyles.section}>
-          <button
-            style={drawerStyles.action}
-            onClick={() => onInvite?.()}
-          >
-            Invite friends (earn coins)
-          </button>
-
-          <button
-            style={drawerStyles.actionSecondary}
-            onClick={() => onExplainCoin?.()}
-          >
-            How Cipher Coin works
-          </button>
-
-          {/* 🛒 STORE (RESTORED + WIRED) */}
-          <button
-            style={drawerStyles.actionSecondary}
-            onClick={() => onOpenStore?.()}
-          >
-            Open Store
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
-const drawerStyles = {
+const styles = {
   overlay: {
     position: "fixed",
     inset: 0,
@@ -137,7 +171,7 @@ const drawerStyles = {
   coin: {
     fontSize: 18,
   },
-  action: {
+  primary: {
     padding: "10px 12px",
     borderRadius: 10,
     border: "none",
@@ -146,7 +180,7 @@ const drawerStyles = {
     fontWeight: 700,
     cursor: "pointer",
   },
-  actionSecondary: {
+  secondary: {
     padding: "10px 12px",
     borderRadius: 10,
     border: "1px solid rgba(255,255,255,0.2)",
@@ -154,5 +188,12 @@ const drawerStyles = {
     color: "white",
     fontWeight: 600,
     cursor: "pointer",
+  },
+  explainer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    fontSize: 14,
+    lineHeight: 1.5,
   },
 };
