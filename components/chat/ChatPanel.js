@@ -1,4 +1,3 @@
-// components/chat/ChatPanel.js
 import { useState, useRef, useEffect } from "react";
 import { styles } from "./ChatStyles";
 import HeaderMenu from "./HeaderMenu";
@@ -6,6 +5,7 @@ import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import CipherNote from "./CipherNote";
+import RewardToast from "./RewardToast";
 
 import {
   canUseDecipher,
@@ -17,6 +17,7 @@ import {
 import {
   getCipherCoin,
   rewardShare,
+  rewardDaily,
 } from "./CipherCoin";
 
 /* ===============================
@@ -89,6 +90,7 @@ export default function ChatPanel() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
+  const [toast, setToast] = useState(null);
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
@@ -115,6 +117,16 @@ export default function ChatPanel() {
     if (typeof window === "undefined") return;
     setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
+
+  // ✅ DAILY LOGIN REWARD
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (rewardDaily()) {
+      setCoinBalance(getCipherCoin());
+      setToast("🪙 +1 Daily Cipher Coin");
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -162,7 +174,7 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     INVITE / SHARE HANDLER ✅
+     INVITE / SHARE HANDLER
   ================================ */
 
   async function handleInvite() {
@@ -179,13 +191,12 @@ export default function ChatPanel() {
         await navigator.clipboard.writeText(url);
       }
 
-      const rewarded = rewardShare();
-      if (rewarded) {
+      if (rewardShare()) {
         setCoinBalance(getCipherCoin());
-        alert("+2 Cipher Coin earned!");
+        setToast("🪙 +2 Cipher Coin earned");
       }
     } catch {
-      // User cancelled share — do nothing
+      // user cancelled — no reward
     }
   }
 
@@ -257,8 +268,6 @@ export default function ChatPanel() {
         ...m,
         { role: activeMode === "decipher" ? "decipher" : "assistant", content: fullText },
       ]);
-    } catch {
-      // fail silently
     } finally {
       setTyping(false);
       setMode("cipher");
@@ -308,6 +317,8 @@ export default function ChatPanel() {
         onSend={sendMessage}
         typing={typing}
       />
+
+      {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }
