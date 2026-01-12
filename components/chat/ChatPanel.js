@@ -88,6 +88,9 @@ export default function ChatPanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
 
+  // 🪙 NEW: Cipher Coin explainer toggle
+  const [showCoinExplainer, setShowCoinExplainer] = useState(false);
+
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
   const sendingRef = useRef(false);
@@ -109,7 +112,6 @@ export default function ChatPanel() {
     }
   }, [messages]);
 
-  // Load Cipher Coin balance
   useEffect(() => {
     if (typeof window === "undefined") return;
     setCoinBalance(getCipherCoin());
@@ -272,8 +274,20 @@ export default function ChatPanel() {
         cipherCoin={coinBalance}
         onOpenStore={() => (window.location.href = "/store")}
         onInvite={() => alert("Invite flow coming soon")}
-        onExplainCoin={() => alert("Cipher Coin explainer coming soon")}
+        onExplainCoin={() => setShowCoinExplainer(true)}
       />
+
+      {/* 🪙 INLINE COIN EXPLAINER */}
+      {showCoinExplainer && (
+        <div style={styles.systemNote}>
+          <strong>Cipher Coin</strong>
+          <p>
+            Cipher Coin is earned by sharing Cipher and inviting others.
+            Coins unlock themes, features, and future perks.
+          </p>
+          <button onClick={() => setShowCoinExplainer(false)}>Got it</button>
+        </div>
+      )}
 
       <div style={styles.chat}>
         <MessageList messages={messages} bottomRef={bottomRef} />
