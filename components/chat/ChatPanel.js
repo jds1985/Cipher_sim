@@ -14,7 +14,10 @@ import {
   formatRemaining,
 } from "./decipherCooldown";
 
-import { getCipherCoin } from "./CipherCoin";
+import {
+  getCipherCoin,
+  rewardShare,
+} from "./CipherCoin";
 
 /* ===============================
    CONFIG
@@ -159,6 +162,34 @@ export default function ChatPanel() {
   }
 
   /* ===============================
+     INVITE / SHARE HANDLER ✅
+  ================================ */
+
+  async function handleInvite() {
+    const url = `${window.location.origin}?ref=cipher`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Cipher",
+          text: "Try Cipher — an AI that actually remembers.",
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+
+      const rewarded = rewardShare();
+      if (rewarded) {
+        setCoinBalance(getCipherCoin());
+        alert("+2 Cipher Coin earned!");
+      }
+    } catch {
+      // User cancelled share — do nothing
+    }
+  }
+
+  /* ===============================
      SEND MESSAGE
   ================================ */
 
@@ -218,13 +249,14 @@ export default function ChatPanel() {
       const data = await res.json();
       const fullText = String(data.reply ?? "…");
 
-      const replyRole = activeMode === "decipher" ? "decipher" : "assistant";
-
       if (activeMode === "decipher") {
         recordDecipherUse();
       }
 
-      setMessages((m) => [...m, { role: replyRole, content: fullText }]);
+      setMessages((m) => [
+        ...m,
+        { role: activeMode === "decipher" ? "decipher" : "assistant", content: fullText },
+      ]);
     } catch {
       // fail silently
     } finally {
@@ -262,23 +294,7 @@ export default function ChatPanel() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         cipherCoin={coinBalance}
-        onInvite={() => {
-  const url = `${window.location.origin}?ref=cipher`;
-
-  if (navigator.share) {
-    navigator.share({
-      title: "Cipher",
-      text: "Try Cipher — an AI that actually remembers.",
-      url,
-    });
-  } else {
-    navigator.clipboard.writeText(url);
-  }
-
-  const next = getCipherCoin() + 1;
-  localStorage.setItem("cipher_coin", String(next));
-  setCoinBalance(next);
-}}
+        onInvite={handleInvite}
         onOpenStore={() => (window.location.href = "/store")}
       />
 
