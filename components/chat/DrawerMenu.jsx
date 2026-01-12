@@ -7,7 +7,7 @@ export default function DrawerMenu({
   cipherCoin = 0,
   email = null,
 
-  // 🔌 NEW (safe optional hooks)
+  // 🔌 optional hooks (safe)
   onOpenStore,
   onInvite,
   onExplainCoin,
@@ -20,6 +20,7 @@ export default function DrawerMenu({
         style={drawerStyles.drawer}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* HEADER */}
         <div style={drawerStyles.header}>
           <span style={drawerStyles.title}>Profile</span>
           <button style={drawerStyles.close} onClick={onClose}>
@@ -35,7 +36,7 @@ export default function DrawerMenu({
           </div>
         </div>
 
-        {/* COIN */}
+        {/* CIPHER COIN */}
         <div style={drawerStyles.section}>
           <div style={drawerStyles.label}>Cipher Coin</div>
           <div style={drawerStyles.coinRow}>
@@ -60,7 +61,7 @@ export default function DrawerMenu({
             How Cipher Coin works
           </button>
 
-          {/* 🛒 STORE (RESTORED) */}
+          {/* 🛒 STORE (RESTORED + WIRED) */}
           <button
             style={drawerStyles.actionSecondary}
             onClick={() => onOpenStore?.()}
