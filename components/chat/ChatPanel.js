@@ -23,7 +23,6 @@ import { getCipherCoin } from "./CipherCoin";
 const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
-const MAX_REPLY_CHARS = 1200;
 
 const SESSION_FLAG = "cipher_session_active";
 
@@ -88,11 +87,7 @@ export default function ChatPanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
 
-  // 🪙 NEW: Cipher Coin explainer toggle
-  const [showCoinExplainer, setShowCoinExplainer] = useState(false);
-
   const bottomRef = useRef(null);
-  const typingIntervalRef = useRef(null);
   const sendingRef = useRef(false);
 
   /* ===============================
@@ -112,6 +107,7 @@ export default function ChatPanel() {
     }
   }, [messages]);
 
+  // Load coin balance when drawer opens
   useEffect(() => {
     if (typeof window === "undefined") return;
     setCoinBalance(getCipherCoin());
@@ -226,18 +222,12 @@ export default function ChatPanel() {
 
       if (activeMode === "decipher") {
         recordDecipherUse();
-        setMessages((m) => [...m, { role: replyRole, content: fullText }]);
-        setTyping(false);
-        setMode("cipher");
-        sendingRef.current = false;
-        return;
       }
 
       setMessages((m) => [...m, { role: replyRole, content: fullText }]);
-      setTyping(false);
-      setMode("cipher");
-      sendingRef.current = false;
     } catch {
+      // fail silently
+    } finally {
       setTyping(false);
       setMode("cipher");
       sendingRef.current = false;
@@ -272,22 +262,9 @@ export default function ChatPanel() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         cipherCoin={coinBalance}
-        onOpenStore={() => (window.location.href = "/store")}
         onInvite={() => alert("Invite flow coming soon")}
-        onExplainCoin={() => setShowCoinExplainer(true)}
+        onOpenStore={() => (window.location.href = "/store")}
       />
-
-      {/* 🪙 INLINE COIN EXPLAINER */}
-      {showCoinExplainer && (
-        <div style={styles.systemNote}>
-          <strong>Cipher Coin</strong>
-          <p>
-            Cipher Coin is earned by sharing Cipher and inviting others.
-            Coins unlock themes, features, and future perks.
-          </p>
-          <button onClick={() => setShowCoinExplainer(false)}>Got it</button>
-        </div>
-      )}
 
       <div style={styles.chat}>
         <MessageList messages={messages} bottomRef={bottomRef} />
