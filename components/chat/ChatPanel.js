@@ -1,3 +1,4 @@
+// components/chat/ChatPanel.js
 import { useState, useRef, useEffect } from "react";
 import { styles } from "./ChatStyles";
 import HeaderMenu from "./HeaderMenu";
@@ -18,12 +19,15 @@ import {
   getCipherCoin,
   rewardShare,
   rewardDaily,
+  claimReferral,
+  spendCipherCoin,
+  rewardEmailBonus,
+  getUserEmail,
 } from "./CipherCoin";
 
 /* ===============================
    CONFIG
 ================================ */
-
 const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
@@ -90,7 +94,9 @@ export default function ChatPanel() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
+
   const [toast, setToast] = useState(null);
+  const [email, setEmail] = useState(null);
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
@@ -105,29 +111,45 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && sessionStorage.getItem(SESSION_FLAG)) {
-      localStorage.setItem(
-        MEMORY_KEY,
-        JSON.stringify(messages.slice(-MEMORY_LIMIT))
-      );
+      localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
     }
   }, [messages]);
 
-  // Load coin balance when drawer opens
+  // Balance + email refresh when drawer opens
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!drawerOpen) return;
+
     setCoinBalance(getCipherCoin());
+    setEmail(getUserEmail());
   }, [drawerOpen]);
 
-  // ✅ DAILY LOGIN REWARD
+  // ✅ On first load: daily reward + referral claim
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (rewardDaily()) {
+    // daily login reward
+    const daily = rewardDaily();
+    if (daily.ok) {
       setCoinBalance(getCipherCoin());
-      setToast("🪙 +1 Daily Cipher Coin");
+      setToast(`🪙 +${daily.earned} Daily Cipher Coin`);
+    } else {
+      setCoinBalance(getCipherCoin());
+    }
+
+    // referral claim
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) {
+      const r = claimReferral(ref);
+      if (r.ok) {
+        setCoinBalance(getCipherCoin());
+        setToast(`🪙 +${r.earned} Referral bonus claimed`);
+      }
     }
   }, []);
 
+  // Silence note logic
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -153,6 +175,7 @@ export default function ChatPanel() {
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
+  // Decipher cooldown tick
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -176,7 +199,6 @@ export default function ChatPanel() {
   /* ===============================
      INVITE / SHARE HANDLER
   ================================ */
-
   async function handleInvite() {
     const url = `${window.location.origin}?ref=cipher`;
 
@@ -189,21 +211,74 @@ export default function ChatPanel() {
         });
       } else {
         await navigator.clipboard.writeText(url);
+        setToast("🔗 Link copied (share it anywhere)");
       }
 
-      if (rewardShare()) {
+      const rewarded = rewardShare();
+      if (rewarded.ok) {
         setCoinBalance(getCipherCoin());
-        setToast("🪙 +2 Cipher Coin earned");
+        setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
+      } else {
+        // optional: tell them cooldown
+        // setToast("⏳ Share reward is on cooldown");
       }
     } catch {
-      // user cancelled — no reward
+      // user cancelled share — no reward
+    }
+  }
+
+  /* ===============================
+     SPEND COINS
+  ================================ */
+
+  // Spend coins to reset Decipher cooldown (simple version: you pay and we just zero the UI timer)
+  function handleResetDecipher() {
+    // cost can be tuned
+    const COST = 10;
+
+    const res = spendCipherCoin(COST, "decipher_reset");
+    if (!res.ok) {
+      setToast("Not enough Cipher Coin");
+      return;
+    }
+
+    // We only control the UI here. If decipherCooldown.js is enforcing cooldown via its own storage,
+    // you should also clear its timestamp in that module later. This gets you started safely.
+    setDecipherRemaining(0);
+    setCoinBalance(getCipherCoin());
+    setToast(`🧠 Decipher reset (-${COST})`);
+  }
+
+  // Store unlock stub (just demonstrates spending + ledger; you’ll hook it to store items later)
+  function handleUnlockStoreItem() {
+    const COST = 25;
+
+    const res = spendCipherCoin(COST, "store_unlock", { item: "starter_pack" });
+    if (!res.ok) {
+      setToast("Not enough Cipher Coin");
+      return;
+    }
+
+    setCoinBalance(getCipherCoin());
+    setToast(`🛒 Starter Pack unlocked (-${COST})`);
+  }
+
+  // Email bonus hook (call from Drawer later; safe now)
+  function handleSetEmailAndBonus(newEmail) {
+    const r = rewardEmailBonus(newEmail);
+    if (r.ok) {
+      setEmail(newEmail);
+      setCoinBalance(getCipherCoin());
+      setToast(`🪙 +${r.earned} Email bonus`);
+    } else if (r.reason === "already_claimed") {
+      setEmail(newEmail);
+      setToast("Email saved");
     }
   }
 
   /* ===============================
      SEND MESSAGE
   ================================ */
-
   async function sendMessage() {
     if (sendingRef.current) return;
     if (!input.trim() || typing) return;
@@ -268,6 +343,8 @@ export default function ChatPanel() {
         ...m,
         { role: activeMode === "decipher" ? "decipher" : "assistant", content: fullText },
       ]);
+    } catch {
+      // fail silently
     } finally {
       setTyping(false);
       setMode("cipher");
@@ -278,7 +355,6 @@ export default function ChatPanel() {
   /* ===============================
      RENDER
   ================================ */
-
   return (
     <div style={styles.wrap}>
       {cipherNote && (
@@ -303,20 +379,20 @@ export default function ChatPanel() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         cipherCoin={coinBalance}
+        email={email}
         onInvite={handleInvite}
         onOpenStore={() => (window.location.href = "/store")}
+        // NEW spend actions + email bonus hook
+        onResetDecipher={handleResetDecipher}
+        onUnlockStarterPack={handleUnlockStoreItem}
+        onSaveEmail={handleSetEmailAndBonus}
       />
 
       <div style={styles.chat}>
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
-      <InputBar
-        input={input}
-        setInput={setInput}
-        onSend={sendMessage}
-        typing={typing}
-      />
+      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
 
       {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
     </div>
