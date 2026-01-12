@@ -262,7 +262,23 @@ export default function ChatPanel() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         cipherCoin={coinBalance}
-        onInvite={() => alert("Invite flow coming soon")}
+        onInvite={() => {
+  const url = `${window.location.origin}?ref=cipher`;
+
+  if (navigator.share) {
+    navigator.share({
+      title: "Cipher",
+      text: "Try Cipher — an AI that actually remembers.",
+      url,
+    });
+  } else {
+    navigator.clipboard.writeText(url);
+  }
+
+  const next = getCipherCoin() + 1;
+  localStorage.setItem("cipher_coin", String(next));
+  setCoinBalance(next);
+}}
         onOpenStore={() => (window.location.href = "/store")}
       />
 
