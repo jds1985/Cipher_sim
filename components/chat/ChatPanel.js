@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { styles } from "./ChatStyles";
 import HeaderMenu from "./HeaderMenu";
-import DrawerMenu from "./DrawerMenu"; // ✅ NEW
+import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import CipherNote from "./CipherNote";
@@ -14,7 +14,7 @@ import {
   formatRemaining,
 } from "./decipherCooldown";
 
-import { getCipherCoin } from "./CipherCoin"; // ✅ NEW
+import { getCipherCoin } from "./CipherCoin";
 
 /* ===============================
    CONFIG
@@ -57,7 +57,9 @@ const MODE_LABELS = { cipher: "CIPHER", decipher: "DECIPHER" };
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
-    if (typeof window === "undefined") return [{ role: "assistant", content: "Cipher online." }];
+    if (typeof window === "undefined") {
+      return [{ role: "assistant", content: "Cipher online." }];
+    }
 
     try {
       if (!sessionStorage.getItem(SESSION_FLAG)) {
@@ -83,8 +85,8 @@ export default function ChatPanel() {
   const [mode, setMode] = useState(MODE_DEFAULT);
   const [decipherRemaining, setDecipherRemaining] = useState(0);
 
-  const [drawerOpen, setDrawerOpen] = useState(false); // ✅ ACTIVE
-  const [coinBalance, setCoinBalance] = useState(0); // ✅ ACTIVE
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [coinBalance, setCoinBalance] = useState(0);
 
   const bottomRef = useRef(null);
   const typingIntervalRef = useRef(null);
@@ -100,11 +102,14 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && sessionStorage.getItem(SESSION_FLAG)) {
-      localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
+      localStorage.setItem(
+        MEMORY_KEY,
+        JSON.stringify(messages.slice(-MEMORY_LIMIT))
+      );
     }
   }, [messages]);
 
-  // 🔑 Load Cipher Coin balance
+  // Load Cipher Coin balance
   useEffect(() => {
     if (typeof window === "undefined") return;
     setCoinBalance(getCipherCoin());
@@ -126,6 +131,7 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const returning = sessionStorage.getItem(RETURN_FROM_NOTE_KEY);
     if (!returning) return;
 
@@ -155,7 +161,7 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     SEND MESSAGE (UNCHANGED CORE)
+     SEND MESSAGE
   ================================ */
 
   async function sendMessage() {
@@ -255,7 +261,7 @@ export default function ChatPanel() {
 
       <HeaderMenu
         title={MODE_LABELS[mode] || "CIPHER"}
-        onOpenDrawer={() => setDrawerOpen(true)} // ✅ WIRED
+        onOpenDrawer={() => setDrawerOpen(true)}
         onDecipher={() => setMode("decipher")}
         decipherRemaining={decipherRemaining}
       />
@@ -263,14 +269,22 @@ export default function ChatPanel() {
       <DrawerMenu
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        coinBalance={coinBalance} // ✅ PASSED
+        cipherCoin={coinBalance}
+        onOpenStore={() => (window.location.href = "/store")}
+        onInvite={() => alert("Invite flow coming soon")}
+        onExplainCoin={() => alert("Cipher Coin explainer coming soon")}
       />
 
       <div style={styles.chat}>
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
-      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
+      <InputBar
+        input={input}
+        setInput={setInput}
+        onSend={sendMessage}
+        typing={typing}
+      />
     </div>
   );
 }
