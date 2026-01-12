@@ -1,70 +1,42 @@
 // components/chat/DrawerMenu.jsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function DrawerMenu({
   open,
   onClose,
   cipherCoin = 0,
   email = null,
+
   onOpenStore,
   onInvite,
+
+  // NEW hooks
+  onResetDecipher,
+  onUnlockStarterPack,
+  onSaveEmail,
 }) {
   const [showExplainer, setShowExplainer] = useState(false);
-
-  // 🔒 Reset explainer state when drawer closes
-  useEffect(() => {
-    if (!open) setShowExplainer(false);
-  }, [open]);
-
-  // ⌨️ Allow ESC to close drawer / explainer
-  useEffect(() => {
-    if (!open) return;
-
-    function onKey(e) {
-      if (e.key === "Escape") {
-        if (showExplainer) {
-          setShowExplainer(false);
-        } else {
-          onClose?.();
-        }
-      }
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, showExplainer, onClose]);
+  const [emailDraft, setEmailDraft] = useState(email || "");
 
   if (!open) return null;
 
   return (
     <div style={styles.overlay} onClick={onClose}>
-      <div
-        style={styles.drawer}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
+      <div style={styles.drawer} onClick={(e) => e.stopPropagation()}>
         {/* HEADER */}
         <div style={styles.header}>
-          <span style={styles.title}>
-            {showExplainer ? "Cipher Coin" : "Profile"}
-          </span>
+          <span style={styles.title}>{showExplainer ? "Cipher Coin" : "Profile"}</span>
           <button
             style={styles.close}
-            aria-label="Close drawer"
             onClick={() => {
-              if (showExplainer) {
-                setShowExplainer(false);
-              } else {
-                onClose?.();
-              }
+              if (showExplainer) setShowExplainer(false);
+              else onClose?.();
             }}
           >
             ✕
           </button>
         </div>
 
-        {/* MAIN VIEW */}
         {!showExplainer && (
           <>
             {/* ACCOUNT */}
@@ -82,54 +54,66 @@ export default function DrawerMenu({
               </div>
             </div>
 
+            {/* EMAIL BONUS */}
+            <div style={styles.section}>
+              <div style={styles.label}>Email bonus (+5 once)</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <input
+                  value={emailDraft}
+                  onChange={(e) => setEmailDraft(e.target.value)}
+                  placeholder="you@email.com"
+                  style={styles.input}
+                />
+                <button
+                  style={styles.smallBtn}
+                  onClick={() => onSaveEmail?.(emailDraft)}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+
             {/* ACTIONS */}
             <div style={styles.section}>
-              <button
-                style={styles.primary}
-                onClick={() => onInvite?.()}
-                disabled={!onInvite}
-              >
+              <button style={styles.primary} onClick={() => onInvite?.()}>
                 Invite friends (earn coins)
               </button>
 
-              <button
-                style={styles.secondary}
-                onClick={() => setShowExplainer(true)}
-              >
+              <button style={styles.secondary} onClick={() => setShowExplainer(true)}>
                 How Cipher Coin works
               </button>
 
-              <button
-                style={styles.secondary}
-                onClick={() => onOpenStore?.()}
-                disabled={!onOpenStore}
-              >
+              <button style={styles.secondary} onClick={() => onOpenStore?.()}>
                 Open Store
+              </button>
+            </div>
+
+            {/* SPEND */}
+            <div style={styles.section}>
+              <div style={styles.label}>Spend Cipher Coin</div>
+
+              <button style={styles.secondary} onClick={() => onResetDecipher?.()}>
+                Reset Decipher cooldown (10)
+              </button>
+
+              <button style={styles.secondary} onClick={() => onUnlockStarterPack?.()}>
+                Unlock Starter Pack (25)
               </button>
             </div>
           </>
         )}
 
-        {/* EXPLAINER VIEW */}
         {showExplainer && (
           <div style={styles.explainer}>
             <p>
-              <strong>Cipher Coin</strong> is earned by sharing Cipher and
-              inviting others.
+              <strong>Cipher Coin</strong> is earned by sharing Cipher and inviting others.
             </p>
-
-            <p>
-              Coins unlock themes, features, and perks inside Cipher.
-            </p>
-
+            <p>Coins unlock themes, features, and perks inside Cipher.</p>
             <p style={{ opacity: 0.7 }}>
-              This system rewards early supporters — not ads.
+              This system is designed to reward early supporters — not ads.
             </p>
 
-            <button
-              style={styles.secondary}
-              onClick={() => setShowExplainer(false)}
-            >
+            <button style={styles.secondary} onClick={() => setShowExplainer(false)}>
               Got it
             </button>
           </div>
@@ -150,7 +134,7 @@ const styles = {
     position: "absolute",
     top: 0,
     right: 0,
-    width: 300,
+    width: 320,
     height: "100%",
     background: "linear-gradient(180deg,#0a0f2a,#05050b)",
     color: "white",
@@ -169,7 +153,7 @@ const styles = {
   },
   title: {
     fontSize: 16,
-    fontWeight: 700,
+    fontWeight: 800,
     letterSpacing: 1,
   },
   close: {
@@ -182,7 +166,7 @@ const styles = {
   section: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: 8,
   },
   label: {
     fontSize: 11,
@@ -192,12 +176,12 @@ const styles = {
   },
   value: {
     fontSize: 15,
-    fontWeight: 600,
+    fontWeight: 700,
   },
   coinRow: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   coin: {
     fontSize: 18,
@@ -208,7 +192,7 @@ const styles = {
     border: "none",
     background: "linear-gradient(135deg,#6b7cff,#9b6bff)",
     color: "white",
-    fontWeight: 700,
+    fontWeight: 800,
     cursor: "pointer",
   },
   secondary: {
@@ -217,7 +201,25 @@ const styles = {
     border: "1px solid rgba(255,255,255,0.2)",
     background: "transparent",
     color: "white",
-    fontWeight: 600,
+    fontWeight: 650,
+    cursor: "pointer",
+  },
+  input: {
+    flex: 1,
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.18)",
+    background: "rgba(255,255,255,0.06)",
+    color: "white",
+    outline: "none",
+  },
+  smallBtn: {
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.2)",
+    background: "rgba(255,255,255,0.08)",
+    color: "white",
+    fontWeight: 800,
     cursor: "pointer",
   },
   explainer: {
