@@ -1,5 +1,5 @@
 // components/chat/CipherCoin.js
-// Single source of truth for Cipher Coin + rewards + ledger.
+// Single source of truth for Cipher Coin + rewards + ledger + store entitlements.
 
 const COIN_KEY = "cipher_coin_balance";
 const LEDGER_KEY = "cipher_coin_ledger";
@@ -10,11 +10,13 @@ const LAST_DAILY_KEY = "cipher_last_daily_reward";
 
 // referral
 const REF_CLAIMED_PREFIX = "cipher_ref_claimed_"; // + refCode
-const REF_LAST_SEEN = "cipher_ref_last_seen";
+const REF_LAST_SEEN = "cipher_ref_last_seen"; // debugging / optional
 
 // optional identity (for future)
 const EMAIL_KEY = "cipher_user_email";
-const EMAIL_BONUS_KEY = "cipher_email_bonus_claimed";
+
+// store entitlements
+const ENTITLEMENTS_KEY = "cipher_store_entitlements";
 
 // ===== helpers =====
 function safeParse(json, fallback) {
@@ -36,20 +38,16 @@ function clampInt(n) {
   return Math.trunc(x);
 }
 
-function hasWindow() {
-  return typeof window !== "undefined";
-}
-
 // ===== ledger =====
 export function getLedger(limit = 50) {
-  if (!hasWindow()) return [];
+  if (typeof window === "undefined") return [];
   const raw = localStorage.getItem(LEDGER_KEY);
   const arr = safeParse(raw, []);
   return Array.isArray(arr) ? arr.slice(0, limit) : [];
 }
 
 export function addLedgerEntry(entry) {
-  if (!hasWindow()) return [];
+  if (typeof window === "undefined") return [];
   const current = getLedger(200);
   const next = [{ ...entry, ts: entry.ts || nowIso() }, ...current].slice(0, 200);
   localStorage.setItem(LEDGER_KEY, JSON.stringify(next));
@@ -58,20 +56,19 @@ export function addLedgerEntry(entry) {
 
 // ===== balance =====
 export function getCipherCoin() {
-  if (!hasWindow()) return 0;
+  if (typeof window === "undefined") return 0;
   const raw = localStorage.getItem(COIN_KEY);
   return raw ? Number(raw) : 0;
 }
 
 export function setCipherCoin(next) {
-  if (!hasWindow()) return 0;
+  if (typeof window === "undefined") return 0;
   const n = Math.max(0, clampInt(next));
   localStorage.setItem(COIN_KEY, String(n));
   return n;
 }
 
 export function addCipherCoin(amount, reason = "unknown", meta = {}) {
-  if (!hasWindow()) return 0;
   const current = getCipherCoin();
   const next = setCipherCoin(current + clampInt(amount));
 
@@ -87,7 +84,6 @@ export function addCipherCoin(amount, reason = "unknown", meta = {}) {
 }
 
 export function spendCipherCoin(amount, reason = "spend", meta = {}) {
-  if (!hasWindow()) return { ok: false, balance: 0 };
   const amt = Math.max(0, clampInt(amount));
   const current = getCipherCoin();
   if (current < amt) return { ok: false, balance: current };
@@ -109,13 +105,14 @@ export function spendCipherCoin(amount, reason = "spend", meta = {}) {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function canRewardShare() {
-  if (!hasWindow()) return false;
+  if (typeof window === "undefined") return false;
   const last = localStorage.getItem(LAST_SHARE_KEY);
   if (!last) return true;
   return Date.now() - Number(last) >= DAY_MS;
 }
 
 export function rewardShare() {
+  if (typeof window === "undefined") return { ok: false, reason: "ssr" };
   if (!canRewardShare()) return { ok: false, reason: "cooldown" };
 
   localStorage.setItem(LAST_SHARE_KEY, String(Date.now()));
@@ -124,13 +121,14 @@ export function rewardShare() {
 }
 
 export function canRewardDaily() {
-  if (!hasWindow()) return false;
+  if (typeof window === "undefined") return false;
   const last = localStorage.getItem(LAST_DAILY_KEY);
   if (!last) return true;
   return Date.now() - Number(last) >= DAY_MS;
 }
 
 export function rewardDaily() {
+  if (typeof window === "undefined") return { ok: false, reason: "ssr" };
   if (!canRewardDaily()) return { ok: false, reason: "cooldown" };
 
   localStorage.setItem(LAST_DAILY_KEY, String(Date.now()));
@@ -142,8 +140,7 @@ export function rewardDaily() {
 // Claim rule: if user opens with ?ref=CODE and hasn't claimed that code before,
 // grant +3 once per code per browser.
 export function claimReferral(refCodeRaw) {
-  if (!hasWindow()) return { ok: false, reason: "no_window" };
-
+  if (typeof window === "undefined") return { ok: false, reason: "ssr" };
   const refCode = String(refCodeRaw || "").trim();
   if (!refCode) return { ok: false, reason: "no_ref" };
 
@@ -159,9 +156,9 @@ export function claimReferral(refCodeRaw) {
   return { ok: true, earned: 3, balance, ref: refCode };
 }
 
-// ===== email bonus =====
+// ===== email bonus hook =====
 export function setUserEmail(email) {
-  if (!hasWindow()) return null;
+  if (typeof window === "undefined") return null;
   const v = String(email || "").trim();
   if (!v) return null;
   localStorage.setItem(EMAIL_KEY, v);
@@ -169,22 +166,74 @@ export function setUserEmail(email) {
 }
 
 export function getUserEmail() {
-  if (!hasWindow()) return null;
+  if (typeof window === "undefined") return null;
   return localStorage.getItem(EMAIL_KEY) || null;
 }
 
 // Award +5 once per browser when email gets set the first time.
+const EMAIL_BONUS_KEY = "cipher_email_bonus_claimed";
 export function rewardEmailBonus(email) {
-  if (!hasWindow()) return { ok: false, reason: "no_window" };
-
+  if (typeof window === "undefined") return { ok: false, reason: "ssr" };
   const v = String(email || "").trim();
   if (!v) return { ok: false, reason: "no_email" };
 
   const already = localStorage.getItem(EMAIL_BONUS_KEY);
-  if (already) return { ok: false, reason: "already_claimed" };
+  if (already) {
+    // still store the email (so UI persists), but don’t reward again
+    setUserEmail(v);
+    return { ok: false, reason: "already_claimed" };
+  }
 
   setUserEmail(v);
   localStorage.setItem(EMAIL_BONUS_KEY, "true");
   const balance = addCipherCoin(5, "email_bonus", { email: v });
   return { ok: true, earned: 5, balance };
+}
+
+// ==============================
+// STORE ENTITLEMENTS (NEW)
+// ==============================
+
+export function getEntitlements() {
+  if (typeof window === "undefined") return {};
+  const raw = localStorage.getItem(ENTITLEMENTS_KEY);
+  const obj = safeParse(raw, {});
+  return obj && typeof obj === "object" ? obj : {};
+}
+
+export function hasEntitlement(key) {
+  const ent = getEntitlements();
+  return Boolean(ent && ent[key]);
+}
+
+export function setEntitlement(key, value = true) {
+  if (typeof window === "undefined") return {};
+  const ent = getEntitlements();
+  const next = { ...ent, [key]: Boolean(value) };
+  localStorage.setItem(ENTITLEMENTS_KEY, JSON.stringify(next));
+  return next;
+}
+
+export function purchaseStarterPack() {
+  // Starter Pack costs 25, unlocks entitlement + logs purchase
+  const ENT_KEY = "starter_pack";
+  const COST = 25;
+
+  if (typeof window === "undefined") return { ok: false, reason: "ssr" };
+  if (hasEntitlement(ENT_KEY)) return { ok: false, reason: "already_owned" };
+
+  const spend = spendCipherCoin(COST, "purchase", { item: ENT_KEY });
+  if (!spend.ok) return { ok: false, reason: "insufficient_funds", balance: spend.balance };
+
+  setEntitlement(ENT_KEY, true);
+
+  addLedgerEntry({
+    type: "entitlement",
+    reason: "unlock",
+    amount: 0,
+    balanceAfter: spend.balance,
+    meta: { item: ENT_KEY },
+  });
+
+  return { ok: true, item: ENT_KEY, cost: COST, balance: spend.balance };
 }
