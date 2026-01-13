@@ -1,47 +1,100 @@
 // pages/store/index.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getCipherCoin,
+  getLedger,
   rewardDaily,
   rewardEmailBonus,
-  getLedger,
+  getUserEmail,
+  hasEntitlement,
+  purchaseStarterPack,
 } from "../../components/chat/CipherCoin";
 
 export default function Store() {
   const [coinBalance, setCoinBalance] = useState(0);
-  const [ledger, setLedger] = useState([]);
+  const [toast, setToast] = useState(null);
+
   const [email, setEmail] = useState("");
+  const [emailSaved, setEmailSaved] = useState(false);
+
+  const [starterOwned, setStarterOwned] = useState(false);
+  const [ledger, setLedger] = useState([]);
+
+  function refreshAll() {
+    setCoinBalance(getCipherCoin());
+    setStarterOwned(hasEntitlement("starter_pack"));
+    setLedger(getLedger(12));
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setCoinBalance(getCipherCoin());
-    setLedger(getLedger(5));
+
+    // hydrate email field
+    const existing = getUserEmail();
+    if (existing) {
+      setEmail(existing);
+      setEmailSaved(true);
+    }
+
+    refreshAll();
   }, []);
 
-  function refresh() {
-    setCoinBalance(getCipherCoin());
-    setLedger(getLedger(5));
-  }
+  // Toast auto-hide
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2600);
+    return () => clearTimeout(t);
+  }, [toast]);
 
-  function handleDaily() {
-    const res = rewardDaily();
-    if (res.ok) {
-      alert(`+${res.earned} Cipher Coin earned`);
-      refresh();
+  function handleClaimDaily() {
+    const r = rewardDaily();
+    if (r.ok) {
+      refreshAll();
+      setToast(`🪙 +${r.earned} Daily claimed`);
     } else {
-      alert("Daily already claimed. Come back tomorrow.");
+      setToast("Daily already claimed. Come back tomorrow.");
     }
   }
 
-  function handleEmailBonus() {
-    const res = rewardEmailBonus(email);
-    if (res.ok) {
-      alert(`+${res.earned} Cipher Coin earned`);
-      refresh();
+  function handleSaveEmail() {
+    const v = String(email || "").trim();
+    if (!v) return setToast("Enter an email first.");
+
+    const r = rewardEmailBonus(v);
+    if (r.ok) {
+      setEmailSaved(true);
+      refreshAll();
+      setToast(`🪙 +${r.earned} Email bonus`);
+    } else if (r.reason === "already_claimed") {
+      setEmailSaved(true);
+      refreshAll();
+      setToast("Email saved");
     } else {
-      alert("Email bonus already claimed.");
+      setToast("Couldn’t save email.");
     }
   }
+
+  function handleBuyStarterPack() {
+    const res = purchaseStarterPack();
+    if (res.ok) {
+      refreshAll();
+      setToast(`✅ Starter Pack unlocked (-${res.cost})`);
+    } else if (res.reason === "already_owned") {
+      setToast("Already owned.");
+    } else if (res.reason === "insufficient_funds") {
+      setToast("Not enough Cipher Coin.");
+    } else {
+      setToast("Purchase failed.");
+    }
+  }
+
+  const starterCost = 25;
+  const canAffordStarter = coinBalance >= starterCost;
+
+  const recentActivityText = useMemo(() => {
+    if (!ledger || ledger.length === 0) return "No activity yet.";
+    return null;
+  }, [ledger]);
 
   return (
     <div style={styles.wrap}>
@@ -64,7 +117,7 @@ export default function Store() {
           <p style={styles.text}>Cipher Coin is earned — not bought.</p>
 
           <p style={styles.textMuted}>
-            Today: earn by sharing Cipher.<br />
+            Today: earn by sharing Cipher. <br />
             Tomorrow: earn by contributing knowledge through CipherNet.
           </p>
         </div>
@@ -75,63 +128,96 @@ export default function Store() {
         <h2 style={styles.sectionTitle}>⚡ Earn</h2>
 
         <div style={styles.card}>
-          <button style={styles.action} onClick={handleDaily}>
+          <button style={styles.primaryBtn} onClick={handleClaimDaily}>
             Claim Daily (+1)
           </button>
 
-          <div style={{ marginTop: 14 }}>
-            <div style={styles.label}>Email Bonus (+5 once)</div>
-            <div style={styles.emailRow}>
+          <div style={{ height: 10 }} />
+
+          <div style={styles.row}>
+            <div style={{ flex: 1 }}>
+              <div style={styles.textMuted}>Email Bonus (+5 once)</div>
               <input
-                style={styles.input}
-                placeholder="you@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@email.com"
+                style={styles.input}
               />
-              <button style={styles.secondary} onClick={handleEmailBonus}>
-                Save
-              </button>
             </div>
+            <button style={styles.secondaryBtn} onClick={handleSaveEmail}>
+              {emailSaved ? "Saved" : "Save"}
+            </button>
           </div>
         </div>
       </section>
 
-      {/* LEDGER */}
+      {/* FIRST STORE ITEM */}
+      <section style={styles.section}>
+        <h2 style={styles.sectionTitle}>🛒 Featured</h2>
+
+        <div style={styles.card}>
+          <div style={styles.itemHeader}>
+            <div>
+              <div style={styles.itemTitle}>Starter Pack</div>
+              <div style={styles.itemDesc}>
+                Reduce Decipher cooldown by 50% (Free/Plus). Includes Starter badge + early access flag.
+              </div>
+            </div>
+
+            <div style={styles.pricePill}>
+              <span style={{ fontSize: 14 }}>🪙</span>
+              <span style={{ fontWeight: 800 }}>{starterCost}</span>
+            </div>
+          </div>
+
+          <div style={{ height: 10 }} />
+
+          {starterOwned ? (
+            <button style={{ ...styles.ownedBtn }} disabled>
+              ✅ Owned
+            </button>
+          ) : (
+            <button
+              style={{
+                ...styles.primaryBtn,
+                opacity: canAffordStarter ? 1 : 0.45,
+                cursor: canAffordStarter ? "pointer" : "not-allowed",
+              }}
+              onClick={handleBuyStarterPack}
+              disabled={!canAffordStarter}
+            >
+              Unlock Starter Pack
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* RECENT ACTIVITY */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>📜 Recent Activity</h2>
 
         <div style={styles.card}>
-          {ledger.length === 0 && (
-            <p style={styles.textMuted}>No activity yet.</p>
+          {recentActivityText ? (
+            <p style={styles.textMuted}>{recentActivityText}</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {ledger.map((e, idx) => (
+                <div key={idx} style={styles.ledgerRow}>
+                  <div style={{ flex: 1 }}>
+                    <div style={styles.ledgerReason}>
+                      {String(e.reason || e.type || "activity")}
+                    </div>
+                    <div style={styles.ledgerMeta}>
+                      {new Date(e.ts).toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={styles.ledgerAmt}>
+                    {e.amount > 0 ? `+${e.amount}` : `${e.amount}`}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
-
-          {ledger.map((e, i) => (
-            <div key={i} style={styles.ledgerRow}>
-              <span style={styles.ledgerReason}>{e.reason}</span>
-              <span
-                style={{
-                  color: e.amount > 0 ? "#8cffc1" : "#ff8c8c",
-                  fontWeight: 700,
-                }}
-              >
-                {e.amount > 0 ? `+${e.amount}` : e.amount}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CUSTOMIZATION */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>🎨 Customization</h2>
-
-        <div style={styles.grid}>
-          {["Themes", "UI Skins", "Input Styles"].map((item) => (
-            <div key={item} style={styles.lockedCard}>
-              <div style={styles.lockedTitle}>{item}</div>
-              <div style={styles.lockedBadge}>Unlocks Soon</div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -142,9 +228,7 @@ export default function Store() {
         <div style={styles.card}>
           <p style={styles.text}>CipherNet turns knowledge into value.</p>
 
-          <p style={styles.textMuted}>
-            Dot Nodes. OmniSearch. Shared intelligence.
-          </p>
+          <p style={styles.textMuted}>Dot Nodes. OmniSearch. Shared intelligence.</p>
 
           <p style={styles.textMuted}>
             When others access your nodes, you earn Cipher Coin.
@@ -153,6 +237,13 @@ export default function Store() {
           <div style={styles.lockedBadge}>Not Live Yet</div>
         </div>
       </section>
+
+      {/* TOAST */}
+      {toast && (
+        <div style={styles.toast}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
@@ -166,97 +257,137 @@ const styles = {
     minHeight: "100vh",
     background: "linear-gradient(180deg,#05050b,#0a0f2a)",
     color: "white",
-    padding: "24px 18px 40px",
+    padding: "24px 18px 60px",
     fontFamily: "system-ui, -apple-system, BlinkMacSystemFont",
   },
   header: { marginBottom: 28 },
-  title: { fontSize: 28, fontWeight: 800, marginBottom: 6 },
+  title: { fontSize: 32, fontWeight: 900, marginBottom: 6 },
   subtitle: { opacity: 0.7, fontSize: 14 },
-  section: { marginBottom: 32 },
-  sectionTitle: { fontSize: 18, fontWeight: 700, marginBottom: 12 },
+
+  section: { marginBottom: 26 },
+  sectionTitle: { fontSize: 20, fontWeight: 800, marginBottom: 12 },
+
   card: {
     background: "rgba(255,255,255,0.04)",
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
     border: "1px solid rgba(255,255,255,0.08)",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
   },
+
   coinRow: {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    fontSize: 22,
-    fontWeight: 800,
+    fontSize: 24,
+    fontWeight: 900,
     marginBottom: 10,
   },
-  coinIcon: { fontSize: 26 },
-  coinAmount: { fontSize: 24 },
+  coinIcon: { fontSize: 28 },
+  coinAmount: { fontSize: 28 },
+
   text: { fontSize: 14, marginBottom: 6 },
-  textMuted: { fontSize: 13, opacity: 0.65, marginBottom: 6 },
+  textMuted: { fontSize: 13, opacity: 0.7, marginBottom: 6, lineHeight: 1.35 },
 
-  action: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "none",
-    background: "linear-gradient(135deg,#6b7cff,#9b6bff)",
-    color: "white",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  secondary: {
-    padding: "8px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.2)",
-    background: "transparent",
-    color: "white",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  label: {
-    fontSize: 12,
-    opacity: 0.6,
-    marginBottom: 6,
-  },
-  emailRow: {
-    display: "flex",
-    gap: 8,
-  },
+  row: { display: "flex", gap: 10, alignItems: "center" },
   input: {
-    flex: 1,
-    padding: "8px 10px",
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.15)",
-    background: "rgba(0,0,0,0.4)",
+    width: "100%",
+    padding: "12px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "rgba(0,0,0,0.25)",
     color: "white",
+    outline: "none",
+    marginTop: 8,
   },
-  ledgerRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: 13,
-    padding: "6px 0",
-    borderBottom: "1px solid rgba(255,255,255,0.05)",
-  },
-  ledgerReason: { opacity: 0.75 },
 
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))",
-    gap: 12,
-  },
-  lockedCard: {
-    background: "rgba(255,255,255,0.03)",
+  primaryBtn: {
+    width: "100%",
+    padding: "12px 14px",
     borderRadius: 14,
-    padding: 14,
-    border: "1px dashed rgba(255,255,255,0.15)",
+    border: "none",
+    background: "linear-gradient(90deg,#6f7dff,#a06bff)",
+    color: "white",
+    fontWeight: 900,
+    fontSize: 14,
   },
-  lockedTitle: { fontWeight: 700, fontSize: 14 },
+
+  secondaryBtn: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "white",
+    fontWeight: 800,
+    fontSize: 14,
+    minWidth: 90,
+  },
+
+  ownedBtn: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.18)",
+    background: "rgba(255,255,255,0.06)",
+    color: "white",
+    fontWeight: 900,
+    fontSize: 14,
+    opacity: 0.9,
+  },
+
   lockedBadge: {
     fontSize: 11,
-    padding: "4px 8px",
+    padding: "6px 10px",
     borderRadius: 999,
     background: "rgba(255,255,255,0.08)",
-    opacity: 0.75,
+    opacity: 0.8,
+    alignSelf: "flex-start",
     display: "inline-block",
     marginTop: 6,
+  },
+
+  itemHeader: { display: "flex", gap: 12, justifyContent: "space-between" },
+  itemTitle: { fontWeight: 900, fontSize: 18, marginBottom: 6 },
+  itemDesc: { fontSize: 13, opacity: 0.72, lineHeight: 1.35, maxWidth: 520 },
+
+  pricePill: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    height: 34,
+    padding: "0 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    whiteSpace: "nowrap",
+  },
+
+  ledgerRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.03)",
+  },
+  ledgerReason: { fontWeight: 800, fontSize: 13 },
+  ledgerMeta: { fontSize: 11, opacity: 0.65, marginTop: 2 },
+  ledgerAmt: { fontWeight: 900, fontSize: 13, opacity: 0.9 },
+
+  toast: {
+    position: "fixed",
+    left: "50%",
+    transform: "translateX(-50%)",
+    bottom: 18,
+    background: "rgba(10,10,20,0.95)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    padding: "12px 14px",
+    borderRadius: 14,
+    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+    fontWeight: 800,
+    fontSize: 13,
+    zIndex: 9999,
+    maxWidth: "92vw",
   },
 };
