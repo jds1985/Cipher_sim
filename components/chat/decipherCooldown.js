@@ -76,7 +76,9 @@ function setLastDecipherAt(ts) {
  * { allowed: boolean, remainingMs: number, reason: string }
  */
 export function canUseDecipher() {
-  if (typeof window === "undefined") return { allowed: true, remainingMs: 0, reason: "" };
+  if (typeof window === "undefined") {
+    return { allowed: true, remainingMs: 0, reason: "" };
+  }
 
   const tier = getTier();
   const now = getNow();
@@ -84,10 +86,16 @@ export function canUseDecipher() {
   // Premium: burst logic
   if (tier === "premium") {
     const last = getLastDecipherAt();
-    const lastCooldownRemaining = last ? Math.max(0, last + PREMIUM_COOLDOWN_MS - now) : 0;
+    const lastCooldownRemaining = last
+      ? Math.max(0, last + PREMIUM_COOLDOWN_MS - now)
+      : 0;
 
     if (lastCooldownRemaining > 0) {
-      return { allowed: false, remainingMs: lastCooldownRemaining, reason: "premium_cooldown" };
+      return {
+        allowed: false,
+        remainingMs: lastCooldownRemaining,
+        reason: "premium_cooldown",
+      };
     }
 
     const stamps = getBurstTimestamps();
@@ -96,18 +104,28 @@ export function canUseDecipher() {
     if (recent.length >= PREMIUM_BURST_COUNT) {
       setLastDecipherAt(now);
       setBurstTimestamps(recent);
-      return { allowed: false, remainingMs: PREMIUM_COOLDOWN_MS, reason: "premium_burst_cap" };
+      return {
+        allowed: false,
+        remainingMs: PREMIUM_COOLDOWN_MS,
+        reason: "premium_burst_cap",
+      };
     }
 
     return { allowed: true, remainingMs: 0, reason: "" };
   }
 
-  // Free/Plus
-  const cooldownMs = DECIPHER_COOLDOWNS_MS[tier] ?? DECIPHER_COOLDOWNS_MS.free;
+  // Free / Plus
+  const cooldownMs =
+    DECIPHER_COOLDOWNS_MS[tier] ?? DECIPHER_COOLDOWNS_MS.free;
   const last = getLastDecipherAt();
-  const remaining = last ? Math.max(0, last + cooldownMs - now) : 0;
+  const remaining = last
+    ? Math.max(0, last + cooldownMs - now)
+    : 0;
 
-  if (remaining > 0) return { allowed: false, remainingMs: remaining, reason: "cooldown" };
+  if (remaining > 0) {
+    return { allowed: false, remainingMs: remaining, reason: "cooldown" };
+  }
+
   return { allowed: true, remainingMs: 0, reason: "" };
 }
 
@@ -126,4 +144,15 @@ export function recordDecipherUse() {
   }
 
   setLastDecipherAt(now);
+}
+
+/**
+ * ✅ NEW: Clear all Decipher cooldown state
+ * Used when spending Cipher Coin to reset cooldown.
+ */
+export function clearDecipherCooldown() {
+  if (typeof window === "undefined") return;
+
+  localStorage.removeItem(DECIPHER_LAST_KEY);
+  localStorage.removeItem(DECIPHER_BURST_KEY);
 }
