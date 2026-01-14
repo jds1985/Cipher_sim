@@ -48,11 +48,6 @@ function getRandomNote() {
 const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
 const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 
-// Modes
-const MODE_DEFAULT = "cipher";
-const DECIPHER_TRIGGERS = ["decipher", "be blunt", "no sugar", "tell me straight"];
-const MODE_LABELS = { cipher: "CIPHER", decipher: "DECIPHER" };
-
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
     if (typeof window === "undefined") {
@@ -80,7 +75,6 @@ export default function ChatPanel() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [cipherNote, setCipherNote] = useState(null);
-  const [mode, setMode] = useState(MODE_DEFAULT);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
@@ -164,18 +158,17 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     SEND MESSAGE
+     SEND MESSAGE (GESTURE-AWARE)
   ================================ */
-  async function sendMessage() {
+  async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
     if (!input.trim() || typing) return;
 
     sendingRef.current = true;
 
     let activeMode = "cipher";
-    const lower = input.trim().toLowerCase();
 
-    if (DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "))) {
+    if (forceDecipher) {
       const gate = canUseDecipher();
       if (!gate.allowed) {
         setMessages((m) => [
@@ -202,7 +195,9 @@ export default function ChatPanel() {
     setTyping(true);
 
     try {
-      const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+      const endpoint =
+        activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+
       const payload =
         activeMode === "decipher"
           ? { message: userMessage.content, context: historySnapshot.slice(-HISTORY_WINDOW) }
@@ -229,7 +224,7 @@ export default function ChatPanel() {
         },
       ]);
     } catch {
-      /* fail silently */
+      /* silent fail */
     } finally {
       setTyping(false);
       sendingRef.current = false;
@@ -253,7 +248,7 @@ export default function ChatPanel() {
       )}
 
       <HeaderMenu
-        title={MODE_LABELS.cipher}
+        title="CIPHER"
         onOpenDrawer={() => setDrawerOpen(true)}
       />
 
