@@ -297,3 +297,20 @@ export function consumeResetToken() {
 
   return { ok: true, remaining: next.decipher_reset };
 }
+// ==============================
+// DEV FAUCET (REMOVE BEFORE LAUNCH)
+// ==============================
+export function devGrantCipherCoin(amount = 1000) {
+  if (typeof window === "undefined") return 0;
+
+  const next = addCipherCoin(amount, "dev_faucet", { dev: true });
+
+  addLedgerEntry({
+    type: "dev",
+    reason: "faucet",
+    amount,
+    balanceAfter: next,
+  });
+
+  return next;
+}
