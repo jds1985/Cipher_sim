@@ -8,12 +8,8 @@ import {
   getUserEmail,
   hasEntitlement,
   purchaseStarterPack,
-
-  // Consumables (real source of truth)
   getResetTokenCount,
   grantResetToken,
-
-  // DEV ONLY
   devGrantCipherCoin,
 } from "../../components/chat/CipherCoin";
 
@@ -28,20 +24,12 @@ export default function Store() {
   const [starterOwned, setStarterOwned] = useState(false);
   const [resetTokens, setResetTokens] = useState(0);
 
-  /* ===============================
-     HELPERS
-  ================================ */
-
   function refreshAll() {
     setCoinBalance(getCipherCoin());
     setStarterOwned(hasEntitlement("starter_pack"));
     setResetTokens(getResetTokenCount());
     setLedger(getLedger(12));
   }
-
-  /* ===============================
-     INIT
-  ================================ */
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -60,10 +48,6 @@ export default function Store() {
     const t = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(t);
   }, [toast]);
-
-  /* ===============================
-     ACTIONS
-  ================================ */
 
   function handleClaimDaily() {
     const r = rewardDaily();
@@ -105,15 +89,10 @@ export default function Store() {
   function handleBuyResetToken() {
     const COST = 10;
     if (coinBalance < COST) return setToast("Not enough Cipher Coin.");
-
     grantResetToken(1);
     refreshAll();
     setToast("🧠 +1 Decipher Reset Token");
   }
-
-  /* ===============================
-     RENDER
-  ================================ */
 
   const starterCost = 25;
   const resetCost = 10;
@@ -130,7 +109,6 @@ export default function Store() {
         <p style={styles.subtitle}>The Cipher economy lives here.</p>
       </header>
 
-      {/* BALANCE */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>🪙 Cipher Coin</h2>
         <div style={styles.card}>
@@ -142,7 +120,6 @@ export default function Store() {
         </div>
       </section>
 
-      {/* EARN */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>⚡ Earn</h2>
         <div style={styles.card}>
@@ -169,11 +146,9 @@ export default function Store() {
         </div>
       </section>
 
-      {/* STORE ITEMS */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>🛒 Featured</h2>
 
-        {/* Starter Pack */}
         <div style={styles.card}>
           <div style={styles.itemHeader}>
             <div>
@@ -202,7 +177,6 @@ export default function Store() {
 
         <div style={{ height: 14 }} />
 
-        {/* Reset Token */}
         <div style={styles.card}>
           <div style={styles.itemHeader}>
             <div>
@@ -225,7 +199,6 @@ export default function Store() {
         </div>
       </section>
 
-      {/* LEDGER */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>📜 Recent Activity</h2>
         <div style={styles.card}>
@@ -249,7 +222,6 @@ export default function Store() {
         </div>
       </section>
 
-      {/* DEV FAUCET */}
       {process.env.NODE_ENV !== "production" && (
         <section style={styles.section}>
           <h2 style={styles.sectionTitle}>🧪 Dev Tools</h2>
@@ -274,6 +246,96 @@ export default function Store() {
 }
 
 /* ===============================
-   STYLES (UNCHANGED)
+   STYLES
 ================================ */
-const styles = { /* your styles object exactly as you sent */ };
+const styles = {
+  wrap: {
+    minHeight: "100vh",
+    background: "linear-gradient(180deg,#05050b,#0a0f2a)",
+    color: "white",
+    padding: "24px 18px 60px",
+    fontFamily: "system-ui",
+  },
+  header: { marginBottom: 28 },
+  title: { fontSize: 32, fontWeight: 900 },
+  subtitle: { opacity: 0.7, fontSize: 14 },
+  section: { marginBottom: 26 },
+  sectionTitle: { fontSize: 20, fontWeight: 800, marginBottom: 12 },
+  card: {
+    background: "rgba(255,255,255,0.04)",
+    borderRadius: 16,
+    padding: 16,
+    border: "1px solid rgba(255,255,255,0.08)",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+  },
+  coinRow: { display: "flex", gap: 10, fontSize: 24, fontWeight: 900 },
+  coinIcon: { fontSize: 28 },
+  coinAmount: { fontSize: 28 },
+  text: { fontSize: 14 },
+  textMuted: { fontSize: 13, opacity: 0.7 },
+  row: { display: "flex", gap: 10, alignItems: "center" },
+  input: {
+    width: "100%",
+    padding: 12,
+    borderRadius: 12,
+    background: "rgba(0,0,0,0.25)",
+    color: "white",
+    border: "1px solid rgba(255,255,255,0.1)",
+  },
+  primaryBtn: {
+    width: "100%",
+    padding: 12,
+    borderRadius: 14,
+    background: "linear-gradient(90deg,#6f7dff,#a06bff)",
+    border: "none",
+    color: "white",
+    fontWeight: 900,
+  },
+  secondaryBtn: {
+    padding: 12,
+    borderRadius: 14,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    color: "white",
+    fontWeight: 800,
+  },
+  ownedBtn: {
+    width: "100%",
+    padding: 12,
+    borderRadius: 14,
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    fontWeight: 900,
+  },
+  itemHeader: { display: "flex", justifyContent: "space-between", gap: 12 },
+  itemTitle: { fontSize: 18, fontWeight: 900 },
+  itemDesc: { fontSize: 13, opacity: 0.75 },
+  pricePill: {
+    padding: "6px 12px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.08)",
+    fontWeight: 800,
+  },
+  ledgerRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: 10,
+    borderRadius: 12,
+    background: "rgba(255,255,255,0.03)",
+    marginBottom: 8,
+  },
+  ledgerReason: { fontWeight: 800 },
+  ledgerMeta: { fontSize: 11, opacity: 0.6 },
+  ledgerAmt: { fontWeight: 900 },
+  toast: {
+    position: "fixed",
+    bottom: 18,
+    left: "50%",
+    transform: "translateX(-50%)",
+    padding: 12,
+    borderRadius: 14,
+    background: "rgba(10,10,20,0.95)",
+    fontWeight: 800,
+    zIndex: 9999,
+  },
+};
