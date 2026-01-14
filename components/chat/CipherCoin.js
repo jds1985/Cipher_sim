@@ -39,16 +39,20 @@ function clampInt(n) {
   return Math.trunc(x);
 }
 
+function isBrowser() {
+  return typeof window !== "undefined";
+}
+
 // ===== ledger =====
 export function getLedger(limit = 50) {
-  if (typeof window === "undefined") return [];
+  if (!isBrowser()) return [];
   const raw = localStorage.getItem(LEDGER_KEY);
   const arr = safeParse(raw, []);
   return Array.isArray(arr) ? arr.slice(0, limit) : [];
 }
 
 export function addLedgerEntry(entry) {
-  if (typeof window === "undefined") return [];
+  if (!isBrowser()) return [];
   const current = getLedger(200);
   const next = [{ ...entry, ts: entry.ts || nowIso() }, ...current].slice(0, 200);
   localStorage.setItem(LEDGER_KEY, JSON.stringify(next));
@@ -57,13 +61,13 @@ export function addLedgerEntry(entry) {
 
 // ===== balance =====
 export function getCipherCoin() {
-  if (typeof window === "undefined") return 0;
+  if (!isBrowser()) return 0;
   const raw = localStorage.getItem(COIN_KEY);
   return raw ? Number(raw) : 0;
 }
 
 export function setCipherCoin(next) {
-  if (typeof window === "undefined") return 0;
+  if (!isBrowser()) return 0;
   const n = Math.max(0, clampInt(next));
   localStorage.setItem(COIN_KEY, String(n));
   return n;
@@ -106,7 +110,7 @@ export function spendCipherCoin(amount, reason = "spend", meta = {}) {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function rewardDaily() {
-  if (typeof window === "undefined") return { ok: false };
+  if (!isBrowser()) return { ok: false };
   const last = localStorage.getItem(LAST_DAILY_KEY);
   if (last && Date.now() - Number(last) < DAY_MS) {
     return { ok: false, reason: "cooldown" };
@@ -118,7 +122,7 @@ export function rewardDaily() {
 }
 
 export function rewardShare() {
-  if (typeof window === "undefined") return { ok: false };
+  if (!isBrowser()) return { ok: false };
   const last = localStorage.getItem(LAST_SHARE_KEY);
   if (last && Date.now() - Number(last) < DAY_MS) {
     return { ok: false, reason: "cooldown" };
@@ -131,7 +135,7 @@ export function rewardShare() {
 
 // ===== referral =====
 export function claimReferral(refCodeRaw) {
-  if (typeof window === "undefined") return { ok: false };
+  if (!isBrowser()) return { ok: false };
   const refCode = String(refCodeRaw || "").trim();
   if (!refCode) return { ok: false };
 
@@ -151,12 +155,12 @@ export function claimReferral(refCodeRaw) {
 const EMAIL_BONUS_KEY = "cipher_email_bonus_claimed";
 
 export function getUserEmail() {
-  if (typeof window === "undefined") return null;
+  if (!isBrowser()) return null;
   return localStorage.getItem(EMAIL_KEY) || null;
 }
 
 export function rewardEmailBonus(email) {
-  if (typeof window === "undefined") return { ok: false };
+  if (!isBrowser()) return { ok: false };
   const v = String(email || "").trim();
   if (!v) return { ok: false };
 
@@ -176,88 +180,118 @@ export function rewardEmailBonus(email) {
 // ENTITLEMENTS (PERMANENT)
 // ==============================
 export function getEntitlements() {
-  if (typeof window === "undefined") return {};
+  if (!isBrowser()) return {};
   return safeParse(localStorage.getItem(ENTITLEMENTS_KEY), {});
 }
 
 export function hasEntitlement(key) {
-  return Boolean(getEntitlements()[key]);
+  const ent = getEntitlements();
+  return Boolean(ent && ent[key]);
 }
 
 export function purchaseStarterPack() {
   const ENT_KEY = "starter_pack";
   const COST = 25;
 
-  if (hasEntitlement(ENT_KEY)) {
-    return { ok: false, reason: "already_owned" };
-  }
+  if (!isBrowser()) return { ok: false, reason: "ssr" };
+  if (hasEntitlement(ENT_KEY)) return { ok: false, reason: "already_owned" };
 
   const spend = spendCipherCoin(COST, "purchase", { item: ENT_KEY });
-  if (!spend.ok) return { ok: false, reason: "insufficient_funds" };
+  if (!spend.ok) return { ok: false, reason: "insufficient_funds", balance: spend.balance };
 
   const ent = getEntitlements();
-  localStorage.setItem(
-    ENTITLEMENTS_KEY,
-    JSON.stringify({ ...ent, [ENT_KEY]: true })
-  );
+  localStorage.setItem(ENTITLEMENTS_KEY, JSON.stringify({ ...ent, [ENT_KEY]: true }));
 
   addLedgerEntry({
     type: "entitlement",
     reason: "unlock",
+    amount: 0,
     balanceAfter: spend.balance,
     meta: { item: ENT_KEY },
   });
 
-  return { ok: true, balance: spend.balance };
+  return { ok: true, balance: spend.balance, cost: COST, item: ENT_KEY };
 }
 
 // ==============================
 // CONSUMABLES (STACKABLE)
 // ==============================
 export function getConsumables() {
-  if (typeof window === "undefined") return {};
+  if (!isBrowser()) return {};
   return safeParse(localStorage.getItem(CONSUMABLES_KEY), {});
 }
 
-export function getResetTokenCount() {
-  return getConsumables().decipher_reset || 0;
-}
-
 function setConsumables(next) {
+  if (!isBrowser()) return;
   localStorage.setItem(CONSUMABLES_KEY, JSON.stringify(next));
 }
 
+export function getResetTokenCount() {
+  const cons = getConsumables();
+  return clampInt(cons.decipher_reset || 0);
+}
+
+// Grants tokens without spending (admin/debug/internal)
 export function grantResetToken(count = 1) {
+  if (!isBrowser()) return 0;
   const cons = getConsumables();
   const next = {
     ...cons,
-    decipher_reset: clampInt((cons.decipher_reset || 0) + count),
+    decipher_reset: clampInt((cons.decipher_reset || 0) + clampInt(count)),
   };
   setConsumables(next);
 
   addLedgerEntry({
     type: "grant",
     reason: "decipher_reset_token",
-    amount: count,
+    amount: clampInt(count),
     meta: { total: next.decipher_reset },
   });
 
   return next.decipher_reset;
 }
 
-export function consumeResetToken() {
-  const cons = getConsumables();
-  if (!cons.decipher_reset) return { ok: false };
+// ✅ Proper purchase function (spends coin + grants token)
+export function purchaseResetToken(count = 1) {
+  const COST_EACH = 10;
+  const qty = Math.max(1, clampInt(count));
+  const totalCost = COST_EACH * qty;
 
-  const next = {
-    ...cons,
-    decipher_reset: Math.max(0, cons.decipher_reset - 1),
-  };
+  if (!isBrowser()) return { ok: false, reason: "ssr" };
+
+  const spend = spendCipherCoin(totalCost, "purchase", {
+    item: "decipher_reset_token",
+    qty,
+    costEach: COST_EACH,
+  });
+  if (!spend.ok) return { ok: false, reason: "insufficient_funds", balance: spend.balance };
+
+  const total = grantResetToken(qty);
+
+  addLedgerEntry({
+    type: "consumable_purchase",
+    reason: "decipher_reset_token",
+    amount: 0,
+    balanceAfter: spend.balance,
+    meta: { qty, total, cost: totalCost },
+  });
+
+  return { ok: true, balance: spend.balance, cost: totalCost, qty, total };
+}
+
+export function consumeResetToken() {
+  if (!isBrowser()) return { ok: false, reason: "ssr" };
+  const cons = getConsumables();
+  const cur = clampInt(cons.decipher_reset || 0);
+  if (cur <= 0) return { ok: false, reason: "none" };
+
+  const next = { ...cons, decipher_reset: Math.max(0, cur - 1) };
   setConsumables(next);
 
   addLedgerEntry({
     type: "consume",
     reason: "decipher_reset_token",
+    amount: 0,
     meta: { remaining: next.decipher_reset },
   });
 
