@@ -9,23 +9,30 @@ export default function InputBar({
   typing,
 }) {
   const holdTimer = useRef(null);
-  const isLongPress = useRef(false);
+  const longPressTriggered = useRef(false);
 
-  function startHold() {
-    isLongPress.current = false;
+  function handlePointerDown() {
+    if (typing) return;
+
+    longPressTriggered.current = false;
+
     holdTimer.current = setTimeout(() => {
-      isLongPress.current = true;
+      longPressTriggered.current = true;
     }, 600); // ⏱ long-press threshold
   }
 
-  function endHold() {
+  function handlePointerUp() {
+    if (typing) return;
+
     clearTimeout(holdTimer.current);
+
+    onSend({ forceDecipher: longPressTriggered.current });
+    longPressTriggered.current = false;
   }
 
-  function handleSend() {
-    if (typing) return;
-    onSend({ forceDecipher: isLongPress.current });
-    isLongPress.current = false;
+  function handlePointerLeave() {
+    clearTimeout(holdTimer.current);
+    longPressTriggered.current = false;
   }
 
   return (
@@ -37,18 +44,17 @@ export default function InputBar({
         placeholder="Talk to Cipher…"
         disabled={typing}
         onKeyDown={(e) => {
-          if (e.key === "Enter") handleSend();
+          if (e.key === "Enter") {
+            onSend({ forceDecipher: false });
+          }
         }}
       />
 
       <button
         style={styles.sendBtn}
-        onMouseDown={startHold}
-        onMouseUp={endHold}
-        onMouseLeave={endHold}
-        onTouchStart={startHold}
-        onTouchEnd={endHold}
-        onClick={handleSend}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
         disabled={typing}
         title="Hold to Decipher"
       >
