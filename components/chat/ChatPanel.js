@@ -15,10 +15,7 @@ import {
   formatRemaining,
 } from "./decipherCooldown";
 
-import {
-  getCipherCoin,
-  rewardShare,
-} from "./CipherCoin";
+import { getCipherCoin, rewardShare } from "./CipherCoin";
 
 /* ===============================
    CONFIG
@@ -84,7 +81,6 @@ export default function ChatPanel() {
   const [typing, setTyping] = useState(false);
   const [cipherNote, setCipherNote] = useState(null);
   const [mode, setMode] = useState(MODE_DEFAULT);
-  const [decipherRemaining, setDecipherRemaining] = useState(0);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
@@ -110,9 +106,7 @@ export default function ChatPanel() {
     }
   }, [messages]);
 
-  // Refresh coin balance when drawer opens
   useEffect(() => {
-    if (typeof window === "undefined") return;
     if (!drawerOpen) return;
     setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
@@ -133,8 +127,6 @@ export default function ChatPanel() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
     const returning = sessionStorage.getItem(RETURN_FROM_NOTE_KEY);
     if (!returning) return;
 
@@ -142,27 +134,6 @@ export default function ChatPanel() {
     setMessages((m) => [...m, { role: "assistant", content: line }]);
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
-
-  // Decipher cooldown tick
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const id = setInterval(() => {
-      const check = canUseDecipher();
-      const remaining = check.allowed ? 0 : check.remainingMs;
-      setDecipherRemaining(remaining);
-
-      if (remaining > 0) {
-        setMode((m) => (m === "decipher" ? "cipher" : m));
-      }
-    }, 1000);
-
-    return () => clearInterval(id);
-  }, []);
-
-  function trimHistory(history) {
-    return history.slice(-HISTORY_WINDOW);
-  }
 
   /* ===============================
      INVITE / SHARE
@@ -188,7 +159,7 @@ export default function ChatPanel() {
         setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
       }
     } catch {
-      // user cancelled share
+      /* user cancelled */
     }
   }
 
@@ -200,15 +171,11 @@ export default function ChatPanel() {
     if (!input.trim() || typing) return;
 
     sendingRef.current = true;
-    let activeMode = mode;
 
+    let activeMode = "cipher";
     const lower = input.trim().toLowerCase();
-    if (DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "))) {
-      activeMode = "decipher";
-      setMode("decipher");
-    }
 
-    if (activeMode === "decipher") {
+    if (DECIPHER_TRIGGERS.some((t) => lower === t || lower.startsWith(t + " "))) {
       const gate = canUseDecipher();
       if (!gate.allowed) {
         setMessages((m) => [
@@ -220,11 +187,10 @@ export default function ChatPanel() {
             )}.`,
           },
         ]);
-        setMode("cipher");
-        setDecipherRemaining(gate.remainingMs);
         sendingRef.current = false;
         return;
       }
+      activeMode = "decipher";
     }
 
     const userMessage = { role: "user", content: input };
@@ -239,8 +205,8 @@ export default function ChatPanel() {
       const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
       const payload =
         activeMode === "decipher"
-          ? { message: userMessage.content, context: trimHistory(historySnapshot) }
-          : { message: userMessage.content, history: trimHistory(historySnapshot) };
+          ? { message: userMessage.content, context: historySnapshot.slice(-HISTORY_WINDOW) }
+          : { message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW) };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -257,13 +223,15 @@ export default function ChatPanel() {
 
       setMessages((m) => [
         ...m,
-        { role: activeMode === "decipher" ? "decipher" : "assistant", content: fullText },
+        {
+          role: activeMode === "decipher" ? "decipher" : "assistant",
+          content: fullText,
+        },
       ]);
     } catch {
-      // fail silently
+      /* fail silently */
     } finally {
       setTyping(false);
-      setMode("cipher");
       sendingRef.current = false;
     }
   }
@@ -285,10 +253,8 @@ export default function ChatPanel() {
       )}
 
       <HeaderMenu
-        title={MODE_LABELS[mode] || "CIPHER"}
+        title={MODE_LABELS.cipher}
         onOpenDrawer={() => setDrawerOpen(true)}
-        onDecipher={() => setMode("decipher")}
-        decipherRemaining={decipherRemaining}
       />
 
       <DrawerMenu
