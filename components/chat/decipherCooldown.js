@@ -23,6 +23,10 @@ export const DECIPHER_COOLDOWN_MESSAGE =
 const ENTITLEMENTS_KEY = "cipher_store_entitlements";
 const STARTER_PACK_KEY = "starter_pack";
 
+/* ===============================
+   HELPERS
+================================ */
+
 function safeParseJSON(value, fallback) {
   try {
     const parsed = JSON.parse(value);
@@ -75,7 +79,10 @@ function setLastDecipherAt(ts) {
   localStorage.setItem(DECIPHER_LAST_KEY, String(ts));
 }
 
-// NEW: entitlement check
+/* ===============================
+   ENTITLEMENTS
+================================ */
+
 function hasStarterPack() {
   if (typeof window === "undefined") return false;
   const raw = localStorage.getItem(ENTITLEMENTS_KEY);
@@ -83,36 +90,49 @@ function hasStarterPack() {
   return Boolean(ent && ent[STARTER_PACK_KEY]);
 }
 
-// NEW: compute cooldown with entitlements
 function getCooldownMsForTier(tier) {
-  // Premium stays premium (no starter discount)
+  // Premium ignores starter discount
   if (tier === "premium") return PREMIUM_COOLDOWN_MS;
 
   const base = DECIPHER_COOLDOWNS_MS[tier] ?? DECIPHER_COOLDOWNS_MS.free;
 
-  // Starter Pack reduces cooldown by 50% for free/plus
-  if (hasStarterPack()) return Math.max(60 * 1000, Math.floor(base * 0.5)); // floor, min 1m safety
+  // Starter Pack = 50% reduction (min 1 min safety)
+  if (hasStarterPack()) {
+    return Math.max(60 * 1000, Math.floor(base * 0.5));
+  }
 
   return base;
 }
+
+/* ===============================
+   CORE API
+================================ */
 
 /**
  * Returns:
  * { allowed: boolean, remainingMs: number, reason: string }
  */
 export function canUseDecipher() {
-  if (typeof window === "undefined") return { allowed: true, remainingMs: 0, reason: "" };
+  if (typeof window === "undefined") {
+    return { allowed: true, remainingMs: 0, reason: "" };
+  }
 
   const tier = getTier();
   const now = getNow();
 
-  // Premium: burst logic
+  // Premium burst logic
   if (tier === "premium") {
     const last = getLastDecipherAt();
-    const lastCooldownRemaining = last ? Math.max(0, last + PREMIUM_COOLDOWN_MS - now) : 0;
+    const lastCooldownRemaining = last
+      ? Math.max(0, last + PREMIUM_COOLDOWN_MS - now)
+      : 0;
 
     if (lastCooldownRemaining > 0) {
-      return { allowed: false, remainingMs: lastCooldownRemaining, reason: "premium_cooldown" };
+      return {
+        allowed: false,
+        remainingMs: lastCooldownRemaining,
+        reason: "premium_cooldown",
+      };
     }
 
     const stamps = getBurstTimestamps();
@@ -121,18 +141,25 @@ export function canUseDecipher() {
     if (recent.length >= PREMIUM_BURST_COUNT) {
       setLastDecipherAt(now);
       setBurstTimestamps(recent);
-      return { allowed: false, remainingMs: PREMIUM_COOLDOWN_MS, reason: "premium_burst_cap" };
+      return {
+        allowed: false,
+        remainingMs: PREMIUM_COOLDOWN_MS,
+        reason: "premium_burst_cap",
+      };
     }
 
     return { allowed: true, remainingMs: 0, reason: "" };
   }
 
-  // Free/Plus with entitlement-aware cooldown
+  // Free / Plus
   const cooldownMs = getCooldownMsForTier(tier);
   const last = getLastDecipherAt();
   const remaining = last ? Math.max(0, last + cooldownMs - now) : 0;
 
-  if (remaining > 0) return { allowed: false, remainingMs: remaining, reason: "cooldown" };
+  if (remaining > 0) {
+    return { allowed: false, remainingMs: remaining, reason: "cooldown" };
+  }
+
   return { allowed: true, remainingMs: 0, reason: "" };
 }
 
@@ -151,4 +178,21 @@ export function recordDecipherUse() {
   }
 
   setLastDecipherAt(now);
+}
+
+/* ===============================
+   NEW: RESET API (FOR STORE)
+================================ */
+
+/**
+ * Completely resets Decipher cooldown state.
+ * Call this AFTER spending Cipher Coin.
+ */
+export function resetDecipherCooldown() {
+  if (typeof window === "undefined") return false;
+
+  localStorage.removeItem(DECIPHER_LAST_KEY);
+  localStorage.removeItem(DECIPHER_BURST_KEY);
+
+  return true;
 }
