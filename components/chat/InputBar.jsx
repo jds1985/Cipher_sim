@@ -2,12 +2,7 @@
 import { useRef } from "react";
 import { styles } from "./ChatStyles";
 
-export default function InputBar({
-  input,
-  setInput,
-  onSend,
-  typing,
-}) {
+export default function InputBar({ input, setInput, onSend, typing }) {
   const holdTimer = useRef(null);
   const decipherArmed = useRef(false);
   const suppressClick = useRef(false);
@@ -19,8 +14,6 @@ export default function InputBar({
     holdTimer.current = setTimeout(() => {
       decipherArmed.current = true;
       suppressClick.current = true;
-
-      // 📳 haptic feedback
       if (navigator.vibrate) navigator.vibrate(15);
     }, 600);
   }
@@ -29,14 +22,13 @@ export default function InputBar({
     clearTimeout(holdTimer.current);
   }
 
-  function handleSend(e) {
-    // 🚫 stop synthetic click after long-press
+  function fireSend(e) {
+    if (typing) return;
+
     if (suppressClick.current && e?.type === "click") {
       suppressClick.current = false;
       return;
     }
-
-    if (typing) return;
 
     const forceDecipher = decipherArmed.current;
 
@@ -55,7 +47,7 @@ export default function InputBar({
         placeholder="Talk to Cipher…"
         disabled={typing}
         onKeyDown={(e) => {
-          if (e.key === "Enter") handleSend(e);
+          if (e.key === "Enter") fireSend(e);
         }}
       />
 
@@ -68,7 +60,7 @@ export default function InputBar({
         onMouseDown={startHold}
         onMouseUp={endHold}
         onMouseLeave={endHold}
-        onClick={handleSend}
+        onClick={fireSend}
       >
         ➤
       </button>
