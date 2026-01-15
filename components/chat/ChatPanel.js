@@ -43,13 +43,7 @@ const NOTE_VARIANTS = [
   "Hi.\n\nNo pressure.\nJust wanted to say I noticed you were gone.",
 ];
 
-const RETURN_LINES = [
-  "Hey.",
-  "I’m here.",
-  "Yeah?",
-  "What’s up.",
-  "Hey — I’m still here.",
-];
+const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
 
 function getRandomNote() {
   return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
@@ -95,7 +89,7 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  // 🔐 Persist conversation safely
+  // Persist conversation
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem(
@@ -128,9 +122,7 @@ export default function ChatPanel() {
     const returning = sessionStorage.getItem(RETURN_FROM_NOTE_KEY);
     if (!returning) return;
 
-    const line =
-      RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)];
-
+    const line = RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)];
     setMessages((m) => [...m, { role: "assistant", content: line }]);
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
@@ -159,21 +151,24 @@ export default function ChatPanel() {
         setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
       }
     } catch {
-      /* user cancelled */
+      /* cancelled */
     }
   }
 
   /* ===============================
-     SEND MESSAGE (GESTURE-AWARE)
+     SEND MESSAGE (FINAL, STABLE)
   ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
-    if (!input || !input.trim() || typing) return;
+    if (!input.trim() || typing) return;
 
     sendingRef.current = true;
-    let activeMode = "cipher";
+    setTyping(true);
 
-    if (forceDecipher) {
+    let activeMode = forceDecipher ? "decipher" : "cipher";
+
+    // Decipher gate
+    if (activeMode === "decipher") {
       const gate = canUseDecipher();
       if (!gate.allowed) {
         setMessages((m) => [
@@ -185,10 +180,12 @@ export default function ChatPanel() {
             )}.`,
           },
         ]);
+
+        // 🔥 FULL NORMALIZATION
+        setTyping(false);
         sendingRef.current = false;
         return;
       }
-      activeMode = "decipher";
     }
 
     const userMessage = { role: "user", content: input };
@@ -198,7 +195,6 @@ export default function ChatPanel() {
 
     setMessages(historySnapshot);
     setInput("");
-    setTyping(true);
 
     try {
       const endpoint =
@@ -206,14 +202,8 @@ export default function ChatPanel() {
 
       const payload =
         activeMode === "decipher"
-          ? {
-              message: userMessage.content,
-              context: historySnapshot.slice(-HISTORY_WINDOW),
-            }
-          : {
-              message: userMessage.content,
-              history: historySnapshot.slice(-HISTORY_WINDOW),
-            };
+          ? { message: userMessage.content, context: historySnapshot.slice(-HISTORY_WINDOW) }
+          : { message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW) };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -222,7 +212,7 @@ export default function ChatPanel() {
       });
 
       const data = await res.json();
-      const fullText = String(data.reply ?? "…");
+      const reply = String(data.reply ?? "…");
 
       if (activeMode === "decipher") {
         recordDecipherUse();
@@ -232,10 +222,13 @@ export default function ChatPanel() {
         ...m,
         {
           role: activeMode === "decipher" ? "decipher" : "assistant",
-          content: fullText,
+          content: reply,
         },
       ]);
+    } catch {
+      /* silent fail */
     } finally {
+      // ✅ ALWAYS reset
       setTyping(false);
       sendingRef.current = false;
     }
@@ -278,9 +271,7 @@ export default function ChatPanel() {
         typing={typing}
       />
 
-      {toast && (
-        <RewardToast message={toast} onClose={() => setToast(null)} />
-      )}
+      {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }
