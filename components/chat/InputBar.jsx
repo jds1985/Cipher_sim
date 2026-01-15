@@ -9,14 +9,17 @@ export default function InputBar({
   typing,
 }) {
   const holdTimer = useRef(null);
-  const isLongPress = useRef(false);
+  const decipherArmed = useRef(false);
 
   function startHold() {
-    isLongPress.current = false;
+    decipherArmed.current = false;
 
     holdTimer.current = setTimeout(() => {
-      isLongPress.current = true;
-    }, 600); // ⏱ long-press threshold
+      decipherArmed.current = true;
+
+      // optional haptic (mobile)
+      if (navigator.vibrate) navigator.vibrate(15);
+    }, 600);
   }
 
   function endHold() {
@@ -26,11 +29,8 @@ export default function InputBar({
   function handleSend() {
     if (typing) return;
 
-    // snapshot the flag
-    const forceDecipher = isLongPress.current;
-
-    // 🔥 RESET IMMEDIATELY — this is the fix
-    isLongPress.current = false;
+    const forceDecipher = decipherArmed.current;
+    decipherArmed.current = false;
 
     onSend({ forceDecipher });
   }
@@ -50,14 +50,14 @@ export default function InputBar({
 
       <button
         style={styles.sendBtn}
+        disabled={typing}
+        title="Hold to Decipher"
+        onTouchStart={startHold}
+        onTouchEnd={endHold}
         onMouseDown={startHold}
         onMouseUp={endHold}
         onMouseLeave={endHold}
-        onTouchStart={startHold}
-        onTouchEnd={endHold}
         onClick={handleSend}
-        disabled={typing}
-        title="Hold to Decipher"
       >
         ➤
       </button>
