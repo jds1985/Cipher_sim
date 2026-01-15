@@ -162,7 +162,12 @@ export default function ChatPanel() {
   ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
-    if (!input.trim() || typing) return;
+
+    // 🔒 HARD GUARD — prevents persist / phantom sends
+    if (!input || !input.trim() || typing) {
+      sendingRef.current = false;
+      return;
+    }
 
     sendingRef.current = true;
 
@@ -180,6 +185,9 @@ export default function ChatPanel() {
             )}.`,
           },
         ]);
+
+        // ✅ normalize state on early return
+        setTyping(false);
         sendingRef.current = false;
         return;
       }
