@@ -23,14 +23,16 @@ import { getCipherCoin, rewardShare } from "./CipherCoin";
 const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
-const SESSION_FLAG = "cipher_session_active";
 
 // Silence detection
 const SILENCE_THRESHOLD_MS = 30 * 60 * 1000;
 const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
+const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 
-// Notes
+/* ===============================
+   NOTES
+================================ */
 const NOTE_VARIANTS = [
   "Hey — welcome back.\n\nYou were gone for a bit.\nJust wanted to say hi.",
   "You stepped away for a while.\n\nNo rush.\nI’m still here.",
@@ -41,13 +43,21 @@ const NOTE_VARIANTS = [
   "Hi.\n\nNo pressure.\nJust wanted to say I noticed you were gone.",
 ];
 
+const RETURN_LINES = [
+  "Hey.",
+  "I’m here.",
+  "Yeah?",
+  "What’s up.",
+  "Hey — I’m still here.",
+];
+
 function getRandomNote() {
   return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
 }
 
-const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
-const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
-
+/* ===============================
+   COMPONENT
+================================ */
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
     if (typeof window === "undefined") {
@@ -55,12 +65,6 @@ export default function ChatPanel() {
     }
 
     try {
-      if (!sessionStorage.getItem(SESSION_FLAG)) {
-        sessionStorage.setItem(SESSION_FLAG, "true");
-        localStorage.removeItem(MEMORY_KEY);
-        return [{ role: "assistant", content: "Cipher online." }];
-      }
-
       const saved = localStorage.getItem(MEMORY_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
 
@@ -91,13 +95,13 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
+  // 🔐 Persist conversation safely
   useEffect(() => {
-    if (typeof window !== "undefined" && sessionStorage.getItem(SESSION_FLAG)) {
-      localStorage.setItem(
-        MEMORY_KEY,
-        JSON.stringify(messages.slice(-MEMORY_LIMIT))
-      );
-    }
+    if (typeof window === "undefined") return;
+    localStorage.setItem(
+      MEMORY_KEY,
+      JSON.stringify(messages.slice(-MEMORY_LIMIT))
+    );
   }, [messages]);
 
   useEffect(() => {
@@ -124,7 +128,9 @@ export default function ChatPanel() {
     const returning = sessionStorage.getItem(RETURN_FROM_NOTE_KEY);
     if (!returning) return;
 
-    const line = RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)];
+    const line =
+      RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)];
+
     setMessages((m) => [...m, { role: "assistant", content: line }]);
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
@@ -162,15 +168,9 @@ export default function ChatPanel() {
   ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
-
-    // 🔒 HARD GUARD — prevents persist / phantom sends
-    if (!input || !input.trim() || typing) {
-      sendingRef.current = false;
-      return;
-    }
+    if (!input || !input.trim() || typing) return;
 
     sendingRef.current = true;
-
     let activeMode = "cipher";
 
     if (forceDecipher) {
@@ -185,9 +185,6 @@ export default function ChatPanel() {
             )}.`,
           },
         ]);
-
-        // ✅ normalize state on early return
-        setTyping(false);
         sendingRef.current = false;
         return;
       }
@@ -196,6 +193,7 @@ export default function ChatPanel() {
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
+
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
 
     setMessages(historySnapshot);
@@ -208,8 +206,14 @@ export default function ChatPanel() {
 
       const payload =
         activeMode === "decipher"
-          ? { message: userMessage.content, context: historySnapshot.slice(-HISTORY_WINDOW) }
-          : { message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW) };
+          ? {
+              message: userMessage.content,
+              context: historySnapshot.slice(-HISTORY_WINDOW),
+            }
+          : {
+              message: userMessage.content,
+              history: historySnapshot.slice(-HISTORY_WINDOW),
+            };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -231,8 +235,6 @@ export default function ChatPanel() {
           content: fullText,
         },
       ]);
-    } catch {
-      /* silent fail */
     } finally {
       setTyping(false);
       sendingRef.current = false;
@@ -255,10 +257,7 @@ export default function ChatPanel() {
         />
       )}
 
-      <HeaderMenu
-        title="CIPHER"
-        onOpenDrawer={() => setDrawerOpen(true)}
-      />
+      <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
 
       <DrawerMenu
         open={drawerOpen}
@@ -279,7 +278,9 @@ export default function ChatPanel() {
         typing={typing}
       />
 
-      {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
+      {toast && (
+        <RewardToast message={toast} onClose={() => setToast(null)} />
+      )}
     </div>
   );
 }
