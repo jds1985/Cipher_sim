@@ -9,31 +9,34 @@ export default function InputBar({
   typing,
 }) {
   const holdTimer = useRef(null);
-  const decipherArmed = useRef(false);
+  const longPressTriggered = useRef(false);
 
   function startHold() {
-    decipherArmed.current = false;
+    if (typing) return;
+
+    longPressTriggered.current = false;
 
     holdTimer.current = setTimeout(() => {
-      decipherArmed.current = true;
+      longPressTriggered.current = true;
 
-      // haptic feedback (mobile)
-      if (navigator.vibrate) navigator.vibrate(15);
+      // haptic feedback
+      if (navigator.vibrate) navigator.vibrate(20);
     }, 600);
   }
 
   function endHold() {
     clearTimeout(holdTimer.current);
-  }
 
-  function handleSend() {
     if (typing) return;
-    if (!input || !input.trim()) return; // 🔥 CRITICAL FIX
+    if (!input || !input.trim()) return;
 
-    const forceDecipher = decipherArmed.current;
-    decipherArmed.current = false;
-
-    onSend({ forceDecipher });
+    // 🔥 THIS IS THE KEY
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
+      onSend({ forceDecipher: true });
+    } else {
+      onSend({ forceDecipher: false });
+    }
   }
 
   return (
@@ -45,7 +48,9 @@ export default function InputBar({
         placeholder="Talk to Cipher…"
         disabled={typing}
         onKeyDown={(e) => {
-          if (e.key === "Enter") handleSend();
+          if (e.key === "Enter") {
+            onSend({ forceDecipher: false });
+          }
         }}
       />
 
@@ -57,8 +62,6 @@ export default function InputBar({
         onTouchEnd={endHold}
         onMouseDown={startHold}
         onMouseUp={endHold}
-        onMouseLeave={endHold}
-        onClick={handleSend}
       >
         ➤
       </button>
