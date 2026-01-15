@@ -89,7 +89,6 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  // Persist conversation
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem(
@@ -103,7 +102,6 @@ export default function ChatPanel() {
     setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
 
-  // Silence note logic
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -111,63 +109,35 @@ export default function ChatPanel() {
     const noteShown = sessionStorage.getItem(NOTE_SHOWN_KEY);
     if (!lastMessage || noteShown) return;
 
-    const silenceTime = Date.now() - Number(lastMessage);
-    if (silenceTime >= SILENCE_THRESHOLD_MS) {
+    if (Date.now() - Number(lastMessage) >= SILENCE_THRESHOLD_MS) {
       setCipherNote({ message: getRandomNote() });
       sessionStorage.setItem(NOTE_SHOWN_KEY, "true");
     }
   }, []);
 
   useEffect(() => {
-    const returning = sessionStorage.getItem(RETURN_FROM_NOTE_KEY);
-    if (!returning) return;
+    if (!sessionStorage.getItem(RETURN_FROM_NOTE_KEY)) return;
 
-    const line = RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)];
-    setMessages((m) => [...m, { role: "assistant", content: line }]);
+    setMessages((m) => [
+      ...m,
+      { role: "assistant", content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)] },
+    ]);
+
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
   /* ===============================
-     INVITE / SHARE
-  ================================ */
-  async function handleInvite() {
-    const url = `${window.location.origin}?ref=cipher`;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Cipher",
-          text: "Try Cipher — an AI that actually remembers.",
-          url,
-        });
-      } else {
-        await navigator.clipboard.writeText(url);
-        setToast("🔗 Link copied — share it anywhere");
-      }
-
-      const rewarded = rewardShare();
-      if (rewarded.ok) {
-        setCoinBalance(getCipherCoin());
-        setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
-      }
-    } catch {
-      /* cancelled */
-    }
-  }
-
-  /* ===============================
-     SEND MESSAGE (FINAL, STABLE)
+     SEND MESSAGE — FINAL
   ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
-    if (!input.trim() || typing) return;
+    if (!input.trim()) return;
 
     sendingRef.current = true;
-    setTyping(true);
 
     let activeMode = forceDecipher ? "decipher" : "cipher";
 
-    // Decipher gate
+    // 🔒 DECIPHER GATE (VISIBLE, ALWAYS)
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
       if (!gate.allowed) {
@@ -175,30 +145,29 @@ export default function ChatPanel() {
           ...m,
           {
             role: "decipher",
-            content: `${DECIPHER_COOLDOWN_MESSAGE}\n\nTry again in ${formatRemaining(
-              gate.remainingMs
-            )}.`,
+            content:
+              `${DECIPHER_COOLDOWN_MESSAGE}\n\n` +
+              `⏳ Cooldown remaining: ${formatRemaining(gate.remainingMs)}`,
           },
         ]);
 
-        // 🔥 FULL NORMALIZATION
-        setTyping(false);
         sendingRef.current = false;
         return;
       }
     }
 
+    // ✅ NOW we lock typing
+    setTyping(true);
+
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
 
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
-
     setMessages(historySnapshot);
     setInput("");
 
     try {
-      const endpoint =
-        activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+      const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
       const payload =
         activeMode === "decipher"
@@ -212,23 +181,17 @@ export default function ChatPanel() {
       });
 
       const data = await res.json();
-      const reply = String(data.reply ?? "…");
 
-      if (activeMode === "decipher") {
-        recordDecipherUse();
-      }
+      if (activeMode === "decipher") recordDecipherUse();
 
       setMessages((m) => [
         ...m,
         {
           role: activeMode === "decipher" ? "decipher" : "assistant",
-          content: reply,
+          content: String(data.reply ?? "…"),
         },
       ]);
-    } catch {
-      /* silent fail */
     } finally {
-      // ✅ ALWAYS reset
       setTyping(false);
       sendingRef.current = false;
     }
