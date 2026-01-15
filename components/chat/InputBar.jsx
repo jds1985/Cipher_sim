@@ -17,7 +17,7 @@ export default function InputBar({
     holdTimer.current = setTimeout(() => {
       decipherArmed.current = true;
 
-      // optional haptic (mobile)
+      // haptic feedback (mobile)
       if (navigator.vibrate) navigator.vibrate(15);
     }, 600);
   }
@@ -28,6 +28,7 @@ export default function InputBar({
 
   function handleSend() {
     if (typing) return;
+    if (!input || !input.trim()) return; // 🔥 CRITICAL FIX
 
     const forceDecipher = decipherArmed.current;
     decipherArmed.current = false;
