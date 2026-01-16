@@ -9,10 +9,7 @@ import CipherNote from "./CipherNote";
 import RewardToast from "./RewardToast";
 
 import {
-  canUseDecipher,
   recordDecipherUse,
-  DECIPHER_COOLDOWN_MESSAGE,
-  formatRemaining,
 } from "./decipherCooldown";
 
 import { getCipherCoin, rewardShare } from "./CipherCoin";
@@ -137,7 +134,7 @@ export default function ChatPanel() {
   }, []);
 
   /* ===============================
-     INVITE / SHARE  ✅ FIXED
+     INVITE / SHARE
   ================================ */
   async function handleInvite() {
     const url = `${window.location.origin}?ref=cipher`;
@@ -160,50 +157,26 @@ export default function ChatPanel() {
         setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
       }
     } catch {
-      // user cancelled — ignore
+      // ignore
     }
   }
 
   /* ===============================
-     SEND MESSAGE — FINAL
+     SEND MESSAGE — STABLE
   ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
     if (!input.trim()) return;
 
     sendingRef.current = true;
-
-    let activeMode = forceDecipher ? "decipher" : "cipher";
-
-    if (activeMode === "decipher") {
-      const gate = canUseDecipher();
-      if (!gate.allowed) {
-        setMessages((m) => [
-          ...m,
-          {
-            role: "decipher",
-            content:
-              `${DECIPHER_COOLDOWN_MESSAGE}\n\n` +
-              `⏳ Cooldown remaining: ${formatRemaining(
-                gate.remainingMs
-              )}`,
-          },
-        ]);
-        sendingRef.current = false;
-        return;
-      }
-    }
-
     setTyping(true);
+
+    const activeMode = forceDecipher ? "decipher" : "cipher";
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
 
-    localStorage.setItem(
-      LAST_USER_MESSAGE_KEY,
-      String(Date.now())
-    );
-
+    localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
     setMessages(historySnapshot);
     setInput("");
 
@@ -237,10 +210,7 @@ export default function ChatPanel() {
       setMessages((m) => [
         ...m,
         {
-          role:
-            activeMode === "decipher"
-              ? "decipher"
-              : "assistant",
+          role: activeMode === "decipher" ? "decipher" : "assistant",
           content: String(data.reply ?? "…"),
         },
       ]);
@@ -259,10 +229,7 @@ export default function ChatPanel() {
         <CipherNote
           note={cipherNote}
           onOpen={() => {
-            sessionStorage.setItem(
-              RETURN_FROM_NOTE_KEY,
-              "true"
-            );
+            sessionStorage.setItem(RETURN_FROM_NOTE_KEY, "true");
             setCipherNote(null);
           }}
           onDismiss={() => setCipherNote(null)}
@@ -283,10 +250,7 @@ export default function ChatPanel() {
       />
 
       <div style={styles.chat}>
-        <MessageList
-          messages={messages}
-          bottomRef={bottomRef}
-        />
+        <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
       <InputBar
