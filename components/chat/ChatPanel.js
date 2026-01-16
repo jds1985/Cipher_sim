@@ -8,10 +8,7 @@ import InputBar from "./InputBar";
 import CipherNote from "./CipherNote";
 import RewardToast from "./RewardToast";
 
-import {
-  recordDecipherUse,
-} from "./decipherCooldown";
-
+import { recordDecipherUse } from "./decipherCooldown";
 import { getCipherCoin, rewardShare } from "./CipherCoin";
 
 /* ===============================
@@ -40,13 +37,7 @@ const NOTE_VARIANTS = [
   "Hi.\n\nNo pressure.\nJust wanted to say I noticed you were gone.",
 ];
 
-const RETURN_LINES = [
-  "Hey.",
-  "I’m here.",
-  "Yeah?",
-  "What’s up.",
-  "Hey — I’m still here.",
-];
+const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
 
 function getRandomNote() {
   return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
@@ -94,10 +85,7 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(
-      MEMORY_KEY,
-      JSON.stringify(messages.slice(-MEMORY_LIMIT))
-    );
+    localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
   }, [messages]);
 
   useEffect(() => {
@@ -125,8 +113,7 @@ export default function ChatPanel() {
       ...m,
       {
         role: "assistant",
-        content:
-          RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)],
+        content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)],
       },
     ]);
 
@@ -162,7 +149,10 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     SEND MESSAGE — STABLE
+     SEND MESSAGE — STABLE (NO FREEZES)
+     - adds timeout
+     - handles non-JSON responses
+     - always unlocks UI
   ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
@@ -181,27 +171,38 @@ export default function ChatPanel() {
     setInput("");
 
     try {
-      const endpoint =
-        activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+      const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
       const payload =
         activeMode === "decipher"
-          ? {
-              message: userMessage.content,
-              context: historySnapshot.slice(-HISTORY_WINDOW),
-            }
-          : {
-              message: userMessage.content,
-              history: historySnapshot.slice(-HISTORY_WINDOW),
-            };
+          ? { message: userMessage.content, context: historySnapshot.slice(-HISTORY_WINDOW) }
+          : { message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW) };
+
+      // ✅ HARD TIMEOUT so we never hang forever
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        throw new Error(`API error ${res.status}`);
+      }
+
+      // ✅ read as text first, then parse (prevents res.json() hanging / crashing silently)
+      const raw = await res.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error("Invalid JSON from API");
+      }
 
       if (activeMode === "decipher") {
         recordDecipherUse();
@@ -212,6 +213,19 @@ export default function ChatPanel() {
         {
           role: activeMode === "decipher" ? "decipher" : "assistant",
           content: String(data.reply ?? "…"),
+        },
+      ]);
+    } catch (err) {
+      console.error("Cipher send failed:", err);
+
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content:
+            err?.name === "AbortError"
+              ? "That took too long. Try again."
+              : "Cipher slipped for a second. Try again.",
         },
       ]);
     } finally {
@@ -236,10 +250,7 @@ export default function ChatPanel() {
         />
       )}
 
-      <HeaderMenu
-        title="CIPHER"
-        onOpenDrawer={() => setDrawerOpen(true)}
-      />
+      <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
 
       <DrawerMenu
         open={drawerOpen}
@@ -253,19 +264,9 @@ export default function ChatPanel() {
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
-      <InputBar
-        input={input}
-        setInput={setInput}
-        onSend={sendMessage}
-        typing={typing}
-      />
+      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
 
-      {toast && (
-        <RewardToast
-          message={toast}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }
