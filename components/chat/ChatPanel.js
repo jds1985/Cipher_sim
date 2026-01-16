@@ -43,7 +43,13 @@ const NOTE_VARIANTS = [
   "Hi.\n\nNo pressure.\nJust wanted to say I noticed you were gone.",
 ];
 
-const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
+const RETURN_LINES = [
+  "Hey.",
+  "I’m here.",
+  "Yeah?",
+  "What’s up.",
+  "Hey — I’m still here.",
+];
 
 function getRandomNote() {
   return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
@@ -120,11 +126,43 @@ export default function ChatPanel() {
 
     setMessages((m) => [
       ...m,
-      { role: "assistant", content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)] },
+      {
+        role: "assistant",
+        content:
+          RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)],
+      },
     ]);
 
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
+
+  /* ===============================
+     INVITE / SHARE  ✅ FIXED
+  ================================ */
+  async function handleInvite() {
+    const url = `${window.location.origin}?ref=cipher`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Cipher",
+          text: "Try Cipher — an AI that actually remembers.",
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setToast("🔗 Link copied — share it anywhere");
+      }
+
+      const rewarded = rewardShare();
+      if (rewarded.ok) {
+        setCoinBalance(getCipherCoin());
+        setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
+      }
+    } catch {
+      // user cancelled — ignore
+    }
+  }
 
   /* ===============================
      SEND MESSAGE — FINAL
@@ -137,7 +175,6 @@ export default function ChatPanel() {
 
     let activeMode = forceDecipher ? "decipher" : "cipher";
 
-    // 🔒 DECIPHER GATE (VISIBLE, ALWAYS)
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
       if (!gate.allowed) {
@@ -147,32 +184,43 @@ export default function ChatPanel() {
             role: "decipher",
             content:
               `${DECIPHER_COOLDOWN_MESSAGE}\n\n` +
-              `⏳ Cooldown remaining: ${formatRemaining(gate.remainingMs)}`,
+              `⏳ Cooldown remaining: ${formatRemaining(
+                gate.remainingMs
+              )}`,
           },
         ]);
-
         sendingRef.current = false;
         return;
       }
     }
 
-    // ✅ NOW we lock typing
     setTyping(true);
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
 
-    localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
+    localStorage.setItem(
+      LAST_USER_MESSAGE_KEY,
+      String(Date.now())
+    );
+
     setMessages(historySnapshot);
     setInput("");
 
     try {
-      const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+      const endpoint =
+        activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
       const payload =
         activeMode === "decipher"
-          ? { message: userMessage.content, context: historySnapshot.slice(-HISTORY_WINDOW) }
-          : { message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW) };
+          ? {
+              message: userMessage.content,
+              context: historySnapshot.slice(-HISTORY_WINDOW),
+            }
+          : {
+              message: userMessage.content,
+              history: historySnapshot.slice(-HISTORY_WINDOW),
+            };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -182,12 +230,17 @@ export default function ChatPanel() {
 
       const data = await res.json();
 
-      if (activeMode === "decipher") recordDecipherUse();
+      if (activeMode === "decipher") {
+        recordDecipherUse();
+      }
 
       setMessages((m) => [
         ...m,
         {
-          role: activeMode === "decipher" ? "decipher" : "assistant",
+          role:
+            activeMode === "decipher"
+              ? "decipher"
+              : "assistant",
           content: String(data.reply ?? "…"),
         },
       ]);
@@ -206,14 +259,20 @@ export default function ChatPanel() {
         <CipherNote
           note={cipherNote}
           onOpen={() => {
-            sessionStorage.setItem(RETURN_FROM_NOTE_KEY, "true");
+            sessionStorage.setItem(
+              RETURN_FROM_NOTE_KEY,
+              "true"
+            );
             setCipherNote(null);
           }}
           onDismiss={() => setCipherNote(null)}
         />
       )}
 
-      <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
+      <HeaderMenu
+        title="CIPHER"
+        onOpenDrawer={() => setDrawerOpen(true)}
+      />
 
       <DrawerMenu
         open={drawerOpen}
@@ -224,7 +283,10 @@ export default function ChatPanel() {
       />
 
       <div style={styles.chat}>
-        <MessageList messages={messages} bottomRef={bottomRef} />
+        <MessageList
+          messages={messages}
+          bottomRef={bottomRef}
+        />
       </div>
 
       <InputBar
@@ -234,7 +296,12 @@ export default function ChatPanel() {
         typing={typing}
       />
 
-      {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
+      {toast && (
+        <RewardToast
+          message={toast}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
