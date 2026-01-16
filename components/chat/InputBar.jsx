@@ -2,40 +2,45 @@
 import { useRef } from "react";
 import { styles } from "./ChatStyles";
 
-export default function InputBar({ input, setInput, onSend, typing }) {
+export default function InputBar({
+  input,
+  setInput,
+  onSend,
+  typing,
+}) {
   const holdTimer = useRef(null);
   const decipherArmed = useRef(false);
-  const suppressClick = useRef(false);
+  const longPressTriggered = useRef(false);
 
   function startHold() {
     decipherArmed.current = false;
-    suppressClick.current = false;
+    longPressTriggered.current = false;
 
     holdTimer.current = setTimeout(() => {
       decipherArmed.current = true;
-      suppressClick.current = true;
+      longPressTriggered.current = true;
+
+      // 📳 haptic feedback
       if (navigator.vibrate) navigator.vibrate(15);
     }, 600);
   }
 
   function endHold() {
     clearTimeout(holdTimer.current);
-  }
 
-  function fireSend(e) {
-    if (typing) return;
-
-    if (suppressClick.current && e?.type === "click") {
-      suppressClick.current = false;
-      return;
+    // 🔥 MOBILE: fire immediately on long-press release
+    if (longPressTriggered.current && !typing) {
+      onSend({ forceDecipher: true });
     }
 
-    const forceDecipher = decipherArmed.current;
-
     decipherArmed.current = false;
-    suppressClick.current = false;
+    longPressTriggered.current = false;
+  }
 
-    onSend({ forceDecipher });
+  function handleClick() {
+    // 🖱 desktop / short tap
+    if (typing) return;
+    onSend({ forceDecipher: false });
   }
 
   return (
@@ -47,7 +52,7 @@ export default function InputBar({ input, setInput, onSend, typing }) {
         placeholder="Talk to Cipher…"
         disabled={typing}
         onKeyDown={(e) => {
-          if (e.key === "Enter") fireSend(e);
+          if (e.key === "Enter") handleClick();
         }}
       />
 
@@ -60,7 +65,7 @@ export default function InputBar({ input, setInput, onSend, typing }) {
         onMouseDown={startHold}
         onMouseUp={endHold}
         onMouseLeave={endHold}
-        onClick={fireSend}
+        onClick={handleClick}
       >
         ➤
       </button>
