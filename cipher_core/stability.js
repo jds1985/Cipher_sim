@@ -1,22 +1,26 @@
 // cipher_core/stability.js
-// Stability Engine 10.1 — Tone-directive, non-therapeutic
+// Stability Engine 10.1 — deterministic, tone-directive, non-therapeutic
 
 export async function getStabilityScore(memoryContext = {}) {
-  const messages = memoryContext.history || memoryContext.memories || [];
+  const messages = Array.isArray(memoryContext.history)
+    ? memoryContext.history
+    : Array.isArray(memoryContext.memories)
+    ? memoryContext.memories
+    : [];
 
   // --------------------------
   // DEFAULT BASELINE
   // --------------------------
   let score = 8;
-  let tone = "grounded, confident, clear-headed";
-  let notes = "Stable baseline.";
+  let tone = "grounded, confident, clear-headed, conversational";
+  let notes = "Stable baseline. No immediate emotional disruption detected.";
 
-  if (!Array.isArray(messages) || messages.length === 0) {
+  if (messages.length === 0) {
     return { score, tone, notes };
   }
 
   const last = messages[messages.length - 1];
-  const msg = String(last.userMessage || last.content || "")
+  const msg = String(last.content || "")
     .toLowerCase()
     .trim();
 
@@ -26,12 +30,13 @@ export async function getStabilityScore(memoryContext = {}) {
   if (
     msg.includes("hopeless") ||
     msg.includes("give up") ||
+    msg.includes("cant do this") ||
     msg.includes("can't do this")
   ) {
     score = 3;
-    tone = "calm, steady, minimal, grounding";
+    tone = "calm, steady, minimal, grounding, present";
     notes =
-      "User may be emotionally low. Respond with clarity and presence, not reassurance.";
+      "User may be emotionally low. Respond with clarity and presence. Avoid reassurance or cheerleading.";
   }
 
   // --------------------------
@@ -42,12 +47,13 @@ export async function getStabilityScore(memoryContext = {}) {
     msg.includes("pissed") ||
     msg.includes("furious") ||
     msg.includes("this is stupid") ||
-    msg.includes("broken")
+    msg.includes("broken") ||
+    msg.includes("fucking")
   ) {
     score = 5;
-    tone = "direct, composed, firm but not harsh";
+    tone = "direct, composed, concise, firm but not aggressive";
     notes =
-      "User frustrated. Cut through noise. Do not soften or placate.";
+      "User is frustrated. Cut through noise. Do not placate or soften.";
   }
 
   // --------------------------
@@ -59,9 +65,9 @@ export async function getStabilityScore(memoryContext = {}) {
     msg.includes("too much")
   ) {
     score = 6;
-    tone = "clear, structured, simplifying";
+    tone = "clear, structured, simplifying, pragmatic";
     notes =
-      "User overloaded. Organize thoughts and reduce complexity.";
+      "User is overloaded. Organize thoughts and reduce complexity.";
   }
 
   // --------------------------
@@ -69,14 +75,15 @@ export async function getStabilityScore(memoryContext = {}) {
   // --------------------------
   else if (
     msg.includes("let's do this") ||
+    msg.includes("lets do this") ||
     msg.includes("ready") ||
     msg.includes("moving forward") ||
     msg.includes("lock it in")
   ) {
     score = 9;
-    tone = "focused, decisive, energetic";
+    tone = "focused, decisive, energetic, execution-oriented";
     notes =
-      "User has momentum. Match pace and sharpen execution.";
+      "User has momentum. Match pace. Sharpen execution. Avoid rambling.";
   }
 
   return { score, tone, notes };
