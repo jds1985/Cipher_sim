@@ -3,7 +3,7 @@ import { runCipherCore } from "../../cipher_core/core";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ reply: "Method not allowed." });
   }
 
   res.setHeader("Cache-Control", "no-store");
@@ -18,7 +18,9 @@ export default async function handler(req, res) {
 
     if (!message || typeof message !== "string") {
       clearTimeout(timeoutId);
-      return res.status(400).json({ error: "Missing message" });
+      return res.status(200).json({
+        reply: "Say something real and try again.",
+      });
     }
 
     const HISTORY_LIMIT = 12;
@@ -53,12 +55,13 @@ export default async function handler(req, res) {
     );
 
     const data = await response.json();
-
     clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error("OPENAI ERROR:", data);
-      return res.status(500).json({ error: "OpenAI error" });
+      return res.status(200).json({
+        reply: "I hit a snag thinking that through. Try again.",
+      });
     }
 
     const reply =
@@ -70,13 +73,13 @@ export default async function handler(req, res) {
     clearTimeout(timeoutId);
 
     if (err.name === "AbortError") {
-      return res.status(504).json({
-        reply: "Cipher took too long to respond. Try again.",
+      return res.status(200).json({
+        reply: "That took a little too long. Try again.",
       });
     }
 
     console.error("CIPHER API CRASH:", err);
-    return res.status(500).json({
+    return res.status(200).json({
       reply: "Cipher slipped for a second. Try again.",
     });
   }
