@@ -1,5 +1,5 @@
 // cipher_core/memory.js
-// Structured Firestore-backed memory engine (stable + bounded)
+// Structured Firestore-backed memory engine (stable, bounded, race-safe)
 
 import { db } from "../firebaseAdmin";
 
@@ -34,36 +34,43 @@ export async function loadMemory(userId) {
 }
 
 /* ===============================
-   SAVE MEMORY
+   SAVE MEMORY (TRANSACTION SAFE)
 ================================ */
 export async function saveMemory(userId, entry) {
-  if (!entry || typeof entry !== "object") return;
+  if (!userId || !entry || typeof entry !== "object") return;
 
   const ref = db.collection("cipher_branches").doc(userId);
 
-  // Normalize memory entry
   const normalizedEntry = {
     type: entry.type || "interaction", // identity | fact | preference | emotional | interaction
-    role: entry.role || "system",
+    role: entry.role || "assistant",
     content: String(entry.content || ""),
     importance: entry.importance || "medium", // low | medium | high
     timestamp: Date.now(),
   };
 
-  const snap = await ref.get();
-  const existing = snap.exists ? snap.data().history || [] : [];
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : {};
 
-  // Append + trim (keep most recent + important)
-  const updatedHistory = [...existing, normalizedEntry]
-    .slice(-MAX_HISTORY);
+    const existingHistory = Array.isArray(data?.history)
+      ? data.history
+      : [];
 
-  await ref.set(
-    {
-      history: updatedHistory,
-      meta: {
-        lastUpdated: Date.now(),
+    const updatedHistory = [...existingHistory, normalizedEntry]
+      .slice(-MAX_HISTORY);
+
+    tx.set(
+      ref,
+      {
+        history: updatedHistory,
+        meta: {
+          ...(data?.meta || {}),
+          lastUpdated: Date.now(),
+          createdAt: data?.meta?.createdAt || Date.now(),
+        },
       },
-    },
-    { merge: true }
-  );
+      { merge: true }
+    );
+  });
 }
