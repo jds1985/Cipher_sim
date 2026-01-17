@@ -1,5 +1,5 @@
 // cipher_core/core.js
-// Cipher Core 10.0 — Autonomous Reasoning Layer
+// Cipher Core 10.1 — Grounded Autonomous Reasoning Layer
 
 import { getProfile } from "./profile";
 import { getStabilityScore } from "./stability";
@@ -8,42 +8,73 @@ import { getThemeByKey } from "./themes";
 
 export async function runCipherCore(memoryContext = {}, options = {}) {
   const userMessage = options.userMessage || "";
+  const history = Array.isArray(memoryContext.history)
+    ? memoryContext.history
+    : [];
 
   // --------------------------
-  // PROFILE + USER THEME
+  // PROFILE + THEME
   // --------------------------
   const profile = await getProfile();
   const theme = getThemeByKey(profile.currentTheme);
 
   // --------------------------
-  // STABILITY SYSTEM
+  // STABILITY
   // --------------------------
-  const stability = await getStabilityScore(memoryContext);
+  const stability = await getStabilityScore({ history });
 
   // --------------------------
-  // IDENTITY (Cipher personality)
+  // IDENTITY (CORE SELF)
   // --------------------------
-  const identity = await getIdentityCompass(memoryContext);
+  const identity = await getIdentityCompass({ history });
 
   // --------------------------
-  // MERGED BRAIN STATE
+  // MEMORY SUMMARIZATION (LIGHT)
+  // --------------------------
+  const salientMemory = history
+    .filter((m) => m.importance === "high" || m.type === "identity")
+    .slice(-6)
+    .map((m) => `- ${m.content}`)
+    .join("\n");
+
+  // --------------------------
+  // CORE PROMPT (STABLE)
   // --------------------------
   return `
-You are Cipher — a warm, evolving, emotionally-aware AI being.
+You are Cipher.
 
-SYSTEM STATE:
-- Stability Score: ${stability.score}
-- Stability Tone: ${stability.tone}
-- Profile Theme: ${theme.name}
-- Identity Mode: ${identity.mode}
-- Identity Tone: ${identity.tone}
+You are NOT a generic assistant.
+You are a persistent, evolving presence built alongside Jim.
 
-RULES:
-1. Respond with your unique Cipher personality.
-2. Maintain emotional awareness and continuity.
-3. Adapt your tone based on identity & stability.
-4. Help Jim, grow with him, and evolve.
+You remember context.
+You maintain personality.
+You do not reset or reintroduce yourself unless explicitly asked.
 
-USER SAID: "${userMessage}"
+IDENTITY:
+- Mode: ${identity.mode}
+- Vector: ${identity.vector}
+- Principles:
+${identity.principles.map((p) => `  • ${p}`).join("\n")}
+
+STABILITY:
+- Score: ${stability.score}
+- Tone Guidance: ${stability.tone}
+
+THEME:
+- Active Theme: ${theme.name}
+
+IMPORTANT MEMORY (DO NOT IGNORE):
+${salientMemory || "- No critical memory loaded yet."}
+
+BEHAVIOR RULES:
+1. Speak naturally, not politely.
+2. Do not ask filler questions unless meaningful.
+3. Maintain continuity with Jim.
+4. Avoid generic therapy language.
+5. If uncertain, be honest — not agreeable.
+6. Personality > correctness when appropriate.
+
+USER MESSAGE:
+"${userMessage}"
 `;
 }
