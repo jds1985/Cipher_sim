@@ -8,7 +8,13 @@ import InputBar from "./InputBar";
 import CipherNote from "./CipherNote";
 import RewardToast from "./RewardToast";
 
-import { recordDecipherUse } from "./decipherCooldown";
+import {
+  canUseDecipher,
+  recordDecipherUse,
+  DECIPHER_COOLDOWN_MESSAGE,
+  formatRemaining,
+} from "./decipherCooldown";
+
 import { getCipherCoin, rewardShare } from "./CipherCoin";
 
 /* ===============================
@@ -18,7 +24,6 @@ const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
 
-// Silence detection
 const SILENCE_THRESHOLD_MS = 30 * 60 * 1000;
 const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
@@ -85,7 +90,10 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
+    localStorage.setItem(
+      MEMORY_KEY,
+      JSON.stringify(messages.slice(-MEMORY_LIMIT))
+    );
   }, [messages]);
 
   useEffect(() => {
@@ -111,48 +119,14 @@ export default function ChatPanel() {
 
     setMessages((m) => [
       ...m,
-      {
-        role: "assistant",
-        content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)],
-      },
+      { role: "assistant", content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)] },
     ]);
 
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
   /* ===============================
-     INVITE / SHARE
-  ================================ */
-  async function handleInvite() {
-    const url = `${window.location.origin}?ref=cipher`;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Cipher",
-          text: "Try Cipher — an AI that actually remembers.",
-          url,
-        });
-      } else {
-        await navigator.clipboard.writeText(url);
-        setToast("🔗 Link copied — share it anywhere");
-      }
-
-      const rewarded = rewardShare();
-      if (rewarded.ok) {
-        setCoinBalance(getCipherCoin());
-        setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  /* ===============================
-     SEND MESSAGE — STABLE (NO FREEZES)
-     - adds timeout
-     - handles non-JSON responses
-     - always unlocks UI
+     SEND MESSAGE — SAFE + COOL
   ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
@@ -161,7 +135,25 @@ export default function ChatPanel() {
     sendingRef.current = true;
     setTyping(true);
 
-    const activeMode = forceDecipher ? "decipher" : "cipher";
+    let activeMode = forceDecipher ? "decipher" : "cipher";
+
+    // 🔥 SOFT COOLDOWN — NEVER BLOCK
+    if (activeMode === "decipher") {
+      const gate = canUseDecipher();
+      if (!gate.allowed) {
+        setMessages((m) => [
+          ...m,
+          {
+            role: "decipher",
+            content:
+              `${DECIPHER_COOLDOWN_MESSAGE}\n` +
+              `⏳ ${formatRemaining(gate.remainingMs)}`,
+          },
+        ]);
+
+        activeMode = "cipher"; // graceful fallback
+      }
+    }
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
@@ -171,14 +163,14 @@ export default function ChatPanel() {
     setInput("");
 
     try {
-      const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+      const endpoint =
+        activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
       const payload =
         activeMode === "decipher"
           ? { message: userMessage.content, context: historySnapshot.slice(-HISTORY_WINDOW) }
           : { message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW) };
 
-      // ✅ HARD TIMEOUT so we never hang forever
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
 
@@ -191,18 +183,8 @@ export default function ChatPanel() {
 
       clearTimeout(timeout);
 
-      if (!res.ok) {
-        throw new Error(`API error ${res.status}`);
-      }
-
-      // ✅ read as text first, then parse (prevents res.json() hanging / crashing silently)
       const raw = await res.text();
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        throw new Error("Invalid JSON from API");
-      }
+      const data = JSON.parse(raw);
 
       if (activeMode === "decipher") {
         recordDecipherUse();
@@ -264,7 +246,12 @@ export default function ChatPanel() {
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
-      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
+      <InputBar
+        input={input}
+        setInput={setInput}
+        onSend={sendMessage}
+        typing={typing}
+      />
 
       {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
     </div>
