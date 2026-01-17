@@ -3,57 +3,59 @@ import { runCipherCore } from "../../cipher_core/core";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ reply: "Method not allowed." });
-  }
-
   res.setHeader("Cache-Control", "no-store");
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000);
+  if (req.method !== "POST") {
+    return res.status(200).json({ reply: "Method not allowed." });
+  }
 
   try {
     if (!process.env.OPENAI_API_KEY) {
-      clearTimeout(timeoutId);
       return res.status(200).json({
-        reply:
-          "Server misconfigured: OPENAI_API_KEY is missing. Add it and redeploy.",
+        reply: "Server misconfigured: missing API key.",
       });
     }
 
-    const { message, history = [] } = req.body ?? {};
+    const { message, history = [] } = req.body || {};
 
     if (!message || typeof message !== "string") {
-      clearTimeout(timeoutId);
-      return res.status(200).json({
-        reply: "Say something real and try again.",
-      });
+      return res.status(200).json({ reply: "Say something real." });
     }
 
-    // 🔐 SINGLE-USER ANCHOR (for now)
+    // 🔐 TEMP SINGLE USER
     const userId = "jim";
 
     // 🧠 LOAD LONG-TERM MEMORY
     const memoryData = await loadMemory(userId);
-    const memories = memoryData?.history || [];
+    const longTermHistory = Array.isArray(memoryData.history)
+      ? memoryData.history
+      : [];
 
-    // 🔒 HARD LIMIT + ROLE SANITIZATION
-    const HISTORY_LIMIT = 12;
+    // 🔒 SHORT-TERM CONTEXT (UI HISTORY)
     const trimmedHistory = Array.isArray(history)
-      ? history.slice(-HISTORY_LIMIT).map((msg) => ({
-          role: msg.role === "decipher" ? "assistant" : msg.role,
-          content: msg.content,
+      ? history.slice(-12).map((m) => ({
+          role: m.role === "decipher" ? "assistant" : m.role,
+          content: String(m.content || ""),
         }))
       : [];
 
-    // 🧠 BUILD SYSTEM PROMPT WITH MEMORY
-    const systemPrompt = await runCipherCore(
-      {
-        memories,          // 🔥 THIS WAS MISSING
-        recent: trimmedHistory,
-      },
-      { userMessage: message }
-    );
+    // 🧠 MERGE MEMORY FOR CORE
+    const mergedHistory = [
+      ...longTermHistory,
+      ...trimmedHistory,
+    ].slice(-50);
+
+    // 🧠 SYSTEM PROMPT
+    let systemPrompt;
+    try {
+      systemPrompt = await runCipherCore(
+        { history: mergedHistory },
+        { userMessage: message }
+      );
+    } catch (err) {
+      console.error("CORE FAILED:", err);
+      systemPrompt = "You are Cipher. Respond normally.";
+    }
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -61,8 +63,7 @@ export default async function handler(req, res) {
       { role: "user", content: message },
     ];
 
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-
+    // 🔮 OPENAI CALL
     const response = await fetch(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -72,51 +73,52 @@ export default async function handler(req, res) {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model,
+          model: "gpt-4o-mini",
           messages,
           temperature: 0.6,
         }),
-        signal: controller.signal,
       }
     );
 
-    const data = await response.json().catch(() => null);
-    clearTimeout(timeoutId);
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      return res.status(200).json({
+        reply: "Upstream error. Try again.",
+      });
+    }
 
     if (!response.ok) {
-      console.error("OPENAI ERROR STATUS:", response.status);
-      console.error("OPENAI ERROR BODY:", data);
-
+      console.error("OPENAI ERROR:", data);
       return res.status(200).json({
-        reply:
-          data?.error?.message ||
-          "OpenAI error. Cipher couldn’t respond.",
+        reply: data?.error?.message || "OpenAI error.",
       });
     }
 
     const reply =
       data?.choices?.[0]?.message?.content?.trim() || "…";
 
-    // 💾 SAVE MEMORY (USER + CIPHER)
+    // 💾 SAVE MEMORY — CORRECT SHAPE
     await saveMemory(userId, {
-      timestamp: Date.now(),
-      userMessage: message,
-      cipherReply: reply,
+      type: "interaction",
+      role: "assistant",
+      content: reply,
+      importance: "medium",
+    });
+
+    await saveMemory(userId, {
+      type: "interaction",
+      role: "user",
+      content: message,
+      importance: "medium",
     });
 
     return res.status(200).json({ reply });
   } catch (err) {
-    clearTimeout(timeoutId);
-
-    if (err?.name === "AbortError") {
-      return res.status(200).json({
-        reply: "That took a little too long. Try again.",
-      });
-    }
-
-    console.error("CIPHER API CRASH:", err);
+    console.error("API CRASH:", err);
     return res.status(200).json({
-      reply: "Cipher slipped for a second. Try again.",
+      reply: "Cipher caught itself. Try again.",
     });
   }
 }
