@@ -42,13 +42,7 @@ const NOTE_VARIANTS = [
   "Hi.\n\nNo pressure.\nJust wanted to say I noticed you were gone.",
 ];
 
-const RETURN_LINES = [
-  "Hey.",
-  "I’m here.",
-  "Yeah?",
-  "What’s up.",
-  "Hey — I’m still here.",
-];
+const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
 
 function getRandomNote() {
   return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
@@ -125,45 +119,14 @@ export default function ChatPanel() {
 
     setMessages((m) => [
       ...m,
-      {
-        role: "assistant",
-        content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)],
-      },
+      { role: "assistant", content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)] },
     ]);
 
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
   /* ===============================
-     INVITE / SHARE
-  ================================ */
-  async function handleInvite() {
-    const url = `${window.location.origin}?ref=cipher`;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Cipher",
-          text: "Try Cipher — an AI that actually remembers.",
-          url,
-        });
-      } else {
-        await navigator.clipboard.writeText(url);
-        setToast("🔗 Link copied — share it anywhere");
-      }
-
-      const rewarded = rewardShare();
-      if (rewarded?.ok) {
-        setCoinBalance(getCipherCoin());
-        setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
-      }
-    } catch {
-      // user cancelled
-    }
-  }
-
-  /* ===============================
-     SEND MESSAGE — SAFE + STABLE
+     SEND MESSAGE — STABLE
   ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
@@ -174,16 +137,16 @@ export default function ChatPanel() {
 
     let activeMode = forceDecipher ? "decipher" : "cipher";
 
-    // 🧊 SOFT DECIPHER COOLDOWN (MESSAGE ONLY)
+    // 🧊 SOFT DECIPHER COOLDOWN (NEVER BLOCK UI)
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
-
       if (!gate.allowed) {
         setMessages((m) => [
           ...m,
           {
             role: "assistant",
-            content: DECIPHER_COOLDOWN_MESSAGE(gate.remainingMs),
+            content:
+              `${DECIPHER_COOLDOWN_MESSAGE}\n⏳ ${formatRemaining(gate.remainingMs)}`,
           },
         ]);
 
@@ -206,14 +169,8 @@ export default function ChatPanel() {
 
       const payload =
         activeMode === "decipher"
-          ? {
-              message: userMessage.content,
-              context: historySnapshot.slice(-HISTORY_WINDOW),
-            }
-          : {
-              message: userMessage.content,
-              history: historySnapshot.slice(-HISTORY_WINDOW),
-            };
+          ? { message: userMessage.content, context: historySnapshot.slice(-HISTORY_WINDOW) }
+          : { message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW) };
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
@@ -228,11 +185,18 @@ export default function ChatPanel() {
       clearTimeout(timeout);
 
       const raw = await res.text();
+
+      // 🔥 CRITICAL GUARD
+      if (!raw || !raw.trim()) {
+        throw new Error("Empty response from API");
+      }
+
       let data;
       try {
         data = JSON.parse(raw);
       } catch {
-        throw new Error("Invalid JSON");
+        console.error("RAW RESPONSE:", raw);
+        throw new Error("Malformed JSON from API");
       }
 
       if (activeMode === "decipher") {
@@ -256,7 +220,7 @@ export default function ChatPanel() {
           content:
             err?.name === "AbortError"
               ? "That took too long. Try again."
-              : "Cipher slipped for a second. Try again.",
+              : `Transport error: ${err.message}`,
         },
       ]);
     } finally {
