@@ -42,7 +42,13 @@ const NOTE_VARIANTS = [
   "Hi.\n\nNo pressure.\nJust wanted to say I noticed you were gone.",
 ];
 
-const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
+const RETURN_LINES = [
+  "Hey.",
+  "I’m here.",
+  "Yeah?",
+  "What’s up.",
+  "Hey — I’m still here.",
+];
 
 function getRandomNote() {
   return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
@@ -119,43 +125,45 @@ export default function ChatPanel() {
 
     setMessages((m) => [
       ...m,
-      { role: "assistant", content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)] },
+      {
+        role: "assistant",
+        content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)],
+      },
     ]);
 
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
- /* ===============================
-   INVITE / SHARE (RESTORED)
-=============================== */
-async function handleInvite() {
-  const url = `${window.location.origin}?ref=cipher`;
-
-  try {
-    if (navigator.share) {
-      await navigator.share({
-        title: "Cipher",
-        text: "Try Cipher — an AI that actually remembers.",
-        url,
-      });
-    } else {
-      await navigator.clipboard.writeText(url);
-      setToast("🔗 Link copied — share it anywhere");
-    }
-
-    const rewarded = rewardShare();
-    if (rewarded?.ok) {
-      setCoinBalance(getCipherCoin());
-      setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
-    }
-  } catch {
-    // user cancelled — do nothing
-  }
-}
-  
-  
   /* ===============================
-     SEND MESSAGE — SAFE + COOL
+     INVITE / SHARE
+  ================================ */
+  async function handleInvite() {
+    const url = `${window.location.origin}?ref=cipher`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Cipher",
+          text: "Try Cipher — an AI that actually remembers.",
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setToast("🔗 Link copied — share it anywhere");
+      }
+
+      const rewarded = rewardShare();
+      if (rewarded?.ok) {
+        setCoinBalance(getCipherCoin());
+        setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
+      }
+    } catch {
+      // user cancelled
+    }
+  }
+
+  /* ===============================
+     SEND MESSAGE — SAFE + STABLE
   ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
@@ -166,21 +174,22 @@ async function handleInvite() {
 
     let activeMode = forceDecipher ? "decipher" : "cipher";
 
-    // 🔥 SOFT COOLDOWN — NEVER BLOCK
+    // 🧊 SOFT DECIPHER COOLDOWN (MESSAGE ONLY)
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
+
       if (!gate.allowed) {
         setMessages((m) => [
           ...m,
           {
-            role: "decipher",
-            content:
-              `${DECIPHER_COOLDOWN_MESSAGE}\n` +
-              `⏳ ${formatRemaining(gate.remainingMs)}`,
+            role: "assistant",
+            content: DECIPHER_COOLDOWN_MESSAGE(gate.remainingMs),
           },
         ]);
 
-        activeMode = "cipher"; // graceful fallback
+        setTyping(false);
+        sendingRef.current = false;
+        return;
       }
     }
 
@@ -197,8 +206,14 @@ async function handleInvite() {
 
       const payload =
         activeMode === "decipher"
-          ? { message: userMessage.content, context: historySnapshot.slice(-HISTORY_WINDOW) }
-          : { message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW) };
+          ? {
+              message: userMessage.content,
+              context: historySnapshot.slice(-HISTORY_WINDOW),
+            }
+          : {
+              message: userMessage.content,
+              history: historySnapshot.slice(-HISTORY_WINDOW),
+            };
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
@@ -213,7 +228,12 @@ async function handleInvite() {
       clearTimeout(timeout);
 
       const raw = await res.text();
-      const data = JSON.parse(raw);
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error("Invalid JSON");
+      }
 
       if (activeMode === "decipher") {
         recordDecipherUse();
