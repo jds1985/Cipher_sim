@@ -1,19 +1,18 @@
 // pages/api/chat.js
 import { runCipherCore } from "../../cipher_core/core";
+import { loadMemory, saveMemory } from "../../cipher_core/memory";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ reply: "Method not allowed." });
   }
 
-  // never cache
   res.setHeader("Cache-Control", "no-store");
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 25000);
 
   try {
-    // 🔑 ENV CHECK
     if (!process.env.OPENAI_API_KEY) {
       clearTimeout(timeoutId);
       return res.status(200).json({
@@ -31,7 +30,14 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔒 HARD LIMIT + 🔥 ROLE SANITIZATION
+    // 🔐 SINGLE-USER ANCHOR (for now)
+    const userId = "jim";
+
+    // 🧠 LOAD LONG-TERM MEMORY
+    const memoryData = await loadMemory(userId);
+    const memories = memoryData?.history || [];
+
+    // 🔒 HARD LIMIT + ROLE SANITIZATION
     const HISTORY_LIMIT = 12;
     const trimmedHistory = Array.isArray(history)
       ? history.slice(-HISTORY_LIMIT).map((msg) => ({
@@ -40,9 +46,12 @@ export default async function handler(req, res) {
         }))
       : [];
 
-    // 🧠 Build system prompt
+    // 🧠 BUILD SYSTEM PROMPT WITH MEMORY
     const systemPrompt = await runCipherCore(
-      { history: trimmedHistory },
+      {
+        memories,          // 🔥 THIS WAS MISSING
+        recent: trimmedHistory,
+      },
       { userMessage: message }
     );
 
@@ -78,18 +87,22 @@ export default async function handler(req, res) {
       console.error("OPENAI ERROR STATUS:", response.status);
       console.error("OPENAI ERROR BODY:", data);
 
-      const msg =
-        data?.error?.message ||
-        data?.message ||
-        "Unknown OpenAI error.";
-
       return res.status(200).json({
-        reply: `OpenAI error (${response.status}). ${msg}`,
+        reply:
+          data?.error?.message ||
+          "OpenAI error. Cipher couldn’t respond.",
       });
     }
 
     const reply =
       data?.choices?.[0]?.message?.content?.trim() || "…";
+
+    // 💾 SAVE MEMORY (USER + CIPHER)
+    await saveMemory(userId, {
+      timestamp: Date.now(),
+      userMessage: message,
+      cipherReply: reply,
+    });
 
     return res.status(200).json({ reply });
   } catch (err) {
