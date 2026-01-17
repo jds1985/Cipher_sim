@@ -125,6 +125,35 @@ export default function ChatPanel() {
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
+ /* ===============================
+   INVITE / SHARE (RESTORED)
+=============================== */
+async function handleInvite() {
+  const url = `${window.location.origin}?ref=cipher`;
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: "Cipher",
+        text: "Try Cipher — an AI that actually remembers.",
+        url,
+      });
+    } else {
+      await navigator.clipboard.writeText(url);
+      setToast("🔗 Link copied — share it anywhere");
+    }
+
+    const rewarded = rewardShare();
+    if (rewarded?.ok) {
+      setCoinBalance(getCipherCoin());
+      setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
+    }
+  } catch {
+    // user cancelled — do nothing
+  }
+}
+  
+  
   /* ===============================
      SEND MESSAGE — SAFE + COOL
   ================================ */
