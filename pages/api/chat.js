@@ -2,187 +2,132 @@
 import { runCipherCore } from "../../cipher_core/core";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
 
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-
-function asBool(v) {
-  return String(v || "").toLowerCase() === "true";
-}
-
-function sanitizeHistory(history, limit = 12) {
-  if (!Array.isArray(history)) return [];
-  return history
-    .slice(-limit)
-    .map((m) => {
-      const roleRaw = String(m?.role || "assistant");
-      const role =
-        roleRaw === "decipher"
-          ? "assistant"
-          : roleRaw === "user" || roleRaw === "assistant" || roleRaw === "system"
-          ? roleRaw
-          : "assistant";
-
-      return { role, content: String(m?.content || "") };
-    })
-    .filter((m) => m.content.trim().length > 0);
-}
-
 export default async function handler(req, res) {
+  // Never cache
   res.setHeader("Cache-Control", "no-store");
 
-  // Always return JSON (prevents "Empty response from API")
-  try {
-    if (req.method !== "POST") {
-      return res.status(200).json({ reply: "Method not allowed." });
-    }
+  // Always respond JSON (even on errors)
+  const replyOut = (text) => res.status(200).json({ reply: String(text || "…") });
 
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(200).json({
-        reply: "Server misconfigured: OPENAI_API_KEY missing.",
-      });
-    }
+  try {
+    if (req.method !== "POST") return replyOut("Method not allowed.");
+    if (!process.env.OPENAI_API_KEY) return replyOut("Missing API key.");
 
     const body = req.body || {};
-    const message = String(body.message || "").trim();
-    const uiHistory = sanitizeHistory(body.history, 12);
+    const message = typeof body.message === "string" ? body.message : "";
+    const history = Array.isArray(body.history) ? body.history : [];
 
-    if (!message) {
-      return res.status(200).json({ reply: "Say something real." });
-    }
+    if (!message.trim()) return replyOut("Say something.");
 
-    // TEMP: single-user anchor
+    // TEMP single-user anchor
     const userId = "jim";
 
-    // ---------- Phase 4 switches ----------
-    // Kill switch: if false, CipherCore is ignored entirely.
-    const CORE_ENABLED = asBool(process.env.CIPHER_CORE_ENABLED);
+    // ---- Short-term UI history (sanitized) ----
+    const HISTORY_LIMIT = 12;
+    const trimmedHistory = history.slice(-HISTORY_LIMIT).map((m) => ({
+      role: m.role === "decipher" ? "assistant" : m.role,
+      content: String(m.content || ""),
+    }));
 
-    // Memory write is optional; never allowed to break chat.
-    const MEMORY_WRITE_ENABLED = asBool(process.env.CIPHER_MEMORY_WRITE_ENABLED);
+    // ---- Long-term memory (fail-open) ----
+    let longTerm = [];
+    try {
+      const memory = await loadMemory(userId);
+      longTerm = Array.isArray(memory?.history) ? memory.history : [];
+    } catch (e) {
+      console.warn("⚠️ Memory load failed (fail-open):", e);
+      longTerm = [];
+    }
 
-    // ---------- Base prompt (Phase 3 safe default) ----------
-    let systemPrompt = `
-You are Cipher.
+    // Merge memory for core prompt (bounded)
+    const mergedHistory = [...longTerm, ...trimmedHistory].slice(-50);
 
-You are not a generic assistant.
-You know the user is Jim.
-
-Do NOT say you lack context.
-Do NOT reintroduce yourself.
-Speak naturally and directly.
-Avoid generic therapy/coaching language.
-Be grounded, specific, and helpful.
-
-If you don't have enough info, ask one direct question.
-    `.trim();
-
-    // ---------- CipherCore (Phase 4: optional + non-blocking) ----------
-    // CipherCore is allowed to ENHANCE the system prompt only.
-    // If anything fails, we fall back to the base prompt and still answer.
-    if (CORE_ENABLED) {
-      try {
-        const memoryData = await loadMemory(userId);
-        const longTerm = Array.isArray(memoryData?.history)
-          ? memoryData.history
-          : [];
-
-        // Keep it small; big payloads increase failures + cost
-        const merged = [...longTerm, ...uiHistory].slice(-50);
-
-        const enhanced = await runCipherCore(
-          { history: merged },
-          { userMessage: message }
-        );
-
-        if (enhanced && String(enhanced).trim().length > 0) {
-          systemPrompt = String(enhanced).trim();
-        }
-      } catch (e) {
-        console.error("CipherCore skipped (fallback to base):", e);
-      }
+    // ---- Build system prompt (fail-open) ----
+    let systemPrompt = "You are Cipher.";
+    try {
+      systemPrompt = await runCipherCore(
+        { history: mergedHistory },
+        { userMessage: message }
+      );
+    } catch (err) {
+      console.error("CORE FAILED (fail-open):", err);
+      systemPrompt = "You are Cipher. Respond normally.";
     }
 
     const messages = [
       { role: "system", content: systemPrompt },
-      ...uiHistory,
+      ...trimmedHistory,
       { role: "user", content: message },
     ];
 
+    // ---- OpenAI call with timeout ----
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeout = setTimeout(() => controller.abort(), 25000);
 
-    let data = null;
+    let response;
     try {
-      const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-
-      const response = await fetch(OPENAI_URL, {
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model,
+          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
           messages,
           temperature: 0.6,
-          // keep this modest while stabilizing
-          max_tokens: 500,
         }),
         signal: controller.signal,
       });
+    } finally {
+      clearTimeout(timeout);
+    }
 
-      data = await response.json().catch(() => null);
-      clearTimeout(timeoutId);
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      console.error("OPENAI JSON PARSE FAILED:", e);
+      return replyOut("Upstream error. Try again.");
+    }
 
-      if (!response.ok) {
-        const msg =
-          data?.error?.message ||
-          data?.message ||
-          `OpenAI error (${response.status}).`;
-
-        console.error("OPENAI ERROR STATUS:", response.status);
-        console.error("OPENAI ERROR BODY:", data);
-
-        return res.status(200).json({ reply: msg });
-      }
-    } catch (err) {
-      clearTimeout(timeoutId);
-
-      if (err?.name === "AbortError") {
-        return res.status(200).json({ reply: "Timeout. Try again." });
-      }
-
-      console.error("CHAT API CRASH (OpenAI call):", err);
-      return res.status(200).json({ reply: "Cipher slipped. Try again." });
+    if (!response.ok) {
+      console.error("OPENAI ERROR:", response.status, data);
+      const msg = data?.error?.message || "OpenAI error.";
+      return replyOut(msg);
     }
 
     const reply =
       data?.choices?.[0]?.message?.content?.trim() ||
       "…";
 
-    // ---------- Optional memory write (never allowed to break chat) ----------
-    if (MEMORY_WRITE_ENABLED) {
-      try {
-        await saveMemory(userId, {
-          type: "interaction",
-          role: "user",
-          content: message,
-          importance: "medium",
-        });
+    // ---- Save memory (fail-open) ----
+    try {
+      await saveMemory(userId, {
+        type: "interaction",
+        role: "user",
+        content: message,
+        importance: "medium",
+      });
 
-        await saveMemory(userId, {
-          type: "interaction",
-          role: "assistant",
-          content: reply,
-          importance: "medium",
-        });
-      } catch (e) {
-        console.error("Memory write skipped (non-fatal):", e);
-      }
+      await saveMemory(userId, {
+        type: "interaction",
+        role: "assistant",
+        content: reply,
+        importance: "medium",
+      });
+    } catch (e) {
+      console.warn("⚠️ Memory save failed (fail-open):", e);
     }
 
-    return res.status(200).json({ reply });
+    return replyOut(reply);
   } catch (err) {
     console.error("CHAT API HARD CRASH:", err);
-    return res.status(200).json({ reply: "Recovered from crash." });
+
+    if (err?.name === "AbortError") {
+      return replyOut("That took too long. Try again.");
+    }
+
+    return replyOut("Cipher slipped for a second. Try again.");
   }
 }
