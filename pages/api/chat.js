@@ -2,55 +2,103 @@
 import { runCipherCore } from "../../cipher_core/core";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
 
+function safeString(x) {
+  try {
+    return typeof x === "string" ? x : JSON.stringify(x);
+  } catch {
+    return String(x);
+  }
+}
+
+function sanitizeUiHistory(history) {
+  const HISTORY_LIMIT = 12;
+  if (!Array.isArray(history)) return [];
+  return history.slice(-HISTORY_LIMIT).map((m) => ({
+    role: m?.role === "decipher" ? "assistant" : (m?.role || "assistant"),
+    content: String(m?.content ?? ""),
+  }));
+}
+
+// Convert UI history into memory-entry shape so core/stability can read it safely
+function uiToMemoryEntries(ui) {
+  return ui.map((m) => ({
+    type: "interaction",
+    role: m.role,
+    content: m.content,
+    importance: "low",
+    timestamp: Date.now(),
+  }));
+}
+
 export default async function handler(req, res) {
-  // Never cache
   res.setHeader("Cache-Control", "no-store");
 
-  // Always respond JSON (even on errors)
-  const replyOut = (text) => res.status(200).json({ reply: String(text || "…") });
+  // Always return JSON, never let runtime crash leak HTML / empty response
+  const respond = (reply, meta) => {
+    try {
+      return res.status(200).json({
+        reply: String(reply ?? "…"),
+        ...(meta ? { _meta: meta } : {}),
+      });
+    } catch {
+      // absolute last resort
+      return res.status(200).end(JSON.stringify({ reply: "…" }));
+    }
+  };
+
+  if (req.method !== "POST") return respond("Method not allowed.");
+
+  // Hard timeout for the whole route (prevents hanging “…” forever)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
 
   try {
-    if (req.method !== "POST") return replyOut("Method not allowed.");
-    if (!process.env.OPENAI_API_KEY) return replyOut("Missing API key.");
-
-    const body = req.body || {};
-    const message = typeof body.message === "string" ? body.message : "";
-    const history = Array.isArray(body.history) ? body.history : [];
-
-    if (!message.trim()) return replyOut("Say something.");
-
-    // TEMP single-user anchor
-    const userId = "jim";
-
-    // ---- Short-term UI history (sanitized) ----
-    const HISTORY_LIMIT = 12;
-    const trimmedHistory = history.slice(-HISTORY_LIMIT).map((m) => ({
-      role: m.role === "decipher" ? "assistant" : m.role,
-      content: String(m.content || ""),
-    }));
-
-    // ---- Long-term memory (fail-open) ----
-    let longTerm = [];
-    try {
-      const memory = await loadMemory(userId);
-      longTerm = Array.isArray(memory?.history) ? memory.history : [];
-    } catch (e) {
-      console.warn("⚠️ Memory load failed (fail-open):", e);
-      longTerm = [];
+    if (!process.env.OPENAI_API_KEY) {
+      clearTimeout(timeoutId);
+      return respond("Server misconfigured: missing OPENAI_API_KEY.");
     }
 
-    // Merge memory for core prompt (bounded)
-    const mergedHistory = [...longTerm, ...trimmedHistory].slice(-50);
+    const body = req.body || {};
+    const message = body.message;
 
-    // ---- Build system prompt (fail-open) ----
-    let systemPrompt = "You are Cipher.";
+    if (!message || typeof message !== "string") {
+      clearTimeout(timeoutId);
+      return respond("Say something real.");
+    }
+
+    // TEMP SINGLE USER
+    const userId = "jim";
+
+    // UI short-term context
+    const trimmedHistory = sanitizeUiHistory(body.history);
+
+    // Long-term memory (never allowed to kill chat)
+    let longTermHistory = [];
+    try {
+      const memoryData = await loadMemory(userId);
+      longTermHistory = Array.isArray(memoryData?.history) ? memoryData.history : [];
+    } catch (err) {
+      console.error("MEMORY LOAD FAILED:", err);
+      longTermHistory = [];
+    }
+
+    // Merge + normalize shape for core (this is the big fix)
+    // longTermHistory is already {type, role, content, importance...}
+    // UI history becomes the same shape before core sees it
+    const mergedHistory = [
+      ...longTermHistory,
+      ...uiToMemoryEntries(trimmedHistory),
+    ].slice(-50);
+
+    // Build system prompt (NEVER allowed to kill chat)
+    let systemPrompt = "You are Cipher. Respond normally.";
     try {
       systemPrompt = await runCipherCore(
         { history: mergedHistory },
         { userMessage: message }
       );
     } catch (err) {
-      console.error("CORE FAILED (fail-open):", err);
+      console.error("CORE FAILED:", err);
       systemPrompt = "You are Cipher. Respond normally.";
     }
 
@@ -60,10 +108,7 @@ export default async function handler(req, res) {
       { role: "user", content: message },
     ];
 
-    // ---- OpenAI call with timeout ----
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
-
+    // OpenAI call (never allowed to kill chat)
     let response;
     try {
       response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -79,55 +124,66 @@ export default async function handler(req, res) {
         }),
         signal: controller.signal,
       });
-    } finally {
-      clearTimeout(timeout);
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err?.name === "AbortError") return respond("That took too long. Try again.");
+      console.error("OPENAI FETCH FAILED:", err);
+      return respond("Transport error: upstream request failed.");
     }
 
     let data = null;
+    let rawText = "";
     try {
-      data = await response.json();
-    } catch (e) {
-      console.error("OPENAI JSON PARSE FAILED:", e);
-      return replyOut("Upstream error. Try again.");
+      rawText = await response.text();
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      console.error("OPENAI NON-JSON RESPONSE:", rawText);
+      return respond("Upstream returned junk. Try again.");
     }
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      console.error("OPENAI ERROR:", response.status, data);
-      const msg = data?.error?.message || "OpenAI error.";
-      return replyOut(msg);
+      const msg =
+        data?.error?.message ||
+        data?.message ||
+        `OpenAI error (${response.status}).`;
+      console.error("OPENAI ERROR STATUS:", response.status);
+      console.error("OPENAI ERROR BODY:", data);
+      return respond(msg);
     }
 
     const reply =
       data?.choices?.[0]?.message?.content?.trim() ||
       "…";
 
-    // ---- Save memory (fail-open) ----
+    // Save memory (never allowed to kill chat)
     try {
+      // Save user
       await saveMemory(userId, {
         type: "interaction",
         role: "user",
         content: message,
         importance: "medium",
       });
-
+      // Save assistant
       await saveMemory(userId, {
         type: "interaction",
         role: "assistant",
         content: reply,
         importance: "medium",
       });
-    } catch (e) {
-      console.warn("⚠️ Memory save failed (fail-open):", e);
+    } catch (err) {
+      console.error("MEMORY SAVE FAILED:", err);
+      // Don't block reply
     }
 
-    return replyOut(reply);
+    return respond(reply);
   } catch (err) {
-    console.error("CHAT API HARD CRASH:", err);
-
-    if (err?.name === "AbortError") {
-      return replyOut("That took too long. Try again.");
-    }
-
-    return replyOut("Cipher slipped for a second. Try again.");
+    clearTimeout(timeoutId);
+    if (err?.name === "AbortError") return respond("That took too long. Try again.");
+    console.error("API HARD CRASH:", err);
+    return respond(`Cipher caught itself. ${safeString(err?.message || "Try again.")}`);
   }
 }
