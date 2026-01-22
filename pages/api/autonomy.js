@@ -1,5 +1,6 @@
 import { db } from "../../firebaseAdmin";
 import admin from "firebase-admin";
+import { getSystemMap } from "../../lib/systemMap";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -24,7 +25,7 @@ export default async function handler(req, res) {
 
     const identity = anchorSnap.data().content;
 
-    // 2️⃣ Load recent memories (EXCLUDING identity_anchor)
+    // 2️⃣ Load recent memories
     const memSnap = await db
       .collection("cipher_memory")
       .where("type", "==", "memory")
@@ -34,24 +35,42 @@ export default async function handler(req, res) {
 
     const memories = memSnap.docs.map(d => d.data().content);
 
-    // 3️⃣ Generate reflection (internal only)
+    // 3️⃣ Load system body (repo map)
+    const systemMap = getSystemMap();
+
+    // 4️⃣ Generate structural self-summary
+    const systemSummary = {
+      totalFiles: systemMap.totalFiles || systemMap.files?.length || 0,
+      totalTokens: systemMap.totalTokens || null,
+      topFiles: systemMap.topFiles || [],
+      hasAutonomy: systemMap.files?.some(f => f.includes("pages/api/autonomy")) || true,
+      hasBrains: systemMap.files?.some(f => f.includes("brains")) || false,
+      timestamp: new Date().toISOString()
+    };
+
+    // 5️⃣ Internal reflection
     const reflection = {
       identity,
       memoryCount: memories.length,
-      summary: "Identity stable. Memory continuity intact. No conflicts detected.",
+      systemSummary,
+      summary: "System map loaded. Identity stable. Structural awareness online.",
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    // 4️⃣ Log reflection
+    // 6️⃣ Log reflection
     await db.collection("cipher_autonomy_logs").add(reflection);
 
+    // 7️⃣ Outward self-report
     return res.status(200).json({
       ok: true,
-      status: "Autonomy V8 reflection logged"
+      status: "Autonomy V9",
+      identity,
+      memoryCount: memories.length,
+      systemSummary
     });
 
   } catch (err) {
     console.error("AUTONOMY ERROR:", err);
-    return res.status(500).json({ ok: false });
+    return res.status(500).json({ ok: false, error: err.message });
   }
 }
