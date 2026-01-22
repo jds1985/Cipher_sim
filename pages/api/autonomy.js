@@ -1,3 +1,18 @@
+import fs from "fs";
+import path from "path";
+
+const systemMap = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), "_meta/repomap.json"), "utf-8")
+);
+
+const selfModel = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), "brains/self_model.json"), "utf-8")
+);
+
+const goals = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), "brains/goals.json"), "utf-8")
+);
+
 import { db } from "../../firebaseAdmin";
 import admin from "firebase-admin";
 import { getSystemMap } from "../../lib/systemMap";
