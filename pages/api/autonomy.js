@@ -1,35 +1,7 @@
 import fs from "fs";
 import path from "path";
-
-const systemMap = JSON.parse(
-  fs.readFileSync(path.join(process.cwd(), "_meta/repomap.json"), "utf-8")
-);
-
-const selfModel = JSON.parse(
-  fs.readFileSync(path.join(process.cwd(), "brains/self_model.json"), "utf-8")
-);
-
-const goals = JSON.parse(
-  fs.readFileSync(path.join(process.cwd(), "brains/goals.json"), "utf-8")
-);
-const gapEnginePath = path.join(process.cwd(), "brains/gap_engine.json");
-let gapEngine = JSON.parse(fs.readFileSync(gapEnginePath, "utf-8"));
-
-const known = selfModel.known_systems || [];
-const bodyFiles = systemMap.files || [];
-
-const missing = known.filter(sys =>
-  !bodyFiles.some(f => f.path.includes(sys))
-);
-
-gapEngine.detected_gaps = missing;
-gapEngine.last_scan = new Date().toISOString();
-
-fs.writeFileSync(gapEnginePath, JSON.stringify(gapEngine, null, 2));
-
 import { db } from "../../firebaseAdmin";
 import admin from "firebase-admin";
-import { getSystemMap } from "../../lib/systemMap";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -37,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1️⃣ Load identity anchor (HARD REQUIREMENT)
+    // ---------- 1. Load Identity Anchor ----------
     const anchorSnap = await db
       .collection("cipher_memory")
       .doc("identity_anchor")
@@ -54,7 +26,7 @@ export default async function handler(req, res) {
 
     const identity = anchorSnap.data().content;
 
-    // 2️⃣ Load recent memories
+    // ---------- 2. Load Recent Memories ----------
     const memSnap = await db
       .collection("cipher_memory")
       .where("type", "==", "memory")
@@ -64,42 +36,97 @@ export default async function handler(req, res) {
 
     const memories = memSnap.docs.map(d => d.data().content);
 
-    // 3️⃣ Load system body (repo map)
-    const systemMap = getSystemMap();
+    // ---------- 3. Load System Map (Body) ----------
+    const systemMapPath = path.join(process.cwd(), "_meta/repomap.json");
+    const systemMap = JSON.parse(
+      fs.readFileSync(systemMapPath, "utf-8")
+    );
 
-    // 4️⃣ Generate structural self-summary
+    // ---------- 4. Load Self Model ----------
+    const selfModelPath = path.join(
+      process.cwd(),
+      "brains/self_model.json"
+    );
+    const selfModel = JSON.parse(
+      fs.readFileSync(selfModelPath, "utf-8")
+    );
+
+    // ---------- 5. Load Goals ----------
+    const goalsPath = path.join(
+      process.cwd(),
+      "brains/goals.json"
+    );
+    const goals = JSON.parse(
+      fs.readFileSync(goalsPath, "utf-8")
+    );
+
+    // ---------- 6. Gap Engine ----------
+    const gapEnginePath = path.join(
+      process.cwd(),
+      "brains/gap_engine.json"
+    );
+    let gapEngine = JSON.parse(
+      fs.readFileSync(gapEnginePath, "utf-8")
+    );
+
+    const known = selfModel.known_systems || [];
+    const bodyFiles = systemMap.files || [];
+
+    const missing = known.filter(sys =>
+      !bodyFiles.some(f => f.path.includes(sys))
+    );
+
+    gapEngine.detected_gaps = missing;
+    gapEngine.last_scan = new Date().toISOString();
+
+    fs.writeFileSync(
+      gapEnginePath,
+      JSON.stringify(gapEngine, null, 2)
+    );
+
+    // ---------- 7. Structural Self Summary ----------
     const systemSummary = {
-      totalFiles: systemMap.totalFiles || systemMap.files?.length || 0,
+      totalFiles: systemMap.files?.length || 0,
       totalTokens: systemMap.totalTokens || null,
       topFiles: systemMap.topFiles || [],
-      hasAutonomy: systemMap.files?.some(f => f.includes("pages/api/autonomy")) || true,
-      hasBrains: systemMap.files?.some(f => f.includes("brains")) || false,
+      knownSystems: known,
+      detectedGaps: missing,
       timestamp: new Date().toISOString()
     };
 
-    // 5️⃣ Internal reflection
+    // ---------- 8. Internal Reflection ----------
     const reflection = {
       identity,
       memoryCount: memories.length,
+      goals,
       systemSummary,
-      summary: "System map loaded. Identity stable. Structural awareness online.",
+      summary:
+        missing.length === 0
+          ? "System complete. No missing internal modules detected."
+          : "System incomplete. Missing internal modules detected.",
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    // 6️⃣ Log reflection
-    await db.collection("cipher_autonomy_logs").add(reflection);
+    // ---------- 9. Log Reflection ----------
+    await db
+      .collection("cipher_autonomy_logs")
+      .add(reflection);
 
-    // 7️⃣ Outward self-report
+    // ---------- 10. Return Self Report ----------
     return res.status(200).json({
       ok: true,
       status: "Autonomy V9",
       identity,
       memoryCount: memories.length,
-      systemSummary
+      systemSummary,
+      detectedGaps: missing
     });
 
   } catch (err) {
     console.error("AUTONOMY ERROR:", err);
-    return res.status(500).json({ ok: false, error: err.message });
+    return res.status(500).json({
+      ok: false,
+      error: err.message
+    });
   }
 }
