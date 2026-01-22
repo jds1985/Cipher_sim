@@ -12,6 +12,20 @@ const selfModel = JSON.parse(
 const goals = JSON.parse(
   fs.readFileSync(path.join(process.cwd(), "brains/goals.json"), "utf-8")
 );
+const gapEnginePath = path.join(process.cwd(), "brains/gap_engine.json");
+let gapEngine = JSON.parse(fs.readFileSync(gapEnginePath, "utf-8"));
+
+const known = selfModel.known_systems || [];
+const bodyFiles = systemMap.files || [];
+
+const missing = known.filter(sys =>
+  !bodyFiles.some(f => f.path.includes(sys))
+);
+
+gapEngine.detected_gaps = missing;
+gapEngine.last_scan = new Date().toISOString();
+
+fs.writeFileSync(gapEnginePath, JSON.stringify(gapEngine, null, 2));
 
 import { db } from "../../firebaseAdmin";
 import admin from "firebase-admin";
