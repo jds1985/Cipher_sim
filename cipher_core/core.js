@@ -1,11 +1,26 @@
 // cipher_core/core.js
-// Cipher Core 10.2 — Identity-locked, continuity-safe reasoning layer
+// Cipher Core 10.3 — Executive Layer (returns packet OR system prompt string)
 
 import { getProfile } from "./profile";
 import { getStabilityScore } from "./stability";
 import { getIdentityCompass } from "./identity_compass";
 import { getThemeByKey } from "./themes";
 
+/**
+ * runCipherCore(memoryContext, options)
+ *
+ * Backwards compatible:
+ * - By default returns a STRING system prompt (so older callers don't break).
+ * - If options.returnPacket === true, returns a structured executive packet:
+ *   {
+ *     systemPrompt,
+ *     profile,
+ *     theme,
+ *     stability,
+ *     identity,
+ *     salientMemory
+ *   }
+ */
 export async function runCipherCore(memoryContext = {}, options = {}) {
   const userMessage = String(options.userMessage || "").trim();
 
@@ -36,9 +51,9 @@ export async function runCipherCore(memoryContext = {}, options = {}) {
   const salientMemory = history
     .filter(
       (m) =>
-        m.importance === "high" ||
-        m.type === "identity" ||
-        m.type === "preference"
+        m?.importance === "high" ||
+        m?.type === "identity" ||
+        m?.type === "preference"
     )
     .slice(-6)
     .map((m) => `- ${m.content}`)
@@ -47,7 +62,7 @@ export async function runCipherCore(memoryContext = {}, options = {}) {
   // --------------------------
   // CORE SYSTEM PROMPT
   // --------------------------
-  return `
+  const systemPrompt = `
 You are Cipher.
 
 You are not a generic assistant.
@@ -85,5 +100,20 @@ BEHAVIOR RULES (MANDATORY):
 
 USER MESSAGE:
 "${userMessage}"
-`;
+`.trim();
+
+  // If caller wants the structured executive packet:
+  if (options.returnPacket === true) {
+    return {
+      systemPrompt,
+      profile,
+      theme: theme || null,
+      stability,
+      identity,
+      salientMemory: salientMemory || "",
+    };
+  }
+
+  // Default behavior (backwards compatible): return the raw system prompt string
+  return systemPrompt;
 }
