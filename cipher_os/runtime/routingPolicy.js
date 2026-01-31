@@ -1,8 +1,31 @@
 // cipher_os/runtime/routingPolicy.js
-// Phase 1: Always route to OpenAI (we’ll expand in Phase 2)
+// Real routing logic
 
 export function chooseModel({ userMessage }) {
-  // In Phase 2 we add Claude/Gemini logic here.
-  // For now, keep behavior identical but structured.
+  const msg = userMessage.toLowerCase();
+
+  // Claude = reasoning / engineering
+  if (
+    msg.includes("architecture") ||
+    msg.includes("refactor") ||
+    msg.includes("design") ||
+    msg.includes("build") ||
+    msg.includes("debug") ||
+    msg.includes("code")
+  ) {
+    return "anthropic";
+  }
+
+  // Gemini = large context / docs
+  if (
+    msg.includes("document") ||
+    msg.includes("analyze file") ||
+    msg.includes("summarize") ||
+    msg.length > 800
+  ) {
+    return "gemini";
+  }
+
+  // Default: OpenAI = persona continuity
   return "openai";
 }
