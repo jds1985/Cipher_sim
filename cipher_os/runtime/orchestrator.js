@@ -1,9 +1,18 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator V0 (Phase 1: OpenAI only, but structured)
+// Cipher OS Orchestrator V0.2 — Multi-model + fallback
 
 import { chooseModel } from "./routingPolicy";
 import { MODEL_REGISTRY } from "./modelRegistry";
+
 import { openaiGenerate } from "../models/openaiAdapter";
+import { anthropicGenerate } from "../models/anthropicAdapter";
+import { geminiGenerate } from "../models/geminiAdapter";
+
+const ADAPTERS = {
+  openai: openaiGenerate,
+  anthropic: anthropicGenerate,
+  gemini: geminiGenerate,
+};
 
 export async function runOrchestrator({
   osContext,
@@ -14,37 +23,48 @@ export async function runOrchestrator({
   const userMessage = osContext?.input?.userMessage || "";
   const uiMessages = osContext?.memory?.uiHistory || [];
 
-  // Decide model (Phase 1: always OpenAI)
-  const chosen = chooseModel({ userMessage });
+  const primary = chooseModel({ userMessage });
+  trace?.log("route.primary", { primary });
 
-  trace?.log("route.decide", { chosen });
+  const fallbackOrder = ["openai", "anthropic", "gemini"]
+    .filter((m) => m !== primary);
 
-  const modelInfo = MODEL_REGISTRY[chosen];
-  if (!modelInfo || modelInfo.enabled !== true) {
-    trace?.log("route.error", { reason: "model_disabled_or_missing", chosen });
-    throw new Error(`Model unavailable: ${chosen}`);
+  const attemptList = [primary, ...fallbackOrder];
+
+  for (const modelKey of attemptList) {
+    const adapter = ADAPTERS[modelKey];
+    if (!adapter) continue;
+
+    try {
+      trace?.log("model.call", { provider: modelKey });
+
+      const out = await adapter({
+        systemPrompt: executivePacket?.systemPrompt,
+        messages: uiMessages,
+        userMessage,
+        signal,
+        temperature: 0.6,
+      });
+
+      trace?.log("model.ok", {
+        provider: modelKey,
+        model: out.modelUsed,
+      });
+
+      return {
+        reply: out.reply,
+        modelUsed: {
+          provider: modelKey,
+          model: out.modelUsed,
+        },
+      };
+    } catch (err) {
+      trace?.log("model.fail", {
+        provider: modelKey,
+        error: err.message,
+      });
+    }
   }
 
-  // Call adapter
-  if (chosen === "openai") {
-    trace?.log("model.call", { provider: "openai" });
-
-    const out = await openaiGenerate({
-      systemPrompt: executivePacket?.systemPrompt,
-      messages: uiMessages,
-      userMessage,
-      signal,
-      temperature: 0.6,
-    });
-
-    trace?.log("model.ok", { provider: "openai", model: out.modelUsed });
-
-    return {
-      reply: out.reply,
-      modelUsed: { provider: "openai", model: out.modelUsed },
-    };
-  }
-
-  // Future providers will go here (anthropic/gemini)
-  throw new Error(`No adapter implemented for: ${chosen}`);
+  throw new Error("All models failed.");
 }
