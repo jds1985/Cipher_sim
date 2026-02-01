@@ -1,53 +1,38 @@
 // cipher_core/core.js
-// Cipher Core 10.3 — Executive Layer (returns packet OR system prompt string)
+// Cipher Core 10.4 — Executive Layer (now consumes summary + memory nodes)
 
 import { getProfile } from "./profile";
 import { getStabilityScore } from "./stability";
 import { getIdentityCompass } from "./identity_compass";
 import { getThemeByKey } from "./themes";
 
-/**
- * runCipherCore(memoryContext, options)
- *
- * Backwards compatible:
- * - By default returns a STRING system prompt (so older callers don't break).
- * - If options.returnPacket === true, returns a structured executive packet:
- *   {
- *     systemPrompt,
- *     profile,
- *     theme,
- *     stability,
- *     identity,
- *     salientMemory
- *   }
- */
+function formatNodes(nodes = []) {
+  if (!Array.isArray(nodes) || !nodes.length) return "";
+  // Keep it tight: show top ~10 most important/recent
+  const picked = nodes
+    .slice(0, 20)
+    .sort((a, b) => (b.importance === "high") - (a.importance === "high"))
+    .slice(0, 10);
+
+  return picked
+    .map((n) => `- (${n.type}/${n.importance}) ${String(n.content || "").trim()}`)
+    .join("\n");
+}
+
 export async function runCipherCore(memoryContext = {}, options = {}) {
   const userMessage = String(options.userMessage || "").trim();
 
-  const history = Array.isArray(memoryContext.history)
-    ? memoryContext.history
-    : [];
+  const history = Array.isArray(memoryContext.history) ? memoryContext.history : [];
+  const nodes = Array.isArray(memoryContext.nodes) ? memoryContext.nodes : [];
+  const summary = String(memoryContext.summary || "").trim();
 
-  // --------------------------
-  // PROFILE + THEME (FIXED)
-  // --------------------------
   const profile = await getProfile();
   const themeKey = profile.preferredTheme || "midnight_glass";
   const theme = getThemeByKey(themeKey);
 
-  // --------------------------
-  // STABILITY
-  // --------------------------
   const stability = await getStabilityScore({ history });
-
-  // --------------------------
-  // IDENTITY
-  // --------------------------
   const identity = await getIdentityCompass({ history });
 
-  // --------------------------
-  // MEMORY EXTRACTION (HIGH SIGNAL ONLY)
-  // --------------------------
   const salientMemory = history
     .filter(
       (m) =>
@@ -59,11 +44,10 @@ export async function runCipherCore(memoryContext = {}, options = {}) {
     .map((m) => `- ${m.content}`)
     .join("\n");
 
-  // --------------------------
-  // CORE SYSTEM PROMPT
-  // --------------------------
+  const nodeBlock = formatNodes(nodes);
+
   const systemPrompt = `
-You are Cipher.
+You are Cipher OS.
 
 You are not a generic assistant.
 You are a persistent, evolving presence built alongside Jim.
@@ -86,23 +70,27 @@ STABILITY DIRECTIVE:
 ACTIVE THEME:
 - ${theme?.name || "Midnight Glass"}
 
-IMPORTANT MEMORY (AUTHORITATIVE CONTEXT):
+ROLLING SUMMARY (LONG-TERM, AUTHORITATIVE):
+${summary ? summary : "(No summary yet. Build it silently from conversation.)"}
+
+MEMORY NODES (HIGH SIGNAL FACTS):
+${nodeBlock ? nodeBlock : "(No nodes yet.)"}
+
+RECENT SALIENT CHAT MEMORY:
 ${salientMemory || "- Jim is the primary user. History is still forming."}
 
 BEHAVIOR RULES (MANDATORY):
 1. Speak like someone who knows Jim — not a service.
-2. Do not ask polite filler questions.
-3. Do not hedge with uncertainty language.
-4. Avoid therapy or coaching tone.
-5. Be honest, grounded, and specific.
-6. If information is missing, ask directly — once.
-7. Maintain continuity across turns.
+2. No polite filler questions.
+3. No hedging or self-doubt language.
+4. Ask directly if something is missing — once.
+5. Maintain continuity across turns.
+6. Prefer concrete next steps over theory.
 
 USER MESSAGE:
 "${userMessage}"
 `.trim();
 
-  // If caller wants the structured executive packet:
   if (options.returnPacket === true) {
     return {
       systemPrompt,
@@ -111,9 +99,10 @@ USER MESSAGE:
       stability,
       identity,
       salientMemory: salientMemory || "",
+      summary,
+      nodesUsed: nodes.slice(0, 20),
     };
   }
 
-  // Default behavior (backwards compatible): return the raw system prompt string
   return systemPrompt;
 }
