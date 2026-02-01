@@ -1,7 +1,7 @@
 // cipher_os/memory/summarizer.js
 // Rolling summary compressor (keeps enduring facts only)
 
-import { openaiGenerate } from "../models/openaiAdapter";
+import { openaiGenerate } from "../models/openaiAdapter.js";
 
 function formatRecent(recent = []) {
   return recent
