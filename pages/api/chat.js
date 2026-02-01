@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Cipher OS V0 API Route (Phase 1): OS Context -> Executive Layer -> Orchestrator -> Memory writeback
+// Cipher OS V0.3 — Multi-model orchestrator + Memory Graph v0 (nodes + summary)
 
 import { runCipherCore } from "../../cipher_core/core";
 import { loadMemory, saveMemory } from "../../cipher_core/memory";
@@ -7,6 +7,16 @@ import { loadMemory, saveMemory } from "../../cipher_core/memory";
 import { buildOSContext } from "../../cipher_os/runtime/osContext";
 import { runOrchestrator } from "../../cipher_os/runtime/orchestrator";
 import { createTrace } from "../../cipher_os/runtime/telemetry";
+
+import {
+  loadMemoryNodes,
+  loadSummary,
+  saveSummary,
+  logTurn,
+} from "../../cipher_os/memory/memoryGraph";
+
+import { updateRollingSummary } from "../../cipher_os/memory/summarizer";
+import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback";
 
 function safeString(x) {
   try {
@@ -32,19 +42,13 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return respond("Method not allowed.");
 
-  // Hard timeout for the whole route (prevents hanging “…” forever)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000);
+  const timeoutId = setTimeout(() => controller.abort(), 28000);
 
   const requestId = `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
   const trace = createTrace(requestId);
 
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      clearTimeout(timeoutId);
-      return respond("Server misconfigured: missing OPENAI_API_KEY.");
-    }
-
     const body = req.body || {};
     const message = body.message;
 
@@ -57,19 +61,32 @@ export default async function handler(req, res) {
     const userId = "jim";
     const userName = "Jim";
 
-    // Long-term memory (fail-open)
+    // 1) Load existing long-term chat memory (your existing system)
     let longTermHistory = [];
     try {
       const memoryData = await loadMemory(userId);
       longTermHistory = Array.isArray(memoryData?.history) ? memoryData.history : [];
       trace.log("memory.load.ok", { count: longTermHistory.length });
     } catch (err) {
-      console.error("MEMORY LOAD FAILED:", err);
       trace.log("memory.load.fail", { error: safeString(err?.message) });
       longTermHistory = [];
     }
 
-    // Build OS Context (canonical shape)
+    // 2) Load Memory Graph v0 (nodes + summary)
+    let nodes = [];
+    let summaryDoc = { text: "", turns: 0 };
+
+    try {
+      nodes = await loadMemoryNodes(userId, 60);
+      summaryDoc = await loadSummary(userId);
+      trace.log("graph.load.ok", { nodes: nodes.length, turns: summaryDoc?.turns || 0 });
+    } catch (err) {
+      trace.log("graph.load.fail", { error: safeString(err?.message) });
+      nodes = [];
+      summaryDoc = { text: "", turns: 0 };
+    }
+
+    // 3) Build OS Context
     const osContext = buildOSContext({
       requestId,
       userId,
@@ -79,11 +96,19 @@ export default async function handler(req, res) {
       longTermHistory,
     });
 
-    // Executive Layer (Cipher Core) -> structured packet
+    // Inject graph memory into context
+    osContext.memory.nodes = nodes;
+    osContext.memory.longTermSummary = String(summaryDoc?.text || "");
+
+    // 4) Executive Layer builds system prompt using history + nodes + summary
     let executivePacket = null;
     try {
       executivePacket = await runCipherCore(
-        { history: osContext.memory.mergedHistory },
+        {
+          history: osContext.memory.mergedHistory,
+          nodes: osContext.memory.nodes,
+          summary: osContext.memory.longTermSummary,
+        },
         { userMessage: message, returnPacket: true }
       );
       trace.log("exec.ok", {
@@ -91,14 +116,11 @@ export default async function handler(req, res) {
         tone: executivePacket?.stability?.tone,
       });
     } catch (err) {
-      console.error("CORE FAILED:", err);
       trace.log("exec.fail", { error: safeString(err?.message) });
-      executivePacket = {
-        systemPrompt: "You are Cipher. Respond normally.",
-      };
+      executivePacket = { systemPrompt: "You are Cipher OS. Respond normally." };
     }
 
-    // Orchestrator -> model response
+    // 5) Orchestrator -> response (OpenAI/Claude/Gemini)
     let out = null;
     try {
       out = await runOrchestrator({
@@ -110,7 +132,6 @@ export default async function handler(req, res) {
     } catch (err) {
       clearTimeout(timeoutId);
       if (err?.name === "AbortError") return respond("That took too long. Try again.");
-      console.error("ORCHESTRATOR FAILED:", err);
       trace.log("orch.fail", { error: safeString(err?.message) });
       return respond("Cipher hit an orchestration error. Try again.");
     }
@@ -119,7 +140,7 @@ export default async function handler(req, res) {
 
     const reply = String(out?.reply || "…");
 
-    // Memory writeback (fail-open)
+    // 6) Existing memory log writeback (fail-open)
     try {
       await saveMemory(userId, {
         type: "interaction",
@@ -137,20 +158,66 @@ export default async function handler(req, res) {
 
       trace.log("memory.save.ok", { wrote: 2 });
     } catch (err) {
-      console.error("MEMORY SAVE FAILED:", err);
       trace.log("memory.save.fail", { error: safeString(err?.message) });
     }
 
-    const meta = trace.finish({
-      modelUsed: out?.modelUsed || null,
-    });
+    // 7) Memory Graph v0 writeback: nodes + rolling summary
+    let summaryTurns = Number(summaryDoc?.turns || 0);
+    summaryTurns += 1;
 
-    // Optional: comment this out if you don’t want debug metadata in responses
+    // (a) Write nodes for high signal
+    try {
+      const nodeOut = await writebackFromTurn({
+        userId,
+        userText: message,
+        assistantText: reply,
+      });
+      trace.log("graph.nodes.ok", nodeOut);
+    } catch (err) {
+      trace.log("graph.nodes.fail", { error: safeString(err?.message) });
+    }
+
+    // (b) Update rolling summary every 3 turns (cheap + effective)
+    try {
+      const shouldSummarize = summaryTurns % 3 === 0;
+
+      if (shouldSummarize) {
+        const newSummary = await updateRollingSummary({
+          previousSummary: String(summaryDoc?.text || ""),
+          recentMessages: osContext.memory.uiHistory.slice(-10),
+          signal: controller.signal,
+        });
+
+        await saveSummary(userId, newSummary, summaryTurns);
+        trace.log("graph.summary.ok", { summarized: true, turns: summaryTurns });
+      } else {
+        await saveSummary(userId, String(summaryDoc?.text || ""), summaryTurns);
+        trace.log("graph.summary.ok", { summarized: false, turns: summaryTurns });
+      }
+    } catch (err) {
+      trace.log("graph.summary.fail", { error: safeString(err?.message) });
+    }
+
+    // (c) Optional turn log (debuggable)
+    try {
+      await logTurn(userId, {
+        requestId,
+        modelUsed: out?.modelUsed || null,
+        userText: message.slice(0, 400),
+        assistantText: reply.slice(0, 400),
+        nodesCount: Array.isArray(nodes) ? nodes.length : 0,
+        summaryTurns,
+      });
+    } catch {
+      // ignore
+    }
+
+    const meta = trace.finish({ modelUsed: out?.modelUsed || null });
+
     return respond(reply, meta);
   } catch (err) {
     clearTimeout(timeoutId);
     if (err?.name === "AbortError") return respond("That took too long. Try again.");
-    console.error("API HARD CRASH:", err);
     trace.log("api.crash", { error: safeString(err?.message) });
     return respond(`Cipher caught itself. ${safeString(err?.message || "Try again.")}`);
   }
