@@ -1,6 +1,15 @@
+import { db } from "./db";
+
 export default async function handler(req, res) {
+  await db.collection("cipher_os_sanity").doc("ping").set({
+    ok: true,
+    time: Date.now(),
+  });
+
+  const snap = await db.collection("cipher_os_sanity").doc("ping").get();
+
   res.json({
-    hasBase64: !!process.env.FIREBASE_ADMIN_BASE64,
-    hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+    success: true,
+    data: snap.data(),
   });
 }
