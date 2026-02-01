@@ -1,15 +1,26 @@
-import { db } from "./db";
+import admin from "firebase-admin";
 
 export default async function handler(req, res) {
-  await db.collection("cipher_os_sanity").doc("ping").set({
-    ok: true,
-    time: Date.now(),
-  });
+  try {
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+        }),
+      });
+    }
 
-  const snap = await db.collection("cipher_os_sanity").doc("ping").get();
-
-  res.json({
-    success: true,
-    data: snap.data(),
-  });
+    res.json({
+      success: true,
+      project: process.env.FIREBASE_PROJECT_ID,
+      email: process.env.FIREBASE_CLIENT_EMAIL,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+      stack: err.stack,
+    });
+  }
 }
