@@ -1,12 +1,12 @@
 // cipher_os/runtime/orchestrator.js
 // Cipher OS Orchestrator V0.2 — Multi-model + fallback
 
-import { chooseModel } from "./routingPolicy";
-import { MODEL_REGISTRY } from "./modelRegistry";
+import { chooseModel } from "./routingPolicy.js";
+import { MODEL_REGISTRY } from "./modelRegistry.js";
 
-import { openaiGenerate } from "../models/openaiAdapter";
-import { anthropicGenerate } from "../models/anthropicAdapter";
-import { geminiGenerate } from "../models/geminiAdapter";
+import { openaiGenerate } from "../models/openaiAdapter.js";
+import { anthropicGenerate } from "../models/anthropicAdapter.js";
+import { geminiGenerate } from "../models/geminiAdapter.js";
 
 const ADAPTERS = {
   openai: openaiGenerate,
