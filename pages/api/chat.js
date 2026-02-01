@@ -2,21 +2,21 @@
 // Cipher OS V0.3 — Multi-model orchestrator + Memory Graph v0 (nodes + summary)
 
 import { runCipherCore } from "../../cipher_core/core.js";
-import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
+import { loadMemory, saveMemory } from "../../cipher_core/memory";
 
-import { buildOSContext } from "../../cipher_os/runtime/osContext.js";
-import { runOrchestrator } from "../../cipher_os/runtime/orchestrator.js";
-import { createTrace } from "../../cipher_os/runtime/telemetry.js";
+import { buildOSContext } from "../../cipher_os/runtime/osContext";
+import { runOrchestrator } from "../../cipher_os/runtime/orchestrator";
+import { createTrace } from "../../cipher_os/runtime/telemetry";
 
 import {
   loadMemoryNodes,
   loadSummary,
   saveSummary,
   logTurn,
-} from "../../cipher_os/memory/memoryGraph.js";
+} from "../../cipher_os/memory/memoryGraph";
 
-import { updateRollingSummary } from "../../cipher_os/memory/summarizer.js";
-import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback.js";
+import { updateRollingSummary } from "../../cipher_os/memory/summarizer";
+import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback";
 
 function safeString(x) {
   try {
@@ -66,7 +66,9 @@ export default async function handler(req, res) {
       longTermHistory = Array.isArray(memoryData?.history)
         ? memoryData.history
         : [];
-    } catch {
+      trace.log("memory.load.ok", { count: longTermHistory.length });
+    } catch (err) {
+      trace.log("memory.load.fail", { error: safeString(err?.message) });
       longTermHistory = [];
     }
 
@@ -76,7 +78,12 @@ export default async function handler(req, res) {
     try {
       nodes = await loadMemoryNodes(userId, 60);
       summaryDoc = await loadSummary(userId);
-    } catch {
+      trace.log("graph.load.ok", {
+        nodes: nodes.length,
+        turns: summaryDoc?.turns || 0,
+      });
+    } catch (err) {
+      trace.log("graph.load.fail", { error: safeString(err?.message) });
       nodes = [];
       summaryDoc = { text: "", turns: 0 };
     }
@@ -86,14 +93,14 @@ export default async function handler(req, res) {
       userId,
       userName,
       userMessage: message,
-      uiHistory: body.history || [],
+      uiHistory: body.history,
       longTermHistory,
     });
 
     osContext.memory.nodes = nodes;
     osContext.memory.longTermSummary = String(summaryDoc?.text || "");
 
-    let executivePacket;
+    let executivePacket = null;
     try {
       executivePacket = await runCipherCore(
         {
@@ -109,7 +116,7 @@ export default async function handler(req, res) {
       };
     }
 
-    let out;
+    let out = null;
     try {
       out = await runOrchestrator({
         osContext,
@@ -118,70 +125,49 @@ export default async function handler(req, res) {
         trace,
       });
     } catch {
-      clearTimeout(timeoutId);
       return respond("Cipher orchestration error.");
     }
 
-    clearTimeout(timeoutId);
     const reply = String(out?.reply || "…");
 
-    try {
-      await saveMemory(userId, {
-        type: "interaction",
-        role: "user",
-        content: message,
-      });
+    await saveMemory(userId, {
+      type: "interaction",
+      role: "user",
+      content: message,
+    });
 
-      await saveMemory(userId, {
-        type: "interaction",
-        role: "assistant",
-        content: reply,
-      });
-    } catch {}
+    await saveMemory(userId, {
+      type: "interaction",
+      role: "assistant",
+      content: reply,
+    });
 
     let summaryTurns = Number(summaryDoc?.turns || 0) + 1;
 
-    try {
-      await writebackFromTurn({
+    await writebackFromTurn({
+      userId,
+      userText: message,
+      assistantText: reply,
+    });
+
+    if (summaryTurns % 3 === 0) {
+      const newSummary = await updateRollingSummary({
+        previousSummary: String(summaryDoc?.text || ""),
+        recentMessages: osContext.memory.uiHistory.slice(-10),
+        signal: controller.signal,
+      });
+      await saveSummary(userId, newSummary, summaryTurns);
+    } else {
+      await saveSummary(
         userId,
-        userText: message,
-        assistantText: reply,
-      });
-    } catch {}
-
-    try {
-      if (summaryTurns % 3 === 0) {
-        const newSummary = await updateRollingSummary({
-          previousSummary: String(summaryDoc?.text || ""),
-          recentMessages: osContext.memory.uiHistory.slice(-10),
-          signal: controller.signal,
-        });
-
-        await saveSummary(userId, newSummary, summaryTurns);
-      } else {
-        await saveSummary(
-          userId,
-          String(summaryDoc?.text || ""),
-          summaryTurns
-        );
-      }
-    } catch {}
-
-    try {
-      await logTurn(userId, {
-        requestId,
-        modelUsed: out?.modelUsed || null,
-        userText: message.slice(0, 400),
-        assistantText: reply.slice(0, 400),
-        nodesCount: nodes.length,
-        summaryTurns,
-      });
-    } catch {}
+        String(summaryDoc?.text || ""),
+        summaryTurns
+      );
+    }
 
     const meta = trace.finish({ modelUsed: out?.modelUsed || null });
     return respond(reply, meta);
   } catch (err) {
-    clearTimeout(timeoutId);
-    return respond("Cipher crashed: " + safeString(err?.message));
+    return respond(`Cipher crashed: ${safeString(err?.message)}`);
   }
 }
