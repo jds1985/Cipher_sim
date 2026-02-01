@@ -1,7 +1,7 @@
 // cipher_core/memory.js
 // Firestore-backed memory engine (fail-open + bounded + transaction-safe)
 
-import { getDb } from "../firebaseAdmin";
+import { getDb } from "../firebaseAdmin.js";
 
 /* ===============================
    CONFIG
