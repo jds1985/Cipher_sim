@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { db } from "../../firebaseAdmin";
-import admin from "firebase-admin";
+import { db, admin } from "../../firebaseAdmin";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -36,7 +35,7 @@ export default async function handler(req, res) {
 
     const memories = memSnap.docs.map(d => d.data().content);
 
-    // ---------- 3. Load System Map (Body) ----------
+    // ---------- 3. Load System Map ----------
     const systemMapPath = path.join(process.cwd(), "_meta/repomap.json");
     const systemMap = JSON.parse(
       fs.readFileSync(systemMapPath, "utf-8")
