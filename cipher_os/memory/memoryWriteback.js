@@ -1,7 +1,7 @@
 // cipher_os/memory/memoryWriteback.js
 // Heuristic memory extraction + writeback (v0)
 
-import { writeMemoryNode } from "./memoryGraph";
+import { writeMemoryNode } from "./memoryGraph.js";
 
 function looksHighSignal(text) {
   const t = (text || "").toLowerCase();
