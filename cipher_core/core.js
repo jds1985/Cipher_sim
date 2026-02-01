@@ -1,10 +1,10 @@
 // cipher_core/core.js
 // Cipher Core 10.4 — Executive Layer (now consumes summary + memory nodes)
 
-import { getProfile } from "./profile";
-import { getStabilityScore } from "./stability";
-import { getIdentityCompass } from "./identity_compass";
-import { getThemeByKey } from "./themes";
+import { getProfile } from "./profile.js";
+import { getStabilityScore } from "./stability.js";
+import { getIdentityCompass } from "./identity_compass.js";
+import { getThemeByKey } from "./themes.js";
 
 function formatNodes(nodes = []) {
   if (!Array.isArray(nodes) || !nodes.length) return "";
