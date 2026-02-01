@@ -1,11 +1,14 @@
 // cipher_os/memory/memoryGraph.js
 // Memory Graph v0 (Firestore) — load/write memory nodes + rolling summary
 
-import { db } from "../../pages/api/db";
+import { getDb } from "../../firebaseAdmin.js";
 
 const NODES_LIMIT = 60;
 
 export async function loadMemoryNodes(userId, limit = NODES_LIMIT) {
+  const db = getDb();
+  if (!db || !userId) return [];
+
   const snap = await db
     .collection("memory_nodes")
     .doc(userId)
@@ -18,6 +21,9 @@ export async function loadMemoryNodes(userId, limit = NODES_LIMIT) {
 }
 
 export async function writeMemoryNode(userId, node) {
+  const db = getDb();
+  if (!db || !userId || !node) return null;
+
   const ref = db
     .collection("memory_nodes")
     .doc(userId)
@@ -40,6 +46,9 @@ export async function writeMemoryNode(userId, node) {
 }
 
 export async function bumpMemoryNode(userId, nodeId, patch = {}) {
+  const db = getDb();
+  if (!db || !userId || !nodeId) return;
+
   const ref = db
     .collection("memory_nodes")
     .doc(userId)
@@ -56,12 +65,18 @@ export async function bumpMemoryNode(userId, nodeId, patch = {}) {
 }
 
 export async function loadSummary(userId) {
+  const db = getDb();
+  if (!db || !userId) return { text: "", lastUpdated: 0, turns: 0 };
+
   const ref = db.collection("summaries").doc(userId);
   const snap = await ref.get();
   return snap.exists ? snap.data() : { text: "", lastUpdated: 0, turns: 0 };
 }
 
 export async function saveSummary(userId, summaryText, turns = 0) {
+  const db = getDb();
+  if (!db || !userId) return;
+
   const ref = db.collection("summaries").doc(userId);
   await ref.set(
     {
@@ -74,7 +89,9 @@ export async function saveSummary(userId, summaryText, turns = 0) {
 }
 
 export async function logTurn(userId, payload) {
-  // Optional: helpful for debugging memory behavior
+  const db = getDb();
+  if (!db || !userId || !payload) return null;
+
   const ref = db
     .collection("cipher_os_logs")
     .doc(userId)
