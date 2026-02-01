@@ -2,21 +2,21 @@
 // Cipher OS V0.3 — Multi-model orchestrator + Memory Graph v0 (nodes + summary)
 
 import { runCipherCore } from "../../cipher_core/core.js";
-import { loadMemory, saveMemory } from "../../cipher_core/memory";
+import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
 
-import { buildOSContext } from "../../cipher_os/runtime/osContext";
-import { runOrchestrator } from "../../cipher_os/runtime/orchestrator";
-import { createTrace } from "../../cipher_os/runtime/telemetry";
+import { buildOSContext } from "../../cipher_os/runtime/osContext.js";
+import { runOrchestrator } from "../../cipher_os/runtime/orchestrator.js";
+import { createTrace } from "../../cipher_os/runtime/telemetry.js";
 
 import {
   loadMemoryNodes,
   loadSummary,
   saveSummary,
   logTurn,
-} from "../../cipher_os/memory/memoryGraph";
+} from "../../cipher_os/memory/memoryGraph.js";
 
-import { updateRollingSummary } from "../../cipher_os/memory/summarizer";
-import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback";
+import { updateRollingSummary } from "../../cipher_os/memory/summarizer.js";
+import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback.js";
 
 function safeString(x) {
   try {
