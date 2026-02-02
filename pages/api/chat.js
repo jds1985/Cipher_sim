@@ -15,7 +15,7 @@ import {
   logTurn,
 } from "../../cipher_os/memory/memoryGraph.js";
 
-import { updateRollingSummary } from "../../cipher_os/memory/summarizer.js";
+import { updateRollingSummary } from "../../../cipher_os/memory/summarizer.js";
 import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback.js";
 
 function safeString(x) {
