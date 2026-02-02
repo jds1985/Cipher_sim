@@ -1,18 +1,30 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator V0.2 — Multi-model + fallback
+// Cipher OS Orchestrator V0.3 — Safe multi-model fallback
 
 import { chooseModel } from "./routingPolicy.js";
-import { MODEL_REGISTRY } from "./modelRegistry.js";
 
 import { openaiGenerate } from "../models/openaiAdapter.js";
 import { anthropicGenerate } from "../models/anthropicAdapter.js";
 import { geminiGenerate } from "../models/geminiAdapter.js";
 
 const ADAPTERS = {
-  openai: openaiGenerate,
-  anthropic: anthropicGenerate,
-  gemini: geminiGenerate,
+  openai: {
+    fn: openaiGenerate,
+    key: "OPENAI_API_KEY",
+  },
+  anthropic: {
+    fn: anthropicGenerate,
+    key: "ANTHROPIC_API_KEY",
+  },
+  gemini: {
+    fn: geminiGenerate,
+    key: "GEMINI_API_KEY",
+  },
 };
+
+function hasKey(name) {
+  return Boolean(process.env[name]);
+}
 
 export async function runOrchestrator({
   osContext,
@@ -24,22 +36,35 @@ export async function runOrchestrator({
   const uiMessages = osContext?.memory?.uiHistory || [];
 
   const primary = chooseModel({ userMessage });
-  trace?.log("route.primary", { primary });
 
-  const fallbackOrder = ["openai", "anthropic", "gemini"]
-    .filter((m) => m !== primary);
+  const ordered = ["openai", "anthropic", "gemini"];
 
-  const attemptList = [primary, ...fallbackOrder];
+  const available = ordered.filter(
+    (k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key)
+  );
+
+  trace?.log("models.available", { available });
+
+  if (available.length === 0) {
+    throw new Error("No model API keys available.");
+  }
+
+  const attemptList = [
+    primary,
+    ...available.filter((m) => m !== primary),
+  ].filter((v, i, a) => a.indexOf(v) === i);
 
   for (const modelKey of attemptList) {
-    const adapter = ADAPTERS[modelKey];
-    if (!adapter) continue;
+    const entry = ADAPTERS[modelKey];
+    if (!entry || !hasKey(entry.key)) continue;
 
     try {
       trace?.log("model.call", { provider: modelKey });
 
-      const out = await adapter({
-        systemPrompt: executivePacket?.systemPrompt,
+      const out = await entry.fn({
+        systemPrompt:
+          executivePacket?.systemPrompt ||
+          "You are Cipher OS. Respond normally.",
         messages: uiMessages,
         userMessage,
         signal,
@@ -66,5 +91,9 @@ export async function runOrchestrator({
     }
   }
 
-  throw new Error("All models failed.");
+  return {
+    reply:
+      "Cipher is online but all models failed. Check API keys.",
+    modelUsed: null,
+  };
 }
