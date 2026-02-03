@@ -12,7 +12,7 @@ export async function geminiGenerate({
     return null; // soft fail
   }
 
-  const model = "models/gemini-1.5-flash";
+  const model = "models/gemini-pro";
 
   const contents = [
     { parts: [{ text: systemPrompt }] },
