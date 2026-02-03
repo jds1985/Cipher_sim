@@ -92,8 +92,7 @@ export async function runOrchestrator({
   }
 
   return {
-    reply:
-      "Cipher is online but all models failed. Check API keys.",
+    reply: "Cipher is online but all models failed. Check API keys.",
     modelUsed: null,
   };
 }
