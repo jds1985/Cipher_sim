@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 // pages/api/chat.js
 // Cipher OS — stable core (no summarizer)
 
