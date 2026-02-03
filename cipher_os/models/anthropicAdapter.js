@@ -1,5 +1,4 @@
 // cipher_os/models/anthropicAdapter.js
-// Claude adapter (Anthropic)
 
 export async function anthropicGenerate({
   systemPrompt,
@@ -14,12 +13,6 @@ export async function anthropicGenerate({
 
   const model = "claude-3-5-sonnet-20240620";
 
-  const fullPrompt = [
-    systemPrompt,
-    ...messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`),
-    `USER: ${userMessage}`,
-  ].join("\n\n");
-
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -31,8 +24,10 @@ export async function anthropicGenerate({
       model,
       max_tokens: 1024,
       temperature,
+      system: systemPrompt,
       messages: [
-        { role: "user", content: fullPrompt }
+        ...messages,
+        { role: "user", content: userMessage },
       ],
     }),
     signal,
@@ -45,8 +40,7 @@ export async function anthropicGenerate({
   }
 
   const reply =
-    data?.content?.[0]?.text?.trim() ||
-    "…";
+    data?.content?.[0]?.text?.trim() || "…";
 
   return {
     reply,
