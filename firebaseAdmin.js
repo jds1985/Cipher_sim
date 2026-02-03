@@ -1,4 +1,3 @@
-// firebaseAdmin.js
 import admin from "firebase-admin";
 
 let db = null;
@@ -8,21 +7,17 @@ export function getDb() {
 
   try {
     if (!admin.apps.length) {
-      if (
-        !process.env.FIREBASE_PROJECT_ID ||
-        !process.env.FIREBASE_CLIENT_EMAIL ||
-        !process.env.FIREBASE_PRIVATE_KEY
-      ) {
+      if (!process.env.FIREBASE_ADMIN_BASE64) {
         console.warn("⚠️ Firebase env vars missing — memory disabled");
         return null;
       }
 
+      const decoded = JSON.parse(
+        Buffer.from(process.env.FIREBASE_ADMIN_BASE64, "base64").toString()
+      );
+
       admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-        }),
+        credential: admin.credential.cert(decoded),
       });
     }
 
@@ -30,6 +25,6 @@ export function getDb() {
     return db;
   } catch (err) {
     console.error("🔥 Firebase init failed:", err);
-    return null; // FAIL OPEN
+    return null;
   }
 }
