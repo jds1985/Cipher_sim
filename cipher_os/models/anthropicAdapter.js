@@ -12,7 +12,7 @@ export async function anthropicGenerate({
     return null; // soft fail
   }
 
-  const model = "claude-3-5-sonnet-20240620";
+  const model = "claude-3-haiku-20240307";
 
   let response;
   let data;
