@@ -1,5 +1,4 @@
 // cipher_os/models/geminiAdapter.js
-// Gemini adapter (Google)
 
 export async function geminiGenerate({
   systemPrompt,
@@ -15,12 +14,11 @@ export async function geminiGenerate({
   const model = "models/gemini-1.5-flash";
 
   const contents = [
-    { role: "user", parts: [{ text: systemPrompt }] },
+    { parts: [{ text: systemPrompt }] },
     ...messages.map((m) => ({
-      role: "user",
-      parts: [{ text: `${m.role}: ${m.content}` }],
+      parts: [{ text: m.content }],
     })),
-    { role: "user", parts: [{ text: userMessage }] },
+    { parts: [{ text: userMessage }] },
   ];
 
   const response = await fetch(
@@ -45,8 +43,7 @@ export async function geminiGenerate({
   }
 
   const reply =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-    "…";
+    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "…";
 
   return {
     reply,
