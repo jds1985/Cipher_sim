@@ -1,5 +1,3 @@
-// cipher_os/models/geminiAdapter.js
-
 export async function geminiGenerate({
   systemPrompt,
   messages = [],
@@ -7,6 +5,8 @@ export async function geminiGenerate({
   temperature = 0.6,
   signal,
 }) {
+  console.log("[Gemini] called");
+
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("Missing GEMINI_API_KEY");
   }
@@ -37,6 +37,9 @@ export async function geminiGenerate({
   );
 
   const data = await response.json();
+
+  console.log("[Gemini] response status:", response.status);
+  console.log("[Gemini] raw:", data);
 
   if (!response.ok) {
     throw new Error(data?.error?.message || "Gemini error");
