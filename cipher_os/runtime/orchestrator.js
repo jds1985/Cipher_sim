@@ -1,5 +1,5 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator V0.3 — Safe multi-model fallback
+// Cipher OS Orchestrator V0.4 — True multi-model fallback
 
 import { chooseModel } from "./routingPolicy.js";
 
@@ -46,7 +46,10 @@ export async function runOrchestrator({
   trace?.log("models.available", { available });
 
   if (available.length === 0) {
-    throw new Error("No model API keys available.");
+    return {
+      reply: "No model API keys available.",
+      modelUsed: null,
+    };
   }
 
   const attemptList = [
@@ -58,10 +61,12 @@ export async function runOrchestrator({
     const entry = ADAPTERS[modelKey];
     if (!entry || !hasKey(entry.key)) continue;
 
-    try {
-      trace?.log("model.call", { provider: modelKey });
+    trace?.log("model.call", { provider: modelKey });
 
-      const out = await entry.fn({
+    let out = null;
+
+    try {
+      out = await entry.fn({
         systemPrompt:
           executivePacket?.systemPrompt ||
           "You are Cipher OS. Respond normally.",
@@ -70,7 +75,16 @@ export async function runOrchestrator({
         signal,
         temperature: 0.6,
       });
+    } catch (err) {
+      trace?.log("model.exception", {
+        provider: modelKey,
+        error: err.message,
+      });
+      continue;
+    }
 
+    // THE CRITICAL FIX
+    if (out && out.reply) {
       trace?.log("model.ok", {
         provider: modelKey,
         model: out.modelUsed,
@@ -83,12 +97,11 @@ export async function runOrchestrator({
           model: out.modelUsed,
         },
       };
-    } catch (err) {
-      trace?.log("model.fail", {
-        provider: modelKey,
-        error: err.message,
-      });
     }
+
+    trace?.log("model.null", {
+      provider: modelKey,
+    });
   }
 
   return {
