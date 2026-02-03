@@ -1,5 +1,3 @@
-// cipher_os/models/anthropicAdapter.js
-
 export async function anthropicGenerate({
   systemPrompt,
   messages = [],
@@ -7,6 +5,8 @@ export async function anthropicGenerate({
   temperature = 0.6,
   signal,
 }) {
+  console.log("[Claude] called");
+
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("Missing ANTHROPIC_API_KEY");
   }
@@ -34,6 +34,9 @@ export async function anthropicGenerate({
   });
 
   const data = await response.json();
+
+  console.log("[Claude] response status:", response.status);
+  console.log("[Claude] raw:", data);
 
   if (!response.ok) {
     throw new Error(data?.error?.message || "Claude error");
