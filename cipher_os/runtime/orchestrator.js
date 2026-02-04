@@ -1,24 +1,24 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator V0.4 — True multi-model fallback
+// Cipher OS Orchestrator V0.5 — OpenAI + Vertex + Anthropic
 
 import { chooseModel } from "./routingPolicy.js";
 
 import { openaiGenerate } from "../models/openaiAdapter.js";
 import { anthropicGenerate } from "../models/anthropicAdapter.js";
-import { geminiGenerate } from "../models/geminiAdapter.js";
+import { vertexGenerate } from "../models/vertexAdapter.js";
 
 const ADAPTERS = {
   openai: {
     fn: openaiGenerate,
     key: "OPENAI_API_KEY",
   },
+  vertex: {
+    fn: vertexGenerate,
+    key: "VERTEX_JSON",
+  },
   anthropic: {
     fn: anthropicGenerate,
     key: "ANTHROPIC_API_KEY",
-  },
-  gemini: {
-    fn: geminiGenerate,
-    key: "GEMINI_API_KEY",
   },
 };
 
@@ -37,7 +37,8 @@ export async function runOrchestrator({
 
   const primary = chooseModel({ userMessage });
 
-  const ordered = ["openai", "anthropic", "gemini"];
+  // NEW FALLBACK ORDER
+  const ordered = ["openai", "vertex", "anthropic"];
 
   const available = ordered.filter(
     (k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key)
@@ -83,7 +84,6 @@ export async function runOrchestrator({
       continue;
     }
 
-    // THE CRITICAL FIX
     if (out && out.reply) {
       trace?.log("model.ok", {
         provider: modelKey,
@@ -109,3 +109,5 @@ export async function runOrchestrator({
     modelUsed: null,
   };
 }
+
+export const runtime = "nodejs";
