@@ -13,7 +13,7 @@ export async function geminiGenerate({
     throw new Error("Missing GEMINI_API_KEY");
   }
 
-  const model = "gemini-1.5-flash";
+  const model = "gemini-pro";
 
   const contents = [
     { role: "user", parts: [{ text: systemPrompt }] },
