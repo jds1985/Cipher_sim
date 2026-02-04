@@ -15,6 +15,7 @@
     "react-dom": "18.2.0",
     "firebase": "^10.7.0",
     "firebase-admin": "^11.10.1",
-    "octokit": "^3.1.0"
+    "octokit": "^3.1.0",
+    "google-auth-library": "^9.0.0"
   }
 }
