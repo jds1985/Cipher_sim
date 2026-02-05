@@ -1,7 +1,7 @@
 import { GoogleAuth } from "google-auth-library";
 
 const LOCATION = process.env.VERTEX_LOCATION || "us-central1";
-const MODEL = process.env.VERTEX_MODEL || "gemini-3-flash-preview";
+const MODEL = process.env.VERTEX_MODEL || "gemini-3-pro-preview";
 
 let authClient = null;
 
