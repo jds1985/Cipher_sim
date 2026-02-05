@@ -1,55 +1,71 @@
 // cipher_os/models/vertexAdapter.js
-// Vertex AI (Gemini) adapter for Cipher OS
-
 import { VertexAI } from "@google-cloud/vertexai";
 
 let vertex = null;
 
-function getVertexClient() {
+function getCreds() {
+  if (process.env.VERTEX_JSON_B64) {
+    const raw = Buffer.from(
+      process.env.VERTEX_JSON_B64,
+      "base64"
+    ).toString("utf8");
+    return JSON.parse(raw);
+  }
+
+  throw new Error("VERTEX_JSON_B64 env var missing");
+}
+
+function getVertex() {
   if (vertex) return vertex;
 
-  if (!process.env.VERTEX_JSON) {
-    throw new Error("Missing VERTEX_JSON env var");
-  }
-
-  // IMPORTANT: VERTEX_JSON must be valid JSON (raw or base64-decoded upstream)
-  let credentials;
-  try {
-    credentials = JSON.parse(process.env.VERTEX_JSON);
-  } catch (err) {
-    throw new Error("VERTEX_JSON is not valid JSON");
-  }
+  const creds = getCreds();
 
   vertex = new VertexAI({
-    project: credentials.project_id,
-    location: "us-central1",
-    credentials,
+    project: creds.project_id,
+    location: process.env.VERTEX_LOCATION || "us-central1",
+    credentials: creds,
   });
 
   return vertex;
 }
 
+function extractGeminiText(response) {
+  const candidates = response?.candidates;
+  if (!Array.isArray(candidates) || !candidates.length) return null;
+
+  const parts = candidates[0]?.content?.parts;
+  if (!Array.isArray(parts)) return null;
+
+  let text = "";
+  for (const p of parts) {
+    if (typeof p.text === "string") {
+      text += p.text;
+    }
+  }
+
+  return text.trim() || null;
+}
+
 export async function vertexGenerate({
   systemPrompt = "",
   messages = [],
-  userMessage = "",
+  userMessage,
   temperature = 0.6,
 }) {
   console.log("🔥 VERTEX GENERATE CALLED");
 
-  const client = getVertexClient();
+  const client = getVertex();
+  const modelName = process.env.VERTEX_MODEL || "gemini-1.5-flash";
 
-  // Gemini model on Vertex
-  const model = client.getGenerativeModel({
-    model: "gemini-1.0-pro",
-  });
+  const model = client.getGenerativeModel({ model: modelName });
 
-  // Build a single prompt string (Vertex prefers plain text)
   const fullPrompt = [
-    ...(systemPrompt ? [`SYSTEM: ${systemPrompt}`] : []),
-    ...messages.map((m) => `${m.role?.toUpperCase() || "USER"}: ${m.content}`),
+    systemPrompt && `SYSTEM: ${systemPrompt}`,
+    ...messages.map(m => `${m.role.toUpperCase()}: ${m.content}`),
     `USER: ${userMessage}`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const result = await model.generateContent({
     contents: [
@@ -58,26 +74,22 @@ export async function vertexGenerate({
         parts: [{ text: fullPrompt }],
       },
     ],
-    generationConfig: {
-      temperature,
-    },
+    generationConfig: { temperature },
   });
 
-  const text =
-    result?.response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-
-  console.log("🧠 VERTEX RAW RESULT:", JSON.stringify(result?.response, null, 2));
+  const text = extractGeminiText(result?.response);
 
   if (!text) {
-    throw new Error("Vertex returned empty response");
+    console.error("❌ Gemini returned no text");
+    console.error(
+      "🔍 Raw response:",
+      JSON.stringify(result?.response, null, 2).slice(0, 2000)
+    );
+    throw new Error("Gemini returned empty response");
   }
 
-  console.log("✅ VERTEX RESPONSE OK");
-
-  // IMPORTANT: return object, not string
   return {
     reply: text,
-    modelUsed: "gemini-1.5-flash (vertex)",
-    raw: result.response,
+    modelUsed: modelName,
   };
 }
