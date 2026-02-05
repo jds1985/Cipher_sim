@@ -29,37 +29,8 @@ function getVertex() {
   return vertex;
 }
 
-function extractGeminiText(response) {
-  if (!response) return null;
-
-  // Rare but real case
-  if (typeof response.text === "string" && response.text.trim()) {
-    return response.text.trim();
-  }
-
-  const candidates = response.candidates;
-  if (!Array.isArray(candidates)) return null;
-
-  for (const c of candidates) {
-    const parts = c?.content?.parts;
-    if (!Array.isArray(parts)) continue;
-
-    let text = "";
-    for (const p of parts) {
-      if (typeof p?.text === "string") {
-        text += p.text;
-      }
-    }
-
-    if (text.trim()) return text.trim();
-  }
-
-  return null;
-}
-
 export async function vertexGenerate({
   systemPrompt = "",
-  messages = [], // intentionally ignored for Gemini stability
   userMessage,
   temperature = 0.6,
 }) {
@@ -70,23 +41,20 @@ export async function vertexGenerate({
 
   const model = client.getGenerativeModel({ model: modelName });
 
-  // 🚨 CRITICAL FIX:
-  // Gemini on Vertex does NOT like role-stacked chat prompts.
-  // Single explicit instruction = reliable output.
-  const fullPrompt = `
+  const prompt = `
 ${systemPrompt || "You are a helpful assistant."}
 
-User message:
+User:
 ${userMessage}
 
-Respond with a clear, direct plain-text answer.
+Respond clearly in plain text.
 `.trim();
 
   const result = await model.generateContent({
     contents: [
       {
         role: "user",
-        parts: [{ text: fullPrompt }],
+        parts: [{ text: prompt }],
       },
     ],
     generationConfig: {
@@ -95,19 +63,44 @@ Respond with a clear, direct plain-text answer.
     },
   });
 
-  const text = extractGeminiText(result?.response);
+  // ✅ THIS IS THE MISSING PIECE
+  let text = null;
 
+  try {
+    text = await result.response.text();
+  } catch (err) {
+    console.warn("⚠️ response.text() unavailable, falling back");
+  }
+
+  // Fallback if SDK helper fails
   if (!text) {
-    console.error("❌ Gemini returned no usable text");
+    const candidates = result?.response?.candidates;
+    if (Array.isArray(candidates)) {
+      for (const c of candidates) {
+        const parts = c?.content?.parts;
+        if (!Array.isArray(parts)) continue;
+
+        text = parts
+          .map(p => p?.text)
+          .filter(Boolean)
+          .join("");
+
+        if (text) break;
+      }
+    }
+  }
+
+  if (!text || !text.trim()) {
+    console.error("❌ Gemini returned no text");
     console.error(
-      "🔍 Raw Gemini response:",
+      "🔍 Raw response:",
       JSON.stringify(result?.response, null, 2).slice(0, 3000)
     );
     throw new Error("Vertex returned no usable response");
   }
 
   return {
-    reply: text,
+    reply: text.trim(),
     modelUsed: modelName,
   };
 }
