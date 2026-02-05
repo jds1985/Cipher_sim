@@ -14,7 +14,7 @@ const ADAPTERS = {
   },
   vertex: {
     fn: vertexGenerate,
-    key: "VERTEX_JSON",
+    key: "VERTEX_JSON_B64",
   },
   anthropic: {
     fn: anthropicGenerate,
