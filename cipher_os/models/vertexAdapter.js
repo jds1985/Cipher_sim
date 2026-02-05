@@ -1,10 +1,13 @@
-import { VertexAI } from "@google-cloud/vertexai";
+import { GoogleAuth } from "google-auth-library";
 
-let vertex = null;
+const LOCATION = process.env.VERTEX_LOCATION || "us-central1";
+const MODEL = process.env.VERTEX_MODEL || "gemini-1.5-flash";
+
+let authClient = null;
 
 function getCreds() {
   if (!process.env.VERTEX_JSON_B64) {
-    throw new Error("VERTEX_JSON_B64 env var missing");
+    throw new Error("VERTEX_JSON_B64 missing");
   }
 
   const raw = Buffer.from(
@@ -15,18 +18,18 @@ function getCreds() {
   return JSON.parse(raw);
 }
 
-function getVertex() {
-  if (vertex) return vertex;
+async function getAuthClient() {
+  if (authClient) return authClient;
 
   const creds = getCreds();
 
-  vertex = new VertexAI({
-    project: creds.project_id,
-    location: process.env.VERTEX_LOCATION || "us-central1",
+  const auth = new GoogleAuth({
     credentials: creds,
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
   });
 
-  return vertex;
+  authClient = await auth.getClient();
+  return authClient;
 }
 
 export async function vertexGenerate({
@@ -34,12 +37,13 @@ export async function vertexGenerate({
   userMessage,
   temperature = 0.6,
 }) {
-  console.log("🔥 VERTEX GENERATE CALLED");
+  console.log("🔥 VERTEX REST GENERATE CALLED");
 
-  const client = getVertex();
-  const modelName = process.env.VERTEX_MODEL || "gemini-1.5-flash";
+  const creds = getCreds();
+  const client = await getAuthClient();
+  const token = await client.getAccessToken();
 
-  const model = client.getGenerativeModel({ model: modelName });
+  const endpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${creds.project_id}/locations/${LOCATION}/publishers/google/models/${MODEL}:generateContent`;
 
   const prompt = `
 ${systemPrompt || "You are a helpful assistant."}
@@ -50,57 +54,41 @@ ${userMessage}
 Respond clearly in plain text.
 `.trim();
 
-  const result = await model.generateContent({
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: prompt }],
-      },
-    ],
-    generationConfig: {
-      temperature,
-      maxOutputTokens: 512,
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token.token}`,
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature,
+        maxOutputTokens: 512,
+      },
+    }),
   });
 
-  // ✅ THIS IS THE MISSING PIECE
-  let text = null;
+  const json = await res.json();
 
-  try {
-    text = await result.response.text();
-  } catch (err) {
-    console.warn("⚠️ response.text() unavailable, falling back");
-  }
+  const text =
+    json?.candidates?.[0]?.content?.parts
+      ?.map(p => p.text)
+      .join("") || null;
 
-  // Fallback if SDK helper fails
   if (!text) {
-    const candidates = result?.response?.candidates;
-    if (Array.isArray(candidates)) {
-      for (const c of candidates) {
-        const parts = c?.content?.parts;
-        if (!Array.isArray(parts)) continue;
-
-        text = parts
-          .map(p => p?.text)
-          .filter(Boolean)
-          .join("");
-
-        if (text) break;
-      }
-    }
-  }
-
-  if (!text || !text.trim()) {
-    console.error("❌ Gemini returned no text");
-    console.error(
-      "🔍 Raw response:",
-      JSON.stringify(result?.response, null, 2).slice(0, 3000)
-    );
+    console.error("❌ Vertex REST returned no text");
+    console.error(JSON.stringify(json, null, 2));
     throw new Error("Vertex returned no usable response");
   }
 
   return {
     reply: text.trim(),
-    modelUsed: modelName,
+    modelUsed: MODEL,
   };
 }
