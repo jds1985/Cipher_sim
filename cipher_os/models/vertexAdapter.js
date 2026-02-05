@@ -1,4 +1,3 @@
-// cipher_os/models/vertexAdapter.js
 import { VertexAI } from "@google-cloud/vertexai";
 
 let vertex = null;
@@ -30,6 +29,34 @@ function getVertex() {
   return vertex;
 }
 
+function extractGeminiText(response) {
+  if (!response) return null;
+
+  // Case 1: direct text (yes, this happens)
+  if (typeof response.text === "string" && response.text.trim()) {
+    return response.text.trim();
+  }
+
+  const candidates = response.candidates;
+  if (!Array.isArray(candidates)) return null;
+
+  for (const c of candidates) {
+    const parts = c?.content?.parts;
+    if (!Array.isArray(parts)) continue;
+
+    let text = "";
+    for (const p of parts) {
+      if (typeof p?.text === "string") {
+        text += p.text;
+      }
+    }
+
+    if (text.trim()) return text.trim();
+  }
+
+  return null;
+}
+
 export async function vertexGenerate({
   systemPrompt = "",
   messages = [],
@@ -41,43 +68,35 @@ export async function vertexGenerate({
   const client = getVertex();
   const modelName = process.env.VERTEX_MODEL || "gemini-1.5-flash";
 
-  const model = client.getGenerativeModel({
-    model: modelName,
-    generationConfig: {
-      temperature,
-    },
-  });
+  const model = client.getGenerativeModel({ model: modelName });
 
-  // ✅ Gemini-safe prompt (single string, no roles)
-  const prompt = [
-    systemPrompt && `SYSTEM:\n${systemPrompt}`,
-    ...messages.map(m => `${m.role.toUpperCase()}:\n${m.content}`),
-    `USER:\n${userMessage}`,
+  const fullPrompt = [
+    systemPrompt && `SYSTEM: ${systemPrompt}`,
+    ...messages.map(m => `${m.role.toUpperCase()}: ${m.content}`),
+    `USER: ${userMessage}`,
   ]
     .filter(Boolean)
-    .join("\n\n");
+    .join("\n");
 
-  let result;
-  try {
-    result = await model.generateContent(prompt);
-  } catch (err) {
-    console.error("❌ Vertex API error:", err);
-    throw err;
-  }
+  const result = await model.generateContent({
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: fullPrompt }],
+      },
+    ],
+    generationConfig: { temperature },
+  });
 
-  const text =
-    result?.response?.candidates?.[0]?.content?.parts
-      ?.map(p => p.text)
-      .join("")
-      ?.trim();
+  const text = extractGeminiText(result?.response);
 
   if (!text) {
-    console.error("❌ Gemini returned empty response");
+    console.error("❌ Gemini returned no usable text");
     console.error(
-      "🔍 Raw response:",
-      JSON.stringify(result?.response, null, 2).slice(0, 2000)
+      "🔍 Raw Gemini response:",
+      JSON.stringify(result?.response, null, 2).slice(0, 3000)
     );
-    throw new Error("Gemini returned empty response");
+    throw new Error("Vertex returned no usable response");
   }
 
   return {
