@@ -1,5 +1,5 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator V0.6 — OpenAI + Vertex + Anthropic (hardened)
+// Cipher OS Orchestrator V0.6 — FORCED Vertex (diagnostic mode)
 
 import { chooseModel } from "./routingPolicy.js";
 
@@ -14,7 +14,7 @@ const ADAPTERS = {
   },
   vertex: {
     fn: vertexGenerate,
-    key: "VERTEX_JSON", // base64 or raw JSON string
+    key: "VERTEX_JSON",
   },
   anthropic: {
     fn: anthropicGenerate,
@@ -35,11 +35,11 @@ export async function runOrchestrator({
   const userMessage = osContext?.input?.userMessage || "";
   const uiMessages = osContext?.memory?.uiHistory || [];
 
-  // Model routing hint
-  let primary = chooseModel({ userMessage });
+  // 🔥 FORCE VERTEX (ignore router completely)
+  let primary = "vertex";
 
-  // Hard fallback order
-  const ordered = ["openai", "vertex", "anthropic"];
+  // Hard fallback order (Vertex first)
+  const ordered = ["vertex", "openai", "anthropic"];
 
   // Only models that actually have keys
   const available = ordered.filter(
@@ -48,16 +48,11 @@ export async function runOrchestrator({
 
   trace?.log("models.available", { available });
 
-  if (available.length === 0) {
+  if (!available.includes("vertex")) {
     return {
-      reply: "No model API keys available.",
+      reply: "VERTEX_JSON not available — Vertex cannot be tested.",
       modelUsed: null,
     };
-  }
-
-  // If router chose something invalid, ignore it
-  if (!available.includes(primary)) {
-    primary = available[0];
   }
 
   const attemptList = [
@@ -107,7 +102,7 @@ export async function runOrchestrator({
   }
 
   return {
-    reply: "Cipher is online but all models failed. Check API keys.",
+    reply: "Vertex was called but returned no usable response.",
     modelUsed: null,
   };
 }
