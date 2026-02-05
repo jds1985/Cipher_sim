@@ -32,7 +32,7 @@ function getVertex() {
 function extractGeminiText(response) {
   if (!response) return null;
 
-  // Case 1: direct text (yes, this happens)
+  // Rare but real case
   if (typeof response.text === "string" && response.text.trim()) {
     return response.text.trim();
   }
@@ -59,7 +59,7 @@ function extractGeminiText(response) {
 
 export async function vertexGenerate({
   systemPrompt = "",
-  messages = [],
+  messages = [], // intentionally ignored for Gemini stability
   userMessage,
   temperature = 0.6,
 }) {
@@ -70,13 +70,17 @@ export async function vertexGenerate({
 
   const model = client.getGenerativeModel({ model: modelName });
 
-  const fullPrompt = [
-    systemPrompt && `SYSTEM: ${systemPrompt}`,
-    ...messages.map(m => `${m.role.toUpperCase()}: ${m.content}`),
-    `USER: ${userMessage}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  // 🚨 CRITICAL FIX:
+  // Gemini on Vertex does NOT like role-stacked chat prompts.
+  // Single explicit instruction = reliable output.
+  const fullPrompt = `
+${systemPrompt || "You are a helpful assistant."}
+
+User message:
+${userMessage}
+
+Respond with a clear, direct plain-text answer.
+`.trim();
 
   const result = await model.generateContent({
     contents: [
@@ -85,7 +89,10 @@ export async function vertexGenerate({
         parts: [{ text: fullPrompt }],
       },
     ],
-    generationConfig: { temperature },
+    generationConfig: {
+      temperature,
+      maxOutputTokens: 512,
+    },
   });
 
   const text = extractGeminiText(result?.response);
