@@ -4,15 +4,16 @@ import { VertexAI } from "@google-cloud/vertexai";
 let vertex = null;
 
 function getCreds() {
-  if (process.env.VERTEX_JSON_B64) {
-    const raw = Buffer.from(
-      process.env.VERTEX_JSON_B64,
-      "base64"
-    ).toString("utf8");
-    return JSON.parse(raw);
+  if (!process.env.VERTEX_JSON_B64) {
+    throw new Error("VERTEX_JSON_B64 env var missing");
   }
 
-  throw new Error("VERTEX_JSON_B64 env var missing");
+  const raw = Buffer.from(
+    process.env.VERTEX_JSON_B64,
+    "base64"
+  ).toString("utf8");
+
+  return JSON.parse(raw);
 }
 
 function getVertex() {
@@ -29,23 +30,6 @@ function getVertex() {
   return vertex;
 }
 
-function extractGeminiText(response) {
-  const candidates = response?.candidates;
-  if (!Array.isArray(candidates) || !candidates.length) return null;
-
-  const parts = candidates[0]?.content?.parts;
-  if (!Array.isArray(parts)) return null;
-
-  let text = "";
-  for (const p of parts) {
-    if (typeof p.text === "string") {
-      text += p.text;
-    }
-  }
-
-  return text.trim() || null;
-}
-
 export async function vertexGenerate({
   systemPrompt = "",
   messages = [],
@@ -57,30 +41,38 @@ export async function vertexGenerate({
   const client = getVertex();
   const modelName = process.env.VERTEX_MODEL || "gemini-1.5-flash";
 
-  const model = client.getGenerativeModel({ model: modelName });
-
-  const fullPrompt = [
-    systemPrompt && `SYSTEM: ${systemPrompt}`,
-    ...messages.map(m => `${m.role.toUpperCase()}: ${m.content}`),
-    `USER: ${userMessage}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const result = await model.generateContent({
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: fullPrompt }],
-      },
-    ],
-    generationConfig: { temperature },
+  const model = client.getGenerativeModel({
+    model: modelName,
+    generationConfig: {
+      temperature,
+    },
   });
 
-  const text = extractGeminiText(result?.response);
+  // ✅ Gemini-safe prompt (single string, no roles)
+  const prompt = [
+    systemPrompt && `SYSTEM:\n${systemPrompt}`,
+    ...messages.map(m => `${m.role.toUpperCase()}:\n${m.content}`),
+    `USER:\n${userMessage}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  let result;
+  try {
+    result = await model.generateContent(prompt);
+  } catch (err) {
+    console.error("❌ Vertex API error:", err);
+    throw err;
+  }
+
+  const text =
+    result?.response?.candidates?.[0]?.content?.parts
+      ?.map(p => p.text)
+      .join("")
+      ?.trim();
 
   if (!text) {
-    console.error("❌ Gemini returned no text");
+    console.error("❌ Gemini returned empty response");
     console.error(
       "🔍 Raw response:",
       JSON.stringify(result?.response, null, 2).slice(0, 2000)
