@@ -1,6 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { db, admin } from "../../firebaseAdmin";
+import admin from "firebase-admin";
+import { getDb } from "../../firebaseAdmin";
+
+export const runtime = "nodejs";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -8,6 +11,11 @@ export default async function handler(req, res) {
   }
 
   try {
+    const db = getDb();
+    if (!db) {
+      throw new Error("Firestore not initialized");
+    }
+
     // ---------- 1. Load Identity Anchor ----------
     const anchorSnap = await db
       .collection("cipher_memory")
@@ -19,7 +27,7 @@ export default async function handler(req, res) {
       return res.status(500).json({
         ok: false,
         status: "blocked",
-        reason: "identity_anchor_missing"
+        reason: "identity_anchor_missing",
       });
     }
 
@@ -33,7 +41,7 @@ export default async function handler(req, res) {
       .limit(10)
       .get();
 
-    const memories = memSnap.docs.map(d => d.data().content);
+    const memories = memSnap.docs.map((d) => d.data().content);
 
     // ---------- 3. Load System Map ----------
     const systemMapPath = path.join(process.cwd(), "_meta/repomap.json");
@@ -51,10 +59,7 @@ export default async function handler(req, res) {
     );
 
     // ---------- 5. Load Goals ----------
-    const goalsPath = path.join(
-      process.cwd(),
-      "brains/goals.json"
-    );
+    const goalsPath = path.join(process.cwd(), "brains/goals.json");
     const goals = JSON.parse(
       fs.readFileSync(goalsPath, "utf-8")
     );
@@ -64,15 +69,15 @@ export default async function handler(req, res) {
       process.cwd(),
       "brains/gap_engine.json"
     );
-    let gapEngine = JSON.parse(
+    const gapEngine = JSON.parse(
       fs.readFileSync(gapEnginePath, "utf-8")
     );
 
     const known = selfModel.known_systems || [];
     const bodyFiles = systemMap.files || [];
 
-    const missing = known.filter(sys =>
-      !bodyFiles.some(f => f.path.includes(sys))
+    const missing = known.filter(
+      (sys) => !bodyFiles.some((f) => f.path.includes(sys))
     );
 
     gapEngine.detected_gaps = missing;
@@ -90,7 +95,7 @@ export default async function handler(req, res) {
       topFiles: systemMap.topFiles || [],
       knownSystems: known,
       detectedGaps: missing,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     // ---------- 8. Internal Reflection ----------
@@ -103,7 +108,7 @@ export default async function handler(req, res) {
         missing.length === 0
           ? "System complete. No missing internal modules detected."
           : "System incomplete. Missing internal modules detected.",
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     // ---------- 9. Log Reflection ----------
@@ -118,14 +123,13 @@ export default async function handler(req, res) {
       identity,
       memoryCount: memories.length,
       systemSummary,
-      detectedGaps: missing
+      detectedGaps: missing,
     });
-
   } catch (err) {
     console.error("AUTONOMY ERROR:", err);
     return res.status(500).json({
       ok: false,
-      error: err.message
+      error: err.message,
     });
   }
 }
