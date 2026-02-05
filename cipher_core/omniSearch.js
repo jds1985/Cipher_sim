@@ -1,12 +1,12 @@
 // cipher_core/omniSearch.js
 // Cipher Core 10.0 — Omni Search (Firebase + Memory Index)
 
-import { db } from "../firebaseAdmin";
+import { getDb } from "../firebaseAdmin";
 
 /**
  * omniSearch
  * Searches through:
- *  • cipher_memories   (Firestorm conversation logs)
+ *  • cipher_memories   (Firestore conversation logs)
  *  • userMessage + cipherReply fields
  * Returns ranked hits with timestamps.
  */
@@ -21,6 +21,11 @@ export async function omniSearch(query = "", userId = "jim_default", limit = 25)
   }
 
   try {
+    const db = getDb();
+    if (!db) {
+      throw new Error("Firestore not initialized");
+    }
+
     // Fetch recent memory logs
     const snap = await db
       .collection("cipher_memories")
@@ -45,7 +50,7 @@ export async function omniSearch(query = "", userId = "jim_default", limit = 25)
       if (score > 0) {
         hits.push({
           id: log.id,
-          createdAt: log.createdAt,
+          createdAt: log.createdAt || 0,
           userMessage: log.userMessage || "",
           cipherReply: log.cipherReply || "",
           score,
@@ -53,10 +58,10 @@ export async function omniSearch(query = "", userId = "jim_default", limit = 25)
       }
     }
 
-    // Sort by score + recency
+    // Sort by relevance + recency
     hits.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      return (b.createdAt || 0) - (a.createdAt || 0);
+      return b.createdAt - a.createdAt;
     });
 
     const trimmed = hits.slice(0, limit);
