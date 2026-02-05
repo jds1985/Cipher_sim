@@ -1,5 +1,5 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator V0.5 — OpenAI + Vertex + Anthropic
+// Cipher OS Orchestrator V0.6 — OpenAI + Vertex + Anthropic (hardened)
 
 import { chooseModel } from "./routingPolicy.js";
 
@@ -14,7 +14,7 @@ const ADAPTERS = {
   },
   vertex: {
     fn: vertexGenerate,
-    key: "VERTEX_JSON",
+    key: "VERTEX_JSON", // base64 or raw JSON string
   },
   anthropic: {
     fn: anthropicGenerate,
@@ -23,7 +23,7 @@ const ADAPTERS = {
 };
 
 function hasKey(name) {
-  return Boolean(process.env[name]);
+  return Boolean(process.env[name] && process.env[name].length > 0);
 }
 
 export async function runOrchestrator({
@@ -35,11 +35,13 @@ export async function runOrchestrator({
   const userMessage = osContext?.input?.userMessage || "";
   const uiMessages = osContext?.memory?.uiHistory || [];
 
-  const primary = chooseModel({ userMessage });
+  // Model routing hint
+  let primary = chooseModel({ userMessage });
 
-  // NEW FALLBACK ORDER
+  // Hard fallback order
   const ordered = ["openai", "vertex", "anthropic"];
 
+  // Only models that actually have keys
   const available = ordered.filter(
     (k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key)
   );
@@ -53,10 +55,15 @@ export async function runOrchestrator({
     };
   }
 
+  // If router chose something invalid, ignore it
+  if (!available.includes(primary)) {
+    primary = available[0];
+  }
+
   const attemptList = [
     primary,
     ...available.filter((m) => m !== primary),
-  ].filter((v, i, a) => a.indexOf(v) === i);
+  ];
 
   for (const modelKey of attemptList) {
     const entry = ADAPTERS[modelKey];
@@ -64,10 +71,8 @@ export async function runOrchestrator({
 
     trace?.log("model.call", { provider: modelKey });
 
-    let out = null;
-
     try {
-      out = await entry.fn({
+      const out = await entry.fn({
         systemPrompt:
           executivePacket?.systemPrompt ||
           "You are Cipher OS. Respond normally.",
@@ -76,32 +81,29 @@ export async function runOrchestrator({
         signal,
         temperature: 0.6,
       });
+
+      if (out && out.reply) {
+        trace?.log("model.ok", {
+          provider: modelKey,
+          model: out.modelUsed,
+        });
+
+        return {
+          reply: out.reply,
+          modelUsed: {
+            provider: modelKey,
+            model: out.modelUsed,
+          },
+        };
+      }
+
+      trace?.log("model.empty", { provider: modelKey });
     } catch (err) {
-      trace?.log("model.exception", {
+      trace?.log("model.fail", {
         provider: modelKey,
         error: err.message,
       });
-      continue;
     }
-
-    if (out && out.reply) {
-      trace?.log("model.ok", {
-        provider: modelKey,
-        model: out.modelUsed,
-      });
-
-      return {
-        reply: out.reply,
-        modelUsed: {
-          provider: modelKey,
-          model: out.modelUsed,
-        },
-      };
-    }
-
-    trace?.log("model.null", {
-      provider: modelKey,
-    });
   }
 
   return {
