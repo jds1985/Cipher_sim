@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 // pages/api/chat.js
-// Cipher OS — stable core (no summarizer)
+// Cipher OS — stable core (Gemini-compatible, hardened)
 
 import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
@@ -17,71 +17,98 @@ import {
 import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback.js";
 
 export default async function handler(req, res) {
-  const message = req.body?.message || "Hello";
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-  const userId = "jim";
-  const userName = "Jim";
+  try {
+    const message = req.body?.message?.trim() || "Hello";
 
-  // Load long-term memory
-  const memoryData = await loadMemory(userId);
-  const longTermHistory = memoryData?.history || [];
+    const userId = "jim";
+    const userName = "Jim";
 
-  // Load memory graph
-  const nodes = await loadMemoryNodes(userId, 60);
-  const summaryDoc = await loadSummary(userId);
+    // ── Load long-term memory ─────────────────────────────
+    const memoryData = await loadMemory(userId);
+    const longTermHistory = memoryData?.history || [];
 
-  // Build OS context
-  const osContext = buildOSContext({
-    requestId: Date.now().toString(),
-    userId,
-    userName,
-    userMessage: message,
-    uiHistory: [],
-    longTermHistory,
-  });
+    // ── Load memory graph ─────────────────────────────────
+    const nodes = await loadMemoryNodes(userId, 60);
+    const summaryDoc = await loadSummary(userId);
 
-  osContext.memory.nodes = nodes;
-  osContext.memory.longTermSummary = summaryDoc?.text || "";
+    // ── Build OS context ──────────────────────────────────
+    const osContext = buildOSContext({
+      requestId: Date.now().toString(),
+      userId,
+      userName,
+      userMessage: message,
+      uiHistory: [],
+      longTermHistory,
+    });
 
-  // Executive layer
-  const executivePacket = await runCipherCore(
-    {
-      history: osContext.memory.mergedHistory,
-      nodes,
-      summary: osContext.memory.longTermSummary,
-    },
-    { userMessage: message, returnPacket: true }
-  );
+    osContext.memory.nodes = nodes;
+    osContext.memory.longTermSummary = summaryDoc?.text || "";
 
-  // Orchestrator
-  const out = await runOrchestrator({
-    osContext,
-    executivePacket,
-  });
+    // ── Executive layer ───────────────────────────────────
+    const executivePacket = await runCipherCore(
+      {
+        history: osContext.memory.mergedHistory,
+        nodes,
+        summary: osContext.memory.longTermSummary,
+      },
+      { userMessage: message, returnPacket: true }
+    );
 
-  // Save memory
-  await saveMemory(userId, {
-    type: "interaction",
-    role: "user",
-    content: message,
-  });
+    // ── Orchestrator (Gemini → OpenAI → Anthropic) ─────────
+    const out = await runOrchestrator({
+      osContext,
+      executivePacket,
+    });
 
-  await saveMemory(userId, {
-    type: "interaction",
-    role: "assistant",
-    content: out.reply,
-  });
+    const reply =
+      typeof out === "string"
+        ? out
+        : out?.reply || out?.text || null;
 
-  // Memory graph writeback
-  await writebackFromTurn({
-    userId,
-    userText: message,
-    assistantText: out.reply,
-  });
+    if (!reply) {
+      console.error("❌ Orchestrator returned no reply", out);
+      return res.status(500).json({
+        error: "Model produced no reply",
+      });
+    }
 
-  // Keep summary doc updated (but no AI summarizing)
-  const turns = (summaryDoc?.turns || 0) + 1;
-  await saveSummary(userId, summaryDoc?.text || "", turns);
+    // ── Save memory ───────────────────────────────────────
+    await saveMemory(userId, {
+      type: "interaction",
+      role: "user",
+      content: message,
+    });
 
-  res.status(200).json(out);
+    await saveMemory(userId, {
+      type: "interaction",
+      role: "assistant",
+      content: reply,
+    });
+
+    // ── Memory graph writeback ────────────────────────────
+    await writebackFromTurn({
+      userId,
+      userText: message,
+      assistantText: reply,
+    });
+
+    // ── Keep summary doc updated (no AI summarizer) ───────
+    const turns = (summaryDoc?.turns || 0) + 1;
+    await saveSummary(userId, summaryDoc?.text || "", turns);
+
+    // 🔥 THIS WAS THE MISSING GUARANTEE
+    return res.status(200).json({
+      reply,
+      modelUsed: out?.modelUsed || null,
+    });
+  } catch (err) {
+    console.error("❌ /api/chat fatal error:", err);
+    return res.status(500).json({
+      error: err.message || "Chat failed",
+    });
+  }
 }
