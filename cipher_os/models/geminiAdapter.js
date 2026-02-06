@@ -2,14 +2,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 if (!process.env.GEMINI_API_KEY) {
-  throw new Error("❌ GEMINI_API_KEY is missing");
+  throw new Error("❌ GEMINI_API_KEY missing");
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export async function geminiGenerate({
   systemPrompt = "",
-  messages = [],
   userMessage,
   temperature = 0.6,
 }) {
@@ -17,24 +16,20 @@ export async function geminiGenerate({
 
   const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash",
-    generationConfig: {
-      temperature,
-    },
+    generationConfig: { temperature },
   });
 
-  const fullPrompt = [
-    systemPrompt && `SYSTEM: ${systemPrompt}`,
-    ...messages.map(m => `${m.role.toUpperCase()}: ${m.content}`),
-    `USER: ${userMessage}`,
+  const prompt = [
+    systemPrompt && `SYSTEM:\n${systemPrompt}`,
+    `USER:\n${userMessage}`,
   ]
     .filter(Boolean)
-    .join("\n");
+    .join("\n\n");
 
-  const result = await model.generateContent(fullPrompt);
+  const result = await model.generateContent(prompt);
 
-  // ✅ CORRECT RESPONSE EXTRACTION
   const parts =
-    result?.response?.candidates?.[0]?.content?.parts || [];
+    result?.response?.candidates?.[0]?.content?.parts ?? [];
 
   const text = parts
     .map(p => p.text)
@@ -43,9 +38,9 @@ export async function geminiGenerate({
     .trim();
 
   if (!text) {
-    console.error("❌ Gemini returned empty content");
+    console.error("❌ Gemini empty response");
     console.error(JSON.stringify(result?.response, null, 2));
-    throw new Error("Gemini returned no usable response");
+    throw new Error("Gemini returned empty output");
   }
 
   return {
