@@ -1,5 +1,5 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator v0.7.1 — Gemini Primary (STABLE)
+// Cipher OS Orchestrator v0.7.2 — Gemini Primary (HARDENED)
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate } from "../models/openaiAdapter.js";
@@ -27,6 +27,17 @@ function hasKey(name) {
   return Boolean(process.env[name] && process.env[name].length > 0);
 }
 
+function extractReply(out) {
+  // 🔒 Canonical reply extraction (no ghosts allowed)
+  if (!out) return null;
+
+  if (typeof out === "string") return out.trim();
+  if (typeof out.reply === "string") return out.reply.trim();
+  if (typeof out.text === "string") return out.text.trim();
+
+  return null;
+}
+
 export async function runOrchestrator({
   osContext,
   executivePacket,
@@ -36,7 +47,7 @@ export async function runOrchestrator({
   const userMessage = osContext?.input?.userMessage || "";
   const uiMessages = osContext?.memory?.uiHistory || [];
 
-  // ✅ Gemini is primary
+  // Gemini → OpenAI → Anthropic
   const ordered = ["gemini", "openai", "anthropic"];
 
   const available = ordered.filter(
@@ -68,24 +79,31 @@ export async function runOrchestrator({
         temperature: 0.6,
       };
 
-      // 🔥 Only pass AbortSignal to adapters that support it
       if (entry.supportsSignal) {
         payload.signal = signal;
       }
 
       const out = await entry.fn(payload);
 
-      if (out && typeof out.reply === "string" && out.reply.trim()) {
+      // 🔥 DEBUG SAFETY (optional, remove later)
+      trace?.log("model.raw", {
+        provider: modelKey,
+        type: typeof out,
+      });
+
+      const reply = extractReply(out);
+
+      if (reply) {
         trace?.log("model.ok", {
           provider: modelKey,
-          model: out.modelUsed,
+          model: out?.modelUsed || "unknown",
         });
 
         return {
-          reply: out.reply.trim(),
+          reply,
           modelUsed: {
             provider: modelKey,
-            model: out.modelUsed,
+            model: out?.modelUsed || "unknown",
           },
         };
       }
