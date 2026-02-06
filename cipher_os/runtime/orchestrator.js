@@ -1,5 +1,5 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator v0.7.3 — Gemini Primary (HARDENED++)
+// Cipher OS Orchestrator v0.7.4 — Gemini Primary (Telemetry Added)
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate } from "../models/openaiAdapter.js";
@@ -76,6 +76,8 @@ export async function runOrchestrator({
 
     trace?.log("model.call", { provider: modelKey });
 
+    const startTime = Date.now();
+
     try {
       // ⚠️ Gemini does NOT accept messages
       const payload =
@@ -101,14 +103,16 @@ export async function runOrchestrator({
       }
 
       const out = await entry.fn(payload);
+      const latencyMs = Date.now() - startTime;
 
       const reply = extractReply(out);
 
-      trace?.log("model.result", {
+      trace?.log("model.telemetry", {
         provider: modelKey,
-        hasReply: Boolean(reply),
-        length: reply?.length || 0,
         model: out?.modelUsed || "unknown",
+        latencyMs,
+        replyLength: reply ? reply.length : 0,
+        success: Boolean(reply),
       });
 
       if (reply) {
@@ -123,8 +127,11 @@ export async function runOrchestrator({
 
       trace?.log("model.empty", { provider: modelKey });
     } catch (err) {
+      const latencyMs = Date.now() - startTime;
+
       trace?.log("model.fail", {
         provider: modelKey,
+        latencyMs,
         error: err?.message || String(err),
       });
     }
