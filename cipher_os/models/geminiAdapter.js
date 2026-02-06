@@ -1,7 +1,8 @@
+// cipher_os/models/geminiAdapter.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 if (!process.env.GEMINI_API_KEY) {
-  throw new Error("❌ GEMINI_API_KEY missing");
+  throw new Error("❌ GEMINI_API_KEY is missing");
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -9,44 +10,46 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 export async function geminiGenerate({
   systemPrompt = "",
   messages = [],
-  userMessage = "",
+  userMessage,
   temperature = 0.6,
 }) {
   console.log("✨ GEMINI GENERATE CALLED");
 
   const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash",
-    generationConfig: { temperature },
+    generationConfig: {
+      temperature,
+    },
   });
 
-  const prompt = [
+  const fullPrompt = [
     systemPrompt && `SYSTEM: ${systemPrompt}`,
-    ...messages.map(
-      (m) => `${m.role.toUpperCase()}: ${m.content}`
-    ),
+    ...messages.map(m => `${m.role.toUpperCase()}: ${m.content}`),
     `USER: ${userMessage}`,
   ]
     .filter(Boolean)
     .join("\n");
 
-  const result = await model.generateContent(prompt);
+  const result = await model.generateContent(fullPrompt);
 
-  const candidate = result?.response?.candidates?.[0];
-  const parts = candidate?.content?.parts || [];
+  // ✅ CORRECT RESPONSE EXTRACTION
+  const parts =
+    result?.response?.candidates?.[0]?.content?.parts || [];
 
   const text = parts
-    .map((p) => p.text)
+    .map(p => p.text)
     .filter(Boolean)
-    .join("");
+    .join("\n")
+    .trim();
 
-  if (!text || !text.trim()) {
-    console.error("❌ Gemini returned empty text");
+  if (!text) {
+    console.error("❌ Gemini returned empty content");
     console.error(JSON.stringify(result?.response, null, 2));
-    throw new Error("Gemini empty response");
+    throw new Error("Gemini returned no usable response");
   }
 
   return {
-    reply: text.trim(),
+    reply: text,
     modelUsed: "gemini-1.5-flash",
   };
 }
