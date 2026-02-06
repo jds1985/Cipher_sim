@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 if (!process.env.GEMINI_API_KEY) {
-  throw new Error("❌ GEMINI_API_KEY is missing");
+  throw new Error("❌ GEMINI_API_KEY missing");
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -9,13 +9,13 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 export async function geminiGenerate({
   systemPrompt = "",
   messages = [],
-  userMessage,
+  userMessage = "",
   temperature = 0.6,
 }) {
   console.log("✨ GEMINI GENERATE CALLED");
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-3-flash",
+    model: "gemini-1.5-flash",
     generationConfig: { temperature },
   });
 
@@ -31,7 +31,6 @@ export async function geminiGenerate({
 
   const result = await model.generateContent(prompt);
 
-  // 🔥 CORRECT PARSING FOR NEW GEMINI
   const candidate = result?.response?.candidates?.[0];
   const parts = candidate?.content?.parts || [];
 
@@ -40,14 +39,14 @@ export async function geminiGenerate({
     .filter(Boolean)
     .join("");
 
-  if (!text.trim()) {
-    console.error("❌ Gemini returned empty content");
+  if (!text || !text.trim()) {
+    console.error("❌ Gemini returned empty text");
     console.error(JSON.stringify(result?.response, null, 2));
-    throw new Error("Gemini returned no usable text");
+    throw new Error("Gemini empty response");
   }
 
   return {
     reply: text.trim(),
-    modelUsed: "gemini-3-flash",
+    modelUsed: "gemini-1.5-flash",
   };
 }
