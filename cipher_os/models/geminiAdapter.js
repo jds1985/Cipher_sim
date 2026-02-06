@@ -1,3 +1,4 @@
+// cipher_os/models/geminiAdapter.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 if (!process.env.GEMINI_API_KEY) {
@@ -16,55 +17,36 @@ export async function geminiGenerate({
 
   const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash",
-    generationConfig: {
-      temperature,
-    },
+    generationConfig: { temperature },
   });
 
-  const fullPrompt = [
-    systemPrompt && `SYSTEM: ${systemPrompt}`,
-    ...messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`),
-    `USER: ${userMessage}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  // Gemini prefers structured content, not role-prefixed strings
+  const contents = [
+    ...(systemPrompt
+      ? [{ role: "user", parts: [{ text: systemPrompt }] }]
+      : []),
+    ...messages.map((m) => ({
+      role: "user",
+      parts: [{ text: m.content }],
+    })),
+    { role: "user", parts: [{ text: userMessage }] },
+  ];
 
-  const result = await model.generateContent(fullPrompt);
+  const result = await model.generateContent({ contents });
 
-  // 🔧 ROBUST TEXT EXTRACTION (handles all Gemini shapes)
-  let text = null;
+  // 🔥 Canonical Gemini extraction
+  const text =
+    result?.response?.candidates?.[0]?.content?.parts
+      ?.map((p) => p.text)
+      ?.join("") || "";
 
-  // Primary path (most common)
-  if (typeof result?.response?.text === "function") {
-    text = result.response.text();
-  }
-
-  // Fallback: candidates → content → parts
-  if (!text) {
-    const candidate = result?.response?.candidates?.[0];
-    if (candidate?.content?.parts?.length) {
-      text = candidate.content.parts
-        .map((p) => p.text)
-        .filter(Boolean)
-        .join("\n");
-    }
-  }
-
-  // Final fallback (rare but real)
-  if (!text && result?.response?.output_text) {
-    text = result.response.output_text;
-  }
-
-  if (!text || !text.trim()) {
-    console.error("❌ Gemini returned no usable text");
+  if (!text.trim()) {
+    console.error("❌ Gemini returned empty response");
     console.error(
-      "🧠 Gemini raw response:",
       JSON.stringify(result?.response, null, 2)
     );
-    throw new Error("Gemini returned no usable response");
+    throw new Error("Gemini returned no usable text");
   }
-
-  console.log("🧠 Gemini reply length:", text.length);
 
   return {
     reply: text.trim(),
