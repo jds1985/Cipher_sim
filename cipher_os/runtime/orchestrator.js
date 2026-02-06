@@ -1,5 +1,5 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator v0.7.2 — Gemini Primary (HARDENED)
+// Cipher OS Orchestrator v0.7.3 — Gemini Primary (HARDENED++)
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate } from "../models/openaiAdapter.js";
@@ -28,7 +28,6 @@ function hasKey(name) {
 }
 
 function extractReply(out) {
-  // 🔒 Canonical reply extraction (no ghosts allowed)
   if (!out) return null;
 
   if (typeof out === "string") return out.trim();
@@ -44,8 +43,16 @@ export async function runOrchestrator({
   signal,
   trace,
 }) {
-  const userMessage = osContext?.input?.userMessage || "";
-  const uiMessages = osContext?.memory?.uiHistory || [];
+  const userMessage = osContext?.input?.userMessage;
+
+  // 🔒 HARD FAIL — do not call models with empty input
+  if (!userMessage || typeof userMessage !== "string" || !userMessage.trim()) {
+    trace?.log("input.invalid", { userMessage });
+    return {
+      reply: "⚠️ Empty input received.",
+      modelUsed: null,
+    };
+  }
 
   // Gemini → OpenAI → Anthropic
   const ordered = ["gemini", "openai", "anthropic"];
@@ -70,14 +77,24 @@ export async function runOrchestrator({
     trace?.log("model.call", { provider: modelKey });
 
     try {
-      const payload = {
-        systemPrompt:
-          executivePacket?.systemPrompt ||
-          "You are Cipher OS. Respond normally.",
-        messages: uiMessages,
-        userMessage,
-        temperature: 0.6,
-      };
+      // ⚠️ Gemini does NOT accept messages
+      const payload =
+        modelKey === "gemini"
+          ? {
+              systemPrompt:
+                executivePacket?.systemPrompt ||
+                "You are Cipher OS. Respond normally.",
+              userMessage,
+              temperature: 0.6,
+            }
+          : {
+              systemPrompt:
+                executivePacket?.systemPrompt ||
+                "You are Cipher OS. Respond normally.",
+              messages: osContext?.memory?.uiHistory || [],
+              userMessage,
+              temperature: 0.6,
+            };
 
       if (entry.supportsSignal) {
         payload.signal = signal;
@@ -85,20 +102,16 @@ export async function runOrchestrator({
 
       const out = await entry.fn(payload);
 
-      // 🔥 DEBUG SAFETY (optional, remove later)
-      trace?.log("model.raw", {
-        provider: modelKey,
-        type: typeof out,
-      });
-
       const reply = extractReply(out);
 
-      if (reply) {
-        trace?.log("model.ok", {
-          provider: modelKey,
-          model: out?.modelUsed || "unknown",
-        });
+      trace?.log("model.result", {
+        provider: modelKey,
+        hasReply: Boolean(reply),
+        length: reply?.length || 0,
+        model: out?.modelUsed || "unknown",
+      });
 
+      if (reply) {
         return {
           reply,
           modelUsed: {
