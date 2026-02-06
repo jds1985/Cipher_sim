@@ -15,13 +15,11 @@ export async function geminiGenerate({
   console.log("✨ GEMINI GENERATE CALLED");
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-3-flash", // ✅ REAL, CURRENT MODEL
-    generationConfig: {
-      temperature,
-    },
+    model: "gemini-3-flash",
+    generationConfig: { temperature },
   });
 
-  const fullPrompt = [
+  const prompt = [
     systemPrompt && `SYSTEM: ${systemPrompt}`,
     ...messages.map(
       (m) => `${m.role.toUpperCase()}: ${m.content}`
@@ -31,14 +29,21 @@ export async function geminiGenerate({
     .filter(Boolean)
     .join("\n");
 
-  const result = await model.generateContent(fullPrompt);
+  const result = await model.generateContent(prompt);
 
-  const text = result?.response?.text?.();
+  // 🔥 CORRECT PARSING FOR NEW GEMINI
+  const candidate = result?.response?.candidates?.[0];
+  const parts = candidate?.content?.parts || [];
 
-  if (!text || !text.trim()) {
-    console.error("❌ Gemini returned no text");
+  const text = parts
+    .map((p) => p.text)
+    .filter(Boolean)
+    .join("");
+
+  if (!text.trim()) {
+    console.error("❌ Gemini returned empty content");
     console.error(JSON.stringify(result?.response, null, 2));
-    throw new Error("Gemini returned no usable response");
+    throw new Error("Gemini returned no usable text");
   }
 
   return {
