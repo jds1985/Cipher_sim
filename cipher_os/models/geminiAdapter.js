@@ -23,7 +23,7 @@ export async function geminiGenerate({
 
   const fullPrompt = [
     systemPrompt && `SYSTEM: ${systemPrompt}`,
-    ...messages.map(m => `${m.role.toUpperCase()}: ${m.content}`),
+    ...messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`),
     `USER: ${userMessage}`,
   ]
     .filter(Boolean)
@@ -31,13 +31,40 @@ export async function geminiGenerate({
 
   const result = await model.generateContent(fullPrompt);
 
-  const text = result?.response?.text?.();
+  // 🔧 ROBUST TEXT EXTRACTION (handles all Gemini shapes)
+  let text = null;
+
+  // Primary path (most common)
+  if (typeof result?.response?.text === "function") {
+    text = result.response.text();
+  }
+
+  // Fallback: candidates → content → parts
+  if (!text) {
+    const candidate = result?.response?.candidates?.[0];
+    if (candidate?.content?.parts?.length) {
+      text = candidate.content.parts
+        .map((p) => p.text)
+        .filter(Boolean)
+        .join("\n");
+    }
+  }
+
+  // Final fallback (rare but real)
+  if (!text && result?.response?.output_text) {
+    text = result.response.output_text;
+  }
 
   if (!text || !text.trim()) {
-    console.error("❌ Gemini returned no text");
-    console.error(JSON.stringify(result?.response, null, 2));
+    console.error("❌ Gemini returned no usable text");
+    console.error(
+      "🧠 Gemini raw response:",
+      JSON.stringify(result?.response, null, 2)
+    );
     throw new Error("Gemini returned no usable response");
   }
+
+  console.log("🧠 Gemini reply length:", text.length);
 
   return {
     reply: text.trim(),
