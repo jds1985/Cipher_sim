@@ -1,5 +1,5 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator v0.7 — Gemini Primary (Production)
+// Cipher OS Orchestrator v0.7.1 — Gemini Primary (STABLE)
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate } from "../models/openaiAdapter.js";
@@ -9,14 +9,17 @@ const ADAPTERS = {
   gemini: {
     fn: geminiGenerate,
     key: "GEMINI_API_KEY",
+    supportsSignal: false,
   },
   openai: {
     fn: openaiGenerate,
     key: "OPENAI_API_KEY",
+    supportsSignal: true,
   },
   anthropic: {
     fn: anthropicGenerate,
     key: "ANTHROPIC_API_KEY",
+    supportsSignal: true,
   },
 };
 
@@ -56,31 +59,33 @@ export async function runOrchestrator({
     trace?.log("model.call", { provider: modelKey });
 
     try {
-      const out = await entry.fn({
+      const payload = {
         systemPrompt:
           executivePacket?.systemPrompt ||
           "You are Cipher OS. Respond normally.",
         messages: uiMessages,
         userMessage,
-        signal,
         temperature: 0.6,
-      });
+      };
 
-      // Gemini returns plain text, others may return objects
-      const reply =
-        typeof out === "string"
-          ? out
-          : out?.reply || out?.text || null;
+      // 🔥 Only pass AbortSignal to adapters that support it
+      if (entry.supportsSignal) {
+        payload.signal = signal;
+      }
 
-      if (reply) {
+      const out = await entry.fn(payload);
+
+      if (out && typeof out.reply === "string" && out.reply.trim()) {
         trace?.log("model.ok", {
           provider: modelKey,
+          model: out.modelUsed,
         });
 
         return {
-          reply,
+          reply: out.reply.trim(),
           modelUsed: {
             provider: modelKey,
+            model: out.modelUsed,
           },
         };
       }
@@ -89,7 +94,7 @@ export async function runOrchestrator({
     } catch (err) {
       trace?.log("model.fail", {
         provider: modelKey,
-        error: err.message,
+        error: err?.message || String(err),
       });
     }
   }
