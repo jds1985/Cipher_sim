@@ -76,6 +76,13 @@ export default async function handler(req, res) {
       });
     }
 
+    // 🔍 Normalize model name for UI badge
+    const model =
+      out?.model ||
+      out?.modelUsed ||
+      out?.engine ||
+      null;
+
     // ── Save memory ───────────────────────────────────────
     await saveMemory(userId, {
       type: "interaction",
@@ -100,10 +107,10 @@ export default async function handler(req, res) {
     const turns = (summaryDoc?.turns || 0) + 1;
     await saveSummary(userId, summaryDoc?.text || "", turns);
 
-    // 🔥 THIS WAS THE MISSING GUARANTEE
+    // ✅ UI-BADGE SAFE RESPONSE
     return res.status(200).json({
       reply,
-      modelUsed: out?.modelUsed || null,
+      model, // ← THIS is what your UI badge reads
     });
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
