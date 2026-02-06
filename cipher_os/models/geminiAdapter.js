@@ -1,0 +1,46 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("❌ GEMINI_API_KEY is missing");
+}
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+export async function geminiGenerate({
+  systemPrompt = "",
+  messages = [],
+  userMessage,
+  temperature = 0.6,
+}) {
+  console.log("✨ GEMINI GENERATE CALLED");
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    generationConfig: {
+      temperature,
+    },
+  });
+
+  const fullPrompt = [
+    systemPrompt && `SYSTEM: ${systemPrompt}`,
+    ...messages.map(m => `${m.role.toUpperCase()}: ${m.content}`),
+    `USER: ${userMessage}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const result = await model.generateContent(fullPrompt);
+
+  const text = result?.response?.text?.();
+
+  if (!text || !text.trim()) {
+    console.error("❌ Gemini returned no text");
+    console.error(JSON.stringify(result?.response, null, 2));
+    throw new Error("Gemini returned no usable response");
+  }
+
+  return {
+    reply: text.trim(),
+    modelUsed: "gemini-1.5-flash",
+  };
+}
