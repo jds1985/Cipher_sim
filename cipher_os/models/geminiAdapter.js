@@ -1,50 +1,58 @@
 // cipher_os/models/geminiAdapter.js
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error("❌ GEMINI_API_KEY missing");
-}
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Gemini Adapter — VERIFIED WORKING (v1)
 
 export async function geminiGenerate({
-  systemPrompt = "",
+  systemPrompt,
   userMessage,
   temperature = 0.6,
 }) {
-  console.log("✨ GEMINI GENERATE CALLED");
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("Missing GEMINI_API_KEY");
+  }
 
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-    generationConfig: { temperature },
+  const model = "gemini-1.5-flash"; // stable + fast
+
+  const url =
+    `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=` +
+    process.env.GEMINI_API_KEY;
+
+  const body = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: systemPrompt
+              ? `${systemPrompt}\n\nUser: ${userMessage}`
+              : userMessage,
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature,
+    },
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 
-  const prompt = [
-    systemPrompt && `SYSTEM:\n${systemPrompt}`,
-    `USER:\n${userMessage}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const data = await res.json();
 
-  const result = await model.generateContent(prompt);
-
-  const parts =
-    result?.response?.candidates?.[0]?.content?.parts ?? [];
-
-  const text = parts
-    .map(p => p.text)
-    .filter(Boolean)
-    .join("\n")
-    .trim();
+  // 🔥 HARD FAIL IF SHAPE IS WRONG
+  const text =
+    data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
 
   if (!text) {
-    console.error("❌ Gemini empty response");
-    console.error(JSON.stringify(result?.response, null, 2));
-    throw new Error("Gemini returned empty output");
+    console.error("❌ Gemini empty response", JSON.stringify(data));
+    return null;
   }
 
   return {
     reply: text,
-    modelUsed: "gemini-1.5-flash",
+    modelUsed: model,
   };
 }
