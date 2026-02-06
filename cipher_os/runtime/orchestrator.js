@@ -1,20 +1,18 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator V0.6 — FORCED Vertex (diagnostic mode)
+// Cipher OS Orchestrator v0.7 — Gemini Primary (Production)
 
-import { chooseModel } from "./routingPolicy.js";
-
+import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate } from "../models/openaiAdapter.js";
 import { anthropicGenerate } from "../models/anthropicAdapter.js";
-import { vertexGenerate } from "../models/vertexAdapter.js";
 
 const ADAPTERS = {
+  gemini: {
+    fn: geminiGenerate,
+    key: "GEMINI_API_KEY",
+  },
   openai: {
     fn: openaiGenerate,
     key: "OPENAI_API_KEY",
-  },
-  vertex: {
-    fn: vertexGenerate,
-    key: "VERTEX_JSON_B64",
   },
   anthropic: {
     fn: anthropicGenerate,
@@ -35,34 +33,25 @@ export async function runOrchestrator({
   const userMessage = osContext?.input?.userMessage || "";
   const uiMessages = osContext?.memory?.uiHistory || [];
 
-  // 🔥 FORCE VERTEX (ignore router completely)
-  let primary = "vertex";
+  // ✅ Gemini is primary
+  const ordered = ["gemini", "openai", "anthropic"];
 
-  // Hard fallback order (Vertex first)
-  const ordered = ["vertex", "openai", "anthropic"];
-
-  // Only models that actually have keys
   const available = ordered.filter(
     (k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key)
   );
 
   trace?.log("models.available", { available });
 
-  if (!available.includes("vertex")) {
+  if (available.length === 0) {
     return {
-      reply: "VERTEX_JSON not available — Vertex cannot be tested.",
+      reply: "No AI providers are configured.",
       modelUsed: null,
     };
   }
 
-  const attemptList = [
-    primary,
-    ...available.filter((m) => m !== primary),
-  ];
-
-  for (const modelKey of attemptList) {
+  for (const modelKey of available) {
     const entry = ADAPTERS[modelKey];
-    if (!entry || !hasKey(entry.key)) continue;
+    if (!entry) continue;
 
     trace?.log("model.call", { provider: modelKey });
 
@@ -77,17 +66,21 @@ export async function runOrchestrator({
         temperature: 0.6,
       });
 
-      if (out && out.reply) {
+      // Gemini returns plain text, others may return objects
+      const reply =
+        typeof out === "string"
+          ? out
+          : out?.reply || out?.text || null;
+
+      if (reply) {
         trace?.log("model.ok", {
           provider: modelKey,
-          model: out.modelUsed,
         });
 
         return {
-          reply: out.reply,
+          reply,
           modelUsed: {
             provider: modelKey,
-            model: out.modelUsed,
           },
         };
       }
@@ -102,7 +95,7 @@ export async function runOrchestrator({
   }
 
   return {
-    reply: "Vertex was called but returned no usable response.",
+    reply: "All models failed to produce a response.",
     modelUsed: null,
   };
 }
