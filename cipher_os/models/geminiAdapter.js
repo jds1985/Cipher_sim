@@ -1,4 +1,3 @@
-// cipher_os/models/geminiAdapter.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 if (!process.env.GEMINI_API_KEY) {
@@ -6,6 +5,27 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+function extractGeminiText(response) {
+  const candidates = response?.candidates;
+  if (!Array.isArray(candidates)) return null;
+
+  for (const c of candidates) {
+    const parts = c?.content?.parts;
+    if (!Array.isArray(parts)) continue;
+
+    let text = "";
+    for (const p of parts) {
+      if (typeof p?.text === "string") {
+        text += p.text;
+      }
+    }
+
+    if (text.trim()) return text.trim();
+  }
+
+  return null;
+}
 
 export async function geminiGenerate({
   systemPrompt = "",
@@ -17,39 +37,47 @@ export async function geminiGenerate({
 
   const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash",
-    generationConfig: { temperature },
+    generationConfig: {
+      temperature,
+    },
+    safetySettings: [
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_SEXUAL_CONTENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+    ],
   });
 
-  // Gemini prefers structured content, not role-prefixed strings
   const contents = [
-    ...(systemPrompt
-      ? [{ role: "user", parts: [{ text: systemPrompt }] }]
-      : []),
-    ...messages.map((m) => ({
+    systemPrompt && {
       role: "user",
-      parts: [{ text: m.content }],
+      parts: [{ text: `SYSTEM: ${systemPrompt}` }],
+    },
+    ...messages.map(m => ({
+      role: "user",
+      parts: [{ text: `${m.role.toUpperCase()}: ${m.content}` }],
     })),
-    { role: "user", parts: [{ text: userMessage }] },
-  ];
+    {
+      role: "user",
+      parts: [{ text: `USER: ${userMessage}` }],
+    },
+  ].filter(Boolean);
 
   const result = await model.generateContent({ contents });
 
-  // 🔥 Canonical Gemini extraction
-  const text =
-    result?.response?.candidates?.[0]?.content?.parts
-      ?.map((p) => p.text)
-      ?.join("") || "";
+  const text = extractGeminiText(result?.response);
 
-  if (!text.trim()) {
-    console.error("❌ Gemini returned empty response");
+  if (!text) {
+    console.error("❌ Gemini returned empty or blocked output");
     console.error(
-      JSON.stringify(result?.response, null, 2)
+      "🔍 Raw response:",
+      JSON.stringify(result?.response, null, 2).slice(0, 3000)
     );
-    throw new Error("Gemini returned no usable text");
+    throw new Error("Gemini output blocked or empty");
   }
 
   return {
-    reply: text.trim(),
+    reply: text,
     modelUsed: "gemini-1.5-flash",
   };
 }
