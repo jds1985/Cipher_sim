@@ -1,5 +1,5 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator v0.8 — Intelligent Routing + Telemetry
+// Cipher OS Orchestrator v0.8 — Intelligent Routing + Telemetry + Output Governor
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate } from "../models/openaiAdapter.js";
@@ -22,6 +22,8 @@ const ADAPTERS = {
     supportsSignal: true,
   },
 };
+
+const MAX_REPLY_CHARS = 2000; // 🧯 transport safety limit
 
 function hasKey(name) {
   return Boolean(process.env[name] && process.env[name].length > 0);
@@ -142,7 +144,7 @@ export async function runOrchestrator({
       const out = await entry.fn(payload);
       const latencyMs = Date.now() - startTime;
 
-      const reply = extractReply(out);
+      let reply = extractReply(out);
 
       trace?.log("model.telemetry", {
         provider: modelKey,
@@ -153,6 +155,18 @@ export async function runOrchestrator({
       });
 
       if (reply) {
+        // 🧯 OUTPUT GOVERNOR
+        if (reply.length > MAX_REPLY_CHARS) {
+          trace?.log("reply.clamped", {
+            originalLength: reply.length,
+            max: MAX_REPLY_CHARS,
+          });
+
+          reply =
+            reply.slice(0, MAX_REPLY_CHARS) +
+            "\n\n⚠️ Output truncated due to size limits.";
+        }
+
         return {
           reply,
           modelUsed: {
