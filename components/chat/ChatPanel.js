@@ -29,10 +29,7 @@ const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
 const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 
-// Match your backend/OpenAI guardrails better than 15s
 const API_TIMEOUT_MS = 25000;
-
-// Keep logs readable on mobile
 const MAX_ERROR_PREVIEW = 280;
 
 /* ===============================
@@ -66,16 +63,10 @@ function clampText(s, max = MAX_ERROR_PREVIEW) {
   return str.slice(0, max) + "…";
 }
 
-/**
- * Robust API reader:
- * - returns { ok, status, data, raw, contentType }
- * - never assumes JSON
- */
 async function readApiResponse(res) {
   const status = res?.status ?? 0;
   const contentType = res?.headers?.get?.("content-type") || "";
 
-  // Read body as text first (works even for non-JSON)
   let raw = "";
   try {
     raw = await res.text();
@@ -83,7 +74,6 @@ async function readApiResponse(res) {
     raw = "";
   }
 
-  // Try JSON parse if it looks like JSON or content-type suggests it
   let data = null;
   const looksJson =
     contentType.includes("application/json") ||
@@ -139,9 +129,6 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
-  /* ===============================
-     EFFECTS
-  ================================ */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
@@ -183,9 +170,6 @@ export default function ChatPanel() {
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
-  /* ===============================
-     INVITE / SHARE
-  ================================ */
   async function handleInvite() {
     const url = `${window.location.origin}?ref=cipher`;
 
@@ -206,14 +190,9 @@ export default function ChatPanel() {
         setCoinBalance(getCipherCoin());
         setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
       }
-    } catch {
-      // user cancelled share
-    }
+    } catch {}
   }
 
-  /* ===============================
-     SEND MESSAGE — STABLE + TRUTHFUL ERRORS
-  ================================ */
   async function sendMessage({ forceDecipher = false } = {}) {
     if (sendingRef.current) return;
     if (!input.trim()) return;
@@ -223,7 +202,6 @@ export default function ChatPanel() {
 
     let activeMode = forceDecipher ? "decipher" : "cipher";
 
-    // 🧊 SOFT DECIPHER COOLDOWN (NEVER BLOCK UI)
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
       if (!gate.allowed) {
@@ -277,7 +255,6 @@ export default function ChatPanel() {
 
       const parsed = await readApiResponse(res);
 
-      // If server returned error, show what it actually said
       if (!parsed.ok) {
         const serverMsg =
           parsed?.data?.reply ||
@@ -292,14 +269,14 @@ export default function ChatPanel() {
         );
       }
 
-      // Prefer JSON reply, fall back to raw if server responded weirdly
       const reply =
         parsed?.data?.reply ||
         parsed?.data?.message ||
         (parsed.raw ? parsed.raw.trim() : "");
 
+      const model = parsed?.data?.model || null; // ⭐ BADGE
+
       if (!reply) {
-        // This is the real case you keep hitting — show status + content-type
         throw new Error(
           `API ${parsed.status}: empty body (content-type: ${parsed.contentType || "unknown"})`
         );
@@ -314,6 +291,7 @@ export default function ChatPanel() {
         {
           role: activeMode === "decipher" ? "decipher" : "assistant",
           content: String(reply ?? "…"),
+          modelUsed: model, // ⭐ BADGE
         },
       ]);
     } catch (err) {
@@ -321,7 +299,7 @@ export default function ChatPanel() {
 
       const msg =
         err?.name === "AbortError"
-          ? `Timeout after ${Math.round(API_TIMEOUT_MS / 1000)}s. (Likely OpenAI/DB delay)`
+          ? `Timeout after ${Math.round(API_TIMEOUT_MS / 1000)}s.`
           : clampText(err?.message || "Unknown transport error");
 
       setMessages((m) => [
@@ -337,9 +315,6 @@ export default function ChatPanel() {
     }
   }
 
-  /* ===============================
-     RENDER
-  ================================ */
   return (
     <div style={styles.wrap}>
       {cipherNote && (
