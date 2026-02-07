@@ -1,9 +1,41 @@
 // components/chat/MessageBubble.jsx
 
-export default function MessageBubble({ role, content }) {
+export default function MessageBubble({ role, content, modelUsed }) {
   const style = bubble(role);
 
-  return <div style={style}>{content || "…"}</div>;
+  return (
+    <div style={style}>
+      {content || "…"}
+
+      {/* ⭐ MODEL BADGE (assistant only) */}
+      {role === "assistant" && modelUsed && (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            opacity: 0.6,
+            letterSpacing: 0.5,
+          }}
+        >
+          {formatModel(modelUsed)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatModel(model) {
+  if (!model) return "";
+
+  if (typeof model === "string") return model;
+
+  if (model.provider && model.model) {
+    return `${model.provider} · ${model.model}`;
+  }
+
+  if (model.provider) return model.provider;
+
+  return String(model);
 }
 
 function bubble(role) {
