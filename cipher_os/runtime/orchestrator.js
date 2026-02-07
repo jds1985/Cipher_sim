@@ -1,5 +1,5 @@
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator v0.7.4 — Gemini Primary (Telemetry Added)
+// Cipher OS Orchestrator v0.8 — Intelligent Routing + Telemetry
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate } from "../models/openaiAdapter.js";
@@ -29,12 +29,39 @@ function hasKey(name) {
 
 function extractReply(out) {
   if (!out) return null;
-
   if (typeof out === "string") return out.trim();
   if (typeof out.reply === "string") return out.reply.trim();
   if (typeof out.text === "string") return out.text.trim();
-
   return null;
+}
+
+/**
+ * 🧠 Tiny Intent Router
+ */
+function classifyIntent(text = "") {
+  const t = text.toLowerCase();
+
+  if (
+    t.includes("code") ||
+    t.includes("function") ||
+    t.includes("debug") ||
+    t.includes("error") ||
+    t.includes("javascript") ||
+    t.includes("api")
+  ) {
+    return "code";
+  }
+
+  if (
+    t.includes("analyze") ||
+    t.includes("explain deeply") ||
+    t.includes("long") ||
+    t.includes("research")
+  ) {
+    return "reasoning";
+  }
+
+  return "chat";
 }
 
 export async function runOrchestrator({
@@ -45,7 +72,6 @@ export async function runOrchestrator({
 }) {
   const userMessage = osContext?.input?.userMessage;
 
-  // 🔒 HARD FAIL — do not call models with empty input
   if (!userMessage || typeof userMessage !== "string" || !userMessage.trim()) {
     trace?.log("input.invalid", { userMessage });
     return {
@@ -54,14 +80,26 @@ export async function runOrchestrator({
     };
   }
 
-  // Gemini → OpenAI → Anthropic
-  const ordered = ["gemini", "openai", "anthropic"];
+  const intent = classifyIntent(userMessage);
 
-  const available = ordered.filter(
+  /**
+   * 🧭 Preferred model by job
+   */
+  let preferredOrder;
+
+  if (intent === "code") {
+    preferredOrder = ["anthropic", "openai", "gemini"];
+  } else if (intent === "reasoning") {
+    preferredOrder = ["gemini", "openai", "anthropic"];
+  } else {
+    preferredOrder = ["openai", "gemini", "anthropic"];
+  }
+
+  const available = preferredOrder.filter(
     (k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key)
   );
 
-  trace?.log("models.available", { available });
+  trace?.log("router.decision", { intent, order: available });
 
   if (available.length === 0) {
     return {
@@ -79,7 +117,6 @@ export async function runOrchestrator({
     const startTime = Date.now();
 
     try {
-      // ⚠️ Gemini does NOT accept messages
       const payload =
         modelKey === "gemini"
           ? {
