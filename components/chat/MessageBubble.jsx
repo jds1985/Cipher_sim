@@ -1,23 +1,13 @@
-// components/chat/MessageBubble.jsx
-
-export default function MessageBubble({ role, content, modelUsed }) {
+export default function MessageBubble({ role, content, model }) {
   const style = bubble(role);
 
   return (
-    <div style={style}>
-      {content || "…"}
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={style}>{content || "…"}</div>
 
-      {/* ⭐ MODEL BADGE (assistant only) */}
-      {role === "assistant" && modelUsed && (
-        <div
-          style={{
-            marginTop: 6,
-            fontSize: 11,
-            opacity: 0.6,
-            letterSpacing: 0.5,
-          }}
-        >
-          {formatModel(modelUsed)}
+      {model && role !== "user" && (
+        <div style={badge(model)}>
+          {formatModel(model)}
         </div>
       )}
     </div>
@@ -25,17 +15,30 @@ export default function MessageBubble({ role, content, modelUsed }) {
 }
 
 function formatModel(model) {
-  if (!model) return "";
-
   if (typeof model === "string") return model;
 
-  if (model.provider && model.model) {
-    return `${model.provider} · ${model.model}`;
-  }
+  const provider = model?.provider || "unknown";
+  const name = model?.model || "model";
 
-  if (model.provider) return model.provider;
+  return `${provider} · ${name}`;
+}
 
-  return String(model);
+function badge(model) {
+  const provider =
+    typeof model === "string" ? model : model?.provider;
+
+  const colors = {
+    openai: "#8b5cf6",
+    gemini: "#f59e0b",
+    anthropic: "#ef4444",
+  };
+
+  return {
+    fontSize: 11,
+    opacity: 0.7,
+    paddingLeft: 8,
+    color: colors[provider] || "#aaa",
+  };
 }
 
 function bubble(role) {
@@ -69,7 +72,6 @@ function bubble(role) {
     };
   }
 
-  // assistant
   return {
     maxWidth: "88%",
     padding: 14,
