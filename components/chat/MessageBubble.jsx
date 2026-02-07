@@ -1,44 +1,29 @@
-export default function MessageBubble({ role, content, model }) {
+// components/chat/MessageBubble.jsx
+
+export default function MessageBubble({ role, content, modelUsed }) {
   const style = bubble(role);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={style}>{content || "…"}</div>
 
-      {model && role !== "user" && (
-        <div style={badge(model)}>
-          {formatModel(model)}
+      {/* ⭐ MODEL BADGE */}
+      {modelUsed && role !== "user" && (
+        <div
+          style={{
+            fontSize: 12,
+            opacity: 0.6,
+            paddingLeft: 6,
+            textTransform: "lowercase",
+          }}
+        >
+          {typeof modelUsed === "string"
+            ? modelUsed
+            : `${modelUsed?.provider || ""} · ${modelUsed?.model || ""}`}
         </div>
       )}
     </div>
   );
-}
-
-function formatModel(model) {
-  if (typeof model === "string") return model;
-
-  const provider = model?.provider || "unknown";
-  const name = model?.model || "model";
-
-  return `${provider} · ${name}`;
-}
-
-function badge(model) {
-  const provider =
-    typeof model === "string" ? model : model?.provider;
-
-  const colors = {
-    openai: "#8b5cf6",
-    gemini: "#f59e0b",
-    anthropic: "#ef4444",
-  };
-
-  return {
-    fontSize: 11,
-    opacity: 0.7,
-    paddingLeft: 8,
-    color: colors[provider] || "#aaa",
-  };
 }
 
 function bubble(role) {
