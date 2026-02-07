@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     const userId = "jim";
     const userName = "Jim";
 
-    // ── TRACE LOGGER (🔍 THIS IS THE MISSING PIECE) ─────────
+    // ── TRACE LOGGER ──────────────────────────────────────
     const trace = {
       log: (event, payload) => {
         console.log(`[TRACE] ${event}`, payload ?? "");
@@ -86,11 +86,11 @@ export default async function handler(req, res) {
       hasSystemPrompt: Boolean(executivePacket?.systemPrompt),
     });
 
-    // ── Orchestrator (Gemini → OpenAI → Anthropic) ─────────
+    // ── Orchestrator ──────────────────────────────────────
     const out = await runOrchestrator({
       osContext,
       executivePacket,
-      trace, // 🔥 THIS enables model-level telemetry
+      trace,
     });
 
     trace.log("orchestrator.complete", {
@@ -108,13 +108,6 @@ export default async function handler(req, res) {
         error: "Model produced no reply",
       });
     }
-
-    // 🔍 Normalize model name for UI badge
-    const model =
-      out?.model ||
-      out?.modelUsed ||
-      out?.engine ||
-      null;
 
     // ── Save memory ───────────────────────────────────────
     await saveMemory(userId, {
@@ -145,7 +138,7 @@ export default async function handler(req, res) {
       completed: true,
     });
 
-    // ── Keep summary doc updated (no AI summarizer) ───────
+    // ── Update summary ────────────────────────────────────
     const turns = (summaryDoc?.turns || 0) + 1;
     await saveSummary(userId, summaryDoc?.text || "", turns);
 
@@ -153,10 +146,9 @@ export default async function handler(req, res) {
       turns,
     });
 
-    // ✅ UI-BADGE SAFE RESPONSE
     return res.status(200).json({
       reply,
-      model, // ← UI badge reads this
+      model: out?.modelUsed || null, // ⭐ BADGE DATA
     });
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
