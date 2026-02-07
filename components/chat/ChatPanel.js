@@ -274,7 +274,7 @@ export default function ChatPanel() {
         parsed?.data?.message ||
         (parsed.raw ? parsed.raw.trim() : "");
 
-      const model = parsed?.data?.model || null; // ⭐ BADGE
+      const model = parsed?.data?.model || null;
 
       if (!reply) {
         throw new Error(
@@ -291,7 +291,7 @@ export default function ChatPanel() {
         {
           role: activeMode === "decipher" ? "decipher" : "assistant",
           content: String(reply ?? "…"),
-          modelUsed: model, // ⭐ BADGE
+          modelUsed: model,   // ⭐ badge
         },
       ]);
     } catch (err) {
