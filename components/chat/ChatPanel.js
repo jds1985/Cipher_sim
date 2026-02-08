@@ -201,8 +201,11 @@ export default function ChatPanel() {
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
+  // ⭐ NEW: Quick Actions wiring
   function handleQuickAction(prompt) {
-    setInput((prev) => (prev ? `${prev}\n${prompt}` : prompt));
+    // If the user already typed something, append on a new line.
+    // Otherwise, drop the prompt straight in.
+    setInput((prev) => (prev?.trim() ? `${prev}\n${prompt}` : prompt));
   }
 
   async function handleInvite() {
@@ -237,6 +240,7 @@ export default function ChatPanel() {
 
     const activeMode = forceDecipher ? "decipher" : "cipher";
 
+    // 🧊 Soft decipher cooldown
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
       if (!gate.allowed) {
@@ -259,6 +263,7 @@ export default function ChatPanel() {
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
     setInput("");
 
+    // Add the user bubble + placeholder assistant bubble (stream fills it)
     setMessages((m) => [
       ...m,
       userMessage,
@@ -281,7 +286,7 @@ export default function ChatPanel() {
           : {
               message: userMessage.content,
               history: historySnapshot.slice(-HISTORY_WINDOW),
-              stream: true,
+              stream: true, // ⭐ enable streaming for /api/chat
             };
 
       const controller = new AbortController();
@@ -296,6 +301,7 @@ export default function ChatPanel() {
 
       clearTimeout(timeout);
 
+      // Handle non-OK early with readable error
       if (!res.ok) {
         const parsed = await readApiResponse(res);
         const serverMsg =
@@ -303,9 +309,35 @@ export default function ChatPanel() {
           parsed?.data?.error ||
           parsed?.data?.message ||
           (parsed.raw ? clampText(parsed.raw) : "");
-        throw new Error(serverMsg ? `API ${parsed.status}: ${serverMsg}` : `API ${parsed.status}: (no body)`);
+
+        throw new Error(
+          serverMsg ? `API ${parsed.status}: ${serverMsg}` : `API ${parsed.status}: (no body)`
+        );
       }
 
+      // ✅ DECIPHER stays JSON (not SSE)
+      if (activeMode === "decipher") {
+        const parsed = await readApiResponse(res);
+        const reply =
+          parsed?.data?.reply ||
+          parsed?.data?.message ||
+          (parsed.raw ? parsed.raw.trim() : "");
+
+        if (!reply) throw new Error(`API ${parsed.status}: empty body`);
+
+        recordDecipherUse();
+
+        setMessages((m) => {
+          const next = [...m];
+          const lastIdx = next.length - 1;
+          next[lastIdx] = { role: "decipher", content: String(reply ?? "…"), modelUsed: null };
+          return next;
+        });
+
+        return;
+      }
+
+      // ✅ CIPHER uses SSE streaming
       let streamed = "";
       let modelUsed = null;
 
@@ -344,6 +376,7 @@ export default function ChatPanel() {
           ? `Timeout after ${Math.round(API_TIMEOUT_MS / 1000)}s.`
           : clampText(err?.message || "Unknown transport error");
 
+      // overwrite placeholder bubble with error
       setMessages((m) => {
         const next = [...m];
         const lastIdx = next.length - 1;
@@ -383,7 +416,7 @@ export default function ChatPanel() {
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
-      {/* ⭐ NEW */}
+      {/* ⭐ NEW: Quick action row (wired) */}
       <QuickActions onSelect={handleQuickAction} />
 
       <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
