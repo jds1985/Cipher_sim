@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 // pages/api/chat.js
-// Cipher OS — stable core (Gemini-compatible, hardened)
+// Cipher OS — stable core + streaming
 
 import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
@@ -16,6 +16,10 @@ import {
 
 import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback.js";
 
+function sseWrite(res, obj) {
+  res.write(`data: ${JSON.stringify(obj)}\n\n`);
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -23,28 +27,21 @@ export default async function handler(req, res) {
 
   try {
     const message = req.body?.message?.trim() || "Hello";
+    const wantStream = Boolean(req.body?.stream); // ⭐ client controls this
 
     const userId = "jim";
     const userName = "Jim";
 
-    // ── TRACE LOGGER ──────────────────────────────────────
     const trace = {
-      log: (event, payload) => {
-        console.log(`[TRACE] ${event}`, payload ?? "");
-      },
+      log: (event, payload) => console.log(`[TRACE] ${event}`, payload ?? ""),
     };
 
-    trace.log("request.received", {
-      messageLength: message.length,
-    });
+    trace.log("request.received", { messageLength: message.length, wantStream });
 
     // ── Load long-term memory ─────────────────────────────
     const memoryData = await loadMemory(userId);
     const longTermHistory = memoryData?.history || [];
-
-    trace.log("memory.loaded", {
-      longTermTurns: longTermHistory.length,
-    });
+    trace.log("memory.loaded", { longTermTurns: longTermHistory.length });
 
     // ── Load memory graph ─────────────────────────────────
     const nodes = await loadMemoryNodes(userId, 60);
@@ -68,9 +65,7 @@ export default async function handler(req, res) {
     osContext.memory.nodes = nodes;
     osContext.memory.longTermSummary = summaryDoc?.text || "";
 
-    trace.log("osContext.built", {
-      requestId: osContext.requestId,
-    });
+    trace.log("osContext.built", { requestId: osContext.requestId });
 
     // ── Executive layer ───────────────────────────────────
     const executivePacket = await runCipherCore(
@@ -86,74 +81,118 @@ export default async function handler(req, res) {
       hasSystemPrompt: Boolean(executivePacket?.systemPrompt),
     });
 
-    // ── Orchestrator ──────────────────────────────────────
+    // ──────────────────────────────────────────────────────
+    // STREAM RESPONSE MODE (SSE)
+    // ──────────────────────────────────────────────────────
+    if (wantStream) {
+      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders?.();
+
+      // heartbeat keeps some proxies happy
+      const heartbeat = setInterval(() => {
+        try {
+          res.write(`: ping\n\n`);
+        } catch {}
+      }, 15000);
+
+      let streamedText = "";
+      let modelUsedObj = null;
+
+      // Send a meta event early (client can show “streaming…”)
+      sseWrite(res, { type: "meta", ok: true });
+
+      const out = await runOrchestrator({
+        osContext,
+        executivePacket,
+        trace,
+        stream: true,
+        onToken: (delta) => {
+          streamedText += delta;
+          sseWrite(res, { type: "delta", text: delta });
+        },
+      });
+
+      modelUsedObj = out?.modelUsed || null;
+
+      // Finish
+      sseWrite(res, {
+        type: "done",
+        reply: out?.reply || streamedText || "",
+        model: modelUsedObj?.model || null,
+        provider: modelUsedObj?.provider || null,
+      });
+
+      clearInterval(heartbeat);
+
+      // Save memory AFTER we have final reply
+      const finalReply = out?.reply || streamedText || "";
+
+      await saveMemory(userId, { type: "interaction", role: "user", content: message });
+      await saveMemory(userId, {
+        type: "interaction",
+        role: "assistant",
+        content: finalReply,
+      });
+
+      trace.log("memory.saved", { userTurnSaved: true, assistantTurnSaved: true });
+
+      await writebackFromTurn({ userId, userText: message, assistantText: finalReply });
+      trace.log("memoryGraph.writeback", { completed: true });
+
+      const turns = (summaryDoc?.turns || 0) + 1;
+      await saveSummary(userId, summaryDoc?.text || "", turns);
+      trace.log("summary.updated", { turns });
+
+      res.end();
+      return;
+    }
+
+    // ──────────────────────────────────────────────────────
+    // NON-STREAM NORMAL MODE (JSON)
+    // ──────────────────────────────────────────────────────
     const out = await runOrchestrator({
       osContext,
       executivePacket,
       trace,
     });
 
-    trace.log("orchestrator.complete", {
-      modelUsed: out?.modelUsed || null,
-    });
+    trace.log("orchestrator.complete", { modelUsed: out?.modelUsed || null });
 
     const reply =
-      typeof out === "string"
-        ? out
-        : out?.reply || out?.text || null;
+      typeof out === "string" ? out : out?.reply || out?.text || null;
 
     if (!reply) {
       console.error("❌ Orchestrator returned no reply", out);
-      return res.status(500).json({
-        error: "Model produced no reply",
-      });
+      return res.status(500).json({ error: "Model produced no reply" });
     }
 
-    // ── Save memory ───────────────────────────────────────
-    await saveMemory(userId, {
-      type: "interaction",
-      role: "user",
-      content: message,
-    });
+    const model =
+      out?.modelUsed?.model ||
+      out?.model ||
+      out?.engine ||
+      null;
 
+    await saveMemory(userId, { type: "interaction", role: "user", content: message });
     await saveMemory(userId, {
       type: "interaction",
       role: "assistant",
       content: reply,
     });
 
-    trace.log("memory.saved", {
-      userTurnSaved: true,
-      assistantTurnSaved: true,
-    });
+    trace.log("memory.saved", { userTurnSaved: true, assistantTurnSaved: true });
 
-    // ── Memory graph writeback ────────────────────────────
-    await writebackFromTurn({
-      userId,
-      userText: message,
-      assistantText: reply,
-    });
+    await writebackFromTurn({ userId, userText: message, assistantText: reply });
+    trace.log("memoryGraph.writeback", { completed: true });
 
-    trace.log("memoryGraph.writeback", {
-      completed: true,
-    });
-
-    // ── Update summary ────────────────────────────────────
     const turns = (summaryDoc?.turns || 0) + 1;
     await saveSummary(userId, summaryDoc?.text || "", turns);
+    trace.log("summary.updated", { turns });
 
-    trace.log("summary.updated", {
-      turns,
-    });
-
-    return res.status(200).json({
-      reply,
-      model: out?.modelUsed || null, // ⭐ BADGE DATA
-    });
+    return res.status(200).json({ reply, model });
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
-    return res.status(500).json({
-      error: err.message || "Chat failed",
-    });
+    return res.status(500).json({ error: err.message || "Chat failed" });
   }
 }
