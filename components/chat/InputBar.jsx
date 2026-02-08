@@ -38,8 +38,8 @@ export default function InputBar({
   }
 
   function handleClick() {
-    // 🖱 desktop / short tap
     if (typing) return;
+    if (!input.trim()) return; // ⭐ prevent empty sends
     onSend({ forceDecipher: false });
   }
 
@@ -52,7 +52,14 @@ export default function InputBar({
         placeholder="Talk to Cipher…"
         disabled={typing}
         onKeyDown={(e) => {
-          if (e.key === "Enter") handleClick();
+          // ⭐ SHIFT + ENTER = newline
+          if (e.key === "Enter" && e.shiftKey) return;
+
+          // ⭐ ENTER = send
+          if (e.key === "Enter") {
+            e.preventDefault();
+            handleClick();
+          }
         }}
       />
 
