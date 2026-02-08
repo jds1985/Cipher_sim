@@ -1,3 +1,4 @@
+// components/chat/MessageList.jsx
 import MessageBubble from "./MessageBubble";
 
 export default function MessageList({ messages, bottomRef }) {
@@ -8,7 +9,7 @@ export default function MessageList({ messages, bottomRef }) {
           key={i}
           role={m.role}
           content={m.content}
-          modelUsed={m.modelUsed || null}   // ⭐ badge info
+          modelUsed={m.modelUsed || null}
         />
       ))}
       <div ref={bottomRef} />
