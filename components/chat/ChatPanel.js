@@ -254,7 +254,7 @@ export default function ChatPanel() {
     const historySnapshot = [...messages, userMessage];
 
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
-    setMessages(historySnapshot);
+    
     setInput("");
 
     // Pre-add an empty assistant bubble for streaming to fill
