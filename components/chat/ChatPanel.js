@@ -7,6 +7,7 @@ import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import CipherNote from "./CipherNote";
 import RewardToast from "./RewardToast";
+import QuickActions from "./QuickActions"; // ⭐ NEW
 
 import {
   canUseDecipher,
@@ -110,7 +111,6 @@ async function readSSEStream(res, onEvent) {
       const chunk = buffer.slice(0, idx);
       buffer = buffer.slice(idx + 2);
 
-      // ignore comments/heartbeats
       if (chunk.startsWith(":")) continue;
 
       const lines = chunk.split("\n");
@@ -201,6 +201,10 @@ export default function ChatPanel() {
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
+  function handleQuickAction(prompt) {
+    setInput((prev) => (prev ? `${prev}\n${prompt}` : prompt));
+  }
+
   async function handleInvite() {
     const url = `${window.location.origin}?ref=cipher`;
 
@@ -233,7 +237,6 @@ export default function ChatPanel() {
 
     const activeMode = forceDecipher ? "decipher" : "cipher";
 
-    // 🧊 Soft decipher cooldown
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
       if (!gate.allowed) {
@@ -254,24 +257,17 @@ export default function ChatPanel() {
     const historySnapshot = [...messages, userMessage];
 
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
-    
     setInput("");
 
-    // Pre-add an empty assistant bubble for streaming to fill
-    const assistantIndexRef = { idx: -1 };
-    setMessages((m) => {
-      const next = [
-        ...m,
-        userMessage,
-        {
-          role: activeMode === "decipher" ? "decipher" : "assistant",
-          content: activeMode === "decipher" ? "…" : "", // decipher not streamed
-          modelUsed: null,
-        },
-      ];
-      assistantIndexRef.idx = next.length - 1;
-      return next;
-    });
+    setMessages((m) => [
+      ...m,
+      userMessage,
+      {
+        role: activeMode === "decipher" ? "decipher" : "assistant",
+        content: activeMode === "decipher" ? "…" : "",
+        modelUsed: null,
+      },
+    ]);
 
     try {
       const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
@@ -285,7 +281,7 @@ export default function ChatPanel() {
           : {
               message: userMessage.content,
               history: historySnapshot.slice(-HISTORY_WINDOW),
-              stream: true, // ⭐ enable streaming for /api/chat
+              stream: true,
             };
 
       const controller = new AbortController();
@@ -300,41 +296,6 @@ export default function ChatPanel() {
 
       clearTimeout(timeout);
 
-      // DECIPHER: keep old JSON behavior
-      if (activeMode === "decipher") {
-        const parsed = await readApiResponse(res);
-
-        if (!parsed.ok) {
-          const serverMsg =
-            parsed?.data?.reply ||
-            parsed?.data?.error ||
-            parsed?.data?.message ||
-            (parsed.raw ? clampText(parsed.raw) : "");
-
-          throw new Error(
-            serverMsg ? `API ${parsed.status}: ${serverMsg}` : `API ${parsed.status}: (no body)`
-          );
-        }
-
-        const reply = parsed?.data?.reply || parsed?.data?.message || (parsed.raw ? parsed.raw.trim() : "");
-        if (!reply) throw new Error(`API ${parsed.status}: empty body`);
-
-        recordDecipherUse();
-
-        setMessages((m) => {
-          const next = [...m];
-          // overwrite the placeholder bubble we inserted
-          const lastIdx = next.length - 1;
-          next[lastIdx] = { role: "decipher", content: String(reply ?? "…"), modelUsed: null };
-          return next;
-        });
-
-        setTyping(false);
-        sendingRef.current = false;
-        return;
-      }
-
-      // CIPHER STREAM MODE (SSE)
       if (!res.ok) {
         const parsed = await readApiResponse(res);
         const serverMsg =
@@ -354,16 +315,8 @@ export default function ChatPanel() {
 
           setMessages((m) => {
             const next = [...m];
-            // update last bubble (placeholder)
             const lastIdx = next.length - 1;
-            const last = next[lastIdx];
-            if (!last) return next;
-
-            next[lastIdx] = {
-              ...last,
-              content: streamed,
-              modelUsed: modelUsed,
-            };
+            next[lastIdx] = { ...next[lastIdx], content: streamed, modelUsed };
             return next;
           });
         }
@@ -374,13 +327,10 @@ export default function ChatPanel() {
           setMessages((m) => {
             const next = [...m];
             const lastIdx = next.length - 1;
-            const last = next[lastIdx];
-            if (!last) return next;
-
             next[lastIdx] = {
-              ...last,
+              ...next[lastIdx],
               content: String(evt?.reply ?? streamed ?? ""),
-              modelUsed: modelUsed,
+              modelUsed,
             };
             return next;
           });
@@ -394,7 +344,6 @@ export default function ChatPanel() {
           ? `Timeout after ${Math.round(API_TIMEOUT_MS / 1000)}s.`
           : clampText(err?.message || "Unknown transport error");
 
-      // overwrite placeholder bubble with error
       setMessages((m) => {
         const next = [...m];
         const lastIdx = next.length - 1;
@@ -433,6 +382,9 @@ export default function ChatPanel() {
       <div style={styles.chat}>
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
+
+      {/* ⭐ NEW */}
+      <QuickActions onSelect={handleQuickAction} />
 
       <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
 
