@@ -29,7 +29,8 @@ const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
 const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 
-const API_TIMEOUT_MS = 25000;
+// Streaming usually makes 25s safe, but keep a hard cap anyway
+const API_TIMEOUT_MS = 60000;
 const MAX_ERROR_PREVIEW = 280;
 
 /* ===============================
@@ -45,13 +46,7 @@ const NOTE_VARIANTS = [
   "Hi.\n\nNo pressure.\nJust wanted to say I noticed you were gone.",
 ];
 
-const RETURN_LINES = [
-  "Hey.",
-  "I’m here.",
-  "Yeah?",
-  "What’s up.",
-  "Hey — I’m still here.",
-];
+const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
 
 function getRandomNote() {
   return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
@@ -88,13 +83,54 @@ async function readApiResponse(res) {
     }
   }
 
-  return {
-    ok: Boolean(res?.ok),
-    status,
-    contentType,
-    raw,
-    data,
-  };
+  return { ok: Boolean(res?.ok), status, contentType, raw, data };
+}
+
+/**
+ * Reads SSE stream (data: JSON\n\n).
+ * Calls onEvent(obj) for each parsed event.
+ */
+async function readSSEStream(res, onEvent) {
+  const reader = res?.body?.getReader?.();
+  if (!reader) throw new Error("Stream: no readable body");
+
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    while (true) {
+      const idx = buffer.indexOf("\n\n");
+      if (idx === -1) break;
+
+      const chunk = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+
+      // ignore comments/heartbeats
+      if (chunk.startsWith(":")) continue;
+
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) continue;
+
+        const payload = trimmed.replace(/^data:\s*/, "");
+        let obj = null;
+        try {
+          obj = JSON.parse(payload);
+        } catch {
+          continue;
+        }
+        try {
+          onEvent?.(obj);
+        } catch {}
+      }
+    }
+  }
 }
 
 /* ===============================
@@ -102,9 +138,7 @@ async function readApiResponse(res) {
 ================================ */
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
-    if (typeof window === "undefined") {
-      return [{ role: "assistant", content: "Cipher online." }];
-    }
+    if (typeof window === "undefined") return [{ role: "assistant", content: "Cipher online." }];
 
     try {
       const saved = localStorage.getItem(MEMORY_KEY);
@@ -161,10 +195,7 @@ export default function ChatPanel() {
 
     setMessages((m) => [
       ...m,
-      {
-        role: "assistant",
-        content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)],
-      },
+      { role: "assistant", content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)] },
     ]);
 
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
@@ -200,8 +231,9 @@ export default function ChatPanel() {
     sendingRef.current = true;
     setTyping(true);
 
-    let activeMode = forceDecipher ? "decipher" : "cipher";
+    const activeMode = forceDecipher ? "decipher" : "cipher";
 
+    // 🧊 Soft decipher cooldown
     if (activeMode === "decipher") {
       const gate = canUseDecipher();
       if (!gate.allowed) {
@@ -209,9 +241,7 @@ export default function ChatPanel() {
           ...m,
           {
             role: "assistant",
-            content: `${DECIPHER_COOLDOWN_MESSAGE}\n⏳ ${formatRemaining(
-              gate.remainingMs
-            )}`,
+            content: `${DECIPHER_COOLDOWN_MESSAGE}\n⏳ ${formatRemaining(gate.remainingMs)}`,
           },
         ]);
         setTyping(false);
@@ -227,6 +257,22 @@ export default function ChatPanel() {
     setMessages(historySnapshot);
     setInput("");
 
+    // Pre-add an empty assistant bubble for streaming to fill
+    const assistantIndexRef = { idx: -1 };
+    setMessages((m) => {
+      const next = [
+        ...m,
+        userMessage,
+        {
+          role: activeMode === "decipher" ? "decipher" : "assistant",
+          content: activeMode === "decipher" ? "…" : "", // decipher not streamed
+          modelUsed: null,
+        },
+      ];
+      assistantIndexRef.idx = next.length - 1;
+      return next;
+    });
+
     try {
       const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
@@ -239,6 +285,7 @@ export default function ChatPanel() {
           : {
               message: userMessage.content,
               history: historySnapshot.slice(-HISTORY_WINDOW),
+              stream: true, // ⭐ enable streaming for /api/chat
             };
 
       const controller = new AbortController();
@@ -253,47 +300,92 @@ export default function ChatPanel() {
 
       clearTimeout(timeout);
 
-      const parsed = await readApiResponse(res);
+      // DECIPHER: keep old JSON behavior
+      if (activeMode === "decipher") {
+        const parsed = await readApiResponse(res);
 
-      if (!parsed.ok) {
+        if (!parsed.ok) {
+          const serverMsg =
+            parsed?.data?.reply ||
+            parsed?.data?.error ||
+            parsed?.data?.message ||
+            (parsed.raw ? clampText(parsed.raw) : "");
+
+          throw new Error(
+            serverMsg ? `API ${parsed.status}: ${serverMsg}` : `API ${parsed.status}: (no body)`
+          );
+        }
+
+        const reply = parsed?.data?.reply || parsed?.data?.message || (parsed.raw ? parsed.raw.trim() : "");
+        if (!reply) throw new Error(`API ${parsed.status}: empty body`);
+
+        recordDecipherUse();
+
+        setMessages((m) => {
+          const next = [...m];
+          // overwrite the placeholder bubble we inserted
+          const lastIdx = next.length - 1;
+          next[lastIdx] = { role: "decipher", content: String(reply ?? "…"), modelUsed: null };
+          return next;
+        });
+
+        setTyping(false);
+        sendingRef.current = false;
+        return;
+      }
+
+      // CIPHER STREAM MODE (SSE)
+      if (!res.ok) {
+        const parsed = await readApiResponse(res);
         const serverMsg =
           parsed?.data?.reply ||
           parsed?.data?.error ||
           parsed?.data?.message ||
           (parsed.raw ? clampText(parsed.raw) : "");
-
-        throw new Error(
-          serverMsg
-            ? `API ${parsed.status}: ${serverMsg}`
-            : `API ${parsed.status}: (no body)`
-        );
+        throw new Error(serverMsg ? `API ${parsed.status}: ${serverMsg}` : `API ${parsed.status}: (no body)`);
       }
 
-      const reply =
-        parsed?.data?.reply ||
-        parsed?.data?.message ||
-        (parsed.raw ? parsed.raw.trim() : "");
+      let streamed = "";
+      let modelUsed = null;
 
-      const model = parsed?.data?.model || null;
+      await readSSEStream(res, (evt) => {
+        if (evt?.type === "delta" && typeof evt?.text === "string") {
+          streamed += evt.text;
 
-      if (!reply) {
-        throw new Error(
-          `API ${parsed.status}: empty body (content-type: ${parsed.contentType || "unknown"})`
-        );
-      }
+          setMessages((m) => {
+            const next = [...m];
+            // update last bubble (placeholder)
+            const lastIdx = next.length - 1;
+            const last = next[lastIdx];
+            if (!last) return next;
 
-      if (activeMode === "decipher") {
-        recordDecipherUse();
-      }
+            next[lastIdx] = {
+              ...last,
+              content: streamed,
+              modelUsed: modelUsed,
+            };
+            return next;
+          });
+        }
 
-      setMessages((m) => [
-        ...m,
-        {
-          role: activeMode === "decipher" ? "decipher" : "assistant",
-          content: String(reply ?? "…"),
-          modelUsed: model,   // ⭐ badge
-        },
-      ]);
+        if (evt?.type === "done") {
+          modelUsed = evt?.model || null;
+
+          setMessages((m) => {
+            const next = [...m];
+            const lastIdx = next.length - 1;
+            const last = next[lastIdx];
+            if (!last) return next;
+
+            next[lastIdx] = {
+              ...last,
+              content: String(evt?.reply ?? streamed ?? ""),
+              modelUsed: modelUsed,
+            };
+            return next;
+          });
+        }
+      });
     } catch (err) {
       console.error("Cipher send failed:", err);
 
@@ -302,13 +394,13 @@ export default function ChatPanel() {
           ? `Timeout after ${Math.round(API_TIMEOUT_MS / 1000)}s.`
           : clampText(err?.message || "Unknown transport error");
 
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          content: `Transport error: ${msg}`,
-        },
-      ]);
+      // overwrite placeholder bubble with error
+      setMessages((m) => {
+        const next = [...m];
+        const lastIdx = next.length - 1;
+        next[lastIdx] = { role: "assistant", content: `Transport error: ${msg}`, modelUsed: null };
+        return next;
+      });
     } finally {
       setTyping(false);
       sendingRef.current = false;
