@@ -1,25 +1,22 @@
 // components/chat/MessageBubble.jsx
 
-export default function MessageBubble({ role, content, modelUsed }) {
+export default function MessageBubble({ role, content, modelUsed = null }) {
   const style = bubble(role);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={style}>{content || "…"}</div>
+    <div style={style}>
+      <div style={{ whiteSpace: "pre-wrap" }}>{content || "…"}</div>
 
-      {/* ⭐ MODEL BADGE */}
       {modelUsed && role !== "user" && (
         <div
           style={{
+            marginTop: 10,
+            opacity: 0.65,
             fontSize: 12,
-            opacity: 0.6,
-            paddingLeft: 6,
-            textTransform: "lowercase",
+            letterSpacing: 0.2,
           }}
         >
-          {typeof modelUsed === "string"
-            ? modelUsed
-            : `${modelUsed?.provider || ""} · ${modelUsed?.model || ""}`}
+          {String(modelUsed)}
         </div>
       )}
     </div>
@@ -39,7 +36,6 @@ function bubble(role) {
       boxShadow:
         "0 0 0 1px rgba(255,90,90,0.15) inset, 0 0 18px rgba(255,90,90,0.08)",
       fontWeight: 600,
-      whiteSpace: "pre-wrap",
     };
   }
 
@@ -53,10 +49,10 @@ function bubble(role) {
         "linear-gradient(135deg, rgba(90,70,255,0.95), rgba(180,120,255,0.78))",
       border: "1px solid rgba(190,150,255,0.22)",
       boxShadow: "0 0 18px rgba(167,115,255,0.16)",
-      whiteSpace: "pre-wrap",
     };
   }
 
+  // assistant
   return {
     maxWidth: "88%",
     padding: 14,
@@ -65,6 +61,5 @@ function bubble(role) {
     background: "rgba(255,255,255,0.06)",
     border: "1px solid rgba(190,150,255,0.14)",
     boxShadow: "0 0 0 1px rgba(167,115,255,0.08) inset",
-    whiteSpace: "pre-wrap",
   };
 }
