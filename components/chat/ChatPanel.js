@@ -7,7 +7,7 @@ import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import CipherNote from "./CipherNote";
 import RewardToast from "./RewardToast";
-import QuickActions from "./QuickActions"; // ⭐ NEW
+import QuickActions from "./QuickActions";
 
 import {
   canUseDecipher,
@@ -30,7 +30,6 @@ const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 const NOTE_SHOWN_KEY = "cipher_note_shown";
 const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 
-// Streaming usually makes 25s safe, but keep a hard cap anyway
 const API_TIMEOUT_MS = 60000;
 const MAX_ERROR_PREVIEW = 280;
 
@@ -89,7 +88,6 @@ async function readApiResponse(res) {
 
 /**
  * Reads SSE stream (data: JSON\n\n).
- * Calls onEvent(obj) for each parsed event.
  */
 async function readSSEStream(res, onEvent) {
   const reader = res?.body?.getReader?.();
@@ -139,11 +137,9 @@ async function readSSEStream(res, onEvent) {
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
     if (typeof window === "undefined") return [{ role: "assistant", content: "Cipher online." }];
-
     try {
       const saved = localStorage.getItem(MEMORY_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
-
       return Array.isArray(parsed) && parsed.length
         ? parsed.slice(-MEMORY_LIMIT)
         : [{ role: "assistant", content: "Cipher online." }];
@@ -159,6 +155,8 @@ export default function ChatPanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
   const [toast, setToast] = useState(null);
+
+  const [pulse, setPulse] = useState(false); // ⭐ NEW
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
@@ -178,39 +176,20 @@ export default function ChatPanel() {
   }, [drawerOpen]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const lastMessage = localStorage.getItem(LAST_USER_MESSAGE_KEY);
-    const noteShown = sessionStorage.getItem(NOTE_SHOWN_KEY);
-    if (!lastMessage || noteShown) return;
-
-    if (Date.now() - Number(lastMessage) >= SILENCE_THRESHOLD_MS) {
-      setCipherNote({ message: getRandomNote() });
-      sessionStorage.setItem(NOTE_SHOWN_KEY, "true");
-    }
-  }, []);
-
-  useEffect(() => {
     if (!sessionStorage.getItem(RETURN_FROM_NOTE_KEY)) return;
-
     setMessages((m) => [
       ...m,
       { role: "assistant", content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)] },
     ]);
-
     sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
   }, []);
 
-  // ⭐ NEW: Quick Actions wiring
   function handleQuickAction(prompt) {
-    // If the user already typed something, append on a new line.
-    // Otherwise, drop the prompt straight in.
     setInput((prev) => (prev?.trim() ? `${prev}\n${prompt}` : prompt));
   }
 
   async function handleInvite() {
     const url = `${window.location.origin}?ref=cipher`;
-
     try {
       if (navigator.share) {
         await navigator.share({
@@ -238,24 +217,11 @@ export default function ChatPanel() {
     sendingRef.current = true;
     setTyping(true);
 
-    const activeMode = forceDecipher ? "decipher" : "cipher";
+    // ⭐ TRIGGER ROOM PULSE
+    setPulse(true);
+    setTimeout(() => setPulse(false), 450);
 
-    // 🧊 Soft decipher cooldown
-    if (activeMode === "decipher") {
-      const gate = canUseDecipher();
-      if (!gate.allowed) {
-        setMessages((m) => [
-          ...m,
-          {
-            role: "assistant",
-            content: `${DECIPHER_COOLDOWN_MESSAGE}\n⏳ ${formatRemaining(gate.remainingMs)}`,
-          },
-        ]);
-        setTyping(false);
-        sendingRef.current = false;
-        return;
-      }
-    }
+    const activeMode = forceDecipher ? "decipher" : "cipher";
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
@@ -263,7 +229,6 @@ export default function ChatPanel() {
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
     setInput("");
 
-    // Add the user bubble + placeholder assistant bubble (stream fills it)
     setMessages((m) => [
       ...m,
       userMessage,
@@ -277,110 +242,42 @@ export default function ChatPanel() {
     try {
       const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
 
-      const payload =
-        activeMode === "decipher"
-          ? {
-              message: userMessage.content,
-              context: historySnapshot.slice(-HISTORY_WINDOW),
-            }
-          : {
-              message: userMessage.content,
-              history: historySnapshot.slice(-HISTORY_WINDOW),
-              stream: true, // ⭐ enable streaming for /api/chat
-            };
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
+        body: JSON.stringify({
+          message: userMessage.content,
+          history: historySnapshot.slice(-HISTORY_WINDOW),
+          stream: true,
+        }),
       });
 
-      clearTimeout(timeout);
-
-      // Handle non-OK early with readable error
       if (!res.ok) {
         const parsed = await readApiResponse(res);
-        const serverMsg =
-          parsed?.data?.reply ||
-          parsed?.data?.error ||
-          parsed?.data?.message ||
-          (parsed.raw ? clampText(parsed.raw) : "");
-
-        throw new Error(
-          serverMsg ? `API ${parsed.status}: ${serverMsg}` : `API ${parsed.status}: (no body)`
-        );
+        throw new Error(parsed?.data?.error || "Request failed");
       }
 
-      // ✅ DECIPHER stays JSON (not SSE)
-      if (activeMode === "decipher") {
-        const parsed = await readApiResponse(res);
-        const reply =
-          parsed?.data?.reply ||
-          parsed?.data?.message ||
-          (parsed.raw ? parsed.raw.trim() : "");
-
-        if (!reply) throw new Error(`API ${parsed.status}: empty body`);
-
-        recordDecipherUse();
-
-        setMessages((m) => {
-          const next = [...m];
-          const lastIdx = next.length - 1;
-          next[lastIdx] = { role: "decipher", content: String(reply ?? "…"), modelUsed: null };
-          return next;
-        });
-
-        return;
-      }
-
-      // ✅ CIPHER uses SSE streaming
       let streamed = "";
       let modelUsed = null;
 
       await readSSEStream(res, (evt) => {
         if (evt?.type === "delta" && typeof evt?.text === "string") {
           streamed += evt.text;
-
           setMessages((m) => {
             const next = [...m];
-            const lastIdx = next.length - 1;
-            next[lastIdx] = { ...next[lastIdx], content: streamed, modelUsed };
+            next[next.length - 1] = { ...next[next.length - 1], content: streamed, modelUsed };
             return next;
           });
         }
 
         if (evt?.type === "done") {
           modelUsed = evt?.model || null;
-
-          setMessages((m) => {
-            const next = [...m];
-            const lastIdx = next.length - 1;
-            next[lastIdx] = {
-              ...next[lastIdx],
-              content: String(evt?.reply ?? streamed ?? ""),
-              modelUsed,
-            };
-            return next;
-          });
         }
       });
     } catch (err) {
-      console.error("Cipher send failed:", err);
-
-      const msg =
-        err?.name === "AbortError"
-          ? `Timeout after ${Math.round(API_TIMEOUT_MS / 1000)}s.`
-          : clampText(err?.message || "Unknown transport error");
-
-      // overwrite placeholder bubble with error
       setMessages((m) => {
         const next = [...m];
-        const lastIdx = next.length - 1;
-        next[lastIdx] = { role: "assistant", content: `Transport error: ${msg}`, modelUsed: null };
+        next[next.length - 1] = { role: "assistant", content: `Transport error`, modelUsed: null };
         return next;
       });
     } finally {
@@ -391,17 +288,6 @@ export default function ChatPanel() {
 
   return (
     <div style={styles.wrap}>
-      {cipherNote && (
-        <CipherNote
-          note={cipherNote}
-          onOpen={() => {
-            sessionStorage.setItem(RETURN_FROM_NOTE_KEY, "true");
-            setCipherNote(null);
-          }}
-          onDismiss={() => setCipherNote(null)}
-        />
-      )}
-
       <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
 
       <DrawerMenu
@@ -412,13 +298,18 @@ export default function ChatPanel() {
         onOpenStore={() => (window.location.href = "/store")}
       />
 
-      <div style={styles.chat}>
+      {/* ⭐ PULSE */}
+      <div
+        style={{
+          ...styles.chat,
+          boxShadow: pulse ? "0 0 40px rgba(140,100,255,0.25) inset" : "none",
+          transition: "box-shadow 0.45s ease",
+        }}
+      >
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
-      {/* ⭐ NEW: Quick action row (wired) */}
       <QuickActions onSelect={handleQuickAction} />
-
       <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
 
       {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
