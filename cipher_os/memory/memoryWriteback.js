@@ -1,8 +1,23 @@
 // cipher_os/memory/memoryWriteback.js
-// Heuristic memory extraction + writeback (v0)
+// Heuristic memory extraction + writeback (v1)
+// Now with reinforcement + weight growth
 
-import { writeMemoryNode } from "./memoryGraph.js";
+import { writeMemoryNode, loadMemoryNodes } from "./memoryGraph.js";
 
+/* ===============================
+   IMPORTANCE LADDER
+================================ */
+const IMPORTANCE_ORDER = ["low", "medium", "high", "core"];
+
+function bumpImportance(level = "low") {
+  const i = IMPORTANCE_ORDER.indexOf(level);
+  if (i === -1) return "medium";
+  return IMPORTANCE_ORDER[Math.min(i + 1, IMPORTANCE_ORDER.length - 1)];
+}
+
+/* ===============================
+   SIGNAL DETECTION
+================================ */
 function looksHighSignal(text) {
   const t = (text || "").toLowerCase();
   if (!t || t.length < 40) return false;
@@ -57,41 +72,97 @@ function tagsFor(text) {
   return tags;
 }
 
+/* ===============================
+   SIMILARITY (simple & fast)
+================================ */
+function isSimilar(a = "", b = "") {
+  const A = a.toLowerCase();
+  const B = b.toLowerCase();
+
+  if (A === B) return true;
+  if (A.includes(B) || B.includes(A)) return true;
+
+  return false;
+}
+
+/* ===============================
+   REINFORCEMENT
+================================ */
+async function reinforceExisting(userId, existingNode) {
+  const nextImportance = bumpImportance(existingNode.importance);
+
+  await writeMemoryNode(userId, {
+    id: existingNode.id, // writeMemoryNode should merge/update
+    type: existingNode.type,
+    importance: nextImportance,
+    content: existingNode.content,
+    tags: existingNode.tags || [],
+    source: existingNode.source || "reinforced",
+    reinforcementCount: (existingNode.reinforcementCount || 1) + 1,
+    lastReinforcedAt: Date.now(),
+  });
+
+  console.log("🧠 reinforced:", existingNode.id, "→", nextImportance);
+}
+
+/* ===============================
+   WRITEBACK
+================================ */
 export async function writebackFromTurn({
   userId,
   userText,
   assistantText,
 }) {
-  const writes = [];
+  let wrote = 0;
 
-  // User high-signal memory
+  // Load existing nodes for matching
+  const existingNodes = await loadMemoryNodes(userId, 200);
+
+  /* ── USER MEMORY ───────────────────── */
   if (looksHighSignal(userText)) {
-    writes.push(
-      writeMemoryNode(userId, {
+    const match = existingNodes.find((n) =>
+      isSimilar(n.content, userText)
+    );
+
+    if (match) {
+      await reinforceExisting(userId, match);
+    } else {
+      await writeMemoryNode(userId, {
         type: classify(userText),
         importance: "high",
         content: userText,
         tags: ["user", ...tagsFor(userText)],
         source: "chat:user",
-      })
-    );
+        reinforcementCount: 1,
+        lastReinforcedAt: Date.now(),
+      });
+      wrote++;
+    }
   }
 
-  // Assistant high-signal memory (usually decisions/instructions)
+  /* ── ASSISTANT MEMORY ───────────────── */
   if (looksHighSignal(assistantText)) {
-    writes.push(
-      writeMemoryNode(userId, {
+    const trimmed = assistantText.slice(0, 800);
+
+    const match = existingNodes.find((n) =>
+      isSimilar(n.content, trimmed)
+    );
+
+    if (match) {
+      await reinforceExisting(userId, match);
+    } else {
+      await writeMemoryNode(userId, {
         type: "decision",
         importance: "medium",
-        content: assistantText.slice(0, 800),
+        content: trimmed,
         tags: ["assistant", ...tagsFor(assistantText)],
         source: "chat:assistant",
-      })
-    );
+        reinforcementCount: 1,
+        lastReinforcedAt: Date.now(),
+      });
+      wrote++;
+    }
   }
 
-  if (!writes.length) return { wrote: 0 };
-  await Promise.all(writes);
-
-  return { wrote: writes.length };
+  return { wrote };
 }
