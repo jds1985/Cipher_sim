@@ -1,5 +1,5 @@
 // cipher_os/memory/memoryGraph.js
-// Memory Graph v1 — gravity, promotion, decay
+// Memory Graph v1 — gravity, promotion, decay + DEBUG VISIBILITY
 
 import { getDb } from "../../firebaseAdmin.js";
 
@@ -16,22 +16,30 @@ const PROMOTION_THRESHOLD = 15;
 
 export async function loadMemoryNodes(userId, limit = NODES_LIMIT) {
   const db = getDb();
-  if (!db || !userId) return [];
+  if (!db || !userId) {
+    console.log("🚫 loadMemoryNodes → db missing");
+    return [];
+  }
 
   const snap = await db
     .collection("memory_nodes")
     .doc(userId)
     .collection("nodes")
-    .orderBy("weight", "desc") // ⭐ gravity sort now
+    .orderBy("weight", "desc")
     .limit(limit)
     .get();
+
+  console.log("📖 memory nodes read:", snap.size);
 
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export async function writeMemoryNode(userId, node) {
   const db = getDb();
-  if (!db || !userId || !node) return null;
+  if (!db || !userId || !node) {
+    console.log("🚫 writeMemoryNode → db missing");
+    return null;
+  }
 
   const ref = db
     .collection("memory_nodes")
@@ -54,12 +62,17 @@ export async function writeMemoryNode(userId, node) {
     strength: baseWeight,
   });
 
+  console.log("🧠 MEMORY WRITE:", userId, ref.id);
+
   return ref.id;
 }
 
 export async function bumpMemoryNode(userId, nodeId, amount = 1) {
   const db = getDb();
-  if (!db || !userId || !nodeId) return;
+  if (!db || !userId || !nodeId) {
+    console.log("🚫 bumpMemoryNode → db missing");
+    return;
+  }
 
   const ref = db
     .collection("memory_nodes")
@@ -86,11 +99,16 @@ export async function bumpMemoryNode(userId, nodeId, amount = 1) {
     },
     { merge: true }
   );
+
+  console.log("⬆️ MEMORY BUMP:", nodeId, "→", newStrength);
 }
 
 export async function decayMemoryNodes(userId) {
   const db = getDb();
-  if (!db || !userId) return;
+  if (!db || !userId) {
+    console.log("🚫 decayMemoryNodes → db missing");
+    return;
+  }
 
   const snap = await db
     .collection("memory_nodes")
@@ -115,6 +133,7 @@ export async function decayMemoryNodes(userId) {
   });
 
   await batch.commit();
+
   console.log("🍂 memory decay:", snap.size);
 }
 
