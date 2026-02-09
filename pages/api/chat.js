@@ -45,6 +45,7 @@ export default async function handler(req, res) {
 
     // ── Load memory graph ─────────────────────────────────
     const nodes = await loadMemoryNodes(userId, 60);
+    console.log("🔥 MEMORY NODES LOADED:", nodes?.length);
     const summaryDoc = await loadSummary(userId);
 
     trace.log("memoryGraph.loaded", {
