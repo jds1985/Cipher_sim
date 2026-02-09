@@ -1,9 +1,18 @@
 // cipher_os/memory/memoryGraph.js
-// Memory Graph v0 (Firestore) — load/write memory nodes + rolling summary
+// Memory Graph v1 — gravity, promotion, decay
 
 import { getDb } from "../../firebaseAdmin.js";
 
 const NODES_LIMIT = 60;
+
+const IMPORTANCE_WEIGHT = {
+  high: 5,
+  medium: 3,
+  low: 1,
+};
+
+const DECAY_AMOUNT = 1;
+const PROMOTION_THRESHOLD = 15;
 
 export async function loadMemoryNodes(userId, limit = NODES_LIMIT) {
   const db = getDb();
@@ -13,7 +22,7 @@ export async function loadMemoryNodes(userId, limit = NODES_LIMIT) {
     .collection("memory_nodes")
     .doc(userId)
     .collection("nodes")
-    .orderBy("updatedAt", "desc")
+    .orderBy("weight", "desc") // ⭐ gravity sort now
     .limit(limit)
     .get();
 
@@ -31,6 +40,7 @@ export async function writeMemoryNode(userId, node) {
     .doc();
 
   const now = Date.now();
+  const baseWeight = IMPORTANCE_WEIGHT[node.importance] || 1;
 
   await ref.set({
     type: node.type || "event",
@@ -40,12 +50,14 @@ export async function writeMemoryNode(userId, node) {
     createdAt: now,
     updatedAt: now,
     source: node.source || "chat",
+    weight: baseWeight,
+    strength: baseWeight,
   });
 
   return ref.id;
 }
 
-export async function bumpMemoryNode(userId, nodeId, patch = {}) {
+export async function bumpMemoryNode(userId, nodeId, amount = 1) {
   const db = getDb();
   if (!db || !userId || !nodeId) return;
 
@@ -55,13 +67,55 @@ export async function bumpMemoryNode(userId, nodeId, patch = {}) {
     .collection("nodes")
     .doc(nodeId);
 
+  const snap = await ref.get();
+  if (!snap.exists) return;
+
+  const data = snap.data();
+  const newStrength = (data.strength || 0) + amount;
+
+  let newImportance = data.importance || "low";
+  if (newStrength >= PROMOTION_THRESHOLD) newImportance = "high";
+  else if (newStrength >= PROMOTION_THRESHOLD / 2) newImportance = "medium";
+
   await ref.set(
     {
-      ...patch,
+      strength: newStrength,
+      importance: newImportance,
+      weight: newStrength,
       updatedAt: Date.now(),
     },
     { merge: true }
   );
+}
+
+export async function decayMemoryNodes(userId) {
+  const db = getDb();
+  if (!db || !userId) return;
+
+  const snap = await db
+    .collection("memory_nodes")
+    .doc(userId)
+    .collection("nodes")
+    .get();
+
+  const batch = db.batch();
+
+  snap.docs.forEach((doc) => {
+    const data = doc.data();
+    const next = Math.max(0, (data.strength || 0) - DECAY_AMOUNT);
+
+    batch.set(
+      doc.ref,
+      {
+        strength: next,
+        weight: next,
+      },
+      { merge: true }
+    );
+  });
+
+  await batch.commit();
+  console.log("🍂 memory decay:", snap.size);
 }
 
 export async function loadSummary(userId) {
