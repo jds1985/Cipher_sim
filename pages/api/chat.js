@@ -16,6 +16,9 @@ import {
 
 import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback.js";
 
+// ⭐ NEW
+import { runMemoryDecay } from "../../cipher_os/memory/memoryDecay.js";
+
 function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
@@ -27,7 +30,7 @@ export default async function handler(req, res) {
 
   try {
     const message = req.body?.message?.trim() || "Hello";
-    const wantStream = Boolean(req.body?.stream); // ⭐ client controls this
+    const wantStream = Boolean(req.body?.stream);
 
     const userId = "jim";
     const userName = "Jim";
@@ -91,7 +94,6 @@ export default async function handler(req, res) {
       res.setHeader("Connection", "keep-alive");
       res.flushHeaders?.();
 
-      // heartbeat keeps some proxies happy
       const heartbeat = setInterval(() => {
         try {
           res.write(`: ping\n\n`);
@@ -101,7 +103,6 @@ export default async function handler(req, res) {
       let streamedText = "";
       let modelUsedObj = null;
 
-      // Send a meta event early (client can show “streaming…”)
       sseWrite(res, { type: "meta", ok: true });
 
       const out = await runOrchestrator({
@@ -117,7 +118,6 @@ export default async function handler(req, res) {
 
       modelUsedObj = out?.modelUsed || null;
 
-      // Finish
       sseWrite(res, {
         type: "done",
         reply: out?.reply || streamedText || "",
@@ -127,7 +127,6 @@ export default async function handler(req, res) {
 
       clearInterval(heartbeat);
 
-      // Save memory AFTER we have final reply
       const finalReply = out?.reply || streamedText || "";
 
       await saveMemory(userId, { type: "interaction", role: "user", content: message });
@@ -141,6 +140,10 @@ export default async function handler(req, res) {
 
       await writebackFromTurn({ userId, userText: message, assistantText: finalReply });
       trace.log("memoryGraph.writeback", { completed: true });
+
+      // ⭐ GRAVITY
+      await runMemoryDecay(userId);
+      trace.log("memory.decay.complete");
 
       const turns = (summaryDoc?.turns || 0) + 1;
       await saveSummary(userId, summaryDoc?.text || "", turns);
@@ -186,6 +189,10 @@ export default async function handler(req, res) {
 
     await writebackFromTurn({ userId, userText: message, assistantText: reply });
     trace.log("memoryGraph.writeback", { completed: true });
+
+    // ⭐ GRAVITY
+    await runMemoryDecay(userId);
+    trace.log("memory.decay.complete");
 
     const turns = (summaryDoc?.turns || 0) + 1;
     await saveSummary(userId, summaryDoc?.text || "", turns);
