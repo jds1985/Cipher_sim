@@ -19,6 +19,9 @@ import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback.js";
 // ⭐ NEW
 import { runMemoryDecay } from "../../cipher_os/memory/memoryDecay.js";
 
+// ⭐⭐⭐ NEW BRAIN FILTER ⭐⭐⭐
+import { extractMemoryFromTurn } from "../../cipher_os/memory/memoryExtractor.js";
+
 function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
@@ -138,7 +141,24 @@ export default async function handler(req, res) {
 
       trace.log("memory.saved", { userTurnSaved: true, assistantTurnSaved: true });
 
-      await writebackFromTurn({ userId, userText: message, assistantText: finalReply });
+      // ⭐⭐⭐ EXTRACTION STEP ⭐⭐⭐
+      const extracted = extractMemoryFromTurn(message, finalReply);
+
+      if (extracted) {
+        await writebackFromTurn({
+          userId,
+          userText: message,
+          assistantText: finalReply,
+          extracted,
+        });
+      } else {
+        await writebackFromTurn({
+          userId,
+          userText: message,
+          assistantText: finalReply,
+        });
+      }
+
       trace.log("memoryGraph.writeback", { completed: true });
 
       // ⭐ GRAVITY
@@ -187,7 +207,24 @@ export default async function handler(req, res) {
 
     trace.log("memory.saved", { userTurnSaved: true, assistantTurnSaved: true });
 
-    await writebackFromTurn({ userId, userText: message, assistantText: reply });
+    // ⭐⭐⭐ EXTRACTION STEP ⭐⭐⭐
+    const extracted = extractMemoryFromTurn(message, reply);
+
+    if (extracted) {
+      await writebackFromTurn({
+        userId,
+        userText: message,
+        assistantText: reply,
+        extracted,
+      });
+    } else {
+      await writebackFromTurn({
+        userId,
+        userText: message,
+        assistantText: reply,
+      });
+    }
+
     trace.log("memoryGraph.writeback", { completed: true });
 
     // ⭐ GRAVITY
