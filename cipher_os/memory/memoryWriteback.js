@@ -1,7 +1,8 @@
 // cipher_os/memory/memoryWriteback.js
-// Heuristic memory extraction + writeback (v3)
+// Heuristic memory extraction + writeback (v4)
 // Reinforcement = strength bump + promotion
 // Duplicate protection installed
+// LOCK SYSTEM ENABLED
 
 import { writeMemoryNode, loadMemoryNodes, bumpMemoryNode } from "./memoryGraph.js";
 
@@ -141,15 +142,21 @@ export async function writebackFromTurn({
       await reinforceExisting(userId, match);
       reinforced++;
     } else {
+      const type = classify(userText);
+
       await writeMemoryNode(userId, {
-        type: classify(userText),
+        type,
         importance: "high",
         content: userText,
         tags: ["user", ...tagsFor(userText)],
         source: "chat:user",
         reinforcementCount: 1,
         lastReinforcedAt: Date.now(),
+
+        // 🔐 LOCK RULE
+        locked: type === "identity" || type === "project",
       });
+
       wrote++;
     }
   }
@@ -174,7 +181,10 @@ export async function writebackFromTurn({
         source: "chat:assistant",
         reinforcementCount: 1,
         lastReinforcedAt: Date.now(),
+
+        locked: false,
       });
+
       wrote++;
     }
   }
