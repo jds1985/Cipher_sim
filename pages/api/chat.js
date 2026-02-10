@@ -16,11 +16,14 @@ import {
 
 import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback.js";
 
-// ⭐ NEW
+// gravity
 import { runMemoryDecay } from "../../cipher_os/memory/memoryDecay.js";
 
-// ⭐⭐⭐ NEW BRAIN FILTER ⭐⭐⭐
+// extractor
 import { extractMemoryFromTurn } from "../../cipher_os/memory/memoryExtractor.js";
+
+// ⭐ influence
+import { buildMemoryInfluence } from "../../cipher_os/runtime/memoryInfluence.js";
 
 function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
@@ -88,8 +91,18 @@ export default async function handler(req, res) {
       hasSystemPrompt: Boolean(executivePacket?.systemPrompt),
     });
 
+    // ⭐⭐⭐ APPLY INFLUENCE ⭐⭐⭐
+    const influenceText = buildMemoryInfluence(nodes);
+
+    if (influenceText) {
+      executivePacket.systemPrompt =
+        (executivePacket.systemPrompt || "") + "\n" + influenceText;
+    }
+
+    trace.log("memory.influence", { applied: Boolean(influenceText) });
+
     // ──────────────────────────────────────────────────────
-    // STREAM RESPONSE MODE (SSE)
+    // STREAM MODE
     // ──────────────────────────────────────────────────────
     if (wantStream) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
@@ -141,27 +154,17 @@ export default async function handler(req, res) {
 
       trace.log("memory.saved", { userTurnSaved: true, assistantTurnSaved: true });
 
-      // ⭐⭐⭐ EXTRACTION STEP ⭐⭐⭐
       const extracted = extractMemoryFromTurn(message, finalReply);
 
-      if (extracted) {
-        await writebackFromTurn({
-          userId,
-          userText: message,
-          assistantText: finalReply,
-          extracted,
-        });
-      } else {
-        await writebackFromTurn({
-          userId,
-          userText: message,
-          assistantText: finalReply,
-        });
-      }
+      await writebackFromTurn({
+        userId,
+        userText: message,
+        assistantText: finalReply,
+        extracted,
+      });
 
       trace.log("memoryGraph.writeback", { completed: true });
 
-      // ⭐ GRAVITY
       await runMemoryDecay(userId);
       trace.log("memory.decay.complete");
 
@@ -174,7 +177,7 @@ export default async function handler(req, res) {
     }
 
     // ──────────────────────────────────────────────────────
-    // NON-STREAM NORMAL MODE (JSON)
+    // NORMAL MODE
     // ──────────────────────────────────────────────────────
     const out = await runOrchestrator({
       osContext,
@@ -207,27 +210,17 @@ export default async function handler(req, res) {
 
     trace.log("memory.saved", { userTurnSaved: true, assistantTurnSaved: true });
 
-    // ⭐⭐⭐ EXTRACTION STEP ⭐⭐⭐
     const extracted = extractMemoryFromTurn(message, reply);
 
-    if (extracted) {
-      await writebackFromTurn({
-        userId,
-        userText: message,
-        assistantText: reply,
-        extracted,
-      });
-    } else {
-      await writebackFromTurn({
-        userId,
-        userText: message,
-        assistantText: reply,
-      });
-    }
+    await writebackFromTurn({
+      userId,
+      userText: message,
+      assistantText: reply,
+      extracted,
+    });
 
     trace.log("memoryGraph.writeback", { completed: true });
 
-    // ⭐ GRAVITY
     await runMemoryDecay(userId);
     trace.log("memory.decay.complete");
 
