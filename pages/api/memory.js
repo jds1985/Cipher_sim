@@ -1,4 +1,6 @@
-import { loadMemoryNodes } from "../../memory/memoryGraph.js";
+// pages/api/memory.js
+
+import { loadMemoryNodes } from "../../cipher_os/memory/memoryGraph.js";
 
 export default async function handler(req, res) {
   try {
