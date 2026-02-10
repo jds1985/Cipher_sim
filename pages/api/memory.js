@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     if (!db) return res.status(200).json({ nodes: [] });
 
     const snap = await db
-      .collection("nodes")
+      .collection("cipher_branches")
       .orderBy("updatedAt", "desc")
       .limit(100)
       .get();
