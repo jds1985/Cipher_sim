@@ -1,46 +1,39 @@
 // cipher_os/memory/memoryDecay.js
-// Automatic importance decay
+// Memory decay system with LOCK protection
 
-import { loadMemoryNodes, writeMemoryNode } from "./memoryGraph.js";
+import { loadMemoryNodes, updateMemoryNode } from "./memoryGraph.js";
 
-const PROTECTED_TYPES = ["identity"];
-const PROTECTED_IMPORTANCE = ["core"];
-
-const IMPORTANCE_ORDER = ["low", "medium", "high", "core"];
-
-function downgrade(level = "low") {
-  const i = IMPORTANCE_ORDER.indexOf(level);
-  if (i <= 0) return "low";
-  return IMPORTANCE_ORDER[i - 1];
-}
+/*
+  Rules:
+  - locked memories NEVER decay
+  - others slowly reduce reinforcement
+*/
 
 export async function runMemoryDecay(userId) {
-  const nodes = await loadMemoryNodes(userId, 200);
+  const nodes = await loadMemoryNodes(userId, 500);
 
   let decayed = 0;
+  let skipped = 0;
 
-  for (const n of nodes) {
-    if (PROTECTED_TYPES.includes(n.type)) continue;
-    if (PROTECTED_IMPORTANCE.includes(n.importance)) continue;
-
-    const last = n.lastReinforcedAt || 0;
-    const ageMs = Date.now() - last;
-
-    // If older than 7 days → decay
-    if (ageMs > 7 * 24 * 60 * 60 * 1000) {
-      const next = downgrade(n.importance);
-
-      if (next !== n.importance) {
-        await writeMemoryNode(userId, {
-          ...n,
-          importance: next,
-        });
-
-        decayed++;
-      }
+  for (const node of nodes) {
+    // 🛡 LOCK CHECK
+    if (node.locked) {
+      console.log("🛡 skipped locked memory:", node.id);
+      skipped++;
+      continue;
     }
+
+    const current = node.reinforcementCount || 0;
+    if (current <= 0) continue;
+
+    await updateMemoryNode(userId, node.id, {
+      reinforcementCount: current - 1,
+    });
+
+    decayed++;
   }
 
-  console.log("🍂 memory decay:", decayed);
-  return { decayed };
+  console.log("🍂 memory decay:", decayed, "| locked:", skipped);
+
+  return { decayed, skipped };
 }
