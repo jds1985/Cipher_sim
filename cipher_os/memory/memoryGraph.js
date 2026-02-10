@@ -25,7 +25,10 @@ export async function loadMemoryNodes(userId, limit = NODES_LIMIT) {
     .collection("memory_nodes")
     .doc(userId)
     .collection("nodes")
+    // ⭐ PRIORITY ORDERING UPGRADE
+    .orderBy("importance", "desc")
     .orderBy("weight", "desc")
+    .orderBy("updatedAt", "desc")
     .limit(limit)
     .get();
 
