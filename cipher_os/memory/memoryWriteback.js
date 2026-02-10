@@ -1,6 +1,7 @@
 // cipher_os/memory/memoryWriteback.js
-// Heuristic memory extraction + writeback (v2)
-// Reinforcement = real strength bump + promotion
+// Heuristic memory extraction + writeback (v3)
+// Reinforcement = strength bump + promotion
+// Duplicate protection installed
 
 import { writeMemoryNode, loadMemoryNodes, bumpMemoryNode } from "./memoryGraph.js";
 
@@ -103,16 +104,16 @@ function isSimilar(a = "", b = "") {
 }
 
 /* ===============================
-   REINFORCEMENT (REAL)
+   REINFORCEMENT
 ================================ */
 async function reinforceExisting(userId, existingNode) {
   const nextImportance = bumpImportance(existingNode.importance);
 
-  // bump strength
-  await bumpMemoryNode(userId, existingNode.id, 1);
-
-  // promote importance if needed
-  await bumpMemoryNode(userId, existingNode.id, 0); 
+  await bumpMemoryNode(userId, existingNode.id, {
+    reinforcementCount: (existingNode.reinforcementCount || 1) + 1,
+    importance: nextImportance,
+    lastReinforcedAt: Date.now(),
+  });
 
   console.log("🧠 reinforced:", existingNode.id, "→", nextImportance);
 }
