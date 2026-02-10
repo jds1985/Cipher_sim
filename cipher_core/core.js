@@ -1,20 +1,34 @@
 // cipher_core/core.js
-// Cipher Core 10.4 — Executive Layer (now consumes summary + memory nodes)
+// Cipher Core 10.5 — Executive Layer (priority weighted memory)
 
 import { getProfile } from "./profile.js";
 import { getStabilityScore } from "./stability.js";
 import { getIdentityCompass } from "./identity_compass.js";
 import { getThemeByKey } from "./themes.js";
 
+/* ===============================
+   PRIORITY NODE FORMATTER
+================================ */
 function formatNodes(nodes = []) {
   if (!Array.isArray(nodes) || !nodes.length) return "";
-  // Keep it tight: show top ~10 most important/recent
-  const picked = nodes
-    .slice(0, 20)
-    .sort((a, b) => (b.importance === "high") - (a.importance === "high"))
-    .slice(0, 10);
 
-  return picked
+  const core = [];
+  const high = [];
+  const rest = [];
+
+  for (const n of nodes) {
+    if (n.importance === "core") core.push(n);
+    else if (n.importance === "high") high.push(n);
+    else rest.push(n);
+  }
+
+  const pick = [
+    ...core.slice(0, 6),
+    ...high.slice(0, 6),
+    ...rest.slice(0, 4),
+  ];
+
+  return pick
     .map((n) => `- (${n.type}/${n.importance}) ${String(n.content || "").trim()}`)
     .join("\n");
 }
