@@ -1,6 +1,6 @@
 // cipher_os/memory/memoryWriteback.js
-// Heuristic memory extraction + writeback (v1)
-// Now with reinforcement + weight growth
+// Heuristic memory extraction + writeback (v2)
+// Reinforcement = real strength bump + promotion
 
 import { writeMemoryNode, loadMemoryNodes, bumpMemoryNode } from "./memoryGraph.js";
 
@@ -73,7 +73,7 @@ function tagsFor(text) {
 }
 
 /* ===============================
-   SIMILARITY (simple & fast)
+   SIMILARITY
 ================================ */
 function isSimilar(a = "", b = "") {
   const A = a.toLowerCase();
@@ -86,16 +86,16 @@ function isSimilar(a = "", b = "") {
 }
 
 /* ===============================
-   REINFORCEMENT (FIXED)
+   REINFORCEMENT (REAL)
 ================================ */
 async function reinforceExisting(userId, existingNode) {
   const nextImportance = bumpImportance(existingNode.importance);
 
-  await bumpMemoryNode(userId, existingNode.id, {
-    importance: nextImportance,
-    reinforcementCount: (existingNode.reinforcementCount || 1) + 1,
-    lastReinforcedAt: Date.now(),
-  });
+  // bump strength
+  await bumpMemoryNode(userId, existingNode.id, 1);
+
+  // promote importance if needed
+  await bumpMemoryNode(userId, existingNode.id, 0); 
 
   console.log("🧠 reinforced:", existingNode.id, "→", nextImportance);
 }
@@ -111,7 +111,6 @@ export async function writebackFromTurn({
   let wrote = 0;
   let reinforced = 0;
 
-  // Load existing nodes for matching
   const existingNodes = await loadMemoryNodes(userId, 200);
 
   /* ── USER MEMORY ───────────────────── */
