@@ -1,12 +1,20 @@
+"use client";
 import { useEffect, useState } from "react";
 
 export default function MemoryViewer() {
   const [nodes, setNodes] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   async function load() {
-    const res = await fetch("/api/memory");
-    const data = await res.json();
-    setNodes(data.nodes || []);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/memory?user=jim");
+      const data = await res.json();
+      setNodes(data.nodes || []);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -14,41 +22,25 @@ export default function MemoryViewer() {
   }, []);
 
   return (
-    <div style={{
-      padding: 20,
-      background: "#0b0b12",
-      minHeight: "100vh",
-      color: "white",
-      fontFamily: "monospace"
-    }}>
+    <div style={{ padding: 20 }}>
       <h1>🧠 Cipher Memory Viewer</h1>
-      <p>{nodes.length} nodes loaded</p>
+      <p>{loading ? "Loading..." : `${nodes.length} nodes loaded`}</p>
 
-      <button onClick={load} style={{
-        padding: "10px 15px",
-        marginBottom: 20,
-        background: "#6c5ce7",
-        border: "none",
-        color: "white",
-        borderRadius: 8
-      }}>
-        Refresh
-      </button>
+      <button onClick={load}>Refresh</button>
 
-      <div>
+      <div style={{ marginTop: 20 }}>
         {nodes.map((n) => (
-          <div key={n.id} style={{
-            border: "1px solid #222",
-            padding: 10,
-            marginBottom: 10,
-            borderRadius: 8,
-            background: "#141422"
-          }}>
-            <div><b>ID:</b> {n.id}</div>
-            <div><b>Type:</b> {n.type}</div>
-            <div><b>Importance:</b> {n.importance}</div>
-            <div><b>Weight:</b> {n.weight}</div>
-            <div><b>Content:</b> {n.content}</div>
+          <div
+            key={n.id}
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              border: "1px solid #333",
+              borderRadius: 8,
+            }}
+          >
+              <div><b>{n.type}</b> • {n.importance}</div>
+              <div>{n.content}</div>
           </div>
         ))}
       </div>
