@@ -76,13 +76,30 @@ function tagsFor(text) {
    SIMILARITY
 ================================ */
 function isSimilar(a = "", b = "") {
-  const A = a.toLowerCase();
-  const B = b.toLowerCase();
+  const clean = (t) =>
+    t
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const A = clean(a);
+  const B = clean(b);
 
   if (A === B) return true;
   if (A.includes(B) || B.includes(A)) return true;
 
-  return false;
+  const wordsA = new Set(A.split(" "));
+  const wordsB = new Set(B.split(" "));
+
+  let overlap = 0;
+  for (const w of wordsA) {
+    if (wordsB.has(w)) overlap++;
+  }
+
+  const similarity = overlap / Math.max(wordsA.size, 1);
+
+  return similarity > 0.6;
 }
 
 /* ===============================
