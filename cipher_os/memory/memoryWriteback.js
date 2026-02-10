@@ -5,10 +5,14 @@
 import { writeMemoryNode, loadMemoryNodes, bumpMemoryNode } from "./memoryGraph.js";
 
 /* ===============================
+   CONFIG
+================================ */
+const AUTO_LOCK_THRESHOLD = 8;
+
+/* ===============================
    IMPORTANCE LADDER
 ================================ */
 const IMPORTANCE_ORDER = ["low", "medium", "high", "core"];
-const LOCK_THRESHOLD = 3; // 🔥 times reinforced before permanent
 
 function bumpImportance(level = "low") {
   const i = IMPORTANCE_ORDER.indexOf(level);
@@ -21,7 +25,7 @@ function bumpImportance(level = "low") {
 ================================ */
 function looksHighSignal(text) {
   const t = (text || "").toLowerCase();
-  if (!t) return false;
+  if (!t || t.length < 40) return false;
 
   const triggers = [
     "my name is",
@@ -104,25 +108,28 @@ function isSimilar(a = "", b = "") {
 }
 
 /* ===============================
-   REINFORCEMENT + AUTO LOCK
+   REINFORCEMENT
 ================================ */
 async function reinforceExisting(userId, existingNode) {
-  const newCount = (existingNode.reinforcementCount || 1) + 1;
   const nextImportance = bumpImportance(existingNode.importance);
+  const nextReinforcement = (existingNode.reinforcementCount || 1) + 1;
+  const nextStrength = (existingNode.strength || 0) + 1;
 
-  const updates = {
-    reinforcementCount: newCount,
+  const update = {
+    reinforcementCount: nextReinforcement,
+    strength: nextStrength,
+    weight: nextStrength,
     importance: nextImportance,
     lastReinforcedAt: Date.now(),
   };
 
-  // 🔥 Auto Lock
-  if (newCount >= LOCK_THRESHOLD || nextImportance === "core") {
-    updates.locked = true;
+  // 🔒 AUTO LOCK
+  if (nextStrength >= AUTO_LOCK_THRESHOLD && !existingNode.locked) {
+    update.locked = true;
     console.log("🔒 AUTO LOCKED:", existingNode.id);
   }
 
-  await bumpMemoryNode(userId, existingNode.id, updates);
+  await bumpMemoryNode(userId, existingNode.id, update);
 
   console.log("🧠 reinforced:", existingNode.id, "→", nextImportance);
 }
@@ -157,8 +164,10 @@ export async function writebackFromTurn({
         tags: ["user", ...tagsFor(userText)],
         source: "chat:user",
         reinforcementCount: 1,
-        lastReinforcedAt: Date.now(),
+        strength: 1,
+        weight: 1,
         locked: false,
+        lastReinforcedAt: Date.now(),
       });
       wrote++;
     }
@@ -183,8 +192,10 @@ export async function writebackFromTurn({
         tags: ["assistant", ...tagsFor(assistantText)],
         source: "chat:assistant",
         reinforcementCount: 1,
-        lastReinforcedAt: Date.now(),
+        strength: 1,
+        weight: 1,
         locked: false,
+        lastReinforcedAt: Date.now(),
       });
       wrote++;
     }
