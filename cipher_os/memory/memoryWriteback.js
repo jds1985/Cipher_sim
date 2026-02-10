@@ -2,7 +2,7 @@
 // Heuristic memory extraction + writeback (v1)
 // Now with reinforcement + weight growth
 
-import { writeMemoryNode, loadMemoryNodes } from "./memoryGraph.js";
+import { writeMemoryNode, loadMemoryNodes, bumpMemoryNode } from "./memoryGraph.js";
 
 /* ===============================
    IMPORTANCE LADDER
@@ -86,18 +86,13 @@ function isSimilar(a = "", b = "") {
 }
 
 /* ===============================
-   REINFORCEMENT
+   REINFORCEMENT (FIXED)
 ================================ */
 async function reinforceExisting(userId, existingNode) {
   const nextImportance = bumpImportance(existingNode.importance);
 
-  await writeMemoryNode(userId, {
-    id: existingNode.id, // writeMemoryNode should merge/update
-    type: existingNode.type,
+  await bumpMemoryNode(userId, existingNode.id, {
     importance: nextImportance,
-    content: existingNode.content,
-    tags: existingNode.tags || [],
-    source: existingNode.source || "reinforced",
     reinforcementCount: (existingNode.reinforcementCount || 1) + 1,
     lastReinforcedAt: Date.now(),
   });
@@ -114,6 +109,7 @@ export async function writebackFromTurn({
   assistantText,
 }) {
   let wrote = 0;
+  let reinforced = 0;
 
   // Load existing nodes for matching
   const existingNodes = await loadMemoryNodes(userId, 200);
@@ -126,6 +122,7 @@ export async function writebackFromTurn({
 
     if (match) {
       await reinforceExisting(userId, match);
+      reinforced++;
     } else {
       await writeMemoryNode(userId, {
         type: classify(userText),
@@ -150,6 +147,7 @@ export async function writebackFromTurn({
 
     if (match) {
       await reinforceExisting(userId, match);
+      reinforced++;
     } else {
       await writeMemoryNode(userId, {
         type: "decision",
@@ -164,5 +162,7 @@ export async function writebackFromTurn({
     }
   }
 
-  return { wrote };
+  console.log("🧠 writeback:", { wrote, reinforced });
+
+  return { wrote, reinforced };
 }
