@@ -90,8 +90,10 @@ export async function bumpMemoryNode(userId, nodeId, amount = 1) {
   const newStrength = (data.strength || 0) + amount;
 
   let newImportance = data.importance || "low";
-  if (newStrength >= PROMOTION_THRESHOLD) newImportance = "high";
-  else if (newStrength >= PROMOTION_THRESHOLD / 2) newImportance = "medium";
+
+if (newStrength >= PROMOTION_THRESHOLD * 2) newImportance = "core";
+else if (newStrength >= PROMOTION_THRESHOLD) newImportance = "high";
+else if (newStrength >= PROMOTION_THRESHOLD / 2) newImportance = "medium";
 
   await ref.set(
     {
