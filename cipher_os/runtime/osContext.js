@@ -1,5 +1,6 @@
 // cipher_os/runtime/osContext.js
-// Builds the canonical Cipher OS Context object (Phase 1)
+// Builds the canonical Cipher OS Context object (Phase 2)
+// Now includes Weight Engine (prioritized recall)
 
 function sanitizeUiHistory(history) {
   const HISTORY_LIMIT = 12;
@@ -21,6 +22,24 @@ function uiToMemoryEntries(ui) {
   }));
 }
 
+/* =====================================================
+   🪐 WEIGHT ENGINE
+   Strongest memories survive.
+===================================================== */
+function weightMemories(nodes = []) {
+  if (!Array.isArray(nodes)) return [];
+
+  const sorted = nodes.sort(
+    (a, b) => (b.reinforcementCount || 0) - (a.reinforcementCount || 0)
+  );
+
+  const top = sorted.slice(0, 25);
+
+  console.log("🪐 weight engine selected:", top.map((n) => n.id));
+
+  return top;
+}
+
 export function buildOSContext({
   requestId,
   userId,
@@ -28,6 +47,7 @@ export function buildOSContext({
   userMessage,
   uiHistory,
   longTermHistory,
+  memoryNodes = [], // ⭐ NEW
 }) {
   const trimmedHistory = sanitizeUiHistory(uiHistory);
 
@@ -35,6 +55,8 @@ export function buildOSContext({
     ...(Array.isArray(longTermHistory) ? longTermHistory : []),
     ...uiToMemoryEntries(trimmedHistory),
   ].slice(-50);
+
+  const prioritizedNodes = weightMemories(memoryNodes);
 
   return {
     requestId,
@@ -49,6 +71,7 @@ export function buildOSContext({
       uiHistory: trimmedHistory,
       mergedHistory,
       longTermHistory: Array.isArray(longTermHistory) ? longTermHistory : [],
+      nodes: prioritizedNodes, // ⭐ FILTERED BY STRENGTH
     },
     input: {
       userMessage: String(userMessage || "").trim(),
