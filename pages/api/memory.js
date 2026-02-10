@@ -1,24 +1,21 @@
-import { getDb } from "../../firebaseAdmin";
+import { loadMemoryNodes } from "../../memory/memoryGraph.js";
 
 export default async function handler(req, res) {
   try {
-    const db = getDb();
-    if (!db) return res.status(200).json({ nodes: [] });
+    const userId = String(req.query.user || "jim");
 
-    const snap = await db
-      .collection("nodes")
-      .orderBy("updatedAt", "desc")
-      .limit(100)
-      .get();
+    const nodes = await loadMemoryNodes(userId);
 
-    const nodes = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    res.status(200).json({ nodes });
+    return res.status(200).json({
+      ok: true,
+      count: nodes.length,
+      nodes,
+    });
   } catch (err) {
     console.error("memory api error:", err);
-    res.status(500).json({ error: "failed" });
+    return res.status(500).json({
+      ok: false,
+      error: "failed_to_load_memory",
+    });
   }
 }
