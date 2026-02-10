@@ -1,8 +1,6 @@
 // cipher_os/memory/memoryWriteback.js
 // Heuristic memory extraction + writeback (v4)
-// Reinforcement = strength bump + promotion
-// Duplicate protection installed
-// LOCK SYSTEM ENABLED
+// Reinforcement + promotion + AUTO LOCK
 
 import { writeMemoryNode, loadMemoryNodes, bumpMemoryNode } from "./memoryGraph.js";
 
@@ -10,6 +8,7 @@ import { writeMemoryNode, loadMemoryNodes, bumpMemoryNode } from "./memoryGraph.
    IMPORTANCE LADDER
 ================================ */
 const IMPORTANCE_ORDER = ["low", "medium", "high", "core"];
+const LOCK_THRESHOLD = 3; // 🔥 times reinforced before permanent
 
 function bumpImportance(level = "low") {
   const i = IMPORTANCE_ORDER.indexOf(level);
@@ -22,7 +21,7 @@ function bumpImportance(level = "low") {
 ================================ */
 function looksHighSignal(text) {
   const t = (text || "").toLowerCase();
-  if (!t || t.length < 40) return false;
+  if (!t) return false;
 
   const triggers = [
     "my name is",
@@ -105,16 +104,25 @@ function isSimilar(a = "", b = "") {
 }
 
 /* ===============================
-   REINFORCEMENT
+   REINFORCEMENT + AUTO LOCK
 ================================ */
 async function reinforceExisting(userId, existingNode) {
+  const newCount = (existingNode.reinforcementCount || 1) + 1;
   const nextImportance = bumpImportance(existingNode.importance);
 
-  await bumpMemoryNode(userId, existingNode.id, {
-    reinforcementCount: (existingNode.reinforcementCount || 1) + 1,
+  const updates = {
+    reinforcementCount: newCount,
     importance: nextImportance,
     lastReinforcedAt: Date.now(),
-  });
+  };
+
+  // 🔥 Auto Lock
+  if (newCount >= LOCK_THRESHOLD || nextImportance === "core") {
+    updates.locked = true;
+    console.log("🔒 AUTO LOCKED:", existingNode.id);
+  }
+
+  await bumpMemoryNode(userId, existingNode.id, updates);
 
   console.log("🧠 reinforced:", existingNode.id, "→", nextImportance);
 }
@@ -142,21 +150,16 @@ export async function writebackFromTurn({
       await reinforceExisting(userId, match);
       reinforced++;
     } else {
-      const type = classify(userText);
-
       await writeMemoryNode(userId, {
-        type,
+        type: classify(userText),
         importance: "high",
         content: userText,
         tags: ["user", ...tagsFor(userText)],
         source: "chat:user",
         reinforcementCount: 1,
         lastReinforcedAt: Date.now(),
-
-        // 🔐 LOCK RULE
-        locked: type === "identity" || type === "project",
+        locked: false,
       });
-
       wrote++;
     }
   }
@@ -181,10 +184,8 @@ export async function writebackFromTurn({
         source: "chat:assistant",
         reinforcementCount: 1,
         lastReinforcedAt: Date.now(),
-
         locked: false,
       });
-
       wrote++;
     }
   }
