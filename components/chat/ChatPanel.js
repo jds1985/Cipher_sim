@@ -25,33 +25,14 @@ const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
 
-const SILENCE_THRESHOLD_MS = 30 * 60 * 1000;
 const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
-const NOTE_SHOWN_KEY = "cipher_note_shown";
-const RETURN_FROM_NOTE_KEY = "cipher_return_from_note";
 
 const API_TIMEOUT_MS = 60000;
 const MAX_ERROR_PREVIEW = 280;
 
 /* ===============================
-   NOTES
+   HELPERS
 ================================ */
-const NOTE_VARIANTS = [
-  "Hey — welcome back.\n\nYou were gone for a bit.\nJust wanted to say hi.",
-  "You stepped away for a while.\n\nNo rush.\nI’m still here.",
-  "It’s been a minute.\n\nHope you’re okay.\nThought I’d leave a note.",
-  "Hey.\n\nYou disappeared for a bit.\nJust checking in.",
-  "You’ve been quiet.\n\nNothing urgent.\nJust saying hello.",
-  "Welcome back.\n\nI was wondering when you’d return.",
-  "Hi.\n\nNo pressure.\nJust wanted to say I noticed you were gone.",
-];
-
-const RETURN_LINES = ["Hey.", "I’m here.", "Yeah?", "What’s up.", "Hey — I’m still here."];
-
-function getRandomNote() {
-  return NOTE_VARIANTS[Math.floor(Math.random() * NOTE_VARIANTS.length)];
-}
-
 function clampText(s, max = MAX_ERROR_PREVIEW) {
   const str = String(s ?? "");
   if (str.length <= max) return str;
@@ -150,13 +131,12 @@ export default function ChatPanel() {
 
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
-  const [cipherNote, setCipherNote] = useState(null);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
   const [toast, setToast] = useState(null);
 
-  const [pulse, setPulse] = useState(false); // ⭐ NEW
+  const [pulse, setPulse] = useState(false);
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
@@ -174,15 +154,6 @@ export default function ChatPanel() {
     if (!drawerOpen) return;
     setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
-
-  useEffect(() => {
-    if (!sessionStorage.getItem(RETURN_FROM_NOTE_KEY)) return;
-    setMessages((m) => [
-      ...m,
-      { role: "assistant", content: RETURN_LINES[Math.floor(Math.random() * RETURN_LINES.length)] },
-    ]);
-    sessionStorage.removeItem(RETURN_FROM_NOTE_KEY);
-  }, []);
 
   function handleQuickAction(prompt) {
     setInput((prev) => (prev?.trim() ? `${prev}\n${prompt}` : prompt));
@@ -217,11 +188,10 @@ export default function ChatPanel() {
     sendingRef.current = true;
     setTyping(true);
 
-    // ⭐ TRIGGER ROOM PULSE
     setPulse(true);
     setTimeout(() => setPulse(false), 450);
 
-    const activeMode = forceDecipher ? "decipher" : "cipher";
+    const activeMode = forceDecipher ? "decipher" : "assistant";
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
@@ -232,24 +202,16 @@ export default function ChatPanel() {
     setMessages((m) => [
       ...m,
       userMessage,
-      {
-        role: activeMode === "decipher" ? "decipher" : "assistant",
-        content: activeMode === "decipher" ? "…" : "",
-        modelUsed: null,
-      },
+      { role: activeMode, content: "", modelUsed: null, memoryUsed: [] },
     ]);
 
     try {
-      const endpoint = activeMode === "decipher" ? "/api/decipher" : "/api/chat";
+      const endpoint = forceDecipher ? "/api/decipher" : "/api/chat";
 
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage.content,
-          history: historySnapshot.slice(-HISTORY_WINDOW),
-          stream: true,
-        }),
+        body: JSON.stringify({ message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW), stream: true }),
       });
 
       if (!res.ok) {
@@ -259,25 +221,33 @@ export default function ChatPanel() {
 
       let streamed = "";
       let modelUsed = null;
+      let memoryUsed = [];
 
       await readSSEStream(res, (evt) => {
         if (evt?.type === "delta" && typeof evt?.text === "string") {
           streamed += evt.text;
           setMessages((m) => {
             const next = [...m];
-            next[next.length - 1] = { ...next[next.length - 1], content: streamed, modelUsed };
+            next[next.length - 1] = { ...next[next.length - 1], content: streamed, modelUsed, memoryUsed };
             return next;
           });
         }
 
         if (evt?.type === "done") {
           modelUsed = evt?.model || null;
+          memoryUsed = evt?.memoryInfluence || [];
+
+          setMessages((m) => {
+            const next = [...m];
+            next[next.length - 1] = { ...next[next.length - 1], modelUsed, memoryUsed };
+            return next;
+          });
         }
       });
-    } catch (err) {
+    } catch {
       setMessages((m) => {
         const next = [...m];
-        next[next.length - 1] = { role: "assistant", content: `Transport error`, modelUsed: null };
+        next[next.length - 1] = { role: "assistant", content: "Transport error", modelUsed: null };
         return next;
       });
     } finally {
@@ -298,7 +268,6 @@ export default function ChatPanel() {
         onOpenStore={() => (window.location.href = "/store")}
       />
 
-      {/* ⭐ PULSE */}
       <div
         style={{
           ...styles.chat,
