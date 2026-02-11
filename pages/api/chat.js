@@ -22,7 +22,7 @@ import { runMemoryDecay } from "../../cipher_os/memory/memoryDecay.js";
 // extractor
 import { extractMemoryFromTurn } from "../../cipher_os/memory/memoryExtractor.js";
 
-// ⭐ influence
+// influence
 import { buildMemoryInfluence } from "../../cipher_os/runtime/memoryInfluence.js";
 
 function sseWrite(res, obj) {
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
       hasSummary: Boolean(summaryDoc?.text),
     });
 
-    // ── Build OS context ──────────────────────────────────
+    // ── Build OS context (NOW WITH WEIGHT ENGINE) ────────
     const osContext = buildOSContext({
       requestId: Date.now().toString(),
       userId,
@@ -70,9 +70,9 @@ export default async function handler(req, res) {
       userMessage: message,
       uiHistory: [],
       longTermHistory,
+      memoryNodes: nodes, // ⭐ IMPORTANT
     });
 
-    osContext.memory.nodes = nodes;
     osContext.memory.longTermSummary = summaryDoc?.text || "";
 
     trace.log("osContext.built", { requestId: osContext.requestId });
@@ -81,7 +81,7 @@ export default async function handler(req, res) {
     const executivePacket = await runCipherCore(
       {
         history: osContext.memory.mergedHistory,
-        nodes,
+        nodes: osContext.memory.nodes, // ⭐ use filtered nodes
         summary: osContext.memory.longTermSummary,
       },
       { userMessage: message, returnPacket: true }
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
     });
 
     // ⭐⭐⭐ APPLY INFLUENCE ⭐⭐⭐
-    const influenceText = buildMemoryInfluence(nodes);
+    const influenceText = buildMemoryInfluence(osContext.memory.nodes);
 
     if (influenceText) {
       executivePacket.systemPrompt =
@@ -117,7 +117,6 @@ export default async function handler(req, res) {
       }, 15000);
 
       let streamedText = "";
-      let modelUsedObj = null;
 
       sseWrite(res, { type: "meta", ok: true });
 
@@ -132,13 +131,11 @@ export default async function handler(req, res) {
         },
       });
 
-      modelUsedObj = out?.modelUsed || null;
-
       sseWrite(res, {
         type: "done",
         reply: out?.reply || streamedText || "",
-        model: modelUsedObj?.model || null,
-        provider: modelUsedObj?.provider || null,
+        model: out?.modelUsed?.model || null,
+        provider: out?.modelUsed?.provider || null,
       });
 
       clearInterval(heartbeat);
@@ -184,8 +181,6 @@ export default async function handler(req, res) {
       executivePacket,
       trace,
     });
-
-    trace.log("orchestrator.complete", { modelUsed: out?.modelUsed || null });
 
     const reply =
       typeof out === "string" ? out : out?.reply || out?.text || null;
