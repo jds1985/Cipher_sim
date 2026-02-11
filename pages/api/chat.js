@@ -32,12 +32,15 @@ function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
 
-/* ⭐ MEMORY VISIBILITY HELPER */
-function visibleMemory(nodes = []) {
-  return nodes
-    .slice(0, 5)
-    .map((n) => n?.content)
-    .filter(Boolean);
+/* ⭐ MEMORY VISIBILITY */
+function exposeMemory(nodes = []) {
+  return nodes.map((n) => ({
+    id: n?.id || null,
+    type: n?.type || "unknown",
+    importance: n?.importance ?? 0,
+    locked: Boolean(n?.locked),
+    preview: (n?.content || "").slice(0, 120),
+  }));
 }
 
 export default async function handler(req, res) {
@@ -81,7 +84,7 @@ export default async function handler(req, res) {
     const osContext = buildOSContext({
       requestId: Date.now().toString(),
       userId,
-      userName,
+     ीuserName,
       userMessage: message,
       uiHistory: [],
       longTermHistory,
@@ -152,7 +155,7 @@ export default async function handler(req, res) {
         reply: out?.reply || streamedText || "",
         model: out?.modelUsed?.model || null,
         provider: out?.modelUsed?.provider || null,
-        memoryInfluence: visibleMemory(prioritizedNodes), // ⭐ NEW
+        memoryUsed: exposeMemory(prioritizedNodes),
       });
 
       clearInterval(heartbeat);
@@ -243,7 +246,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       reply,
       model,
-      memoryInfluence: visibleMemory(prioritizedNodes), // ⭐ NEW
+      memoryUsed: exposeMemory(prioritizedNodes),
     });
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
