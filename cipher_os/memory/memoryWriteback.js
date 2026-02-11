@@ -1,5 +1,5 @@
 // cipher_os/memory/memoryWriteback.js
-// Heuristic memory extraction + writeback (v4)
+// Heuristic memory extraction + writeback (v5)
 // Reinforcement = strength bump + promotion
 // Identity Lock = identity/preference are locked on creation
 // Duplicate protection kept
@@ -22,7 +22,7 @@ function bumpImportance(level = "low") {
 ================================ */
 function looksHighSignal(text) {
   const t = (text || "").toLowerCase();
-  if (!t || t.length < 40) return false;
+  if (!t) return false;
 
   const triggers = [
     "my name is",
@@ -43,6 +43,18 @@ function looksHighSignal(text) {
     "cipher os",
     "orchestrator",
   ];
+
+  // ⭐ identity & preference ALWAYS qualify even if short
+  if (
+    t.includes("call me") ||
+    t.includes("my name is") ||
+    t.includes("i prefer")
+  ) {
+    return true;
+  }
+
+  // others must be long enough
+  if (t.length < 40) return false;
 
   return triggers.some((k) => t.includes(k));
 }
@@ -115,10 +127,10 @@ function shouldLock(type) {
    REINFORCEMENT (REAL)
 ================================ */
 async function reinforceExisting(userId, existingNode) {
-  // ✅ true reinforcement = gravity bump
+  // gravity bump
   await bumpMemoryNode(userId, existingNode.id, 1);
 
-  // ✅ keep locked memories locked forever
+  // keep locked memories locked forever
   if (existingNode.locked) {
     await bumpMemoryNode(userId, existingNode.id, {
       locked: true,
@@ -127,7 +139,6 @@ async function reinforceExisting(userId, existingNode) {
     });
   }
 
-  // optional: soft importance bump (gravity already promotes)
   const nextImportance = bumpImportance(existingNode.importance);
 
   await bumpMemoryNode(userId, existingNode.id, {
