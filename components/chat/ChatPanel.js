@@ -5,16 +5,8 @@ import HeaderMenu from "./HeaderMenu";
 import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
-import CipherNote from "./CipherNote";
 import RewardToast from "./RewardToast";
 import QuickActions from "./QuickActions";
-
-import {
-  canUseDecipher,
-  recordDecipherUse,
-  DECIPHER_COOLDOWN_MESSAGE,
-  formatRemaining,
-} from "./decipherCooldown";
 
 import { getCipherCoin, rewardShare } from "./CipherCoin";
 
@@ -27,49 +19,9 @@ const HISTORY_WINDOW = 12;
 
 const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 
-const API_TIMEOUT_MS = 60000;
-const MAX_ERROR_PREVIEW = 280;
-
 /* ===============================
-   HELPERS
+   SSE PARSER
 ================================ */
-function clampText(s, max = MAX_ERROR_PREVIEW) {
-  const str = String(s ?? "");
-  if (str.length <= max) return str;
-  return str.slice(0, max) + "…";
-}
-
-async function readApiResponse(res) {
-  const status = res?.status ?? 0;
-  const contentType = res?.headers?.get?.("content-type") || "";
-
-  let raw = "";
-  try {
-    raw = await res.text();
-  } catch {
-    raw = "";
-  }
-
-  let data = null;
-  const looksJson =
-    contentType.includes("application/json") ||
-    (raw && raw.trim().startsWith("{")) ||
-    (raw && raw.trim().startsWith("["));
-
-  if (looksJson && raw) {
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      data = null;
-    }
-  }
-
-  return { ok: Boolean(res?.ok), status, contentType, raw, data };
-}
-
-/**
- * Reads SSE stream (data: JSON\n\n).
- */
 async function readSSEStream(res, onEvent) {
   const reader = res?.body?.getReader?.();
   if (!reader) throw new Error("Stream: no readable body");
@@ -98,14 +50,8 @@ async function readSSEStream(res, onEvent) {
         if (!trimmed.startsWith("data:")) continue;
 
         const payload = trimmed.replace(/^data:\s*/, "");
-        let obj = null;
         try {
-          obj = JSON.parse(payload);
-        } catch {
-          continue;
-        }
-        try {
-          onEvent?.(obj);
+          onEvent?.(JSON.parse(payload));
         } catch {}
       }
     }
@@ -181,7 +127,7 @@ export default function ChatPanel() {
     } catch {}
   }
 
-  async function sendMessage({ forceDecipher = false } = {}) {
+  async function sendMessage() {
     if (sendingRef.current) return;
     if (!input.trim()) return;
 
@@ -191,33 +137,31 @@ export default function ChatPanel() {
     setPulse(true);
     setTimeout(() => setPulse(false), 450);
 
-    const activeMode = forceDecipher ? "decipher" : "assistant";
-
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
 
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
     setInput("");
 
+    // placeholder assistant message
     setMessages((m) => [
       ...m,
       userMessage,
-      { role: activeMode, content: "", modelUsed: null, memoryUsed: [] },
+      { role: "assistant", content: "", modelUsed: null, memoryUsed: [] },
     ]);
 
     try {
-      const endpoint = forceDecipher ? "/api/decipher" : "/api/chat";
-
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage.content, history: historySnapshot.slice(-HISTORY_WINDOW), stream: true }),
+        body: JSON.stringify({
+          message: userMessage.content,
+          history: historySnapshot.slice(-HISTORY_WINDOW),
+          stream: true,
+        }),
       });
 
-      if (!res.ok) {
-        const parsed = await readApiResponse(res);
-        throw new Error(parsed?.data?.error || "Request failed");
-      }
+      if (!res.ok) throw new Error("Request failed");
 
       let streamed = "";
       let modelUsed = null;
@@ -228,7 +172,12 @@ export default function ChatPanel() {
           streamed += evt.text;
           setMessages((m) => {
             const next = [...m];
-            next[next.length - 1] = { ...next[next.length - 1], content: streamed, modelUsed, memoryUsed };
+            next[next.length - 1] = {
+              ...next[next.length - 1],
+              content: streamed,
+              modelUsed,
+              memoryUsed,
+            };
             return next;
           });
         }
@@ -239,7 +188,12 @@ export default function ChatPanel() {
 
           setMessages((m) => {
             const next = [...m];
-            next[next.length - 1] = { ...next[next.length - 1], modelUsed, memoryUsed };
+            next[next.length - 1] = {
+              ...next[next.length - 1],
+              content: streamed,
+              modelUsed,
+              memoryUsed,
+            };
             return next;
           });
         }
@@ -247,7 +201,12 @@ export default function ChatPanel() {
     } catch {
       setMessages((m) => {
         const next = [...m];
-        next[next.length - 1] = { role: "assistant", content: "Transport error", modelUsed: null };
+        next[next.length - 1] = {
+          role: "assistant",
+          content: "Transport error",
+          modelUsed: null,
+          memoryUsed: [],
+        };
         return next;
       });
     } finally {
