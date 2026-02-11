@@ -1,12 +1,41 @@
-// components/chat/MessageBubble.jsx
-
-export default function MessageBubble({ role, content, modelUsed = null }) {
+export default function MessageBubble({
+  role,
+  content,
+  modelUsed = null,
+  memoryInfluence = null, // ⭐ NEW
+}) {
   const style = bubble(role);
 
   return (
     <div style={style}>
       <div style={{ whiteSpace: "pre-wrap" }}>{content || "…"}</div>
 
+      {/* ⭐ MEMORY VISIBILITY */}
+      {Array.isArray(memoryInfluence) &&
+        memoryInfluence.length > 0 &&
+        role !== "user" && (
+          <div
+            style={{
+              marginTop: 12,
+              paddingTop: 10,
+              borderTop: "1px solid rgba(255,255,255,0.08)",
+              fontSize: 12,
+              opacity: 0.75,
+            }}
+          >
+            <div style={{ marginBottom: 6, fontWeight: 600 }}>
+              Influenced by memory:
+            </div>
+
+            {memoryInfluence.map((m, i) => (
+              <div key={i} style={{ opacity: 0.8 }}>
+                • {m}
+              </div>
+            ))}
+          </div>
+        )}
+
+      {/* model footer */}
       {modelUsed && role !== "user" && (
         <div
           style={{
