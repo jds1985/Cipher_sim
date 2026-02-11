@@ -32,14 +32,15 @@ function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
 
-/* ⭐ MEMORY VISIBILITY */
+/* ⭐ MEMORY VISIBILITY
+   Keep it lightweight: previews only (no full content leaks by accident). */
 function exposeMemory(nodes = []) {
-  return nodes.map((n) => ({
-    id: n?.id || null,
+  return (nodes || []).map((n) => ({
+    id: n?.id || n?.docId || null,
     type: n?.type || "unknown",
-    importance: n?.importance ?? 0,
+    importance: Number.isFinite(n?.importance) ? n.importance : 0,
     locked: Boolean(n?.locked),
-    preview: (n?.content || "").slice(0, 120),
+    preview: (n?.content || n?.text || "").slice(0, 120),
   }));
 }
 
@@ -69,6 +70,7 @@ export default async function handler(req, res) {
     // ── Load memory graph ─────────────────────────────────
     const nodes = await loadMemoryNodes(userId, 60);
     console.log("🔥 MEMORY NODES LOADED:", nodes?.length);
+
     const summaryDoc = await loadSummary(userId);
 
     trace.log("memoryGraph.loaded", {
@@ -76,15 +78,15 @@ export default async function handler(req, res) {
       hasSummary: Boolean(summaryDoc?.text),
     });
 
-    // ⭐ PRIORITIZE
-    const prioritizedNodes = prioritizeContext(nodes, 15);
+    // ⭐ PRIORITIZE (top-K nodes become active context)
+    const prioritizedNodes = prioritizeContext(nodes || [], 15);
     trace.log("context.prioritized", { selected: prioritizedNodes.length });
 
     // ── Build OS context ──────────────────────────────────
     const osContext = buildOSContext({
       requestId: Date.now().toString(),
       userId,
-     ीuserName,
+      userName, // ✅ make sure there is NO weird character before this
       userMessage: message,
       uiHistory: [],
       longTermHistory,
