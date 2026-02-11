@@ -1,13 +1,10 @@
 // cipher_os/memory/memoryWriteback.js
 // Heuristic memory extraction + writeback (v4)
-// Reinforcement + promotion + AUTO LOCK
+// Reinforcement = strength bump + promotion
+// Identity Lock = identity/preference are locked on creation
+// Duplicate protection kept
 
 import { writeMemoryNode, loadMemoryNodes, bumpMemoryNode } from "./memoryGraph.js";
-
-/* ===============================
-   CONFIG
-================================ */
-const AUTO_LOCK_THRESHOLD = 8;
 
 /* ===============================
    IMPORTANCE LADDER
@@ -91,6 +88,7 @@ function isSimilar(a = "", b = "") {
   const A = clean(a);
   const B = clean(b);
 
+  if (!A || !B) return false;
   if (A === B) return true;
   if (A.includes(B) || B.includes(A)) return true;
 
@@ -103,33 +101,40 @@ function isSimilar(a = "", b = "") {
   }
 
   const similarity = overlap / Math.max(wordsA.size, 1);
-
   return similarity > 0.6;
 }
 
 /* ===============================
-   REINFORCEMENT
+   LOCK RULES
+================================ */
+function shouldLock(type) {
+  return type === "identity" || type === "preference";
+}
+
+/* ===============================
+   REINFORCEMENT (REAL)
 ================================ */
 async function reinforceExisting(userId, existingNode) {
-  const nextImportance = bumpImportance(existingNode.importance);
-  const nextReinforcement = (existingNode.reinforcementCount || 1) + 1;
-  const nextStrength = (existingNode.strength || 0) + 1;
+  // ✅ true reinforcement = gravity bump
+  await bumpMemoryNode(userId, existingNode.id, 1);
 
-  const update = {
-    reinforcementCount: nextReinforcement,
-    strength: nextStrength,
-    weight: nextStrength,
-    importance: nextImportance,
-    lastReinforcedAt: Date.now(),
-  };
-
-  // 🔒 AUTO LOCK
-  if (nextStrength >= AUTO_LOCK_THRESHOLD && !existingNode.locked) {
-    update.locked = true;
-    console.log("🔒 AUTO LOCKED:", existingNode.id);
+  // ✅ keep locked memories locked forever
+  if (existingNode.locked) {
+    await bumpMemoryNode(userId, existingNode.id, {
+      locked: true,
+      lockType: existingNode.lockType || "identity",
+      lockReason: existingNode.lockReason || "protected",
+    });
   }
 
-  await bumpMemoryNode(userId, existingNode.id, update);
+  // optional: soft importance bump (gravity already promotes)
+  const nextImportance = bumpImportance(existingNode.importance);
+
+  await bumpMemoryNode(userId, existingNode.id, {
+    reinforcementCount: (existingNode.reinforcementCount || 0) + 1,
+    lastReinforcedAt: Date.now(),
+    importance: nextImportance,
+  });
 
   console.log("🧠 reinforced:", existingNode.id, "→", nextImportance);
 }
@@ -137,11 +142,7 @@ async function reinforceExisting(userId, existingNode) {
 /* ===============================
    WRITEBACK
 ================================ */
-export async function writebackFromTurn({
-  userId,
-  userText,
-  assistantText,
-}) {
+export async function writebackFromTurn({ userId, userText, assistantText }) {
   let wrote = 0;
   let reinforced = 0;
 
@@ -149,26 +150,31 @@ export async function writebackFromTurn({
 
   /* ── USER MEMORY ───────────────────── */
   if (looksHighSignal(userText)) {
-    const match = existingNodes.find((n) =>
-      isSimilar(n.content, userText)
-    );
+    const type = classify(userText);
+    const match = existingNodes.find((n) => isSimilar(n.content, userText));
 
     if (match) {
       await reinforceExisting(userId, match);
       reinforced++;
     } else {
+      const lockIt = shouldLock(type);
+
       await writeMemoryNode(userId, {
-        type: classify(userText),
-        importance: "high",
+        type,
+        importance: lockIt ? "core" : "high",
         content: userText,
         tags: ["user", ...tagsFor(userText)],
         source: "chat:user",
+
         reinforcementCount: 1,
-        strength: 1,
-        weight: 1,
-        locked: false,
         lastReinforcedAt: Date.now(),
+
+        locked: lockIt,
+        lockType: lockIt ? type : null,
+        lockReason: lockIt ? "identity/preference" : null,
+        lockedAt: lockIt ? Date.now() : 0,
       });
+
       wrote++;
     }
   }
@@ -176,10 +182,7 @@ export async function writebackFromTurn({
   /* ── ASSISTANT MEMORY ───────────────── */
   if (looksHighSignal(assistantText)) {
     const trimmed = assistantText.slice(0, 800);
-
-    const match = existingNodes.find((n) =>
-      isSimilar(n.content, trimmed)
-    );
+    const match = existingNodes.find((n) => isSimilar(n.content, trimmed));
 
     if (match) {
       await reinforceExisting(userId, match);
@@ -191,17 +194,16 @@ export async function writebackFromTurn({
         content: trimmed,
         tags: ["assistant", ...tagsFor(assistantText)],
         source: "chat:assistant",
+
         reinforcementCount: 1,
-        strength: 1,
-        weight: 1,
-        locked: false,
         lastReinforcedAt: Date.now(),
+        locked: false,
       });
+
       wrote++;
     }
   }
 
   console.log("🧠 writeback:", { wrote, reinforced });
-
   return { wrote, reinforced };
 }
