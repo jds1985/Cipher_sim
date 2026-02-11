@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 // pages/api/chat.js
-// Cipher OS — stable core + streaming
+// Cipher OS — stable core + streaming + memory visibility
 
 import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
@@ -25,11 +25,19 @@ import { extractMemoryFromTurn } from "../../cipher_os/memory/memoryExtractor.js
 // influence
 import { buildMemoryInfluence } from "../../cipher_os/runtime/memoryInfluence.js";
 
-// ⭐ NEW
+// prioritizer
 import { prioritizeContext } from "../../cipher_os/runtime/contextPrioritizer.js";
 
 function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
+}
+
+/* ⭐ MEMORY VISIBILITY HELPER */
+function visibleMemory(nodes = []) {
+  return nodes
+    .slice(0, 5)
+    .map((n) => n?.content)
+    .filter(Boolean);
 }
 
 export default async function handler(req, res) {
@@ -144,6 +152,7 @@ export default async function handler(req, res) {
         reply: out?.reply || streamedText || "",
         model: out?.modelUsed?.model || null,
         provider: out?.modelUsed?.provider || null,
+        memoryInfluence: visibleMemory(prioritizedNodes), // ⭐ NEW
       });
 
       clearInterval(heartbeat);
@@ -231,7 +240,11 @@ export default async function handler(req, res) {
     await saveSummary(userId, summaryDoc?.text || "", turns);
     trace.log("summary.updated", { turns });
 
-    return res.status(200).json({ reply, model });
+    return res.status(200).json({
+      reply,
+      model,
+      memoryInfluence: visibleMemory(prioritizedNodes), // ⭐ NEW
+    });
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
     return res.status(500).json({ error: err.message || "Chat failed" });
