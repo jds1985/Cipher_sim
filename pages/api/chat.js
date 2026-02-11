@@ -25,6 +25,9 @@ import { extractMemoryFromTurn } from "../../cipher_os/memory/memoryExtractor.js
 // influence
 import { buildMemoryInfluence } from "../../cipher_os/runtime/memoryInfluence.js";
 
+// ⭐ NEW
+import { prioritizeContext } from "../../cipher_os/runtime/contextPrioritizer.js";
+
 function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
@@ -62,7 +65,11 @@ export default async function handler(req, res) {
       hasSummary: Boolean(summaryDoc?.text),
     });
 
-    // ── Build OS context (NOW WITH WEIGHT ENGINE) ────────
+    // ⭐ PRIORITIZE
+    const prioritizedNodes = prioritizeContext(nodes, 15);
+    trace.log("context.prioritized", { selected: prioritizedNodes.length });
+
+    // ── Build OS context ──────────────────────────────────
     const osContext = buildOSContext({
       requestId: Date.now().toString(),
       userId,
@@ -70,9 +77,10 @@ export default async function handler(req, res) {
       userMessage: message,
       uiHistory: [],
       longTermHistory,
-      memoryNodes: nodes, // ⭐ IMPORTANT
+      memoryNodes: prioritizedNodes,
     });
 
+    osContext.memory.nodes = prioritizedNodes;
     osContext.memory.longTermSummary = summaryDoc?.text || "";
 
     trace.log("osContext.built", { requestId: osContext.requestId });
@@ -81,7 +89,7 @@ export default async function handler(req, res) {
     const executivePacket = await runCipherCore(
       {
         history: osContext.memory.mergedHistory,
-        nodes: osContext.memory.nodes, // ⭐ use filtered nodes
+        nodes: prioritizedNodes,
         summary: osContext.memory.longTermSummary,
       },
       { userMessage: message, returnPacket: true }
@@ -91,8 +99,8 @@ export default async function handler(req, res) {
       hasSystemPrompt: Boolean(executivePacket?.systemPrompt),
     });
 
-    // ⭐⭐⭐ APPLY INFLUENCE ⭐⭐⭐
-    const influenceText = buildMemoryInfluence(osContext.memory.nodes);
+    // ⭐ APPLY INFLUENCE
+    const influenceText = buildMemoryInfluence(prioritizedNodes);
 
     if (influenceText) {
       executivePacket.systemPrompt =
