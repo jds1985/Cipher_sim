@@ -1,9 +1,10 @@
 export const runtime = "nodejs";
-// Cipher OS Orchestrator v2.0 — Intent Routing + Telemetry + Streaming + Pseudo-Stream + Auto Scoring
+// Cipher OS Orchestrator v2.1 — Intent Routing + Telemetry + Streaming + Pseudo-Stream + Auto Scoring + Debug
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
 import { anthropicGenerate } from "../models/anthropicAdapter.js";
+import { setLastRun } from "./debugState.js";
 
 /* ===============================
    PROVIDER REGISTRY
@@ -31,7 +32,7 @@ const ADAPTERS = {
 };
 
 /* ===============================
-   LIVE SCOREBOARD (v1 memory)
+   LIVE SCOREBOARD
 ================================ */
 const SCOREBOARD = {
   anthropic: { success: 1, fail: 0, avgLatency: 2000 },
@@ -46,8 +47,7 @@ function updateScore(provider, { success, latency }) {
   if (success) row.success += 1;
   else row.fail += 1;
 
-  // rolling latency average
-  row.avgLatency = Math.round((row.avgLatency * 0.7) + (latency * 0.3));
+  row.avgLatency = Math.round(row.avgLatency * 0.7 + latency * 0.3);
 }
 
 function computeScore(provider) {
@@ -83,7 +83,6 @@ function classifyIntent(text = "") {
     t.includes("build") ||
     t.includes("create") ||
     t.includes("generate") ||
-    t.includes("make") ||
     t.includes("implement") ||
     t.includes("debug") ||
     t.includes("error") ||
@@ -127,7 +126,7 @@ function pseudoStream(reply, onToken, chunkSize = 28) {
 }
 
 /* ===============================
-   INTENT + SCORE ROUTING
+   ROUTING
 ================================ */
 function buildPreferredOrder(intent, streamRequested) {
   let base =
@@ -137,19 +136,17 @@ function buildPreferredOrder(intent, streamRequested) {
       ? ["gemini", "openai", "anthropic"]
       : ["openai", "gemini", "anthropic"];
 
-  // sort by live score but keep intent bias strong
   const scored = [...base].sort((a, b) => computeScore(b) - computeScore(a));
 
-  if (streamRequested && scored[0] !== "openai") {
+  if (streamRequested && !scored.includes("openai")) {
     scored.splice(1, 0, "openai");
-    return [...new Set(scored)];
   }
 
-  return scored;
+  return [...new Set(scored)];
 }
 
 /* ===============================
-   MAIN ORCHESTRATOR
+   MAIN
 ================================ */
 export async function runOrchestrator({
   osContext,
@@ -183,6 +180,7 @@ export async function runOrchestrator({
   });
 
   if (!available.length) {
+    setLastRun({ intent, orderTried: [], chosen: null, stream, success: false });
     return { reply: "No AI providers are configured.", modelUsed: null };
   }
 
@@ -210,14 +208,9 @@ export async function runOrchestrator({
 
       // TRUE STREAM
       if (stream && entry.supportsStream && entry.streamFn) {
-        let replyLen = 0;
-
         const out = await entry.streamFn({
           ...payload,
-          onToken: (delta) => {
-            replyLen += delta?.length || 0;
-            onToken?.(delta);
-          },
+          onToken,
         });
 
         const reply = extractReply(out) || "";
@@ -226,6 +219,15 @@ export async function runOrchestrator({
         updateScore(modelKey, { success: Boolean(reply), latency });
 
         if (reply) {
+          setLastRun({
+            intent,
+            orderTried: available,
+            chosen: modelKey,
+            latencyMs: latency,
+            stream,
+            success: true,
+          });
+
           return {
             reply,
             modelUsed: { provider: modelKey, model: out?.modelUsed || "unknown" },
@@ -242,18 +244,18 @@ export async function runOrchestrator({
 
       updateScore(modelKey, { success: Boolean(reply), latency });
 
-      let pseudoLen = 0;
-      if (stream && reply) pseudoLen = pseudoStream(reply, onToken);
-
-      trace?.log?.("model.telemetry", {
-        provider: modelKey,
-        latency,
-        replyLength: reply?.length || 0,
-        pseudoStream: Boolean(stream && reply && !entry.supportsStream),
-        pseudoStreamLength: pseudoLen,
-      });
+      if (stream && reply) pseudoStream(reply, onToken);
 
       if (reply) {
+        setLastRun({
+          intent,
+          orderTried: available,
+          chosen: modelKey,
+          latencyMs: latency,
+          stream,
+          success: true,
+        });
+
         return {
           reply,
           modelUsed: { provider: modelKey, model: out?.modelUsed || "unknown" },
@@ -270,6 +272,14 @@ export async function runOrchestrator({
       });
     }
   }
+
+  setLastRun({
+    intent,
+    orderTried: available,
+    chosen: null,
+    stream,
+    success: false,
+  });
 
   return { reply: "All models failed to produce a response.", modelUsed: null };
 }
