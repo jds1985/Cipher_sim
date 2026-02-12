@@ -45,35 +45,40 @@ function extractReply(out) {
 function classifyIntent(text = "") {
   const t = String(text || "").toLowerCase();
 
-  // Code / dev
+  // 🔥 STRONG CODE SIGNALS
   if (
-    t.includes("code") ||
-    t.includes("function") ||
+    t.includes("write") ||
+    t.includes("build") ||
+    t.includes("create") ||
+    t.includes("generate") ||
+    t.includes("make") ||
+    t.includes("implement") ||
+    t.includes("example") ||
+    t.includes("sample") ||
+    t.includes("game") ||
+    t.includes("script") ||
+    t.includes("component") ||
     t.includes("debug") ||
     t.includes("error") ||
-    t.includes("stack trace") ||
+    t.includes("fix") ||
+    t.includes("refactor") ||
+    t.includes("optimize") ||
     t.includes("javascript") ||
     t.includes("typescript") ||
-    t.includes("next.js") ||
-    t.includes("api") ||
-    t.includes("firebase") ||
-    t.includes("vercel") ||
     t.includes("react") ||
-    t.includes("node")
+    t.includes("next") ||
+    t.includes("api") ||
+    t.includes("firebase")
   ) {
     return "code";
   }
 
-  // Deep reasoning / research
+  // 🧠 reasoning / analysis
   if (
     t.includes("analyze") ||
-    t.includes("explain deeply") ||
-    t.includes("deep dive") ||
-    t.includes("research") ||
     t.includes("compare") ||
-    t.includes("pros and cons") ||
-    t.includes("long") ||
-    t.includes("step by step") ||
+    t.includes("why") ||
+    t.includes("explain deeply") ||
     t.includes("architecture") ||
     t.includes("system design")
   ) {
