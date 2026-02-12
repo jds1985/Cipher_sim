@@ -10,10 +10,10 @@ export default function MessageList({ messages, bottomRef }) {
           content={m.content}
           modelUsed={m.modelUsed || null}
 
-          // ⭐ NEW — memory visibility
+          // ⭐ memory visibility
           memoryInfluence={
             m.role === "assistant" || m.role === "decipher"
-              ? m.memoryInfluence || null
+              ? m.memoryUsed || null
               : null
           }
         />
