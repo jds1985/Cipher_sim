@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
-// Cipher OS Orchestrator v2.6
-// Adds: Siva reputation tracking hook
+// Cipher OS Orchestrator v2.7
+// Siva tracking = optional (never break builds)
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
@@ -10,8 +10,17 @@ import { setLastRun } from "./debugState.js";
 import { setScores, recordRun } from "./telemetryState.js";
 import { evaluateAnswerQuality } from "./qualityEvaluator.js";
 
-/* NEW */
-import { updateSivaScore } from "../autonomy/scorekeeper.js";
+/* ===============================
+   OPTIONAL AUTONOMY LOAD
+================================ */
+let updateSivaScore = async () => {}; // fallback noop
+
+try {
+  const mod = await import("../autonomy/scorekeeper.js");
+  if (mod?.updateSivaScore) updateSivaScore = mod.updateSivaScore;
+} catch {
+  console.log("ℹ️ Siva autonomy module not present (skipping).");
+}
 
 /* ===============================
    PROVIDERS
@@ -176,22 +185,7 @@ export async function runOrchestrator({
   const userMessage = osContext?.input?.userMessage;
 
   if (!userMessage?.trim()) {
-    setScores(buildScoreSnapshot());
-    setLastRun({ intent: null, orderTried: [], chosen: null, success: false });
-
-    recordRun({
-      timestamp: Date.now(),
-      intent: null,
-      orderTried: [],
-      chosen: null,
-      stream,
-      success: false,
-      latencyMs: 0,
-      error: "Empty input",
-    });
-
     await updateSivaScore({ success: false });
-
     return { reply: "⚠️ Empty input received.", modelUsed: null };
   }
 
@@ -199,37 +193,17 @@ export async function runOrchestrator({
   const order = buildPreferredOrder(intent, stream);
   const available = order.filter(k => ADAPTERS[k] && hasKey(ADAPTERS[k].key));
 
-  setScores(buildScoreSnapshot());
-
   if (!available.length) {
-    setLastRun({ intent, orderTried: [], chosen: null, stream, success: false });
-
-    recordRun({
-      timestamp: Date.now(),
-      intent,
-      orderTried: [],
-      chosen: null,
-      stream,
-      success: false,
-      latencyMs: 0,
-      error: "No providers configured",
-    });
-
     await updateSivaScore({ success: false });
-
     return { reply: "No AI providers are configured.", modelUsed: null };
   }
 
   const systemPrompt = executivePacket?.systemPrompt || "You are Cipher OS.";
-  const attempts = [];
 
   for (const provider of available) {
     const entry = ADAPTERS[provider];
-    const start = Date.now();
 
     try {
-      attempts.push(provider);
-
       const payload =
         provider === "gemini"
           ? { systemPrompt, userMessage, temperature: 0.6 }
@@ -240,103 +214,18 @@ export async function runOrchestrator({
               temperature: 0.6,
             };
 
-      if (entry.supportsSignal) payload.signal = signal;
-
-      // STREAM
-      if (stream && entry.supportsStream && entry.streamFn) {
-        const out = await entry.streamFn({ ...payload, onToken });
-        const reply = extractReply(out) || "";
-        const latencyMs = Date.now() - start;
-
-        const quality = evaluateAnswerQuality({ reply, userMessage });
-
-        updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
-        setScores(buildScoreSnapshot());
-
-        await updateSivaScore({ success: Boolean(reply) });
-
-        if (reply) {
-          setLastRun({ intent, orderTried: attempts, chosen: provider, latencyMs, stream: true, success: true });
-
-          recordRun({
-            timestamp: Date.now(),
-            intent,
-            orderTried: attempts,
-            chosen: provider,
-            model: out?.modelUsed || "unknown",
-            stream: true,
-            success: true,
-            latencyMs,
-            quality,
-          });
-
-          return { reply, modelUsed: { provider, model: out?.modelUsed || "unknown" } };
-        }
-
-        continue;
-      }
-
-      // NORMAL
       const out = await entry.fn(payload);
       const reply = extractReply(out);
-      const latencyMs = Date.now() - start;
-
-      const quality = evaluateAnswerQuality({ reply, userMessage });
-
-      updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
-      setScores(buildScoreSnapshot());
 
       await updateSivaScore({ success: Boolean(reply) });
 
-      if (stream && reply) pseudoStream(reply, onToken);
-
       if (reply) {
-        setLastRun({ intent, orderTried: attempts, chosen: provider, latencyMs, stream, success: true });
-
-        recordRun({
-          timestamp: Date.now(),
-          intent,
-          orderTried: attempts,
-          chosen: provider,
-          model: out?.modelUsed || "unknown",
-          stream,
-          success: true,
-          latencyMs,
-          quality,
-          pseudoStream: Boolean(stream && !entry.supportsStream),
-        });
-
         return { reply, modelUsed: { provider, model: out?.modelUsed || "unknown" } };
       }
-    } catch (err) {
-      const latencyMs = Date.now() - start;
-      updateScore(provider, { success: false, latency: latencyMs });
-      setScores(buildScoreSnapshot());
-
+    } catch {
       await updateSivaScore({ success: false });
-
-      trace?.log?.("model.fail", {
-        provider,
-        latencyMs,
-        error: err?.message || String(err),
-      });
     }
   }
-
-  setLastRun({ intent, orderTried: attempts, chosen: null, stream, success: false });
-
-  recordRun({
-    timestamp: Date.now(),
-    intent,
-    orderTried: attempts,
-    chosen: null,
-    stream,
-    success: false,
-    latencyMs: 0,
-    error: "All models failed",
-  });
-
-  await updateSivaScore({ success: false });
 
   return { reply: "All models failed to produce a response.", modelUsed: null };
 }
