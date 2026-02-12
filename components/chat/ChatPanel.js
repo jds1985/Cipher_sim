@@ -1,4 +1,3 @@
-// components/chat/ChatPanel.js
 import { useState, useRef, useEffect } from "react";
 import { styles } from "./ChatStyles";
 import HeaderMenu from "./HeaderMenu";
@@ -147,7 +146,7 @@ export default function ChatPanel() {
     setMessages((m) => [
       ...m,
       userMessage,
-      { role: "assistant", content: "", modelUsed: null, memoryUsed: [] },
+      { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
     ]);
 
     try {
@@ -165,7 +164,7 @@ export default function ChatPanel() {
 
       let streamed = "";
       let modelUsed = null;
-      let memoryUsed = [];
+      let memoryInfluence = [];
 
       await readSSEStream(res, (evt) => {
         if (evt?.type === "delta" && typeof evt?.text === "string") {
@@ -176,7 +175,7 @@ export default function ChatPanel() {
               ...next[next.length - 1],
               content: streamed,
               modelUsed,
-              memoryUsed,
+              memoryInfluence,
             };
             return next;
           });
@@ -184,7 +183,7 @@ export default function ChatPanel() {
 
         if (evt?.type === "done") {
           modelUsed = evt?.model || null;
-          memoryUsed = evt?.memoryInfluence || [];
+          memoryInfluence = evt?.memoryInfluence || [];
 
           setMessages((m) => {
             const next = [...m];
@@ -192,7 +191,7 @@ export default function ChatPanel() {
               ...next[next.length - 1],
               content: streamed,
               modelUsed,
-              memoryUsed,
+              memoryInfluence,
             };
             return next;
           });
@@ -205,7 +204,7 @@ export default function ChatPanel() {
           role: "assistant",
           content: "Transport error",
           modelUsed: null,
-          memoryUsed: [],
+          memoryInfluence: [],
         };
         return next;
       });
