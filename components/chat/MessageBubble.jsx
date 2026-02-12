@@ -1,4 +1,3 @@
-// components/chat/MessageBubble.jsx
 import { useState } from "react";
 
 export default function MessageBubble({
@@ -8,27 +7,57 @@ export default function MessageBubble({
   memoryInfluence = null,
 }) {
   const style = bubble(role);
-
   const [open, setOpen] = useState(false);
+
+  const provider =
+    typeof modelUsed === "object" ? modelUsed?.provider : null;
+  const model =
+    typeof modelUsed === "object" ? modelUsed?.model : modelUsed;
+
+  function copy() {
+    try {
+      navigator.clipboard.writeText(content || "");
+    } catch {}
+  }
 
   return (
     <div style={style}>
+      {/* TEXT */}
       <div style={{ whiteSpace: "pre-wrap" }}>{content || "…"}</div>
 
-      {/* Model */}
+      {/* MODEL BADGE */}
       {modelUsed && role !== "user" && (
         <div
           style={{
             marginTop: 10,
-            opacity: 0.65,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             fontSize: 12,
+            opacity: 0.7,
           }}
         >
-          {String(modelUsed)}
+          <div>
+            {provider ? `${provider} / ` : ""}
+            {String(model)}
+          </div>
+
+          <div
+            onClick={copy}
+            style={{
+              cursor: "pointer",
+              padding: "2px 6px",
+              borderRadius: 6,
+              border: "1px solid rgba(255,255,255,0.15)",
+              fontSize: 11,
+            }}
+          >
+            copy
+          </div>
         </div>
       )}
 
-      {/* 🧠 Collapsible Memory */}
+      {/* MEMORY */}
       {memoryInfluence && memoryInfluence.length > 0 && role !== "user" && (
         <div style={{ marginTop: 12 }}>
           <div
@@ -36,11 +65,13 @@ export default function MessageBubble({
             style={{
               cursor: "pointer",
               fontSize: 13,
-              opacity: 0.8,
+              opacity: 0.85,
               userSelect: "none",
             }}
           >
-            {open ? "▲ Hide memory" : "▼ Memory used"}
+            {open
+              ? `▲ Hide memory (${memoryInfluence.length})`
+              : `▼ Memory used (${memoryInfluence.length})`}
           </div>
 
           {open && (
@@ -55,11 +86,13 @@ export default function MessageBubble({
               }}
             >
               {memoryInfluence.map((m, i) => (
-                <div key={i} style={{ marginBottom: 8 }}>
+                <div key={i} style={{ marginBottom: 10 }}>
                   <div style={{ opacity: 0.6 }}>
-                    {m.type} {m.locked ? "• locked" : ""}
+                    {m?.type || "unknown"}{" "}
+                    {m?.locked ? "• locked" : ""}{" "}
+                    {m?.importance ? `• ${m.importance}` : ""}
                   </div>
-                  <div>{m.preview}</div>
+                  <div>{m?.preview || "—"}</div>
                 </div>
               ))}
             </div>
