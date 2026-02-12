@@ -86,7 +86,7 @@ export default async function handler(req, res) {
     const osContext = buildOSContext({
       requestId: Date.now().toString(),
       userId,
-      userName, // ✅ make sure there is NO weird character before this
+      userName,
       userMessage: message,
       uiHistory: [],
       longTermHistory,
@@ -152,12 +152,13 @@ export default async function handler(req, res) {
         },
       });
 
+      // ✅ SEND THE NAME UI EXPECTS
       sseWrite(res, {
         type: "done",
         reply: out?.reply || streamedText || "",
         model: out?.modelUsed?.model || null,
         provider: out?.modelUsed?.provider || null,
-        memoryUsed: exposeMemory(prioritizedNodes),
+        memoryInfluence: exposeMemory(prioritizedNodes),
       });
 
       clearInterval(heartbeat);
@@ -245,10 +246,11 @@ export default async function handler(req, res) {
     await saveSummary(userId, summaryDoc?.text || "", turns);
     trace.log("summary.updated", { turns });
 
+    // ✅ SEND THE NAME UI EXPECTS
     return res.status(200).json({
       reply,
       model,
-      memoryUsed: exposeMemory(prioritizedNodes),
+      memoryInfluence: exposeMemory(prioritizedNodes),
     });
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
