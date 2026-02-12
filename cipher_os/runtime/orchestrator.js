@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
-// Cipher OS Orchestrator v2.3
-// Adds: telemetry snapshots + recent runs feed for the dashboard
+// Cipher OS Orchestrator v2.4
+// Adds: smarter routing bias + stronger telemetry publishing + stream preference logic
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
@@ -35,7 +35,7 @@ const ADAPTERS = {
 };
 
 /* ===============================
-   SCOREBOARD (in-memory)
+   SCOREBOARD (memory)
 ================================ */
 const SCOREBOARD = {
   anthropic: { success: 1, fail: 0, avgLatency: 2000 },
@@ -134,7 +134,7 @@ function pseudoStream(reply, onToken, chunkSize = 28) {
 /* ===============================
    ROUTING
 ================================ */
-function buildPreferredOrder(intent) {
+function buildPreferredOrder(intent, streamRequested) {
   const base =
     intent === "code"
       ? ["anthropic", "openai", "gemini"]
@@ -142,7 +142,14 @@ function buildPreferredOrder(intent) {
       ? ["gemini", "openai", "anthropic"]
       : ["openai", "gemini", "anthropic"];
 
-  return [...base].sort((a, b) => computeScore(b) - computeScore(a));
+  const scored = [...base].sort((a, b) => computeScore(b) - computeScore(a));
+
+  // small preference for real streaming when UI expects it
+  if (streamRequested && scored[0] !== "openai") {
+    scored.splice(1, 0, "openai");
+  }
+
+  return [...new Set(scored)];
 }
 
 /* ===============================
@@ -161,6 +168,7 @@ export async function runOrchestrator({
   if (!userMessage?.trim()) {
     setScores(buildScoreSnapshot());
     setLastRun({ intent: null, orderTried: [], chosen: null, success: false });
+
     recordRun({
       timestamp: Date.now(),
       intent: null,
@@ -171,23 +179,25 @@ export async function runOrchestrator({
       latencyMs: 0,
       error: "Empty input",
     });
+
     return { reply: "⚠️ Empty input received.", modelUsed: null };
   }
 
   const intent = classifyIntent(userMessage);
-  const order = buildPreferredOrder(intent);
+  const order = buildPreferredOrder(intent, stream);
 
   const available = order.filter(
     (k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key)
   );
 
-  // Publish current score snapshot for the dashboard (even before the run finishes)
   setScores(buildScoreSnapshot());
 
   trace?.log?.("router.decision", { intent, order: available, stream });
 
   if (!available.length) {
-    const failRun = {
+    setLastRun({ intent, orderTried: [], chosen: null, stream, success: false });
+
+    recordRun({
       timestamp: Date.now(),
       intent,
       orderTried: [],
@@ -196,10 +206,8 @@ export async function runOrchestrator({
       success: false,
       latencyMs: 0,
       error: "No providers configured",
-    };
+    });
 
-    setLastRun({ intent, orderTried: [], chosen: null, stream, success: false });
-    recordRun(failRun);
     return { reply: "No AI providers are configured.", modelUsed: null };
   }
 
@@ -225,7 +233,7 @@ export async function runOrchestrator({
 
       if (entry.supportsSignal) payload.signal = signal;
 
-      // STREAM (OpenAI)
+      // TRUE STREAM
       if (stream && entry.supportsStream && entry.streamFn) {
         const out = await entry.streamFn({ ...payload, onToken });
         const reply = extractReply(out) || "";
@@ -235,7 +243,9 @@ export async function runOrchestrator({
         setScores(buildScoreSnapshot());
 
         if (reply) {
-          const run = {
+          setLastRun({ intent, orderTried: attempts, chosen: provider, latencyMs, stream: true, success: true });
+
+          recordRun({
             timestamp: Date.now(),
             intent,
             orderTried: attempts,
@@ -244,17 +254,7 @@ export async function runOrchestrator({
             stream: true,
             success: true,
             latencyMs,
-          };
-
-          setLastRun({
-            intent,
-            orderTried: attempts,
-            chosen: provider,
-            latencyMs,
-            stream: true,
-            success: true,
           });
-          recordRun(run);
 
           return { reply, modelUsed: { provider, model: out?.modelUsed || "unknown" } };
         }
@@ -262,7 +262,7 @@ export async function runOrchestrator({
         continue;
       }
 
-      // NORMAL (Gemini/Claude/OpenAI fallback)
+      // NORMAL
       const out = await entry.fn(payload);
       const reply = extractReply(out);
       const latencyMs = Date.now() - start;
@@ -273,27 +273,19 @@ export async function runOrchestrator({
       if (stream && reply) pseudoStream(reply, onToken);
 
       if (reply) {
-        const run = {
+        setLastRun({ intent, orderTried: attempts, chosen: provider, latencyMs, stream, success: true });
+
+        recordRun({
           timestamp: Date.now(),
           intent,
           orderTried: attempts,
           chosen: provider,
           model: out?.modelUsed || "unknown",
-          stream: Boolean(stream),
+          stream,
           success: true,
           latencyMs,
           pseudoStream: Boolean(stream && !entry.supportsStream),
-        };
-
-        setLastRun({
-          intent,
-          orderTried: attempts,
-          chosen: provider,
-          latencyMs,
-          stream: Boolean(stream),
-          success: true,
         });
-        recordRun(run);
 
         return { reply, modelUsed: { provider, model: out?.modelUsed || "unknown" } };
       }
@@ -310,7 +302,9 @@ export async function runOrchestrator({
     }
   }
 
-  const failRun = {
+  setLastRun({ intent, orderTried: attempts, chosen: null, stream, success: false });
+
+  recordRun({
     timestamp: Date.now(),
     intent,
     orderTried: attempts,
@@ -319,10 +313,7 @@ export async function runOrchestrator({
     success: false,
     latencyMs: 0,
     error: "All models failed",
-  };
-
-  setLastRun({ intent, orderTried: attempts, chosen: null, stream, success: false });
-  recordRun(failRun);
+  });
 
   return { reply: "All models failed to produce a response.", modelUsed: null };
 }
