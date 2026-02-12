@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
-// Cipher OS Orchestrator v2.5
-// Adds: Answer Quality Scoring → feeds telemetry + future routing evolution
+// Cipher OS Orchestrator v2.6
+// Adds: Siva reputation tracking hook
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
@@ -9,6 +9,9 @@ import { anthropicGenerate } from "../models/anthropicAdapter.js";
 import { setLastRun } from "./debugState.js";
 import { setScores, recordRun } from "./telemetryState.js";
 import { evaluateAnswerQuality } from "./qualityEvaluator.js";
+
+/* NEW */
+import { updateSivaScore } from "../autonomy/scorekeeper.js";
 
 /* ===============================
    PROVIDERS
@@ -66,7 +69,6 @@ function computeScore(provider) {
   const speed = 1 / Math.max(row.avgLatency, 1);
   const quality = row.quality;
 
-  // reliability still king, quality second, speed third
   return reliability * 0.5 + quality * 0.3 + speed * 0.2;
 }
 
@@ -188,6 +190,8 @@ export async function runOrchestrator({
       error: "Empty input",
     });
 
+    await updateSivaScore({ success: false });
+
     return { reply: "⚠️ Empty input received.", modelUsed: null };
   }
 
@@ -210,6 +214,8 @@ export async function runOrchestrator({
       latencyMs: 0,
       error: "No providers configured",
     });
+
+    await updateSivaScore({ success: false });
 
     return { reply: "No AI providers are configured.", modelUsed: null };
   }
@@ -247,6 +253,8 @@ export async function runOrchestrator({
         updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
         setScores(buildScoreSnapshot());
 
+        await updateSivaScore({ success: Boolean(reply) });
+
         if (reply) {
           setLastRun({ intent, orderTried: attempts, chosen: provider, latencyMs, stream: true, success: true });
 
@@ -278,6 +286,8 @@ export async function runOrchestrator({
       updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
       setScores(buildScoreSnapshot());
 
+      await updateSivaScore({ success: Boolean(reply) });
+
       if (stream && reply) pseudoStream(reply, onToken);
 
       if (reply) {
@@ -303,6 +313,8 @@ export async function runOrchestrator({
       updateScore(provider, { success: false, latency: latencyMs });
       setScores(buildScoreSnapshot());
 
+      await updateSivaScore({ success: false });
+
       trace?.log?.("model.fail", {
         provider,
         latencyMs,
@@ -323,6 +335,8 @@ export async function runOrchestrator({
     latencyMs: 0,
     error: "All models failed",
   });
+
+  await updateSivaScore({ success: false });
 
   return { reply: "All models failed to produce a response.", modelUsed: null };
 }
