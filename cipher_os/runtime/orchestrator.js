@@ -1,5 +1,8 @@
 export const runtime = "nodejs";
-// Cipher OS Orchestrator v2.1 — Intent Routing + Telemetry + Streaming + Pseudo-Stream + Auto Scoring + Debug
+
+// Cipher OS Orchestrator v2.2
+// Intent Routing + Telemetry + Streaming + Pseudo-Stream
+// Auto scoring + run history + failure visibility
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
@@ -7,7 +10,7 @@ import { anthropicGenerate } from "../models/anthropicAdapter.js";
 import { setLastRun } from "./debugState.js";
 
 /* ===============================
-   PROVIDER REGISTRY
+   PROVIDERS
 ================================ */
 const ADAPTERS = {
   gemini: {
@@ -32,7 +35,7 @@ const ADAPTERS = {
 };
 
 /* ===============================
-   LIVE SCOREBOARD
+   SCOREBOARD
 ================================ */
 const SCOREBOARD = {
   anthropic: { success: 1, fail: 0, avgLatency: 2000 },
@@ -44,8 +47,8 @@ function updateScore(provider, { success, latency }) {
   const row = SCOREBOARD[provider];
   if (!row) return;
 
-  if (success) row.success += 1;
-  else row.fail += 1;
+  if (success) row.success++;
+  else row.fail++;
 
   row.avgLatency = Math.round(row.avgLatency * 0.7 + latency * 0.3);
 }
@@ -61,7 +64,7 @@ function computeScore(provider) {
 }
 
 /* ===============================
-   HELPERS
+   UTIL
 ================================ */
 function hasKey(name) {
   return Boolean(process.env[name] && process.env[name].length > 0);
@@ -76,7 +79,7 @@ function extractReply(out) {
 }
 
 function classifyIntent(text = "") {
-  const t = String(text || "").toLowerCase();
+  const t = String(text).toLowerCase();
 
   if (
     t.includes("write") ||
@@ -94,9 +97,7 @@ function classifyIntent(text = "") {
     t.includes("next") ||
     t.includes("api") ||
     t.includes("firebase")
-  ) {
-    return "code";
-  }
+  ) return "code";
 
   if (
     t.includes("analyze") ||
@@ -104,45 +105,33 @@ function classifyIntent(text = "") {
     t.includes("why") ||
     t.includes("architecture") ||
     t.includes("system design")
-  ) {
-    return "reasoning";
-  }
+  ) return "reasoning";
 
   return "chat";
 }
 
 function pseudoStream(reply, onToken, chunkSize = 28) {
-  if (!reply || typeof onToken !== "function") return reply?.length || 0;
+  if (!reply || typeof onToken !== "function") return;
 
-  let sent = 0;
   for (let i = 0; i < reply.length; i += chunkSize) {
-    const chunk = reply.slice(i, i + chunkSize);
-    sent += chunk.length;
     try {
-      onToken(chunk);
+      onToken(reply.slice(i, i + chunkSize));
     } catch {}
   }
-  return sent;
 }
 
 /* ===============================
    ROUTING
 ================================ */
-function buildPreferredOrder(intent, streamRequested) {
-  let base =
+function buildPreferredOrder(intent) {
+  const base =
     intent === "code"
       ? ["anthropic", "openai", "gemini"]
       : intent === "reasoning"
       ? ["gemini", "openai", "anthropic"]
       : ["openai", "gemini", "anthropic"];
 
-  const scored = [...base].sort((a, b) => computeScore(b) - computeScore(a));
-
-  if (streamRequested && !scored.includes("openai")) {
-    scored.splice(1, 0, "openai");
-  }
-
-  return [...new Set(scored)];
+  return [...base].sort((a, b) => computeScore(b) - computeScore(a));
 }
 
 /* ===============================
@@ -158,44 +147,36 @@ export async function runOrchestrator({
 }) {
   const userMessage = osContext?.input?.userMessage;
 
-  if (!userMessage || !userMessage.trim()) {
-    trace?.log?.("input.invalid", { userMessage });
+  if (!userMessage?.trim()) {
     return { reply: "⚠️ Empty input received.", modelUsed: null };
   }
 
   const intent = classifyIntent(userMessage);
-  const preferredOrder = buildPreferredOrder(intent, stream);
+  const order = buildPreferredOrder(intent);
 
-  const available = preferredOrder.filter(
+  const available = order.filter(
     (k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key)
   );
 
-  trace?.log?.("router.decision", {
-    intent,
-    order: available,
-    stream,
-    scores: Object.fromEntries(
-      Object.keys(SCOREBOARD).map((k) => [k, computeScore(k)])
-    ),
-  });
-
   if (!available.length) {
-    setLastRun({ intent, orderTried: [], chosen: null, stream, success: false });
+    setLastRun({ intent, orderTried: [], chosen: null, success: false });
     return { reply: "No AI providers are configured.", modelUsed: null };
   }
 
   const systemPrompt =
-    executivePacket?.systemPrompt || "You are Cipher OS. Respond normally.";
+    executivePacket?.systemPrompt || "You are Cipher OS.";
 
-  for (const modelKey of available) {
-    const entry = ADAPTERS[modelKey];
-    const startTime = Date.now();
+  const attempts = [];
+
+  for (const provider of available) {
+    const entry = ADAPTERS[provider];
+    const start = Date.now();
 
     try {
-      trace?.log?.("model.call", { provider: modelKey });
+      attempts.push(provider);
 
       const payload =
-        modelKey === "gemini"
+        provider === "gemini"
           ? { systemPrompt, userMessage, temperature: 0.6 }
           : {
               systemPrompt,
@@ -206,23 +187,19 @@ export async function runOrchestrator({
 
       if (entry.supportsSignal) payload.signal = signal;
 
-      // TRUE STREAM
+      // STREAM
       if (stream && entry.supportsStream && entry.streamFn) {
-        const out = await entry.streamFn({
-          ...payload,
-          onToken,
-        });
-
+        const out = await entry.streamFn({ ...payload, onToken });
         const reply = extractReply(out) || "";
-        const latency = Date.now() - startTime;
+        const latency = Date.now() - start;
 
-        updateScore(modelKey, { success: Boolean(reply), latency });
+        updateScore(provider, { success: Boolean(reply), latency });
 
         if (reply) {
           setLastRun({
             intent,
-            orderTried: available,
-            chosen: modelKey,
+            orderTried: attempts,
+            chosen: provider,
             latencyMs: latency,
             stream,
             success: true,
@@ -230,27 +207,27 @@ export async function runOrchestrator({
 
           return {
             reply,
-            modelUsed: { provider: modelKey, model: out?.modelUsed || "unknown" },
+            modelUsed: { provider, model: out?.modelUsed || "unknown" },
           };
         }
 
         continue;
       }
 
-      // NORMAL CALL
+      // NORMAL
       const out = await entry.fn(payload);
       const reply = extractReply(out);
-      const latency = Date.now() - startTime;
+      const latency = Date.now() - start;
 
-      updateScore(modelKey, { success: Boolean(reply), latency });
+      updateScore(provider, { success: Boolean(reply), latency });
 
       if (stream && reply) pseudoStream(reply, onToken);
 
       if (reply) {
         setLastRun({
           intent,
-          orderTried: available,
-          chosen: modelKey,
+          orderTried: attempts,
+          chosen: provider,
           latencyMs: latency,
           stream,
           success: true,
@@ -258,26 +235,18 @@ export async function runOrchestrator({
 
         return {
           reply,
-          modelUsed: { provider: modelKey, model: out?.modelUsed || "unknown" },
+          modelUsed: { provider, model: out?.modelUsed || "unknown" },
         };
       }
     } catch (err) {
-      const latency = Date.now() - startTime;
-      updateScore(modelKey, { success: false, latency });
-
-      trace?.log?.("model.fail", {
-        provider: modelKey,
-        latency,
-        error: err?.message || String(err),
-      });
+      updateScore(provider, { success: false, latency: Date.now() - start });
     }
   }
 
   setLastRun({
     intent,
-    orderTried: available,
+    orderTried: attempts,
     chosen: null,
-    stream,
     success: false,
   });
 
