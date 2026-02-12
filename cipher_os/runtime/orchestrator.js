@@ -1,13 +1,14 @@
 export const runtime = "nodejs";
 
-// Cipher OS Orchestrator v2.4
-// Adds: smarter routing bias + stronger telemetry publishing + stream preference logic
+// Cipher OS Orchestrator v2.5
+// Adds: Answer Quality Scoring → feeds telemetry + future routing evolution
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
 import { anthropicGenerate } from "../models/anthropicAdapter.js";
 import { setLastRun } from "./debugState.js";
 import { setScores, recordRun } from "./telemetryState.js";
+import { evaluateAnswerQuality } from "./qualityEvaluator.js";
 
 /* ===============================
    PROVIDERS
@@ -35,15 +36,15 @@ const ADAPTERS = {
 };
 
 /* ===============================
-   SCOREBOARD (memory)
+   SCOREBOARD
 ================================ */
 const SCOREBOARD = {
-  anthropic: { success: 1, fail: 0, avgLatency: 2000 },
-  openai: { success: 1, fail: 0, avgLatency: 2000 },
-  gemini: { success: 1, fail: 0, avgLatency: 2000 },
+  anthropic: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
+  openai: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
+  gemini: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
 };
 
-function updateScore(provider, { success, latency }) {
+function updateScore(provider, { success, latency, quality }) {
   const row = SCOREBOARD[provider];
   if (!row) return;
 
@@ -51,6 +52,10 @@ function updateScore(provider, { success, latency }) {
   else row.fail++;
 
   row.avgLatency = Math.round(row.avgLatency * 0.7 + latency * 0.3);
+
+  if (typeof quality === "number") {
+    row.quality = Number((row.quality * 0.7 + quality * 0.3).toFixed(3));
+  }
 }
 
 function computeScore(provider) {
@@ -59,7 +64,10 @@ function computeScore(provider) {
 
   const reliability = row.success / (row.success + row.fail);
   const speed = 1 / Math.max(row.avgLatency, 1);
-  return reliability * 0.8 + speed * 0.2;
+  const quality = row.quality;
+
+  // reliability still king, quality second, speed third
+  return reliability * 0.5 + quality * 0.3 + speed * 0.2;
 }
 
 function buildScoreSnapshot() {
@@ -70,6 +78,7 @@ function buildScoreSnapshot() {
       success: SCOREBOARD[k].success,
       fail: SCOREBOARD[k].fail,
       avgLatency: SCOREBOARD[k].avgLatency,
+      quality: SCOREBOARD[k].quality,
     };
   }
   return out;
@@ -144,7 +153,6 @@ function buildPreferredOrder(intent, streamRequested) {
 
   const scored = [...base].sort((a, b) => computeScore(b) - computeScore(a));
 
-  // small preference for real streaming when UI expects it
   if (streamRequested && scored[0] !== "openai") {
     scored.splice(1, 0, "openai");
   }
@@ -185,14 +193,9 @@ export async function runOrchestrator({
 
   const intent = classifyIntent(userMessage);
   const order = buildPreferredOrder(intent, stream);
-
-  const available = order.filter(
-    (k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key)
-  );
+  const available = order.filter(k => ADAPTERS[k] && hasKey(ADAPTERS[k].key));
 
   setScores(buildScoreSnapshot());
-
-  trace?.log?.("router.decision", { intent, order: available, stream });
 
   if (!available.length) {
     setLastRun({ intent, orderTried: [], chosen: null, stream, success: false });
@@ -233,13 +236,15 @@ export async function runOrchestrator({
 
       if (entry.supportsSignal) payload.signal = signal;
 
-      // TRUE STREAM
+      // STREAM
       if (stream && entry.supportsStream && entry.streamFn) {
         const out = await entry.streamFn({ ...payload, onToken });
         const reply = extractReply(out) || "";
         const latencyMs = Date.now() - start;
 
-        updateScore(provider, { success: Boolean(reply), latency: latencyMs });
+        const quality = evaluateAnswerQuality({ reply, userMessage });
+
+        updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
         setScores(buildScoreSnapshot());
 
         if (reply) {
@@ -254,6 +259,7 @@ export async function runOrchestrator({
             stream: true,
             success: true,
             latencyMs,
+            quality,
           });
 
           return { reply, modelUsed: { provider, model: out?.modelUsed || "unknown" } };
@@ -267,7 +273,9 @@ export async function runOrchestrator({
       const reply = extractReply(out);
       const latencyMs = Date.now() - start;
 
-      updateScore(provider, { success: Boolean(reply), latency: latencyMs });
+      const quality = evaluateAnswerQuality({ reply, userMessage });
+
+      updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
       setScores(buildScoreSnapshot());
 
       if (stream && reply) pseudoStream(reply, onToken);
@@ -284,6 +292,7 @@ export async function runOrchestrator({
           stream,
           success: true,
           latencyMs,
+          quality,
           pseudoStream: Boolean(stream && !entry.supportsStream),
         });
 
