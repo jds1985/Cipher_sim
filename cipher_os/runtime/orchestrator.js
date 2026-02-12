@@ -1,5 +1,8 @@
+export const runtime = "nodejs";
 // cipher_os/runtime/orchestrator.js
-// Cipher OS Orchestrator v0.9 — Intelligent Routing + Telemetry + Streaming (OpenAI-first)
+// Cipher OS Orchestrator v1.0 — Intent Routing + Telemetry + Streaming + Pseudo-Stream
+// Goal: Use the best model per task (Claude for code, Gemini for deep reasoning, OpenAI for chat),
+// while keeping your SSE UI "streamy" even when the provider can't truly stream.
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
@@ -23,7 +26,7 @@ const ADAPTERS = {
     fn: anthropicGenerate,
     key: "ANTHROPIC_API_KEY",
     supportsSignal: true,
-    supportsStream: false, // keep false for now (we can add later)
+    supportsStream: false, // true streaming later if you add it
   },
 };
 
@@ -40,29 +43,87 @@ function extractReply(out) {
 }
 
 function classifyIntent(text = "") {
-  const t = text.toLowerCase();
+  const t = String(text || "").toLowerCase();
 
+  // Code / dev
   if (
     t.includes("code") ||
     t.includes("function") ||
     t.includes("debug") ||
     t.includes("error") ||
+    t.includes("stack trace") ||
     t.includes("javascript") ||
-    t.includes("api")
+    t.includes("typescript") ||
+    t.includes("next.js") ||
+    t.includes("api") ||
+    t.includes("firebase") ||
+    t.includes("vercel") ||
+    t.includes("react") ||
+    t.includes("node")
   ) {
     return "code";
   }
 
+  // Deep reasoning / research
   if (
     t.includes("analyze") ||
     t.includes("explain deeply") ||
+    t.includes("deep dive") ||
+    t.includes("research") ||
+    t.includes("compare") ||
+    t.includes("pros and cons") ||
     t.includes("long") ||
-    t.includes("research")
+    t.includes("step by step") ||
+    t.includes("architecture") ||
+    t.includes("system design")
   ) {
     return "reasoning";
   }
 
   return "chat";
+}
+
+/**
+ * Pseudo-stream helper:
+ * For providers that don't stream, we still want UI deltas.
+ * We chunk the final reply and call onToken(chunk) rapidly.
+ */
+function pseudoStream(reply, onToken, chunkSize = 28) {
+  if (!reply || typeof reply !== "string") return 0;
+  if (typeof onToken !== "function") return reply.length;
+
+  let sent = 0;
+  for (let i = 0; i < reply.length; i += chunkSize) {
+    const chunk = reply.slice(i, i + chunkSize);
+    sent += chunk.length;
+    try {
+      onToken(chunk);
+    } catch {}
+  }
+  return sent;
+}
+
+function buildPreferredOrder(intent, streamRequested) {
+  // v1 routing policy:
+  // - code: Claude -> OpenAI -> Gemini
+  // - reasoning: Gemini -> OpenAI -> Claude
+  // - chat: OpenAI -> Gemini -> Claude
+  let base =
+    intent === "code"
+      ? ["anthropic", "openai", "gemini"]
+      : intent === "reasoning"
+      ? ["gemini", "openai", "anthropic"]
+      : ["openai", "gemini", "anthropic"];
+
+  // If streaming requested, we *prefer* OpenAI first ONLY IF it's available,
+  // but we do NOT force it anymore. We'll pseudo-stream other providers.
+  // We keep OpenAI early for responsiveness but still allow routing by intent.
+  if (streamRequested && base[0] !== "openai") {
+    // keep the intent-first model first, but move openai to second if present
+    base = [base[0], "openai", ...base.filter((x) => x !== base[0] && x !== "openai")];
+  }
+
+  return base;
 }
 
 /**
@@ -81,45 +142,34 @@ export async function runOrchestrator({
   const userMessage = osContext?.input?.userMessage;
 
   if (!userMessage || typeof userMessage !== "string" || !userMessage.trim()) {
-    trace?.log("input.invalid", { userMessage });
+    trace?.log?.("input.invalid", { userMessage });
     return { reply: "⚠️ Empty input received.", modelUsed: null };
   }
 
   const intent = classifyIntent(userMessage);
+  const preferredOrder = buildPreferredOrder(intent, stream);
 
-  // Preferred order by intent
-  let preferredOrder;
-  if (intent === "code") preferredOrder = ["anthropic", "openai", "gemini"];
-  else if (intent === "reasoning") preferredOrder = ["gemini", "openai", "anthropic"];
-  else preferredOrder = ["openai", "gemini", "anthropic"];
+  const available = preferredOrder.filter((k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key));
 
-  // Streaming: force OpenAI first if available (prevents long dead air)
-  if (stream && hasKey(ADAPTERS.openai.key)) {
-    preferredOrder = ["openai", ...preferredOrder.filter((x) => x !== "openai")];
-  }
-
-  const available = preferredOrder.filter(
-    (k) => ADAPTERS[k] && hasKey(ADAPTERS[k].key)
-  );
-
-  trace?.log("router.decision", { intent, order: available, stream });
+  trace?.log?.("router.decision", { intent, order: available, stream });
 
   if (available.length === 0) {
     return { reply: "No AI providers are configured.", modelUsed: null };
   }
 
+  const systemPrompt =
+    executivePacket?.systemPrompt || "You are Cipher OS. Respond normally.";
+
   for (const modelKey of available) {
     const entry = ADAPTERS[modelKey];
     if (!entry) continue;
 
-    trace?.log("model.call", { provider: modelKey, streamRequested: stream });
+    trace?.log?.("model.call", { provider: modelKey, streamRequested: stream });
 
     const startTime = Date.now();
 
     try {
-      const systemPrompt =
-        executivePacket?.systemPrompt || "You are Cipher OS. Respond normally.";
-
+      // Gemini uses different shape (systemPrompt + userMessage). Others use messages + userMessage.
       const payload =
         modelKey === "gemini"
           ? {
@@ -136,7 +186,7 @@ export async function runOrchestrator({
 
       if (entry.supportsSignal) payload.signal = signal;
 
-      // STREAM PATH (OpenAI only for now)
+      // TRUE STREAM (OpenAI only right now)
       if (stream && entry.supportsStream && typeof entry.streamFn === "function") {
         let replyLen = 0;
 
@@ -153,7 +203,7 @@ export async function runOrchestrator({
         const latencyMs = Date.now() - startTime;
         const reply = extractReply(out) || "";
 
-        trace?.log("model.telemetry", {
+        trace?.log?.("model.telemetry", {
           provider: modelKey,
           model: out?.modelUsed || "unknown",
           latencyMs,
@@ -169,23 +219,31 @@ export async function runOrchestrator({
           };
         }
 
-        trace?.log("model.empty", { provider: modelKey, streamed: true });
+        trace?.log?.("model.empty", { provider: modelKey, streamed: true });
         continue;
       }
 
-      // NON-STREAM PATH
+      // NON-STREAM CALL (Gemini/Claude/OpenAI fallback)
       const out = await entry.fn(payload);
       const latencyMs = Date.now() - startTime;
 
       const reply = extractReply(out);
 
-      trace?.log("model.telemetry", {
+      // If UI requested stream, simulate deltas so ChatPanel still feels alive
+      let streamedLen = 0;
+      if (stream && reply) {
+        streamedLen = pseudoStream(reply, onToken, 28);
+      }
+
+      trace?.log?.("model.telemetry", {
         provider: modelKey,
         model: out?.modelUsed || "unknown",
         latencyMs,
         replyLength: reply ? reply.length : 0,
         success: Boolean(reply),
-        streamed: false,
+        streamed: Boolean(stream && reply), // pseudo-stream counts as streamed for UX
+        pseudoStream: Boolean(stream && reply && !entry.supportsStream),
+        pseudoStreamLength: streamedLen || 0,
       });
 
       if (reply) {
@@ -195,10 +253,10 @@ export async function runOrchestrator({
         };
       }
 
-      trace?.log("model.empty", { provider: modelKey });
+      trace?.log?.("model.empty", { provider: modelKey });
     } catch (err) {
       const latencyMs = Date.now() - startTime;
-      trace?.log("model.fail", {
+      trace?.log?.("model.fail", {
         provider: modelKey,
         latencyMs,
         error: err?.message || String(err),
@@ -208,5 +266,3 @@ export async function runOrchestrator({
 
   return { reply: "All models failed to produce a response.", modelUsed: null };
 }
-
-export const runtime = "nodejs";
