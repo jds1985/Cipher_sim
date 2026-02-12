@@ -1,3 +1,4 @@
+// components/chat/MessageList.jsx
 import MessageBubble from "./MessageBubble";
 
 export default function MessageList({ messages, bottomRef }) {
@@ -9,11 +10,9 @@ export default function MessageList({ messages, bottomRef }) {
           role={m.role}
           content={m.content}
           modelUsed={m.modelUsed || null}
-
-          // ⭐ memory visibility
           memoryInfluence={
             m.role === "assistant" || m.role === "decipher"
-              ? m.memoryUsed || null
+              ? m.memoryInfluence || null
               : null
           }
         />
