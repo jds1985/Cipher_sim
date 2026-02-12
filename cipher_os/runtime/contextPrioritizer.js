@@ -1,34 +1,32 @@
 // cipher_os/runtime/contextPrioritizer.js
-// Selects the most relevant memories for the current turn
+// Phase upgrade → REAL gravity system
 
-function scoreNode(node) {
-  let score = 0;
-
-  // locked identity memories are kings
-  if (node.locked) score += 1000;
-
-  // importance
-  if (node.importance === "core") score += 500;
-  else if (node.importance === "high") score += 200;
-  else if (node.importance === "medium") score += 50;
-
-  // strength / reinforcement gravity
-  score += (node.strength || 0) * 5;
-
-  // recent reinforcement bonus
-  if (node.lastReinforcedAt) {
-    const ageMinutes = (Date.now() - node.lastReinforcedAt) / 60000;
-    if (ageMinutes < 60) score += 50;
-  }
-
-  return score;
-}
-
-export function prioritizeContext(nodes = [], limit = 12) {
+export function prioritizeContext(nodes = [], limit = 15) {
   if (!Array.isArray(nodes)) return [];
 
-  return nodes
-    .map((n) => ({ ...n, __score: scoreNode(n) }))
-    .sort((a, b) => b.__score - a.__score)
-    .slice(0, limit);
+  const scored = nodes.map((n) => {
+    let score = 0;
+
+    // 🧠 IMPORTANCE
+    score += (Number(n.importance) || 0) * 5;
+
+    // 💪 REINFORCEMENT
+    score += (Number(n.reinforcementCount) || 0) * 2;
+
+    // 🛡 LOCK = GOD MODE
+    if (n.locked) score += 1000;
+
+    // ⏱ RECENCY BOOST
+    if (n.lastAccessed) {
+      const age = Date.now() - n.lastAccessed;
+      const freshness = Math.max(0, 100000000 - age) / 100000000;
+      score += freshness * 5;
+    }
+
+    return { ...n, _score: score };
+  });
+
+  scored.sort((a, b) => b._score - a._score);
+
+  return scored.slice(0, limit);
 }
