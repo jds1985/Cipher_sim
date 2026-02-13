@@ -6,80 +6,44 @@ export const styles = {
     display: "flex",
     flexDirection: "column",
     color: "white",
-    background:
-      "radial-gradient(1200px 600px at 50% -100px, rgba(167,115,255,0.35), rgba(5,5,12,1) 55%), radial-gradient(800px 400px at 80% 10%, rgba(120,70,255,0.18), transparent 70%), radial-gradient(800px 400px at 10% 20%, rgba(80,150,255,0.10), transparent 70%)",
-  },
 
-  // Header (purple glass)
-  header: {
-    padding: 18,
-    fontSize: 22,
-    fontWeight: 800,
-    letterSpacing: 3,
-    textAlign: "center",
-    position: "relative",
-    background: "rgba(110, 70, 255, 0.10)",
-    borderBottom: "1px solid rgba(190,150,255,0.18)",
-    boxShadow:
-      "0 0 0 1px rgba(190,150,255,0.12) inset, 0 10px 30px rgba(0,0,0,0.55)",
-    backdropFilter: "blur(14px)",
-  },
-
-  // Menu button (glow)
-  menuBtn: {
-    position: "absolute",
-    right: 14,
-    top: "50%",
-    transform: "translateY(-50%)",
-    padding: "8px 12px",
-    borderRadius: 12,
-    border: "1px solid rgba(190,150,255,0.22)",
-    background: "rgba(25, 18, 45, 0.55)",
-    color: "white",
-    fontSize: 16,
-    cursor: "pointer",
-    boxShadow: "0 0 18px rgba(167,115,255,0.18)",
-  },
-
-  // Dropdown menu (purple glass)
-  menu: {
-    position: "absolute",
-    top: 66,
-    right: 12,
-    zIndex: 1000,
-    minWidth: 210,
-    overflow: "hidden",
-    borderRadius: 16,
-    border: "1px solid rgba(190,150,255,0.18)",
-    background: "rgba(18, 14, 28, 0.82)",
-    backdropFilter: "blur(16px)",
-    boxShadow:
-      "0 0 0 1px rgba(190,150,255,0.10) inset, 0 20px 45px rgba(0,0,0,0.7), 0 0 24px rgba(167,115,255,0.12)",
-  },
-
-  menuItem: {
-    width: "100%",
-    padding: "12px 14px",
+    // ❌ REMOVE old backgrounds
+    // let globals.css control visuals
     background: "transparent",
+  },
+
+  /* ===============================
+     HEADER
+  ================================= */
+  header: {
+    height: 64,
+    padding: "0 18px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+
+    background: "transparent",
+    borderBottom: "none",
+    boxShadow: "none",
+    backdropFilter: "none",
+    letterSpacing: 1,
+    fontWeight: 600,
+  },
+
+  menuBtn: {
+    fontSize: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     border: "none",
-    color: "rgba(245,245,255,0.95)",
-    textAlign: "left",
-    fontSize: 14,
+    background: "transparent",
+    color: "white",
     cursor: "pointer",
-    borderBottom: "1px solid rgba(190,150,255,0.08)",
   },
 
-  menuItemLink: {
-    display: "block",
-    padding: "12px 14px",
-    color: "rgba(245,245,255,0.95)",
-    textDecoration: "none",
-    fontSize: 14,
-    borderBottom: "1px solid rgba(190,150,255,0.08)",
-  },
-
-  cooldownText: { opacity: 0.65, fontSize: 12 },
-
+  /* ===============================
+     CHAT
+  ================================= */
   chat: {
     flex: 1,
     padding: 18,
@@ -87,44 +51,45 @@ export const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 12,
+    background: "transparent",
   },
 
-  // Input bar container
-  inputRow: {
-    display: "flex",
-    gap: 10,
-    padding: 14,
-    borderTop: "1px solid rgba(190,150,255,0.14)",
-    background: "rgba(10,10,18,0.55)",
-    backdropFilter: "blur(12px)",
+  /* ===============================
+     INPUT
+  ================================= */
+  inputWrap: {
+    position: "fixed",
+    bottom: 0,
+    width: "100%",
+    padding: 18,
+    background: "transparent",
+    borderTop: "none",
+    backdropFilter: "none",
   },
 
   input: {
-    flex: 1,
-    minHeight: 48,
-    maxHeight: 120,
-    padding: 12,
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(190,150,255,0.18)",
+    width: "100%",
+    padding: 16,
+    borderRadius: 14,
+    background: "transparent",
+    border: "none",
     color: "white",
-    resize: "none",
+    fontSize: 15,
     outline: "none",
-    boxShadow: "0 0 0 1px rgba(167,115,255,0.08) inset",
   },
 
-  send: {
-    padding: "0 18px",
-    borderRadius: 16,
-    border: "1px solid rgba(190,150,255,0.22)",
-    background:
-      "linear-gradient(135deg, rgba(125,75,255,0.95), rgba(180,120,255,0.90))",
+  sendBtn: {
+    borderRadius: 14,
+    border: "none",
+    background: "transparent",
     color: "white",
-    fontWeight: 800,
     cursor: "pointer",
-    boxShadow: "0 0 22px rgba(167,115,255,0.22)",
   },
 };
+
+/* ===============================
+   Sticky note (unchanged)
+================================ */
 
 export const noteStyles = {
   wrap: {
@@ -157,7 +122,8 @@ export const noteStyles = {
     left: 0,
     right: 0,
     height: 14,
-    background: "linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0))",
+    background:
+      "linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0))",
   },
   body: { whiteSpace: "pre-wrap", lineHeight: 1.45 },
   actions: {
