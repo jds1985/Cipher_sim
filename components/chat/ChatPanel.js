@@ -318,11 +318,10 @@ export default function ChatPanel() {
     } finally {
       setTyping(false);
       sendingRef.current = false;
-    }
-  }
 
+console.log("🔥 NEW CHAT PANEL ACTIVE 🔥");
   return (
-    console.log("🔥 NEW CHAT PANEL ACTIVE 🔥");
+    
      <div className="cipher-wrap">
       <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
 
