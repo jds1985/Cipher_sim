@@ -114,7 +114,7 @@ export default function ChatPanel() {
       audioRef.current = audio;
       audio.play();
     } catch (err) {
-      console.error("🔊 playback error:", err);
+      console.error("playback error:", err);
     }
   }
 
@@ -138,9 +138,11 @@ export default function ChatPanel() {
   }, [drawerOpen]);
 
   /* ===============================
-     QUICK ACTIONS (REAL EXECUTION)
+     QUICK ACTIONS (REAL TOOLS)
   ================================= */
-  function handleQuickAction(action) {
+  async function handleQuickAction(action) {
+    if (sendingRef.current) return;
+
     const lastAssistant = [...messages]
       .reverse()
       .find((m) => m.role !== "user");
@@ -172,9 +174,78 @@ export default function ChatPanel() {
         return;
     }
 
-    const finalPrompt = instruction + lastAssistant.content;
+    sendingRef.current = true;
+    setTyping(true);
 
-    sendMessage(finalPrompt); // 🔥 direct fire
+    // create ONLY assistant bubble
+    setMessages((m) => [
+      ...m,
+      { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
+    ]);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: instruction + lastAssistant.content,
+          history: messages.slice(-HISTORY_WINDOW),
+          stream: true,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Request failed");
+
+      let streamed = "";
+      let modelUsed = null;
+      let memoryInfluence = [];
+
+      await readSSEStream(res, (evt) => {
+        if (evt?.type === "delta" && typeof evt?.text === "string") {
+          streamed += evt.text;
+          setMessages((m) => {
+            const next = [...m];
+            next[next.length - 1] = {
+              ...next[next.length - 1],
+              content: streamed,
+              modelUsed,
+              memoryInfluence,
+            };
+            return next;
+          });
+        }
+
+        if (evt?.type === "done") {
+          modelUsed = evt?.model || null;
+          memoryInfluence = evt?.memoryInfluence || [];
+
+          setMessages((m) => {
+            const next = [...m];
+            next[next.length - 1] = {
+              ...next[next.length - 1],
+              content: streamed,
+              modelUsed,
+              memoryInfluence,
+            };
+            return next;
+          });
+        }
+      });
+    } catch {
+      setMessages((m) => {
+        const next = [...m];
+        next[next.length - 1] = {
+          role: "assistant",
+          content: "Tool execution failed",
+          modelUsed: null,
+          memoryInfluence: [],
+        };
+        return next;
+      });
+    } finally {
+      setTyping(false);
+      sendingRef.current = false;
+    }
   }
 
   async function handleInvite() {
@@ -188,25 +259,23 @@ export default function ChatPanel() {
         });
       } else {
         await navigator.clipboard.writeText(url);
-        setToast("🔗 Link copied — share it anywhere");
+        setToast("Link copied — share it anywhere");
       }
 
       const rewarded = rewardShare();
       if (rewarded?.ok) {
         setCoinBalance(getCipherCoin());
-        setToast(`🪙 +${rewarded.earned} Cipher Coin earned`);
+        setToast(`+${rewarded.earned} Cipher Coin earned`);
       }
     } catch {}
   }
 
   /* ===============================
-     SEND MESSAGE (OVERRIDE ENABLED)
+     NORMAL USER SEND
   ================================= */
-  async function sendMessage(overrideText = null) {
-    const messageText = overrideText ?? input;
-
+  async function sendMessage() {
     if (sendingRef.current) return;
-    if (!messageText.trim()) return;
+    if (!input.trim()) return;
 
     sendingRef.current = true;
     setTyping(true);
@@ -214,7 +283,7 @@ export default function ChatPanel() {
     setPulse(true);
     setTimeout(() => setPulse(false), 450);
 
-    const userMessage = { role: "user", content: messageText };
+    const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
 
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
