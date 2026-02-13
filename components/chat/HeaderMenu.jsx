@@ -1,18 +1,15 @@
 // components/chat/HeaderMenu.jsx
-import { styles } from "./ChatStyles";
 
 export default function HeaderMenu({
   title,
-  onOpenDrawer, // ☰ drawer toggle only
+  onOpenDrawer,
 }) {
   return (
-    <div style={styles.header}>
-      {/* Title / Mode label */}
-      <span>{title}</span>
+    <div className="cipher-header">
+      <span className="cipher-title">{title}</span>
 
-      {/* ☰ Drawer Trigger */}
       <button
-        style={styles.menuBtn}
+        className="cipher-menu-btn"
         onClick={onOpenDrawer}
         aria-label="Open menu"
       >
