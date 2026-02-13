@@ -6,7 +6,9 @@ export default function MessageBubble({
   modelUsed = null,
   memoryInfluence = null,
 }) {
-  const style = bubble(role);
+  const cleanRole = String(role || "").trim();
+  const style = bubble(cleanRole);
+
   const [open, setOpen] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef(null);
@@ -23,7 +25,7 @@ export default function MessageBubble({
   }
 
   async function speak() {
-    if (!content) return;
+    if (!content || speaking) return;
 
     try {
       setSpeaking(true);
@@ -62,7 +64,7 @@ export default function MessageBubble({
       <div style={{ whiteSpace: "pre-wrap" }}>{content || "…"}</div>
 
       {/* ACTION ROW */}
-      {role !== "user" && (
+      {cleanRole !== "user" && content && (
         <div
           style={{
             marginTop: 10,
@@ -88,7 +90,7 @@ export default function MessageBubble({
             <div
               onClick={speak}
               style={{
-                cursor: "pointer",
+                cursor: speaking ? "default" : "pointer",
                 padding: "4px 10px",
                 borderRadius: 8,
                 border: "1px solid rgba(255,255,255,0.2)",
@@ -100,6 +102,7 @@ export default function MessageBubble({
                   : "none",
                 transition: "all 0.2s ease",
                 fontSize: 12,
+                opacity: speaking ? 0.9 : 1,
               }}
             >
               {speaking ? "🔊 speaking…" : "🔊 speak"}
@@ -123,7 +126,7 @@ export default function MessageBubble({
       )}
 
       {/* MEMORY */}
-      {memoryInfluence && memoryInfluence.length > 0 && role !== "user" && (
+      {memoryInfluence && memoryInfluence.length > 0 && cleanRole !== "user" && (
         <div style={{ marginTop: 12 }}>
           <div
             onClick={() => setOpen(!open)}
