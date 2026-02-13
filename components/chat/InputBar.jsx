@@ -1,6 +1,5 @@
 // components/chat/InputBar.jsx
 import { useRef, useState } from "react";
-import { styles } from "./ChatStyles";
 
 export default function InputBar({
   input,
@@ -25,7 +24,6 @@ export default function InputBar({
       decipherArmed.current = true;
       longPressTriggered.current = true;
 
-      // stronger vibration for decipher
       if (navigator.vibrate) navigator.vibrate([20, 30, 20]);
     }, 600);
   }
@@ -45,7 +43,7 @@ export default function InputBar({
 
   function fireRipple() {
     setRipple(true);
-    if (navigator.vibrate) navigator.vibrate(10); // tap feedback
+    if (navigator.vibrate) navigator.vibrate(10);
     setTimeout(() => setRipple(false), 400);
   }
 
@@ -57,22 +55,10 @@ export default function InputBar({
     onSend({ forceDecipher: false });
   }
 
-  const hasText = Boolean(input.trim());
-
   return (
-    <div
-      style={{
-        ...styles.inputWrap,
-        padding: "12px",
-      }}
-    >
+    <div className="cipher-input-wrap">
       <input
-        style={{
-          ...styles.input,
-          flex: 1,
-          fontSize: 16,
-          padding: "14px 16px",
-        }}
+        className="cipher-input"
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="Talk to Cipher…"
@@ -95,40 +81,36 @@ export default function InputBar({
         onMouseUp={endHold}
         onMouseLeave={endHold}
         onClick={handleClick}
-        style={{
-          ...styles.sendBtn,
-
-          // ⭐ BIGGER BUTTON
-          width: 58,
-          height: 58,
-          fontSize: 20,
-
-          transform: charging ? "scale(0.94)" : "scale(1)",
-
-          animation: hasText && !charging ? "cipherPulse 2s infinite" : "none",
-
-          boxShadow: charging
-            ? "0 0 20px rgba(255,90,90,0.8), 0 0 35px rgba(255,90,90,0.5)"
-            : hasText
-            ? "0 0 14px rgba(140,100,255,0.45)"
-            : "none",
-
-          position: "relative",
-          overflow: "hidden",
-          transition: "all 0.15s ease",
-        }}
+        className={`cipher-send ${charging ? "charging" : ""}`}
       >
         ➤
-
-        {/* ⭐ RIPPLE */}
         {ripple && <span className="ripple" />}
       </button>
 
       <style jsx>{`
-        @keyframes cipherPulse {
-          0% { box-shadow: 0 0 0 rgba(140,100,255,0.0); }
-          50% { box-shadow: 0 0 14px rgba(140,100,255,0.45); }
-          100% { box-shadow: 0 0 0 rgba(140,100,255,0.0); }
+        .cipher-send {
+          width: 58px;
+          height: 58px;
+          font-size: 20px;
+          border-radius: 14px;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          background: rgba(255,255,255,0.05);
+          color: white;
+          transition: all 0.15s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .cipher-send:hover {
+          background: rgba(0, 255, 200, 0.18);
+          box-shadow: 0 0 10px rgba(0, 255, 200, 0.5);
+        }
+
+        .cipher-send.charging {
+          box-shadow:
+            0 0 20px rgba(255,90,90,0.8),
+            0 0 35px rgba(255,90,90,0.5);
+          transform: scale(0.94);
         }
 
         .ripple {
