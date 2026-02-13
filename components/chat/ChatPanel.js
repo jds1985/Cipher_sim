@@ -108,6 +108,21 @@ export default function ChatPanel() {
   =============================== */
   return (
     <div className="cipher-wrap">
+
+      {/* 🚨 VISIBILITY TEST – IF YOU DO NOT SEE THIS, THIS FILE IS NOT RENDERING */}
+      <div style={{
+        height: 60,
+        background: "red",
+        color: "white",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: "bold",
+        letterSpacing: 1
+      }}>
+        HEADER TEST
+      </div>
+
       <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
 
       <DrawerMenu
