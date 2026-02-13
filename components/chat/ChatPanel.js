@@ -138,7 +138,7 @@ export default function ChatPanel() {
   }, [drawerOpen]);
 
   /* ===============================
-     QUICK ACTIONS (AUTO RUN)
+     QUICK ACTIONS (REAL EXECUTION)
   ================================= */
   function handleQuickAction(action) {
     const lastAssistant = [...messages]
@@ -174,11 +174,7 @@ export default function ChatPanel() {
 
     const finalPrompt = instruction + lastAssistant.content;
 
-    setInput(finalPrompt);
-
-    setTimeout(() => {
-      sendMessage();
-    }, 50);
+    sendMessage(finalPrompt); // 🔥 direct fire
   }
 
   async function handleInvite() {
@@ -204,11 +200,13 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     SEND MESSAGE
+     SEND MESSAGE (OVERRIDE ENABLED)
   ================================= */
-  async function sendMessage() {
+  async function sendMessage(overrideText = null) {
+    const messageText = overrideText ?? input;
+
     if (sendingRef.current) return;
-    if (!input.trim()) return;
+    if (!messageText.trim()) return;
 
     sendingRef.current = true;
     setTyping(true);
@@ -216,7 +214,7 @@ export default function ChatPanel() {
     setPulse(true);
     setTimeout(() => setPulse(false), 450);
 
-    const userMessage = { role: "user", content: input };
+    const userMessage = { role: "user", content: messageText };
     const historySnapshot = [...messages, userMessage];
 
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
