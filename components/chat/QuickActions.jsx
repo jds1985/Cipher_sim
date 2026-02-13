@@ -1,5 +1,3 @@
-// components/chat/QuickActions.jsx
-
 export default function QuickActions({ onSelect }) {
   const actions = [
     { id: "summarize", label: "Summarize" },
@@ -11,28 +9,12 @@ export default function QuickActions({ onSelect }) {
   ];
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 10,
-        padding: "10px 12px",
-        justifyContent: "center",
-      }}
-    >
+    <div className="cipher-qa">
       {actions.map((a) => (
         <button
           key={a.id}
           onClick={() => onSelect?.(a.id)}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 14,
-            border: "1px solid rgba(180,150,255,0.25)",
-            background: "rgba(255,255,255,0.05)",
-            color: "white",
-            fontSize: 14,
-            cursor: "pointer",
-          }}
+          className="cipher-btn"
         >
           {a.label}
         </button>
