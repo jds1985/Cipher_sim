@@ -62,7 +62,8 @@ async function readSSEStream(res, onEvent) {
 ================================ */
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
-    if (typeof window === "undefined") return [{ role: "assistant", content: "Cipher online." }];
+    if (typeof window === "undefined")
+      return [{ role: "assistant", content: "Cipher online." }];
     try {
       const saved = localStorage.getItem(MEMORY_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
@@ -93,7 +94,6 @@ export default function ChatPanel() {
 
   async function playVoice(text) {
     try {
-      // stop previous audio
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -126,7 +126,10 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
+    localStorage.setItem(
+      MEMORY_KEY,
+      JSON.stringify(messages.slice(-MEMORY_LIMIT))
+    );
   }, [messages]);
 
   useEffect(() => {
@@ -134,47 +137,51 @@ export default function ChatPanel() {
     setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
 
+  /* ===============================
+     QUICK ACTIONS (AUTO RUN)
+  ================================= */
   function handleQuickAction(action) {
-  const lastAssistant = [...messages]
-    .reverse()
-    .find((m) => m.role !== "user");
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role !== "user");
 
-  if (!lastAssistant?.content) return;
+    if (!lastAssistant?.content) return;
 
-  let instruction = "";
+    let instruction = "";
 
-  switch (action) {
-    case "summarize":
-      instruction = "Summarize this clearly:\n\n";
-      break;
+    switch (action) {
+      case "summarize":
+        instruction = "Summarize this clearly:\n\n";
+        break;
+      case "improve":
+        instruction = "Improve the quality and clarity of this:\n\n";
+        break;
+      case "longer":
+        instruction = "Expand this with more depth and detail:\n\n";
+        break;
+      case "shorter":
+        instruction = "Make this shorter but keep the meaning:\n\n";
+        break;
+      case "analyze":
+        instruction = "Analyze this carefully:\n\n";
+        break;
+      case "explain_code":
+        instruction = "Explain this code step by step:\n\n";
+        break;
+      default:
+        return;
+    }
 
-    case "improve":
-      instruction = "Improve the quality and clarity of this:\n\n";
-      break;
+    const finalPrompt = instruction + lastAssistant.content;
 
-    case "longer":
-      instruction = "Expand this with more depth and detail:\n\n";
-      break;
+    setInput(finalPrompt);
 
-    case "shorter":
-      instruction = "Make this shorter but keep the meaning:\n\n";
-      break;
-
-    case "analyze":
-      instruction = "Analyze this carefully:\n\n";
-      break;
-
-    case "explain_code":
-      instruction = "Explain this code step by step:\n\n";
-      break;
-
-    default:
-      return;
+    setTimeout(() => {
+      sendMessage();
+    }, 50);
   }
 
-  setInput(instruction + lastAssistant.content);
-}
-   async function handleInvite() {
+  async function handleInvite() {
     const url = `${window.location.origin}?ref=cipher`;
     try {
       if (navigator.share) {
@@ -196,6 +203,9 @@ export default function ChatPanel() {
     } catch {}
   }
 
+  /* ===============================
+     SEND MESSAGE
+  ================================= */
   async function sendMessage() {
     if (sendingRef.current) return;
     if (!input.trim()) return;
@@ -298,7 +308,9 @@ export default function ChatPanel() {
       <div
         style={{
           ...styles.chat,
-          boxShadow: pulse ? "0 0 40px rgba(140,100,255,0.25) inset" : "none",
+          boxShadow: pulse
+            ? "0 0 40px rgba(140,100,255,0.25) inset"
+            : "none",
           transition: "box-shadow 0.45s ease",
         }}
       >
@@ -310,9 +322,16 @@ export default function ChatPanel() {
       </div>
 
       <QuickActions onSelect={handleQuickAction} />
-      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
+      <InputBar
+        input={input}
+        setInput={setInput}
+        onSend={sendMessage}
+        typing={typing}
+      />
 
-      {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
+      {toast && (
+        <RewardToast message={toast} onClose={() => setToast(null)} />
+      )}
     </div>
   );
 }
