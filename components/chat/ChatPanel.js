@@ -134,11 +134,47 @@ export default function ChatPanel() {
     setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
 
-  function handleQuickAction(prompt) {
-    setInput((prev) => (prev?.trim() ? `${prev}\n${prompt}` : prompt));
+  function handleQuickAction(action) {
+  const lastAssistant = [...messages]
+    .reverse()
+    .find((m) => m.role !== "user");
+
+  if (!lastAssistant?.content) return;
+
+  let instruction = "";
+
+  switch (action) {
+    case "summarize":
+      instruction = "Summarize this clearly:\n\n";
+      break;
+
+    case "improve":
+      instruction = "Improve the quality and clarity of this:\n\n";
+      break;
+
+    case "longer":
+      instruction = "Expand this with more depth and detail:\n\n";
+      break;
+
+    case "shorter":
+      instruction = "Make this shorter but keep the meaning:\n\n";
+      break;
+
+    case "analyze":
+      instruction = "Analyze this carefully:\n\n";
+      break;
+
+    case "explain_code":
+      instruction = "Explain this code step by step:\n\n";
+      break;
+
+    default:
+      return;
   }
 
-  async function handleInvite() {
+  setInput(instruction + lastAssistant.content);
+}
+   async function handleInvite() {
     const url = `${window.location.origin}?ref=cipher`;
     try {
       if (navigator.share) {
