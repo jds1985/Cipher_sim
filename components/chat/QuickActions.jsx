@@ -1,3 +1,5 @@
+// components/chat/QuickActions.jsx
+
 export default function QuickActions({ onSelect }) {
   const actions = [
     { id: "summarize", label: "Summarize" },
@@ -13,8 +15,9 @@ export default function QuickActions({ onSelect }) {
       {actions.map((a) => (
         <button
           key={a.id}
-          onClick={() => onSelect?.(a.id)}
           className="cipher-btn"
+          type="button"
+          onClick={() => onSelect?.(a.id)}
         >
           {a.label}
         </button>
