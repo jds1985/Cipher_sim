@@ -39,6 +39,45 @@ body {
 }
 
 /* ===============================
+   HEADER  ⭐ NEW
+================================ */
+
+.cipher-header {
+  height: 64px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  backdrop-filter: blur(20px);
+  background: rgba(10, 10, 20, 0.75);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.cipher-title {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.cipher-menu-btn {
+  font-size: 20px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: white;
+
+  transition: all 0.15s ease;
+}
+
+.cipher-menu-btn:hover {
+  background: rgba(0,255,200,0.2);
+  box-shadow: 0 0 12px rgba(0,255,200,0.5);
+}
+
+/* ===============================
    MESSAGE BUBBLES
 ================================ */
 
