@@ -86,6 +86,40 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
+  /* ===============================
+     🎧 AUDIO ENGINE
+  ================================= */
+  const audioRef = useRef(null);
+
+  async function playVoice(text) {
+    try {
+      // stop previous audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+
+      const res = await fetch("/api/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!res.ok) throw new Error("Voice failed");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.play();
+    } catch (err) {
+      console.error("🔊 playback error:", err);
+    }
+  }
+
+  /* =============================== */
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
@@ -142,7 +176,6 @@ export default function ChatPanel() {
     localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
     setInput("");
 
-    // placeholder assistant message
     setMessages((m) => [
       ...m,
       userMessage,
@@ -233,7 +266,11 @@ export default function ChatPanel() {
           transition: "box-shadow 0.45s ease",
         }}
       >
-        <MessageList messages={messages} bottomRef={bottomRef} />
+        <MessageList
+          messages={messages}
+          bottomRef={bottomRef}
+          onPlayVoice={playVoice}
+        />
       </div>
 
       <QuickActions onSelect={handleQuickAction} />
