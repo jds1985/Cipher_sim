@@ -1,7 +1,7 @@
 // components/chat/MessageList.jsx
 import MessageBubble from "./MessageBubble";
 
-export default function MessageList({ messages, bottomRef }) {
+export default function MessageList({ messages, bottomRef, onPlayVoice }) {
   return (
     <>
       {messages.map((m, i) => (
@@ -15,6 +15,7 @@ export default function MessageList({ messages, bottomRef }) {
               ? m.memoryInfluence || null
               : null
           }
+          onPlayVoice={onPlayVoice}
         />
       ))}
       <div ref={bottomRef} />
