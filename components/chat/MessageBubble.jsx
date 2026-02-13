@@ -7,7 +7,6 @@ export default function MessageBubble({
   memoryInfluence = null,
 }) {
   const cleanRole = String(role || "").trim();
-  const style = bubble(cleanRole);
 
   const [open, setOpen] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -41,9 +40,7 @@ export default function MessageBubble({
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
 
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      if (audioRef.current) audioRef.current.pause();
 
       const audio = new Audio(url);
       audioRef.current = audio;
@@ -59,66 +56,32 @@ export default function MessageBubble({
   }
 
   return (
-    <div style={style}>
+    <div className={`cipher-bubble ${cleanRole}`}>
       {/* TEXT */}
-      <div style={{ whiteSpace: "pre-wrap" }}>{content || "…"}</div>
+      <div className="cipher-text">{content || "…"}</div>
 
       {/* ACTION ROW */}
       {cleanRole !== "user" && content && (
-        <div
-          style={{
-            marginTop: 10,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontSize: 12,
-            opacity: 0.85,
-            gap: 8,
-            flexWrap: "wrap",
-          }}
-        >
+        <div className="cipher-actions">
           {/* MODEL */}
           {modelUsed && (
-            <div>
+            <div className="cipher-model">
               {provider ? `${provider} / ` : ""}
               {String(model)}
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="cipher-buttons">
             {/* SPEAK */}
             <div
               onClick={speak}
-              style={{
-                cursor: speaking ? "default" : "pointer",
-                padding: "4px 10px",
-                borderRadius: 8,
-                border: "1px solid rgba(255,255,255,0.2)",
-                background: speaking
-                  ? "rgba(140,100,255,0.25)"
-                  : "transparent",
-                boxShadow: speaking
-                  ? "0 0 12px rgba(140,100,255,0.7)"
-                  : "none",
-                transition: "all 0.2s ease",
-                fontSize: 12,
-                opacity: speaking ? 0.9 : 1,
-              }}
+              className={`cipher-btn ${speaking ? "active" : ""}`}
             >
-              {speaking ? "🔊 speaking…" : "🔊 speak"}
+              {speaking ? "speaking…" : "speak"}
             </div>
 
             {/* COPY */}
-            <div
-              onClick={copy}
-              style={{
-                cursor: "pointer",
-                padding: "4px 10px",
-                borderRadius: 8,
-                border: "1px solid rgba(255,255,255,0.2)",
-                fontSize: 12,
-              }}
-            >
+            <div onClick={copy} className="cipher-btn">
               copy
             </div>
           </div>
@@ -127,35 +90,21 @@ export default function MessageBubble({
 
       {/* MEMORY */}
       {memoryInfluence && memoryInfluence.length > 0 && cleanRole !== "user" && (
-        <div style={{ marginTop: 12 }}>
+        <div className="cipher-memory">
           <div
             onClick={() => setOpen(!open)}
-            style={{
-              cursor: "pointer",
-              fontSize: 13,
-              opacity: 0.85,
-              userSelect: "none",
-            }}
+            className="cipher-memory-toggle"
           >
             {open
-              ? `▲ Hide memory (${memoryInfluence.length})`
-              : `▼ Memory used (${memoryInfluence.length})`}
+              ? `Hide memory (${memoryInfluence.length})`
+              : `Memory used (${memoryInfluence.length})`}
           </div>
 
           {open && (
-            <div
-              style={{
-                marginTop: 8,
-                padding: 10,
-                borderRadius: 12,
-                background: "rgba(0,0,0,0.35)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                fontSize: 12,
-              }}
-            >
+            <div className="cipher-memory-list">
               {memoryInfluence.map((m, i) => (
-                <div key={i} style={{ marginBottom: 10 }}>
-                  <div style={{ opacity: 0.6 }}>
+                <div key={i} className="cipher-memory-item">
+                  <div className="cipher-memory-meta">
                     {m?.type || "unknown"}{" "}
                     {m?.locked ? "• locked" : ""}{" "}
                     {m?.importance ? `• ${m.importance}` : ""}
@@ -169,40 +118,4 @@ export default function MessageBubble({
       )}
     </div>
   );
-}
-
-function bubble(role) {
-  if (role === "decipher") {
-    return {
-      maxWidth: "88%",
-      padding: 14,
-      borderRadius: 14,
-      alignSelf: "flex-start",
-      background: "rgba(15, 10, 20, 0.75)",
-      border: "1px solid rgba(255,90,90,0.40)",
-      color: "rgba(245,245,245,0.96)",
-      fontWeight: 600,
-    };
-  }
-
-  if (role === "user") {
-    return {
-      maxWidth: "88%",
-      padding: 14,
-      borderRadius: 18,
-      alignSelf: "flex-end",
-      background:
-        "linear-gradient(135deg, rgba(90,70,255,0.95), rgba(180,120,255,0.78))",
-      border: "1px solid rgba(190,150,255,0.22)",
-    };
-  }
-
-  return {
-    maxWidth: "88%",
-    padding: 14,
-    borderRadius: 18,
-    alignSelf: "flex-start",
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(190,150,255,0.14)",
-  };
 }
