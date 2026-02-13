@@ -62,16 +62,15 @@ async function readSSEStream(res, onEvent) {
 ================================ */
 export default function ChatPanel() {
   const [messages, setMessages] = useState(() => {
-    if (typeof window === "undefined")
-      return [{ role: "assistant", content: "Cipher online." }];
+    if (typeof window === "undefined") return [];
     try {
       const saved = localStorage.getItem(MEMORY_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
       return Array.isArray(parsed) && parsed.length
         ? parsed.slice(-MEMORY_LIMIT)
-        : [{ role: "assistant", content: "Cipher online." }];
+        : [];
     } catch {
-      return [{ role: "assistant", content: "Cipher online." }];
+      return [];
     }
   });
 
@@ -177,7 +176,6 @@ export default function ChatPanel() {
     sendingRef.current = true;
     setTyping(true);
 
-    // create ONLY assistant bubble
     setMessages((m) => [
       ...m,
       { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
