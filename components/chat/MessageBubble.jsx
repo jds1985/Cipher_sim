@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 export default function MessageBubble({
   role,
   content,
   modelUsed = null,
   memoryInfluence = null,
-  onPlayVoice,
 }) {
   const style = bubble(role);
   const [open, setOpen] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const audioRef = useRef(null);
 
   const provider =
     typeof modelUsed === "object" ? modelUsed?.provider : null;
@@ -21,32 +22,47 @@ export default function MessageBubble({
     } catch {}
   }
 
+  async function speak() {
+    if (!content) return;
+
+    try {
+      setSpeaking(true);
+
+      const res = await fetch("/api/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: content }),
+      });
+
+      if (!res.ok) throw new Error("voice failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      audio.onended = () => setSpeaking(false);
+      audio.onerror = () => setSpeaking(false);
+
+      await audio.play();
+    } catch (err) {
+      console.error(err);
+      setSpeaking(false);
+    }
+  }
+
   return (
     <div style={style}>
       {/* TEXT */}
       <div style={{ whiteSpace: "pre-wrap" }}>{content || "…"}</div>
 
-      {/* 🔊 VOICE */}
-      {onPlayVoice && role !== "user" && content && (
-        <div style={{ marginTop: 8 }}>
-          <button
-            onClick={() => onPlayVoice(content)}
-            style={{
-              fontSize: 12,
-              padding: "4px 8px",
-              borderRadius: 8,
-              cursor: "pointer",
-              border: "1px solid rgba(255,255,255,0.15)",
-              background: "rgba(255,255,255,0.05)",
-            }}
-          >
-            🔊 Speak
-          </button>
-        </div>
-      )}
-
-      {/* MODEL BADGE */}
-      {modelUsed && role !== "user" && (
+      {/* ACTION ROW */}
+      {role !== "user" && (
         <div
           style={{
             marginTop: 10,
@@ -54,25 +70,54 @@ export default function MessageBubble({
             justifyContent: "space-between",
             alignItems: "center",
             fontSize: 12,
-            opacity: 0.7,
+            opacity: 0.85,
+            gap: 8,
+            flexWrap: "wrap",
           }}
         >
-          <div>
-            {provider ? `${provider} / ` : ""}
-            {String(model)}
-          </div>
+          {/* MODEL */}
+          {modelUsed && (
+            <div>
+              {provider ? `${provider} / ` : ""}
+              {String(model)}
+            </div>
+          )}
 
-          <div
-            onClick={copy}
-            style={{
-              cursor: "pointer",
-              padding: "2px 6px",
-              borderRadius: 6,
-              border: "1px solid rgba(255,255,255,0.15)",
-              fontSize: 11,
-            }}
-          >
-            copy
+          <div style={{ display: "flex", gap: 8 }}>
+            {/* SPEAK */}
+            <div
+              onClick={speak}
+              style={{
+                cursor: "pointer",
+                padding: "4px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: speaking
+                  ? "rgba(140,100,255,0.25)"
+                  : "transparent",
+                boxShadow: speaking
+                  ? "0 0 12px rgba(140,100,255,0.7)"
+                  : "none",
+                transition: "all 0.2s ease",
+                fontSize: 12,
+              }}
+            >
+              {speaking ? "🔊 speaking…" : "🔊 speak"}
+            </div>
+
+            {/* COPY */}
+            <div
+              onClick={copy}
+              style={{
+                cursor: "pointer",
+                padding: "4px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.2)",
+                fontSize: 12,
+              }}
+            >
+              copy
+            </div>
           </div>
         </div>
       )}
