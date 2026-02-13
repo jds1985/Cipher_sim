@@ -63,7 +63,6 @@ export default function MessageBubble({
       {/* ACTION ROW */}
       {cleanRole !== "user" && content && (
         <div className="cipher-actions">
-          {/* MODEL */}
           {modelUsed && (
             <div className="cipher-model">
               {provider ? `${provider} / ` : ""}
@@ -72,18 +71,16 @@ export default function MessageBubble({
           )}
 
           <div className="cipher-buttons">
-            {/* SPEAK */}
-            <div
+            <button
               onClick={speak}
               className={`cipher-btn ${speaking ? "active" : ""}`}
             >
               {speaking ? "speaking…" : "speak"}
-            </div>
+            </button>
 
-            {/* COPY */}
-            <div onClick={copy} className="cipher-btn">
+            <button onClick={copy} className="cipher-btn">
               copy
-            </div>
+            </button>
           </div>
         </div>
       )}
