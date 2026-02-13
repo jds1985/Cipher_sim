@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { styles } from "./ChatStyles";
 import HeaderMenu from "./HeaderMenu";
 import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
@@ -81,41 +80,8 @@ export default function ChatPanel() {
   const [coinBalance, setCoinBalance] = useState(0);
   const [toast, setToast] = useState(null);
 
-  const [pulse, setPulse] = useState(false);
-
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
-
-  /* ===============================
-     🎧 AUDIO ENGINE
-  ================================= */
-  const audioRef = useRef(null);
-
-  async function playVoice(text) {
-    try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-
-      const res = await fetch("/api/voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!res.ok) throw new Error("Voice failed");
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.play();
-    } catch (err) {
-      console.error("playback error:", err);
-    }
-  }
 
   /* =============================== */
 
@@ -137,7 +103,7 @@ export default function ChatPanel() {
   }, [drawerOpen]);
 
   /* ===============================
-     QUICK ACTIONS (REAL TOOLS)
+     QUICK ACTIONS
   ================================= */
   async function handleQuickAction(action) {
     if (sendingRef.current) return;
@@ -269,7 +235,7 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     NORMAL USER SEND
+     USER SEND
   ================================= */
   async function sendMessage() {
     if (sendingRef.current) return;
@@ -277,9 +243,6 @@ export default function ChatPanel() {
 
     sendingRef.current = true;
     setTyping(true);
-
-    setPulse(true);
-    setTimeout(() => setPulse(false), 450);
 
     const userMessage = { role: "user", content: input };
     const historySnapshot = [...messages, userMessage];
@@ -359,7 +322,7 @@ export default function ChatPanel() {
   }
 
   return (
-    <div style={styles.wrap}>
+    <div className="cipher-wrap">
       <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
 
       <DrawerMenu
@@ -370,23 +333,15 @@ export default function ChatPanel() {
         onOpenStore={() => (window.location.href = "/store")}
       />
 
-      <div
-        style={{
-          ...styles.chat,
-          boxShadow: pulse
-            ? "0 0 40px rgba(140,100,255,0.25) inset"
-            : "none",
-          transition: "box-shadow 0.45s ease",
-        }}
-      >
+      <div className="cipher-chat">
         <MessageList
           messages={messages}
           bottomRef={bottomRef}
-          onPlayVoice={playVoice}
         />
       </div>
 
       <QuickActions onSelect={handleQuickAction} />
+
       <InputBar
         input={input}
         setInput={setInput}
