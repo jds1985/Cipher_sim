@@ -1,17 +1,15 @@
 // components/chat/HeaderMenu.jsx
 
-export default function HeaderMenu({
-  title,
-  onOpenDrawer,
-}) {
+export default function HeaderMenu({ title, onOpenDrawer }) {
   return (
     <div className="cipher-header">
-      <span className="cipher-title">{title}</span>
+      <div className="cipher-title">{title}</div>
 
       <button
         className="cipher-menu-btn"
         onClick={onOpenDrawer}
         aria-label="Open menu"
+        type="button"
       >
         ☰
       </button>
