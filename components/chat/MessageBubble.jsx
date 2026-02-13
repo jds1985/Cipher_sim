@@ -5,6 +5,7 @@ export default function MessageBubble({
   content,
   modelUsed = null,
   memoryInfluence = null,
+  onPlayVoice,
 }) {
   const style = bubble(role);
   const [open, setOpen] = useState(false);
@@ -24,6 +25,25 @@ export default function MessageBubble({
     <div style={style}>
       {/* TEXT */}
       <div style={{ whiteSpace: "pre-wrap" }}>{content || "…"}</div>
+
+      {/* 🔊 VOICE */}
+      {onPlayVoice && role !== "user" && content && (
+        <div style={{ marginTop: 8 }}>
+          <button
+            onClick={() => onPlayVoice(content)}
+            style={{
+              fontSize: 12,
+              padding: "4px 8px",
+              borderRadius: 8,
+              cursor: "pointer",
+              border: "1px solid rgba(255,255,255,0.15)",
+              background: "rgba(255,255,255,0.05)",
+            }}
+          >
+            🔊 Speak
+          </button>
+        </div>
+      )}
 
       {/* MODEL BADGE */}
       {modelUsed && role !== "user" && (
