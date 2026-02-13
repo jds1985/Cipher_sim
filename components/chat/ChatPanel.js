@@ -342,7 +342,20 @@ export default function ChatPanel() {
   }
 
   return (
+    return (
+  <>
+    <div style={{
+      background: "red",
+      color: "white",
+      padding: 20,
+      textAlign: "center",
+      fontWeight: "bold"
+    }}>
+      NEW CHAT PANEL LOADED
+    </div>
+
     <div className="cipher-wrap">
+     <div className="cipher-wrap">
       <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
 
       <DrawerMenu
