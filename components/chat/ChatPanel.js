@@ -1,3 +1,4 @@
+// components/chat/ChatPanel.js
 import { useState, useRef, useEffect } from "react";
 import HeaderMenu from "./HeaderMenu";
 import DrawerMenu from "./DrawerMenu";
@@ -50,7 +51,9 @@ async function readSSEStream(res, onEvent) {
         const payload = trimmed.replace(/^data:\s*/, "");
         try {
           onEvent?.(JSON.parse(payload));
-        } catch {}
+        } catch {
+          // ignore malformed chunks
+        }
       }
     }
   }
@@ -83,7 +86,10 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
-  /* =============================== */
+  // ✅ Log once (not inside JSX)
+  useEffect(() => {
+    console.log("🔥 NEW CHAT PANEL ACTIVE 🔥");
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -108,14 +114,10 @@ export default function ChatPanel() {
   async function handleQuickAction(action) {
     if (sendingRef.current) return;
 
-    const lastAssistant = [...messages]
-      .reverse()
-      .find((m) => m.role !== "user");
-
+    const lastAssistant = [...messages].reverse().find((m) => m.role !== "user");
     if (!lastAssistant?.content) return;
 
     let instruction = "";
-
     switch (action) {
       case "summarize":
         instruction = "Summarize this clearly:\n\n";
@@ -142,6 +144,7 @@ export default function ChatPanel() {
     sendingRef.current = true;
     setTyping(true);
 
+    // Add placeholder assistant bubble
     setMessages((m) => [
       ...m,
       { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
@@ -231,29 +234,45 @@ export default function ChatPanel() {
         setCoinBalance(getCipherCoin());
         setToast(`+${rewarded.earned} Cipher Coin earned`);
       }
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
 
   /* ===============================
      USER SEND
+     - supports InputBar calling: onSend({ forceDecipher: true/false })
   ================================= */
-  async function sendMessage() {
+  async function sendMessage(opts = {}) {
     if (sendingRef.current) return;
-    if (!input.trim()) return;
+
+    const text = (input || "").trim();
+    if (!text) return;
 
     sendingRef.current = true;
     setTyping(true);
 
-    const userMessage = { role: "user", content: input };
+    const forceDecipher = Boolean(opts?.forceDecipher);
+
+    const userMessage = { role: "user", content: text };
     const historySnapshot = [...messages, userMessage];
 
-    localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LAST_USER_MESSAGE_KEY, String(Date.now()));
+    }
+
     setInput("");
 
+    // Add user message + placeholder assistant bubble
     setMessages((m) => [
       ...m,
       userMessage,
-      { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
+      {
+        role: forceDecipher ? "decipher" : "assistant",
+        content: "",
+        modelUsed: null,
+        memoryInfluence: [],
+      },
     ]);
 
     try {
@@ -264,6 +283,7 @@ export default function ChatPanel() {
           message: userMessage.content,
           history: historySnapshot.slice(-HISTORY_WINDOW),
           stream: true,
+          forceDecipher, // ✅ harmless if backend ignores; useful if you route later
         }),
       });
 
@@ -308,7 +328,7 @@ export default function ChatPanel() {
       setMessages((m) => {
         const next = [...m];
         next[next.length - 1] = {
-          role: "assistant",
+          role: forceDecipher ? "decipher" : "assistant",
           content: "Transport error",
           modelUsed: null,
           memoryInfluence: [],
@@ -318,11 +338,11 @@ export default function ChatPanel() {
     } finally {
       setTyping(false);
       sendingRef.current = false;
+    }
+  }
 
-console.log("🔥 NEW CHAT PANEL ACTIVE 🔥");
   return (
-    
-     <div className="cipher-wrap">
+    <div className="cipher-wrap">
       <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
 
       <DrawerMenu
@@ -334,10 +354,7 @@ console.log("🔥 NEW CHAT PANEL ACTIVE 🔥");
       />
 
       <div className="cipher-chat">
-        <MessageList
-          messages={messages}
-          bottomRef={bottomRef}
-        />
+        <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
       <QuickActions onSelect={handleQuickAction} />
@@ -349,9 +366,7 @@ console.log("🔥 NEW CHAT PANEL ACTIVE 🔥");
         typing={typing}
       />
 
-      {toast && (
-        <RewardToast message={toast} onClose={() => setToast(null)} />
-      )}
+      {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }
