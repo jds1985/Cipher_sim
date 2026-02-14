@@ -1,21 +1,15 @@
-// components/chat/HeaderMenu.jsx
-
-export default function HeaderMenu({ title, onOpenDrawer, onNewChat }) {
+export default function HeaderMenu() {
   return (
-    <div className="cipher-header">
-      <div style={{ fontWeight: 700 }}>{title}</div>
-
-      <div style={{ display: "flex", gap: 10 }}>
-        {onNewChat && (
-          <button className="cipher-btn-secondary" onClick={onNewChat}>
-            New
-          </button>
-        )}
-
-        <button className="cipher-btn-primary" onClick={onOpenDrawer}>
-            Menu
-        </button>
-      </div>
+    <div style={{
+      height: 120,
+      background: "hotpink",
+      color: "black",
+      fontSize: 30,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }}>
+      HEADER TEST
     </div>
   );
 }
