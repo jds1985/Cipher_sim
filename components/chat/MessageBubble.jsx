@@ -55,64 +55,87 @@ export default function MessageBubble({
     }
   }
 
+  const isUser = cleanRole === "user";
+
   return (
-    <div className={`cipher-bubble ${cleanRole}`}>
-      {/* TEXT */}
-      <div className="cipher-text">{content || "…"}</div>
+    <div
+      className="cipher-row"
+      style={{
+        display: "flex",
+        justifyContent: isUser ? "flex-end" : "flex-start",
+        padding: "8px 12px",
+      }}
+    >
+      <div
+        className={
+          isUser ? "cipher-msg-user cipher-live" : "cipher-msg-assistant"
+        }
+        style={{
+          maxWidth: "75%",
+          width: "fit-content",
+        }}
+      >
+        {/* TEXT */}
+        <div className="cipher-text">{content || "…"}</div>
 
-      {/* ACTION ROW */}
-      {cleanRole !== "user" && content && (
-        <div className="cipher-actions">
-          {modelUsed && (
-            <div className="cipher-model">
-              {provider ? `${provider} / ` : ""}
-              {String(model)}
+        {/* ACTION ROW */}
+        {cleanRole !== "user" && content && (
+          <div className="cipher-actions">
+            {modelUsed && (
+              <div className="cipher-model">
+                {provider ? `${provider} / ` : ""}
+                {String(model)}
+              </div>
+            )}
+
+            <div className="cipher-buttons">
+              <button
+                onClick={speak}
+                className={`cipher-btn-secondary ${
+                  speaking ? "cipher-live" : ""
+                }`}
+              >
+                {speaking ? "speaking…" : "speak"}
+              </button>
+
+              <button onClick={copy} className="cipher-btn-secondary">
+                copy
+              </button>
             </div>
-          )}
-
-          <div className="cipher-buttons">
-            <button
-              onClick={speak}
-              className={`cipher-btn ${speaking ? "active" : ""}`}
-            >
-              {speaking ? "speaking…" : "speak"}
-            </button>
-
-            <button onClick={copy} className="cipher-btn">
-              copy
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* MEMORY */}
-      {memoryInfluence && memoryInfluence.length > 0 && cleanRole !== "user" && (
-        <div className="cipher-memory">
-          <div
-            onClick={() => setOpen(!open)}
-            className="cipher-memory-toggle"
-          >
-            {open
-              ? `Hide memory (${memoryInfluence.length})`
-              : `Memory used (${memoryInfluence.length})`}
-          </div>
+        {/* MEMORY */}
+        {memoryInfluence &&
+          memoryInfluence.length > 0 &&
+          cleanRole !== "user" && (
+            <div className="cipher-memory">
+              <div
+                onClick={() => setOpen(!open)}
+                className="cipher-memory-toggle"
+              >
+                {open
+                  ? `Hide memory (${memoryInfluence.length})`
+                  : `Memory used (${memoryInfluence.length})`}
+              </div>
 
-          {open && (
-            <div className="cipher-memory-list">
-              {memoryInfluence.map((m, i) => (
-                <div key={i} className="cipher-memory-item">
-                  <div className="cipher-memory-meta">
-                    {m?.type || "unknown"}{" "}
-                    {m?.locked ? "• locked" : ""}{" "}
-                    {m?.importance ? `• ${m.importance}` : ""}
-                  </div>
-                  <div>{m?.preview || "—"}</div>
+              {open && (
+                <div className="cipher-memory-list">
+                  {memoryInfluence.map((m, i) => (
+                    <div key={i} className="cipher-memory-item">
+                      <div className="cipher-memory-meta">
+                        {m?.type || "unknown"}{" "}
+                        {m?.locked ? "• locked" : ""}{" "}
+                        {m?.importance ? `• ${m.importance}` : ""}
+                      </div>
+                      <div>{m?.preview || "—"}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
