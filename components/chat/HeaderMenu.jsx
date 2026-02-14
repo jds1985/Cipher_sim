@@ -1,4 +1,5 @@
-export default function HeaderMenu({ title = "CIPHER", onOpenDrawer, onNewChat }) {
+console.log("HEADER FILE EXECUTING");
+exportt default function HeaderMenu({ title = "CIPHER", onOpenDrawer, onNewChat }) {
   return (
     <header className="cipher-header">
       <div style={{ fontWeight: 700, letterSpacing: 1 }}>
