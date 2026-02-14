@@ -1,94 +1,39 @@
 // components/chat/ChatStyles.js
 
+// ⚠️ IMPORTANT
+// This file no longer controls layout.
+// The global cipher-theme.css is now the boss.
+// These are only tiny helpers left for compatibility.
+
 export const styles = {
   wrap: {
-    height: "100%",
-    display: "flex",
-    flexDirection: "column",
     color: "white",
-
-    // ❌ REMOVE old backgrounds
-    // let globals.css control visuals
-    background: "transparent",
   },
 
   /* ===============================
      HEADER
   ================================= */
-  header: {
-    height: 64,
-    padding: "0 18px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
+  header: {},
 
-    background: "transparent",
-    borderBottom: "none",
-    boxShadow: "none",
-    backdropFilter: "none",
-    letterSpacing: 1,
-    fontWeight: 600,
-  },
-
-  menuBtn: {
-    fontSize: 18,
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    border: "none",
-    background: "transparent",
-    color: "white",
-    cursor: "pointer",
-  },
+  menuBtn: {},
 
   /* ===============================
      CHAT
   ================================= */
-  chat: {
-    flex: 1,
-    padding: 18,
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    background: "transparent",
-  },
+  chat: {},
 
   /* ===============================
      INPUT
   ================================= */
-  inputWrap: {
-    position: "fixed",
-    bottom: 0,
-    width: "100%",
-    padding: 18,
-    background: "transparent",
-    borderTop: "none",
-    backdropFilter: "none",
-  },
+  inputWrap: {},
 
-  input: {
-    width: "100%",
-    padding: 16,
-    borderRadius: 14,
-    background: "transparent",
-    border: "none",
-    color: "white",
-    fontSize: 15,
-    outline: "none",
-  },
+  input: {},
 
-  sendBtn: {
-    borderRadius: 14,
-    border: "none",
-    background: "transparent",
-    color: "white",
-    cursor: "pointer",
-  },
+  sendBtn: {},
 };
 
 /* ===============================
-   Sticky note (unchanged)
+   Sticky note system (kept)
 ================================ */
 
 export const noteStyles = {
