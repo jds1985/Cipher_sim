@@ -1,4 +1,3 @@
-// components/chat/ChatPanel.js
 import { useState, useRef, useEffect } from "react";
 import HeaderMenu from "./HeaderMenu";
 import DrawerMenu from "./DrawerMenu";
@@ -15,7 +14,6 @@ import { getCipherCoin, rewardShare } from "./CipherCoin";
 const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
-
 const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 
 /* ===============================
@@ -66,9 +64,7 @@ export default function ChatPanel() {
     try {
       const saved = localStorage.getItem(MEMORY_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
-      return Array.isArray(parsed) && parsed.length
-        ? parsed.slice(-MEMORY_LIMIT)
-        : [];
+      return Array.isArray(parsed) ? parsed.slice(-MEMORY_LIMIT) : [];
     } catch {
       return [];
     }
@@ -76,7 +72,6 @@ export default function ChatPanel() {
 
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
-
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
   const [toast, setToast] = useState(null);
@@ -84,9 +79,8 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
-  // Debug log
   useEffect(() => {
-    console.log("🔥 NEW CHAT PANEL ACTIVE 🔥");
+    console.log("🔥 CHAT PANEL ACTIVE");
   }, []);
 
   useEffect(() => {
@@ -95,16 +89,18 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
+    localStorage.setItem(
+      MEMORY_KEY,
+      JSON.stringify(messages.slice(-MEMORY_LIMIT))
+    );
   }, [messages]);
 
   useEffect(() => {
-    if (!drawerOpen) return;
-    setCoinBalance(getCipherCoin());
+    if (drawerOpen) setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
 
   /* ===============================
-     CLEAR CHAT (NEW)
+     CLEAR CHAT
   ================================= */
   function clearChat() {
     try {
@@ -351,7 +347,7 @@ export default function ChatPanel() {
       <HeaderMenu
         title="CIPHER"
         onOpenDrawer={() => setDrawerOpen(true)}
-        onNewChat={clearChat}   // ⭐ NEW
+        onNewChat={clearChat}
       />
 
       <DrawerMenu
