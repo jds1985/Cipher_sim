@@ -88,6 +88,7 @@ body {
 
 .cipher-chat {
   flex: 1;
+  min-height: 0;   /* ← stops flex overflow */
   overflow-y: auto;
   padding: 18px;
   padding-bottom: 120px;
