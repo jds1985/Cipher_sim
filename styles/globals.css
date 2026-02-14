@@ -1,12 +1,25 @@
 /* ===============================
-   CIPHER OS MASTER THEME
-   Stable Header Edition v2
+   CIPHER OS GLOBALS
+   Layout Lock Edition
 ================================ */
 
-html,
+:root {
+  --header-h: 64px;
+  --input-h: 92px;
+}
+
+/* ===============================
+   PAGE
+================================ */
+
+html, body, #__next {
+  height: 100%;
+}
+
 body {
-  padding: 0;
   margin: 0;
+  padding: 0;
+
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
   background:
@@ -16,22 +29,23 @@ body {
     #05060a;
 
   color: rgba(255, 255, 255, 0.94);
+
+  overflow: hidden; /* chat scrolls, not page */
+}
+
+/* ===============================
+   APP ROOT
+================================ */
+
+.cipher-wrap {
+  position: relative;
+  height: 100vh;
+  width: 100%;
   overflow: hidden;
 }
 
 /* ===============================
-   APP LAYOUT
-================================ */
-
-.cipher-wrap {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  position: relative;
-}
-
-/* ===============================
-   HEADER (KING OF THE HILL 👑)
+   HEADER (ALWAYS ON TOP)
 ================================ */
 
 .cipher-header {
@@ -40,7 +54,7 @@ body {
   left: 0;
   right: 0;
 
-  height: 64px;
+  height: var(--header-h);
   padding: 0 18px;
 
   display: flex;
@@ -48,10 +62,10 @@ body {
   justify-content: space-between;
 
   backdrop-filter: blur(20px);
-  background: rgba(10, 10, 20, 0.9);
+  background: rgba(10, 10, 20, 0.95);
   border-bottom: 1px solid rgba(255,255,255,0.06);
 
-  z-index: 10000; /* above everything except drawer */
+  z-index: 10000;
 }
 
 .cipher-title {
@@ -70,37 +84,57 @@ body {
   cursor: pointer;
 }
 
-.cipher-menu-btn:hover {
-  background: rgba(0,255,200,0.2);
-  box-shadow: 0 0 12px rgba(0,255,200,0.5);
-}
-
 /* ===============================
-   CHAT AREA (STARTS BELOW HEADER)
+   CHAT (CANNOT ENTER HEADER SPACE)
 ================================ */
 
 .cipher-chat {
-  flex: 1;
-  margin-top: 64px; /* THIS IS THE MONEY LINE */
+  position: absolute;
+
+  top: var(--header-h);
+  left: 0;
+  right: 0;
+  bottom: 0;
+
   overflow-y: auto;
-  padding: 28px 18px 160px;
+  -webkit-overflow-scrolling: touch;
+
+  padding: 24px 18px calc(var(--input-h) + 24px);
+
   display: flex;
   flex-direction: column;
   gap: 18px;
 
-  position: relative;
   z-index: 1;
 }
 
 /* ===============================
-   DRAWER
+   INPUT (BOTTOM LOCK)
+================================ */
+
+.cipher-input-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  padding: 18px;
+
+  backdrop-filter: blur(20px);
+  background: rgba(10, 10, 20, 0.95);
+  border-top: 1px solid rgba(255,255,255,0.06);
+
+  z-index: 9000;
+}
+
+/* ===============================
+   DRAWER (ABOVE EVERYTHING)
 ================================ */
 
 .cipher-drawer-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(6px);
   z-index: 20000;
 }
 
@@ -110,13 +144,6 @@ body {
   right: 0;
   width: 320px;
   height: 100%;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  backdrop-filter: blur(20px);
-  background: rgba(10, 10, 20, 0.95);
-  border-left: 1px solid rgba(0,255,200,0.25);
   z-index: 20001;
 }
 
@@ -129,7 +156,6 @@ body {
   padding: 18px;
   border-radius: 18px;
   backdrop-filter: blur(16px);
-  animation: fadeUp 0.25s ease;
   line-height: 1.5;
 }
 
@@ -137,9 +163,6 @@ body {
   align-self: flex-start;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(0,255,200,0.25);
-  box-shadow:
-    0 0 18px rgba(0,255,200,0.12),
-    inset 0 0 12px rgba(0,255,200,0.05);
 }
 
 .cipher-bubble.user {
@@ -152,89 +175,7 @@ body {
   border: 1px solid rgba(255,255,255,0.2);
 }
 
-.cipher-bubble.decipher {
-  align-self: flex-start;
-  background: rgba(20,10,25,0.85);
-  border: 1px solid rgba(255,90,90,0.6);
-}
-
-/* ===============================
-   TEXT
-================================ */
-
 .cipher-text {
   white-space: pre-wrap;
   font-size: 15px;
-}
-
-/* ===============================
-   ACTIONS
-================================ */
-
-.cipher-actions {
-  margin-top: 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 12px;
-}
-
-/* ===============================
-   INPUT BAR
-================================ */
-
-.cipher-input-wrap {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  padding: 18px;
-  backdrop-filter: blur(20px);
-  background: rgba(10, 10, 20, 0.9);
-  border-top: 1px solid rgba(255,255,255,0.06);
-  z-index: 9000;
-}
-
-.cipher-input {
-  width: 100%;
-  padding: 16px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: white;
-  font-size: 15px;
-  outline: none;
-}
-
-.cipher-input:focus {
-  border-color: rgba(0,255,200,0.6);
-  box-shadow: 0 0 12px rgba(0,255,200,0.4);
-}
-
-/* ===============================
-   QUICK ACTIONS
-================================ */
-
-.cipher-qa {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-bottom: 12px;
-}
-
-/* ===============================
-   ANIMATION
-================================ */
-
-@keyframes fadeUp {
-  from {
-    transform: translateY(6px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
