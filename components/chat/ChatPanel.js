@@ -51,9 +51,7 @@ async function readSSEStream(res, onEvent) {
         const payload = trimmed.replace(/^data:\s*/, "");
         try {
           onEvent?.(JSON.parse(payload));
-        } catch {
-          // ignore malformed chunks
-        }
+        } catch {}
       }
     }
   }
@@ -86,7 +84,7 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
-  // ✅ Log once (not inside JSX)
+  // Debug log
   useEffect(() => {
     console.log("🔥 NEW CHAT PANEL ACTIVE 🔥");
   }, []);
@@ -104,6 +102,17 @@ export default function ChatPanel() {
     if (!drawerOpen) return;
     setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
+
+  /* ===============================
+     CLEAR CHAT (NEW)
+  ================================= */
+  function clearChat() {
+    try {
+      localStorage.removeItem(MEMORY_KEY);
+    } catch {}
+    setMessages([]);
+    setToast("New session started");
+  }
 
   /* ===============================
      QUICK ACTIONS
@@ -142,7 +151,6 @@ export default function ChatPanel() {
     sendingRef.current = true;
     setTyping(true);
 
-    // Add placeholder assistant bubble
     setMessages((m) => [
       ...m,
       { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
@@ -232,14 +240,11 @@ export default function ChatPanel() {
         setCoinBalance(getCipherCoin());
         setToast(`+${rewarded.earned} Cipher Coin earned`);
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   /* ===============================
      USER SEND
-     - supports InputBar calling: onSend({ forceDecipher: true/false })
   ================================= */
   async function sendMessage(opts = {}) {
     if (sendingRef.current) return;
@@ -261,7 +266,6 @@ export default function ChatPanel() {
 
     setInput("");
 
-    // Add user message + placeholder assistant bubble
     setMessages((m) => [
       ...m,
       userMessage,
@@ -281,7 +285,7 @@ export default function ChatPanel() {
           message: userMessage.content,
           history: historySnapshot.slice(-HISTORY_WINDOW),
           stream: true,
-          forceDecipher, // harmless if backend ignores; useful if you route later
+          forceDecipher,
         }),
       });
 
@@ -343,49 +347,35 @@ export default function ChatPanel() {
      RENDER
   =============================== */
   return (
-    <>
-      {/* Debug banner - safe to remove anytime */}
-      <div
-        style={{
-          background: "red",
-          color: "white",
-          padding: 12,
-          textAlign: "center",
-          fontWeight: "bold",
-          position: "sticky",
-          top: 0,
-          zIndex: 99999,
-        }}
-      >
-        NEW CHAT PANEL LOADED
+    <div className="cipher-wrap">
+      <HeaderMenu
+        title="CIPHER"
+        onOpenDrawer={() => setDrawerOpen(true)}
+        onNewChat={clearChat}   // ⭐ NEW
+      />
+
+      <DrawerMenu
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        cipherCoin={coinBalance}
+        onInvite={handleInvite}
+        onOpenStore={() => (window.location.href = "/store")}
+      />
+
+      <div className="cipher-chat">
+        <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
-      <div className="cipher-wrap">
-        <HeaderMenu title="CIPHER" onOpenDrawer={() => setDrawerOpen(true)} />
+      <QuickActions onSelect={handleQuickAction} />
 
-        <DrawerMenu
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-          cipherCoin={coinBalance}
-          onInvite={handleInvite}
-          onOpenStore={() => (window.location.href = "/store")}
-        />
+      <InputBar
+        input={input}
+        setInput={setInput}
+        onSend={sendMessage}
+        typing={typing}
+      />
 
-        <div className="cipher-chat">
-          <MessageList messages={messages} bottomRef={bottomRef} />
-        </div>
-
-        <QuickActions onSelect={handleQuickAction} />
-
-        <InputBar
-          input={input}
-          setInput={setInput}
-          onSend={sendMessage}
-          typing={typing}
-        />
-
-        {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
-      </div>
-    </>
+      {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
+    </div>
   );
 }
