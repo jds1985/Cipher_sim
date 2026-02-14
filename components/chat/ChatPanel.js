@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import HeaderMenu from "./HeaderMenu";
-// import DrawerMenu from "./DrawerMenu";
+import DrawerMenu from "./DrawerMenu";   // ✅ RESTORED
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
-// import RewardToast from "./RewardToast";
-// import QuickActions from "./QuickActions";
 
 import { getCipherCoin, rewardShare } from "./CipherCoin";
 
@@ -74,14 +72,9 @@ export default function ChatPanel() {
   const [typing, setTyping] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
-  const [toast, setToast] = useState(null);
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
-
-  useEffect(() => {
-    console.log("🔥 CHAT PANEL ACTIVE");
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -104,7 +97,6 @@ export default function ChatPanel() {
       localStorage.removeItem(MEMORY_KEY);
     } catch {}
     setMessages([]);
-    setToast("New session started");
   }
 
   /* ===============================
@@ -218,21 +210,18 @@ export default function ChatPanel() {
         onNewChat={clearChat}
       />
 
-      {/* Drawer disabled for overlay test */}
-      {/* <DrawerMenu
+      {/* ✅ DRAWER RESTORED */}
+      <DrawerMenu
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         cipherCoin={coinBalance}
         onInvite={() => {}}
         onOpenStore={() => (window.location.href = "/store")}
-      /> */}
+      />
 
       <div className="cipher-chat">
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
-
-      {/* Quick actions disabled */}
-      {/* <QuickActions onSelect={() => {}} /> */}
 
       <InputBar
         input={input}
@@ -240,9 +229,6 @@ export default function ChatPanel() {
         onSend={sendMessage}
         typing={typing}
       />
-
-      {/* Toast disabled */}
-      {/* {toast && <RewardToast message={toast} onClose={() => setToast(null)} />} */}
     </div>
   );
 }
