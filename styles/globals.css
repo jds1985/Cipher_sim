@@ -1,6 +1,6 @@
 /* ===============================
    CIPHER OS GLOBALS
-   Layout Lock Edition
+   Layout Lock Edition – FINAL
 ================================ */
 
 :root {
@@ -30,7 +30,7 @@ body {
 
   color: rgba(255, 255, 255, 0.94);
 
-  overflow: hidden; /* chat scrolls, not page */
+  overflow: hidden; /* page never scrolls */
 }
 
 /* ===============================
@@ -39,7 +39,7 @@ body {
 
 .cipher-wrap {
   position: relative;
-  height: 100vh;
+  height: 100dvh;   /* mobile safe */
   width: 100%;
   overflow: hidden;
 }
@@ -66,22 +66,6 @@ body {
   border-bottom: 1px solid rgba(255,255,255,0.06);
 
   z-index: 10000;
-}
-
-.cipher-title {
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-.cipher-menu-btn {
-  font-size: 20px;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.05);
-  color: white;
-  cursor: pointer;
 }
 
 /* ===============================
@@ -118,6 +102,7 @@ body {
   right: 0;
   bottom: 0;
 
+  height: var(--input-h);
   padding: 18px;
 
   backdrop-filter: blur(20px);
@@ -135,6 +120,7 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
   z-index: 20000;
 }
 
