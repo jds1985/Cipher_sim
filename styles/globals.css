@@ -378,3 +378,15 @@ body {
     opacity: 1;
   }
 }
+
+/* ===============================
+   DEBUG – SHOW ALL LAYERS
+================================ */
+
+* {
+  outline: 1px solid rgba(255, 0, 0, 0.15);
+}
+
+div {
+  outline: 1px solid rgba(0, 255, 255, 0.25);
+}
