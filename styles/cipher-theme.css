@@ -1,5 +1,6 @@
 /* ======================================
    CIPHER OS – GLOBAL VISUAL SYSTEM
+   Layout Stabilized
 ====================================== */
 
 :root {
@@ -47,6 +48,7 @@ body {
   background: radial-gradient(circle at top, #101633 0%, #05070d 60%);
   color: var(--cipher-text-main);
   font-family: Inter, system-ui, sans-serif;
+  overflow: hidden; /* chat handles scroll */
 }
 
 /* ======================================
@@ -54,44 +56,60 @@ body {
 ====================================== */
 
 .cipher-wrap {
+  position: relative;
   height: 100dvh;
-  display: flex;
-  flex-direction: column;
+  width: 100%;
   overflow: hidden;
 }
 
 /* ======================================
-   HEADER SYSTEM
+   HEADER SYSTEM (LOCKED)
 ====================================== */
 
 .cipher-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+
   height: var(--cipher-header-height);
-  min-height: var(--cipher-header-height);
+  padding: 0 18px;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
 
-  background: rgba(10, 15, 25, 0.6);
+  background: rgba(10, 15, 25, 0.75);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--cipher-border-soft);
   box-shadow: 0 1px 0 rgba(255,255,255,0.03);
 
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  z-index: 10000;
 }
 
 /* ======================================
-   CHAT REGION
+   CHAT REGION (STARTS UNDER HEADER)
 ====================================== */
 
 .cipher-chat {
-  flex: 1;
-  min-height: 0;   /* ← stops flex overflow */
+  position: absolute;
+
+  top: var(--cipher-header-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
   padding: 18px;
-  padding-bottom: 120px;
+  padding-bottom: 140px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  z-index: 1;
 }
 
 /* message column */
@@ -158,16 +176,20 @@ body {
 }
 
 /* ======================================
-   INPUT ZONE
+   INPUT ZONE (LOCKED BOTTOM)
 ====================================== */
 
 .cipher-input-wrap {
   position: fixed;
+  left: 0;
+  right: 0;
   bottom: 0;
-  width: 100%;
+
   padding: 14px;
   background: linear-gradient(to top, #05070d, transparent);
   backdrop-filter: blur(10px);
+
+  z-index: 9000;
 }
 
 .cipher-input {
