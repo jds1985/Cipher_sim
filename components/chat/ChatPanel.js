@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import HeaderMenu from "./HeaderMenu";
-import DrawerMenu from "./DrawerMenu";
+// import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
-import RewardToast from "./RewardToast";
-import QuickActions from "./QuickActions";
+// import RewardToast from "./RewardToast";
+// import QuickActions from "./QuickActions";
 
 import { getCipherCoin, rewardShare } from "./CipherCoin";
 
@@ -99,144 +99,12 @@ export default function ChatPanel() {
     if (drawerOpen) setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
 
-  /* ===============================
-     CLEAR CHAT
-  ================================= */
   function clearChat() {
     try {
       localStorage.removeItem(MEMORY_KEY);
     } catch {}
     setMessages([]);
     setToast("New session started");
-  }
-
-  /* ===============================
-     QUICK ACTIONS
-  ================================= */
-  async function handleQuickAction(action) {
-    if (sendingRef.current) return;
-
-    const lastAssistant = [...messages].reverse().find((m) => m.role !== "user");
-    if (!lastAssistant?.content) return;
-
-    let instruction = "";
-
-    switch (action) {
-      case "summarize":
-        instruction = "Summarize this clearly:\n\n";
-        break;
-      case "improve":
-        instruction = "Improve the quality and clarity of this:\n\n";
-        break;
-      case "longer":
-        instruction = "Expand this with more depth and detail:\n\n";
-        break;
-      case "shorter":
-        instruction = "Make this shorter but keep the meaning:\n\n";
-        break;
-      case "analyze":
-        instruction = "Analyze this carefully:\n\n";
-        break;
-      case "explain_code":
-        instruction = "Explain this code step by step:\n\n";
-        break;
-      default:
-        return;
-    }
-
-    sendingRef.current = true;
-    setTyping(true);
-
-    setMessages((m) => [
-      ...m,
-      { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
-    ]);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: instruction + lastAssistant.content,
-          history: messages.slice(-HISTORY_WINDOW),
-          stream: true,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Request failed");
-
-      let streamed = "";
-      let modelUsed = null;
-      let memoryInfluence = [];
-
-      await readSSEStream(res, (evt) => {
-        if (evt?.type === "delta" && typeof evt?.text === "string") {
-          streamed += evt.text;
-          setMessages((m) => {
-            const next = [...m];
-            next[next.length - 1] = {
-              ...next[next.length - 1],
-              content: streamed,
-              modelUsed,
-              memoryInfluence,
-            };
-            return next;
-          });
-        }
-
-        if (evt?.type === "done") {
-          modelUsed = evt?.model || null;
-          memoryInfluence = evt?.memoryInfluence || [];
-
-          setMessages((m) => {
-            const next = [...m];
-            next[next.length - 1] = {
-              ...next[next.length - 1],
-              content: streamed,
-              modelUsed,
-              memoryInfluence,
-            };
-            return next;
-          });
-        }
-      });
-    } catch {
-      setMessages((m) => {
-        const next = [...m];
-        next[next.length - 1] = {
-          role: "assistant",
-          content: "Tool execution failed",
-          modelUsed: null,
-          memoryInfluence: [],
-        };
-        return next;
-      });
-    } finally {
-      setTyping(false);
-      sendingRef.current = false;
-    }
-  }
-
-  async function handleInvite() {
-    const url = `${window.location.origin}?ref=cipher`;
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Cipher",
-          text: "Try Cipher — an AI that actually remembers.",
-          url,
-        });
-      } else {
-        await navigator.clipboard.writeText(url);
-        setToast("Link copied — share it anywhere");
-      }
-
-      const rewarded = rewardShare();
-      if (rewarded?.ok) {
-        setCoinBalance(getCipherCoin());
-        setToast(`+${rewarded.earned} Cipher Coin earned`);
-      }
-    } catch {}
   }
 
   /* ===============================
@@ -350,19 +218,21 @@ export default function ChatPanel() {
         onNewChat={clearChat}
       />
 
-      <DrawerMenu
+      {/* Drawer disabled for overlay test */}
+      {/* <DrawerMenu
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         cipherCoin={coinBalance}
-        onInvite={handleInvite}
+        onInvite={() => {}}
         onOpenStore={() => (window.location.href = "/store")}
-      />
+      /> */}
 
       <div className="cipher-chat">
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
-      <QuickActions onSelect={handleQuickAction} />
+      {/* Quick actions disabled */}
+      {/* <QuickActions onSelect={() => {}} /> */}
 
       <InputBar
         input={input}
@@ -371,7 +241,8 @@ export default function ChatPanel() {
         typing={typing}
       />
 
-      {toast && <RewardToast message={toast} onClose={() => setToast(null)} />}
+      {/* Toast disabled */}
+      {/* {toast && <RewardToast message={toast} onClose={() => setToast(null)} />} */}
     </div>
   );
 }
