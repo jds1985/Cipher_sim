@@ -1,18 +1,27 @@
-// components/chat/HeaderMenu.jsx
-
-export default function HeaderMenu({ title, onOpenDrawer }) {
+export default function HeaderMenu({ title, onOpenDrawer, onNewChat }) {
   return (
-    <div className="cipher-header">
-      <div className="cipher-title">{title}</div>
+    <div
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 99999,
+        background: "lime",
+        color: "black",
+        padding: 16,
+        fontWeight: "bold",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
+      <div>{title}</div>
 
-      <button
-        className="cipher-menu-btn"
-        onClick={onOpenDrawer}
-        aria-label="Open menu"
-        type="button"
-      >
-        ☰
-      </button>
+      <div style={{ display: "flex", gap: 10 }}>
+        {onNewChat && (
+          <button onClick={onNewChat}>New</button>
+        )}
+        <button onClick={onOpenDrawer}>Menu</button>
+      </div>
     </div>
   );
 }
