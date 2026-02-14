@@ -1,4 +1,4 @@
-// components/chat/DrawerMenu.jsx
+import { useEffect } from "react";
 
 export default function DrawerMenu({
   open,
@@ -9,40 +9,54 @@ export default function DrawerMenu({
 }) {
   if (!open) return null;
 
-  function stop(e) {
-    e.stopPropagation();
-  }
+  // close with ESC
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") onClose?.();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   return (
-    <div className="cipher-drawer-overlay" onClick={onClose} role="presentation">
-      <div className="cipher-drawer" onClick={stop} role="dialog" aria-modal="true">
-        {/* Header row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div className="cipher-drawer-title">CIPHER MENU</div>
-          <button className="cipher-drawer-close" onClick={onClose} type="button">
+    <>
+      {/* Overlay */}
+      <div className="cipher-drawer-overlay" onClick={onClose} />
+
+      {/* Drawer */}
+      <div className="cipher-drawer">
+        {/* Header */}
+        <div className="cipher-drawer-header">
+          <div>CIPHER MENU</div>
+          <button onClick={onClose} className="cipher-drawer-close">
             ✕
           </button>
         </div>
 
-        {/* Coin */}
-        <div className="cipher-drawer-section">
-          <div className="cipher-drawer-label">Cipher Coin</div>
-          <div className="cipher-drawer-value">🪙 {cipherCoin}</div>
-        </div>
+        {/* Body */}
+        <div className="cipher-drawer-body">
+          {/* Coin */}
+          <div className="cipher-coin">
+            <span>🪙</span>
+            <div>
+              <div className="cipher-coin-label">Cipher Coin</div>
+              <div className="cipher-coin-value">{cipherCoin}</div>
+            </div>
+          </div>
 
-        {/* Actions */}
-        <button className="cipher-drawer-btn-primary" onClick={onInvite} type="button">
-          Invite + Earn Coin
-        </button>
+          {/* Actions */}
+          <button className="cipher-drawer-btn" onClick={onInvite}>
+            Invite + Earn
+          </button>
 
-        <button className="cipher-drawer-btn-secondary" onClick={onOpenStore} type="button">
-          Open Store
-        </button>
-
-        <div style={{ marginTop: "auto", opacity: 0.6, fontSize: 12, lineHeight: 1.4 }}>
-          Tip: Tap outside the drawer to close.
+          <button
+            className="cipher-drawer-btn cipher-drawer-btn-primary"
+            onClick={onOpenStore}
+          >
+            Open Store
+          </button>
         </div>
       </div>
-    </div>
+    </>
   );
 }
