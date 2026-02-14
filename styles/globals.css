@@ -78,7 +78,7 @@ body {
   top: var(--header-h);
   left: 0;
   right: 0;
-  bottom: var(--input-h);   /* 👈 THIS is critical */
+  bottom: var(--input-h);
 
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -128,10 +128,10 @@ body {
 .cipher-drawer {
   position: fixed;
   right: 0;
-  top: var(--header-h); /* start under header */
+  top: var(--header-h);
 
   width: 320px;
-  height: 50dvh;        /* 👈 HALF SCREEN */
+  height: 50dvh;
 
   border-left: 1px solid rgba(255,255,255,0.08);
   border-bottom-left-radius: 18px;
