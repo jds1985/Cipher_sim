@@ -3,7 +3,7 @@ import MessageBubble from "./MessageBubble";
 
 export default function MessageList({ messages, bottomRef, onPlayVoice }) {
   return (
-    <>
+    <div className="cipher-messages">
       {messages.map((m, i) => (
         <MessageBubble
           key={i}
@@ -19,6 +19,6 @@ export default function MessageList({ messages, bottomRef, onPlayVoice }) {
         />
       ))}
       <div ref={bottomRef} />
-    </>
+    </div>
   );
 }
