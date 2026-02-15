@@ -3,14 +3,16 @@ export default function HeaderMenu({ onOpenDrawer, onNewChat }) {
 
   return (
     <header className="cipher-header">
-      <div style={{ display: "flex", alignItems: "center" }}>
+      {/* LEFT → LOGO */}
+      <div className="cipher-logo-wrap">
         <img
           src="/logo.png"
-          alt="Cipher"
+          alt="Cipher OS"
           className="cipher-logo"
         />
       </div>
 
+      {/* RIGHT → BUTTONS */}
       <div style={{ display: "flex", gap: 10 }}>
         {onNewChat && (
           <button className="cipher-btn-secondary" onClick={onNewChat}>
