@@ -73,7 +73,7 @@ body {
 ================================ */
 
 .cipher-logo {
-  height: 34px;      /* change 28 → 40 to taste */
+  height: 44px;      /* change 28 → 40 to taste */
   width: auto;
   object-fit: contain;
   display: block;
