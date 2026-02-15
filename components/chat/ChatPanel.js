@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import HeaderMenu from "./HeaderMenu";
-import DrawerMenu from "./DrawerMenu";   // ✅ RESTORED
+import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 
@@ -210,7 +210,6 @@ export default function ChatPanel() {
         onNewChat={clearChat}
       />
 
-      {/* ✅ DRAWER RESTORED */}
       <DrawerMenu
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -220,6 +219,8 @@ export default function ChatPanel() {
       />
 
       <div className="cipher-chat">
+        {/* ⭐ spacer prevents header overlap */}
+        <div style={{ height: "12px", flexShrink: 0 }} />
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
