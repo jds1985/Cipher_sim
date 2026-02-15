@@ -8,7 +8,11 @@ export default function HeaderMenu({ title = "CIPHER", onOpenDrawer, onNewChat }
         <img
           src="/logo.png"
           alt="Cipher"
-          className="cipher-logo"
+          style={{
+            height: 38,
+            width: "auto",
+            objectFit: "contain",
+          }}
         />
       </div>
 
