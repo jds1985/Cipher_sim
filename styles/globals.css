@@ -71,14 +71,16 @@ body {
 /* ===============================
    ⭐ LOGO CONTROL
 ================================ */
-
 .cipher-logo {
-  height: 44px;      /* change 28 → 40 to taste */
+  height: 44px;
   width: auto;
   object-fit: contain;
   display: block;
-}
 
+  /* THE MAGIC */
+  filter: drop-shadow(0 0 8px rgba(0, 255, 200, 0.45))
+          drop-shadow(0 0 18px rgba(90, 70, 255, 0.35));
+}
 /* ===============================
    CHAT (LOCKED BETWEEN HEADER + INPUT)
 ================================ */
