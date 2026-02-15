@@ -1,22 +1,16 @@
-export default function HeaderMenu({ title = "CIPHER", onOpenDrawer, onNewChat }) {
+export default function HeaderMenu({ onOpenDrawer, onNewChat }) {
   console.log("🟢 HEADER COMPONENT RENDERED");
 
   return (
     <header className="cipher-header">
-      {/* LEFT SIDE → LOGO */}
       <div style={{ display: "flex", alignItems: "center" }}>
         <img
           src="/logo.png"
           alt="Cipher"
-          style={{
-            height: 38,
-            width: "auto",
-            objectFit: "contain",
-          }}
+          className="cipher-logo"
         />
       </div>
 
-      {/* RIGHT SIDE → BUTTONS */}
       <div style={{ display: "flex", gap: 10 }}>
         {onNewChat && (
           <button className="cipher-btn-secondary" onClick={onNewChat}>
