@@ -303,3 +303,20 @@ body {
     0 0 12px rgba(0,255,200,0.4),
     0 0 22px rgba(90,70,255,0.35);
 }
+
+/* ===============================
+   INPUT CONTAINMENT FIX
+================================ */
+
+.cipher-input-wrap {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* if the actual input element exists inside */
+.cipher-input-wrap input,
+.cipher-input-wrap textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
