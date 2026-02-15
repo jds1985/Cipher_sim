@@ -320,3 +320,15 @@ body {
   max-width: 100%;
   box-sizing: border-box;
 }
+
+/* ===============================
+   INPUT INNER CLAMP
+================================ */
+
+.cipher-input-wrap > * {
+  max-width: 100%;
+}
+
+.cipher-input-wrap button {
+  flex-shrink: 0;
+}
