@@ -115,7 +115,8 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 
-  padding: 32px 18px 24px;
+  /* ⭐ KEY FIX */
+  padding: calc(var(--header-h) + 12px) 18px 24px;
 
   display: flex;
   flex-direction: column;
