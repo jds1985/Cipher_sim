@@ -220,7 +220,7 @@ export default function ChatPanel() {
 
       <div className="cipher-chat">
         {/* ⭐ spacer prevents header overlap */}
-        <div style={{ height: "12px", flexShrink: 0 }} />
+        <div style={{ height: "20px", flexShrink: 0 }} />
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
