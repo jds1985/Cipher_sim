@@ -20,7 +20,13 @@ export default function HeaderMenu({ onOpenDrawer, onNewChat }) {
           </button>
         )}
 
-        <button className="cipher-btn-primary" onClick={onOpenDrawer}>
+        <button
+          className="cipher-btn-primary"
+          onClick={() => {
+            console.log("🔥 MENU CLICKED");
+            onOpenDrawer?.();
+          }}
+        >
           Menu
         </button>
       </div>
