@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 
 export default function MessageBubble({
+  index,
   role,
   content,
   modelUsed = null,
@@ -9,7 +10,6 @@ export default function MessageBubble({
 }) {
   const cleanRole = String(role || "").trim();
 
-  const [open, setOpen] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef(null);
 
@@ -63,7 +63,6 @@ export default function MessageBubble({
         }
         style={{ maxWidth: "75%", width: "fit-content" }}
       >
-        {/* TEXT */}
         <div className="cipher-text">{content || "…"}</div>
 
         {/* QUICK ACTIONS */}
@@ -78,28 +77,36 @@ export default function MessageBubble({
           >
             <button
               className="cipher-btn-secondary"
-              onClick={() => onQuickAction?.("Analyze the previous answer:")}
+              onClick={() =>
+                onQuickAction?.(index, "Analyze this response:")
+              }
             >
               Analyze
             </button>
 
             <button
               className="cipher-btn-secondary"
-              onClick={() => onQuickAction?.("Make the previous answer shorter:")}
+              onClick={() =>
+                onQuickAction?.(index, "Rewrite this to be shorter:")
+              }
             >
               Shorter
             </button>
 
             <button
               className="cipher-btn-secondary"
-              onClick={() => onQuickAction?.("Expand the previous answer:")}
+              onClick={() =>
+                onQuickAction?.(index, "Expand this with more detail:")
+              }
             >
               Longer
             </button>
 
             <button
               className="cipher-btn-secondary"
-              onClick={() => onQuickAction?.("Summarize the previous answer:")}
+              onClick={() =>
+                onQuickAction?.(index, "Summarize this:")
+              }
             >
               Summarize
             </button>
