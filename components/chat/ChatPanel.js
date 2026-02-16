@@ -76,9 +76,15 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
+  /* ===============================
+     STABLE AUTO SCROLL
+  ================================= */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, typing]);
+    const el = document.querySelector(".cipher-chat");
+    if (!el) return;
+
+    el.scrollTop = el.scrollHeight;
+  }, [messages.length, typing]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -219,7 +225,7 @@ export default function ChatPanel() {
       />
 
       <div className="cipher-chat">
-        {/* ⭐ spacer prevents header overlap */}
+        {/* spacer */}
         <div style={{ height: "20px", flexShrink: 0 }} />
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
