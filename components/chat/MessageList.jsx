@@ -3,8 +3,8 @@ import MessageBubble from "./MessageBubble";
 export default function MessageList({
   messages,
   bottomRef,
-  onPlayVoice,
-  onQuickAction,
+  onSelectMessage,
+  selectedIndex,
 }) {
   return (
     <div className="cipher-messages">
@@ -20,8 +20,8 @@ export default function MessageList({
               ? m.memoryInfluence || null
               : null
           }
-          onPlayVoice={onPlayVoice}
-          onQuickAction={onQuickAction}
+          isSelected={selectedIndex === i}
+          onSelect={onSelectMessage}
         />
       ))}
       <div ref={bottomRef} />
