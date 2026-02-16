@@ -7,6 +7,7 @@ export default function MessageBubble({
   modelUsed = null,
   memoryInfluence = null,
   isSelected = false,
+  selectable = true,
   onSelect,
 }) {
   const cleanRole = String(role || "").trim();
@@ -51,7 +52,7 @@ export default function MessageBubble({
   }
 
   function handleSelect() {
-    if (isUser) return;
+    if (!selectable || isUser) return;
     onSelect?.(index);
   }
 
@@ -63,14 +64,12 @@ export default function MessageBubble({
         display: "flex",
         justifyContent: isUser ? "flex-end" : "flex-start",
         padding: "8px 12px",
-        cursor: isUser ? "default" : "pointer",
+        cursor: selectable && !isUser ? "pointer" : "default",
       }}
     >
       <div
         className={
-          isUser
-            ? "cipher-msg-user cipher-live"
-            : "cipher-msg-assistant"
+          isUser ? "cipher-msg-user cipher-live" : "cipher-msg-assistant"
         }
         style={{
           maxWidth: "75%",
@@ -78,6 +77,7 @@ export default function MessageBubble({
           outline: isSelected
             ? "2px solid rgba(0,255,200,0.9)"
             : "none",
+          transition: "outline 0.15s ease",
         }}
       >
         {/* TEXT */}
