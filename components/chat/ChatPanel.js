@@ -77,7 +77,7 @@ export default function ChatPanel() {
   const sendingRef = useRef(false);
 
   /* ===============================
-     AUTO SCROLL (ANCHOR ONLY)
+     AUTO SCROLL
   ================================= */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -103,6 +103,13 @@ export default function ChatPanel() {
       localStorage.removeItem(MEMORY_KEY);
     } catch {}
     setMessages([]);
+  }
+
+  /* ===============================
+     QUICK ACTION HANDLER
+  ================================= */
+  function applyQuickAction(text) {
+    setInput(text);
   }
 
   /* ===============================
@@ -224,7 +231,11 @@ export default function ChatPanel() {
       />
 
       <div className="cipher-chat">
-        <MessageList messages={messages} bottomRef={bottomRef} />
+        <MessageList
+          messages={messages}
+          bottomRef={bottomRef}
+          onQuickAction={applyQuickAction}
+        />
       </div>
 
       <InputBar
