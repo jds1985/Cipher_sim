@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 
 export default function MessageBubble({
-  index,
+  index,                 // ⭐ RECEIVE INDEX
   role,
   content,
   modelUsed = null,
@@ -9,11 +9,10 @@ export default function MessageBubble({
   onQuickAction,
 }) {
   const cleanRole = String(role || "").trim();
+  const isUser = cleanRole === "user";
 
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef(null);
-
-  const isUser = cleanRole === "user";
 
   function copy() {
     try {
@@ -63,6 +62,7 @@ export default function MessageBubble({
         }
         style={{ maxWidth: "75%", width: "fit-content" }}
       >
+        {/* TEXT */}
         <div className="cipher-text">{content || "…"}</div>
 
         {/* QUICK ACTIONS */}
@@ -78,7 +78,7 @@ export default function MessageBubble({
             <button
               className="cipher-btn-secondary"
               onClick={() =>
-                onQuickAction?.(index, "Analyze this response:")
+                onQuickAction?.(index, "Analyze this answer:")
               }
             >
               Analyze
@@ -87,7 +87,7 @@ export default function MessageBubble({
             <button
               className="cipher-btn-secondary"
               onClick={() =>
-                onQuickAction?.(index, "Rewrite this to be shorter:")
+                onQuickAction?.(index, "Make this shorter:")
               }
             >
               Shorter
@@ -96,7 +96,7 @@ export default function MessageBubble({
             <button
               className="cipher-btn-secondary"
               onClick={() =>
-                onQuickAction?.(index, "Expand this with more detail:")
+                onQuickAction?.(index, "Expand this answer:")
               }
             >
               Longer
@@ -113,7 +113,7 @@ export default function MessageBubble({
           </div>
         )}
 
-        {/* ACTION ROW */}
+        {/* SPEAK + COPY */}
         {!isUser && content && (
           <div className="cipher-actions">
             <div className="cipher-buttons">
