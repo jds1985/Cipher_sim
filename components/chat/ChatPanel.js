@@ -294,12 +294,12 @@ export default function ChatPanel() {
         <MessageList
           messages={messages}
           bottomRef={bottomRef}
-          onSelectMessage={(i) => setSelectedIndex(i)}
+          onSelectMessage={setSelectedIndex}
           selectedIndex={selectedIndex}
         />
       </div>
 
-      {/* ACTION BAR */}
+      {/* ACTION DOCK */}
       {selectedIndex !== null && (
         <div className="cipher-quick-actions" style={{ padding: "10px 18px" }}>
           <button onClick={() => runInlineTransform("Analyze this answer:")}>
