@@ -106,11 +106,20 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     INLINE TRANSFORM MAGIC
+     INLINE TRANSFORM (SAFE MODE)
   ================================= */
   async function runInlineTransform(index, instruction) {
     const original = messages[index];
     if (!original?.content) return;
+
+    const backup = original.content;
+
+    // mark transforming but KEEP original text
+    setMessages((m) => {
+      const copy = [...m];
+      copy[index] = { ...copy[index], transforming: true };
+      return copy;
+    });
 
     setTyping(true);
 
@@ -119,7 +128,7 @@ export default function ChatPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: `${instruction}\n\n${original.content}`,
+          message: `${instruction}\n\n${backup}`,
           history: [],
           stream: false,
         }),
@@ -128,15 +137,33 @@ export default function ChatPanel() {
       if (!res.ok) throw new Error("transform failed");
 
       const data = await res.json();
-      const newText = data?.text || data?.content || "";
+      const newText = data?.text || data?.content;
+
+      // 🚨 if nothing returned → DO NOT ERASE
+      if (!newText) throw new Error("empty response");
 
       setMessages((m) => {
         const copy = [...m];
-        copy[index] = { ...copy[index], content: newText };
+        copy[index] = {
+          ...copy[index],
+          content: newText,
+          transforming: false,
+        };
         return copy;
       });
     } catch (err) {
       console.error(err);
+
+      // revert
+      setMessages((m) => {
+        const copy = [...m];
+        copy[index] = {
+          ...copy[index],
+          content: backup,
+          transforming: false,
+        };
+        return copy;
+      });
     } finally {
       setTyping(false);
     }
