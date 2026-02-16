@@ -5,6 +5,7 @@ export default function MessageBubble({
   content,
   modelUsed = null,
   memoryInfluence = null,
+  onQuickAction,
 }) {
   const cleanRole = String(role || "").trim();
 
@@ -12,10 +13,7 @@ export default function MessageBubble({
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef(null);
 
-  const provider =
-    typeof modelUsed === "object" ? modelUsed?.provider : null;
-  const model =
-    typeof modelUsed === "object" ? modelUsed?.model : modelUsed;
+  const isUser = cleanRole === "user";
 
   function copy() {
     try {
@@ -35,8 +33,6 @@ export default function MessageBubble({
         body: JSON.stringify({ text: content }),
       });
 
-      if (!res.ok) throw new Error("voice failed");
-
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
 
@@ -46,16 +42,11 @@ export default function MessageBubble({
       audioRef.current = audio;
 
       audio.onended = () => setSpeaking(false);
-      audio.onerror = () => setSpeaking(false);
-
       await audio.play();
-    } catch (err) {
-      console.error(err);
+    } catch {
       setSpeaking(false);
     }
   }
-
-  const isUser = cleanRole === "user";
 
   return (
     <div
@@ -70,24 +61,54 @@ export default function MessageBubble({
         className={
           isUser ? "cipher-msg-user cipher-live" : "cipher-msg-assistant"
         }
-        style={{
-          maxWidth: "75%",
-          width: "fit-content",
-        }}
+        style={{ maxWidth: "75%", width: "fit-content" }}
       >
         {/* TEXT */}
         <div className="cipher-text">{content || "…"}</div>
 
-        {/* ACTION ROW */}
-        {cleanRole !== "user" && content && (
-          <div className="cipher-actions">
-            {modelUsed && (
-              <div className="cipher-model">
-                {provider ? `${provider} / ` : ""}
-                {String(model)}
-              </div>
-            )}
+        {/* QUICK ACTIONS */}
+        {!isUser && content && (
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              className="cipher-btn-secondary"
+              onClick={() => onQuickAction?.("Analyze the previous answer:")}
+            >
+              Analyze
+            </button>
 
+            <button
+              className="cipher-btn-secondary"
+              onClick={() => onQuickAction?.("Make the previous answer shorter:")}
+            >
+              Shorter
+            </button>
+
+            <button
+              className="cipher-btn-secondary"
+              onClick={() => onQuickAction?.("Expand the previous answer:")}
+            >
+              Longer
+            </button>
+
+            <button
+              className="cipher-btn-secondary"
+              onClick={() => onQuickAction?.("Summarize the previous answer:")}
+            >
+              Summarize
+            </button>
+          </div>
+        )}
+
+        {/* ACTION ROW */}
+        {!isUser && content && (
+          <div className="cipher-actions">
             <div className="cipher-buttons">
               <button
                 onClick={speak}
@@ -104,37 +125,6 @@ export default function MessageBubble({
             </div>
           </div>
         )}
-
-        {/* MEMORY */}
-        {memoryInfluence &&
-          memoryInfluence.length > 0 &&
-          cleanRole !== "user" && (
-            <div className="cipher-memory">
-              <div
-                onClick={() => setOpen(!open)}
-                className="cipher-memory-toggle"
-              >
-                {open
-                  ? `Hide memory (${memoryInfluence.length})`
-                  : `Memory used (${memoryInfluence.length})`}
-              </div>
-
-              {open && (
-                <div className="cipher-memory-list">
-                  {memoryInfluence.map((m, i) => (
-                    <div key={i} className="cipher-memory-item">
-                      <div className="cipher-memory-meta">
-                        {m?.type || "unknown"}{" "}
-                        {m?.locked ? "• locked" : ""}{" "}
-                        {m?.importance ? `• ${m.importance}` : ""}
-                      </div>
-                      <div>{m?.preview || "—"}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
       </div>
     </div>
   );
