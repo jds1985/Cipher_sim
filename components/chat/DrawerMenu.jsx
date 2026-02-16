@@ -8,9 +8,7 @@ export default function DrawerMenu({
   onOpenStore,
 }) {
   useEffect(() => {
-    if (open) {
-      console.log("📂 DRAWER MOUNTED");
-    }
+    if (open) console.log("📂 DRAWER MOUNTED");
   }, [open]);
 
   if (!open) return null;
@@ -29,19 +27,19 @@ export default function DrawerMenu({
       {/* Overlay */}
       <div
         className="cipher-drawer-overlay"
-        onClick={onClose}
+        onClick={() => onClose?.()}
         style={{ zIndex: 20000 }}
       />
 
       {/* Drawer */}
-      <div
-        className="cipher-drawer"
-        style={{ zIndex: 20001 }}
-      >
+      <div className="cipher-drawer" style={{ zIndex: 20001 }}>
         {/* Header */}
         <div className="cipher-drawer-header">
           <div>CIPHER MENU</div>
-          <button onClick={onClose} className="cipher-drawer-close">
+          <button
+            onClick={() => onClose?.()}
+            className="cipher-drawer-close"
+          >
             ✕
           </button>
         </div>
@@ -58,13 +56,16 @@ export default function DrawerMenu({
           </div>
 
           {/* Actions */}
-          <button className="cipher-drawer-btn" onClick={onInvite}>
+          <button
+            className="cipher-drawer-btn"
+            onClick={() => onInvite?.()}
+          >
             Invite + Earn
           </button>
 
           <button
             className="cipher-drawer-btn cipher-drawer-btn-primary"
-            onClick={onOpenStore}
+            onClick={() => onOpenStore?.()}
           >
             Open Store
           </button>
