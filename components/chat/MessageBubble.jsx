@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 
 export default function MessageBubble({
-  index,                 // ⭐ RECEIVE INDEX
+  index,
   role,
   content,
   modelUsed = null,
@@ -14,13 +14,15 @@ export default function MessageBubble({
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef(null);
 
-  function copy() {
+  function copy(e) {
+    e.stopPropagation();
     try {
       navigator.clipboard.writeText(content || "");
     } catch {}
   }
 
-  async function speak() {
+  async function speak(e) {
+    e.stopPropagation();
     if (!content || speaking) return;
 
     try {
@@ -45,6 +47,11 @@ export default function MessageBubble({
     } catch {
       setSpeaking(false);
     }
+  }
+
+  function fireQuick(e, instruction) {
+    e.stopPropagation();
+    onQuickAction?.(index, instruction);
   }
 
   return (
@@ -77,36 +84,28 @@ export default function MessageBubble({
           >
             <button
               className="cipher-btn-secondary"
-              onClick={() =>
-                onQuickAction?.(index, "Analyze this answer:")
-              }
+              onClick={(e) => fireQuick(e, "Analyze this answer:")}
             >
               Analyze
             </button>
 
             <button
               className="cipher-btn-secondary"
-              onClick={() =>
-                onQuickAction?.(index, "Make this shorter:")
-              }
+              onClick={(e) => fireQuick(e, "Make this shorter:")}
             >
               Shorter
             </button>
 
             <button
               className="cipher-btn-secondary"
-              onClick={() =>
-                onQuickAction?.(index, "Expand this answer:")
-              }
+              onClick={(e) => fireQuick(e, "Expand this answer:")}
             >
               Longer
             </button>
 
             <button
               className="cipher-btn-secondary"
-              onClick={() =>
-                onQuickAction?.(index, "Summarize this:")
-              }
+              onClick={(e) => fireQuick(e, "Summarize this:")}
             >
               Summarize
             </button>
