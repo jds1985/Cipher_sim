@@ -4,7 +4,7 @@ import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 
-import { getCipherCoin, rewardShare } from "./CipherCoin";
+import { getCipherCoin } from "./CipherCoin";
 
 /* ===============================
    CONFIG
@@ -77,14 +77,14 @@ export default function ChatPanel() {
   const sendingRef = useRef(false);
 
   /* ===============================
-     STABLE AUTO SCROLL
+     AUTO SCROLL (ANCHOR ONLY)
   ================================= */
   useEffect(() => {
-    const el = document.querySelector(".cipher-chat");
-    if (!el) return;
-
-    el.scrollTop = el.scrollHeight;
-  }, [messages.length, typing]);
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [messages, typing]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -211,7 +211,6 @@ export default function ChatPanel() {
   return (
     <div className="cipher-wrap">
       <HeaderMenu
-        title="CIPHER"
         onOpenDrawer={() => setDrawerOpen(true)}
         onNewChat={clearChat}
       />
@@ -225,8 +224,6 @@ export default function ChatPanel() {
       />
 
       <div className="cipher-chat">
-        {/* spacer */}
-        <div style={{ height: "20px", flexShrink: 0 }} />
         <MessageList messages={messages} bottomRef={bottomRef} />
       </div>
 
