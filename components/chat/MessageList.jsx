@@ -1,7 +1,6 @@
-// components/chat/MessageList.jsx
 import MessageBubble from "./MessageBubble";
 
-export default function MessageList({ messages, bottomRef, onPlayVoice }) {
+export default function MessageList({ messages, bottomRef, onPlayVoice, onQuickAction }) {
   return (
     <div className="cipher-messages">
       {messages.map((m, i) => (
@@ -16,6 +15,7 @@ export default function MessageList({ messages, bottomRef, onPlayVoice }) {
               : null
           }
           onPlayVoice={onPlayVoice}
+          onQuickAction={onQuickAction}
         />
       ))}
       <div ref={bottomRef} />
