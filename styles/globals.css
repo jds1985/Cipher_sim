@@ -101,7 +101,7 @@ body {
 }
 
 /* ===============================
-   CHAT (NOW FLEX OWNED)
+   CHAT (FLEX OWNED)
 ================================ */
 
 .cipher-chat {
@@ -120,6 +120,15 @@ body {
   gap: 18px;
 
   z-index: 1;
+
+  /* ⭐ CRITICAL: allow header taps */
+  pointer-events: none;
+}
+
+/* but messages remain interactive */
+.cipher-bubble,
+.cipher-bubble * {
+  pointer-events: auto;
 }
 
 /* ===============================
