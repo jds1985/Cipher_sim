@@ -7,6 +7,12 @@ export default function DrawerMenu({
   onInvite,
   onOpenStore,
 }) {
+  useEffect(() => {
+    if (open) {
+      console.log("📂 DRAWER MOUNTED");
+    }
+  }, [open]);
+
   if (!open) return null;
 
   // close with ESC
@@ -21,10 +27,17 @@ export default function DrawerMenu({
   return (
     <>
       {/* Overlay */}
-      <div className="cipher-drawer-overlay" onClick={onClose} />
+      <div
+        className="cipher-drawer-overlay"
+        onClick={onClose}
+        style={{ zIndex: 20000 }}
+      />
 
       {/* Drawer */}
-      <div className="cipher-drawer">
+      <div
+        className="cipher-drawer"
+        style={{ zIndex: 20001 }}
+      >
         {/* Header */}
         <div className="cipher-drawer-header">
           <div>CIPHER MENU</div>
