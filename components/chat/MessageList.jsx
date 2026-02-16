@@ -11,7 +11,7 @@ export default function MessageList({
       {messages.map((m, i) => (
         <MessageBubble
           key={i}
-          index={i}   // ⭐ PASS INDEX
+          index={i}
           role={m.role}
           content={m.content}
           modelUsed={m.modelUsed || null}
