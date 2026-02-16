@@ -73,6 +73,8 @@ export default function ChatPanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
 
+  const [selectedIndex, setSelectedIndex] = useState(null);
+
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
@@ -103,21 +105,23 @@ export default function ChatPanel() {
       localStorage.removeItem(MEMORY_KEY);
     } catch {}
     setMessages([]);
+    setSelectedIndex(null);
   }
 
   /* ===============================
-     INLINE TRANSFORM (SAFE MODE)
+     INLINE TRANSFORM
   ================================= */
-  async function runInlineTransform(index, instruction) {
-    const original = messages[index];
+  async function runInlineTransform(instruction) {
+    if (selectedIndex === null) return;
+
+    const original = messages[selectedIndex];
     if (!original?.content) return;
 
     const backup = original.content;
 
-    // mark transforming but KEEP original text
     setMessages((m) => {
       const copy = [...m];
-      copy[index] = { ...copy[index], transforming: true };
+      copy[selectedIndex] = { ...copy[selectedIndex], transforming: true };
       return copy;
     });
 
@@ -139,13 +143,12 @@ export default function ChatPanel() {
       const data = await res.json();
       const newText = data?.text || data?.content;
 
-      // 🚨 if nothing returned → DO NOT ERASE
       if (!newText) throw new Error("empty response");
 
       setMessages((m) => {
         const copy = [...m];
-        copy[index] = {
-          ...copy[index],
+        copy[selectedIndex] = {
+          ...copy[selectedIndex],
           content: newText,
           transforming: false,
         };
@@ -154,11 +157,10 @@ export default function ChatPanel() {
     } catch (err) {
       console.error(err);
 
-      // revert
       setMessages((m) => {
         const copy = [...m];
-        copy[index] = {
-          ...copy[index],
+        copy[selectedIndex] = {
+          ...copy[selectedIndex],
           content: backup,
           transforming: false,
         };
@@ -191,6 +193,7 @@ export default function ChatPanel() {
     }
 
     setInput("");
+    setSelectedIndex(null);
 
     setMessages((m) => [
       ...m,
@@ -291,9 +294,28 @@ export default function ChatPanel() {
         <MessageList
           messages={messages}
           bottomRef={bottomRef}
-          onQuickAction={runInlineTransform}
+          onSelectMessage={(i) => setSelectedIndex(i)}
+          selectedIndex={selectedIndex}
         />
       </div>
+
+      {/* ACTION BAR */}
+      {selectedIndex !== null && (
+        <div className="cipher-quick-actions" style={{ padding: "10px 18px" }}>
+          <button onClick={() => runInlineTransform("Analyze this answer:")}>
+            Analyze
+          </button>
+          <button onClick={() => runInlineTransform("Make this shorter:")}>
+            Shorter
+          </button>
+          <button onClick={() => runInlineTransform("Expand this answer:")}>
+            Longer
+          </button>
+          <button onClick={() => runInlineTransform("Summarize this:")}>
+            Summarize
+          </button>
+        </div>
+      )}
 
       <InputBar
         input={input}
