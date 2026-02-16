@@ -106,10 +106,40 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     QUICK ACTION HANDLER
+     INLINE TRANSFORM MAGIC
   ================================= */
-  function applyQuickAction(text) {
-    setInput(text);
+  async function runInlineTransform(index, instruction) {
+    const original = messages[index];
+    if (!original?.content) return;
+
+    setTyping(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `${instruction}\n\n${original.content}`,
+          history: [],
+          stream: false,
+        }),
+      });
+
+      if (!res.ok) throw new Error("transform failed");
+
+      const data = await res.json();
+      const newText = data?.text || data?.content || "";
+
+      setMessages((m) => {
+        const copy = [...m];
+        copy[index] = { ...copy[index], content: newText };
+        return copy;
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setTyping(false);
+    }
   }
 
   /* ===============================
@@ -234,7 +264,7 @@ export default function ChatPanel() {
         <MessageList
           messages={messages}
           bottomRef={bottomRef}
-          onQuickAction={applyQuickAction}
+          onQuickAction={runInlineTransform}
         />
       </div>
 
