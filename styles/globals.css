@@ -121,9 +121,35 @@ body {
 
   z-index: 1;
 
-  /* ⭐ allow normal finger scrolling */
+  /* allow finger scrolling */
   pointer-events: auto;
   touch-action: pan-y;
+}
+
+/* ===============================
+   QUICK ACTIONS (READY FOR RETURN)
+================================ */
+
+.cipher-quick-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cipher-quick-actions button {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(0,255,200,0.25);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  backdrop-filter: blur(10px);
+  transition: 0.15s ease;
+}
+
+.cipher-quick-actions button:active {
+  transform: scale(0.95);
 }
 
 /* ===============================
@@ -150,7 +176,7 @@ body {
 }
 
 /* ===============================
-   INPUT SHELL (NEON RAIL)
+   INPUT SHELL
 ================================ */
 
 .cipher-input-shell {
@@ -236,7 +262,6 @@ body {
   transform: scale(0.95);
 }
 
-/* HOLD MODE */
 .cipher-send-btn.charging {
   box-shadow:
     0 0 20px rgba(255,90,90,0.9),
