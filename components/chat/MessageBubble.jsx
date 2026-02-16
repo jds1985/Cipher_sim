@@ -6,7 +6,8 @@ export default function MessageBubble({
   content,
   modelUsed = null,
   memoryInfluence = null,
-  onQuickAction,
+  isSelected = false,
+  onSelect,
 }) {
   const cleanRole = String(role || "").trim();
   const isUser = cleanRole === "user";
@@ -49,68 +50,38 @@ export default function MessageBubble({
     }
   }
 
-  function fireQuick(e, instruction) {
-    e.stopPropagation();
-    onQuickAction?.(index, instruction);
+  function handleSelect() {
+    if (isUser) return;
+    onSelect?.(index);
   }
 
   return (
     <div
       className="cipher-row"
+      onClick={handleSelect}
       style={{
         display: "flex",
         justifyContent: isUser ? "flex-end" : "flex-start",
         padding: "8px 12px",
+        cursor: isUser ? "default" : "pointer",
       }}
     >
       <div
         className={
-          isUser ? "cipher-msg-user cipher-live" : "cipher-msg-assistant"
+          isUser
+            ? "cipher-msg-user cipher-live"
+            : "cipher-msg-assistant"
         }
-        style={{ maxWidth: "75%", width: "fit-content" }}
+        style={{
+          maxWidth: "75%",
+          width: "fit-content",
+          outline: isSelected
+            ? "2px solid rgba(0,255,200,0.9)"
+            : "none",
+        }}
       >
         {/* TEXT */}
         <div className="cipher-text">{content || "…"}</div>
-
-        {/* QUICK ACTIONS */}
-        {!isUser && content && (
-          <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-            }}
-          >
-            <button
-              className="cipher-btn-secondary"
-              onClick={(e) => fireQuick(e, "Analyze this answer:")}
-            >
-              Analyze
-            </button>
-
-            <button
-              className="cipher-btn-secondary"
-              onClick={(e) => fireQuick(e, "Make this shorter:")}
-            >
-              Shorter
-            </button>
-
-            <button
-              className="cipher-btn-secondary"
-              onClick={(e) => fireQuick(e, "Expand this answer:")}
-            >
-              Longer
-            </button>
-
-            <button
-              className="cipher-btn-secondary"
-              onClick={(e) => fireQuick(e, "Summarize this:")}
-            >
-              Summarize
-            </button>
-          </div>
-        )}
 
         {/* SPEAK + COPY */}
         {!isUser && content && (
