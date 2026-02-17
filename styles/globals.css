@@ -412,3 +412,49 @@ body {
   white-space: pre-wrap;
   line-height: 1.4;
 }
+
+/* ===============================
+   ⭐ TRANSFORM + THINKING ANIMATION
+================================ */
+
+/* shimmer animation */
+@keyframes cipherShimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+/* pulse animation */
+@keyframes cipherPulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+/* applied when message.transforming === true */
+.cipher-transforming {
+  position: relative;
+  overflow: hidden;
+  animation: cipherPulse 1.2s ease-in-out infinite;
+}
+
+/* shimmer overlay */
+.cipher-transforming::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0,255,200,0.15),
+    transparent
+  );
+
+  background-size: 400px 100%;
+  animation: cipherShimmer 1.4s linear infinite;
+  pointer-events: none;
+}
