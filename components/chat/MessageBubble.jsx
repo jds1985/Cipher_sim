@@ -116,35 +116,32 @@ export default function MessageBubble({
       </div>
 
       {/* METADATA TABS (OUTSIDE BUBBLE) */}
-      {!isUser && (
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            marginTop: "4px",
-            fontSize: "11px",
-            opacity: 0.7,
-          }}
-        >
-          {modelUsed && (
-            <span
-              onClick={stop}
-              style={{ cursor: "default" }}
-            >
-              {modelUsed}
-            </span>
-          )}
+{!isUser && (
+  <div
+    style={{
+      display: "flex",
+      gap: "12px",
+      marginTop: "4px",
+      fontSize: "11px",
+      opacity: 0.7,
+    }}
+  >
+    {modelUsed && (
+      <span style={{ cursor: "default" }}>
+        {modelUsed}
+      </span>
+    )}
 
-          {memoryCount > 0 && (
-            <span
-              onClick={stop}
-              style={{ cursor: "pointer" }}
-            >
-              memory ({memoryCount})
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+    {memoryCount > 0 && (
+      <span
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect?.(index, { openMemory: true });
+        }}
+        style={{ cursor: "pointer" }}
+      >
+        memory ({memoryCount})
+      </span>
+    )}
+  </div>
+)}
