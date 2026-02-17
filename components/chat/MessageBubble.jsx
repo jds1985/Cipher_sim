@@ -6,6 +6,7 @@ export default function MessageBubble({
   content,
   modelUsed = null,
   memoryInfluence = null,
+  transforming = false, // ⭐ NEW
   isSelected = false,
   selectable = true,
   onSelect,
@@ -52,17 +53,9 @@ export default function MessageBubble({
   }
 
   function handleSelect(e) {
-    // prevent nested elements from hijacking
     if (!selectable || isUser) return;
-
     e.stopPropagation();
-
-    // toggle behavior
-    if (isSelected) {
-      onSelect?.(null);
-    } else {
-      onSelect?.(index);
-    }
+    isSelected ? onSelect?.(null) : onSelect?.(index);
   }
 
   return (
@@ -83,17 +76,18 @@ export default function MessageBubble({
           maxWidth: "75%",
           width: "fit-content",
           cursor: selectable && !isUser ? "pointer" : "default",
-
-          // ✅ FIX: boxShadow doesn't change layout (outline can)
           boxShadow: isSelected ? "0 0 0 2px rgba(0,255,200,0.9)" : "none",
           transition: "box-shadow 0.15s ease",
+          opacity: transforming ? 0.75 : 1,
         }}
       >
         {/* TEXT */}
-        <div className="cipher-text">{content || "…"}</div>
+        <div className="cipher-text">
+          {transforming ? "Thinking…" : content || "…"}
+        </div>
 
         {/* SPEAK + COPY */}
-        {!isUser && content && (
+        {!isUser && content && !transforming && (
           <div className="cipher-actions">
             <div className="cipher-buttons">
               <button
