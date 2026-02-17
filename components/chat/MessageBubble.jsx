@@ -6,7 +6,7 @@ export default function MessageBubble({
   content,
   modelUsed = null,
   memoryInfluence = null,
-  transforming = false, // ⭐ NEW
+  transforming = false,
   isSelected = false,
   selectable = true,
   onSelect,
@@ -70,7 +70,8 @@ export default function MessageBubble({
       <div
         onClick={handleSelect}
         className={
-          isUser ? "cipher-msg-user cipher-live" : "cipher-msg-assistant"
+          (isUser ? "cipher-msg-user cipher-live " : "cipher-msg-assistant ") +
+          (transforming ? "cipher-transforming" : "")
         }
         style={{
           maxWidth: "75%",
@@ -78,7 +79,7 @@ export default function MessageBubble({
           cursor: selectable && !isUser ? "pointer" : "default",
           boxShadow: isSelected ? "0 0 0 2px rgba(0,255,200,0.9)" : "none",
           transition: "box-shadow 0.15s ease",
-          opacity: transforming ? 0.75 : 1,
+          opacity: transforming ? 0.85 : 1,
         }}
       >
         {/* TEXT */}
