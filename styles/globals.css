@@ -46,7 +46,6 @@ body {
 
 /* ===============================
    🔥 NEW MAIN FLEX LAYER
-   (REQUIRED FOR DOCK TO SHOW)
 ================================ */
 
 .cipher-main {
@@ -135,7 +134,7 @@ body {
 }
 
 /* ===============================
-   QUICK ACTION DOCK – VISIBLE AF
+   QUICK ACTION DOCK
 ================================ */
 
 .cipher-quick-actions {
