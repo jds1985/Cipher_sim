@@ -83,10 +83,10 @@ export default function MessageBubble({
           maxWidth: "75%",
           width: "fit-content",
           cursor: selectable && !isUser ? "pointer" : "default",
-          outline: isSelected
-            ? "2px solid rgba(0,255,200,0.9)"
-            : "none",
-          transition: "outline 0.15s ease",
+
+          // ✅ FIX: boxShadow doesn't change layout (outline can)
+          boxShadow: isSelected ? "0 0 0 2px rgba(0,255,200,0.9)" : "none",
+          transition: "box-shadow 0.15s ease",
         }}
       >
         {/* TEXT */}
