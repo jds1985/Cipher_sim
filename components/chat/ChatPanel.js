@@ -77,9 +77,6 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
-  /* ===============================
-     AUTO SCROLL
-  ================================= */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
@@ -107,9 +104,6 @@ export default function ChatPanel() {
     setSelectedIndex(null);
   }
 
-  /* ===============================
-     INLINE TRANSFORM
-  ================================= */
   async function runInlineTransform(instruction) {
     if (selectedIndex === null) return;
 
@@ -153,9 +147,7 @@ export default function ChatPanel() {
         };
         return copy;
       });
-    } catch (err) {
-      console.error(err);
-
+    } catch {
       setMessages((m) => {
         const copy = [...m];
         copy[selectedIndex] = {
@@ -170,9 +162,6 @@ export default function ChatPanel() {
     }
   }
 
-  /* ===============================
-     USER SEND
-  ================================= */
   async function sendMessage(opts = {}) {
     if (sendingRef.current) return;
 
@@ -271,9 +260,6 @@ export default function ChatPanel() {
     }
   }
 
-  /* ===============================
-     RENDER
-  =============================== */
   return (
     <div className="cipher-wrap">
       <HeaderMenu
@@ -289,7 +275,6 @@ export default function ChatPanel() {
         onOpenStore={() => (window.location.href = "/store")}
       />
 
-      {/* NEW MAIN CONTAINER */}
       <div className="cipher-main">
         <div className="cipher-chat">
           <MessageList
@@ -299,28 +284,34 @@ export default function ChatPanel() {
             selectedIndex={selectedIndex}
           />
         </div>
-
-       <div style={{ color: "red", padding: 8 }}>
-  Selected: {String(selectedIndex)}
-</div>
-{/* ACTION DOCK */}
-        {selectedIndex !== null && (
-          <div className="cipher-quick-actions">
-            <button onClick={() => runInlineTransform("Analyze this answer:")}>
-              Analyze
-            </button>
-            <button onClick={() => runInlineTransform("Make this shorter:")}>
-              Shorter
-            </button>
-            <button onClick={() => runInlineTransform("Expand this answer:")}>
-              Longer
-            </button>
-            <button onClick={() => runInlineTransform("Summarize this:")}>
-              Summarize
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* FLOATING ACTION DOCK */}
+      {selectedIndex !== null && (
+        <div
+          className="cipher-quick-actions"
+          style={{
+            position: "fixed",
+            bottom: "92px",
+            left: 0,
+            right: 0,
+            zIndex: 99999,
+          }}
+        >
+          <button onClick={() => runInlineTransform("Analyze this answer:")}>
+            Analyze
+          </button>
+          <button onClick={() => runInlineTransform("Make this shorter:")}>
+            Shorter
+          </button>
+          <button onClick={() => runInlineTransform("Expand this answer:")}>
+            Longer
+          </button>
+          <button onClick={() => runInlineTransform("Summarize this:")}>
+            Summarize
+          </button>
+        </div>
+      )}
 
       <InputBar
         input={input}
