@@ -300,7 +300,10 @@ export default function ChatPanel() {
           />
         </div>
 
-        {/* ACTION DOCK */}
+       <div style={{ color: "red", padding: 8 }}>
+  Selected: {String(selectedIndex)}
+</div>
+{/* ACTION DOCK */}
         {selectedIndex !== null && (
           <div className="cipher-quick-actions">
             <button onClick={() => runInlineTransform("Analyze this answer:")}>
