@@ -74,6 +74,7 @@ export default function ChatPanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(null);
+  const [showMemory, setShowMemory] = useState(false); // ⭐ added
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
@@ -106,6 +107,16 @@ export default function ChatPanel() {
     } catch {}
     setMessages([]);
     setSelectedIndex(null);
+    setShowMemory(false);
+  }
+
+  function handleSelectMessage(i, options = {}) {
+    setSelectedIndex(i);
+    if (options.openMemory) {
+      setShowMemory(true);
+    } else {
+      setShowMemory(false);
+    }
   }
 
   /* ===============================
@@ -119,7 +130,6 @@ export default function ChatPanel() {
 
     const backup = original.content;
 
-    // ⭐ show visual transforming state
     setMessages((m) => {
       const copy = [...m];
       copy[selectedIndex] = { ...copy[selectedIndex], transforming: true };
@@ -200,6 +210,7 @@ export default function ChatPanel() {
 
     setInput("");
     setSelectedIndex(null);
+    setShowMemory(false);
 
     setMessages((m) => [
       ...m,
@@ -298,11 +309,28 @@ export default function ChatPanel() {
           <MessageList
             messages={messages}
             bottomRef={bottomRef}
-            onSelectMessage={(i) => setSelectedIndex(i)}
+            onSelectMessage={handleSelectMessage}
             selectedIndex={selectedIndex}
           />
         </div>
       </div>
+
+      {showMemory && selectedIndex !== null && (
+        <div className="cipher-memory-panel">
+          {messages[selectedIndex]?.memoryInfluence?.length > 0 ? (
+            messages[selectedIndex].memoryInfluence.map((mem, i) => (
+              <div key={i} className="cipher-memory-item">
+                <div>{mem.type}</div>
+                <div>{mem.id}</div>
+                <div>score: {mem.score}</div>
+                <div>{mem.preview}</div>
+              </div>
+            ))
+          ) : (
+            <div>No memory used.</div>
+          )}
+        </div>
+      )}
 
       {selectedIndex !== null && (
         <QuickActions onAction={runInlineTransform} />
