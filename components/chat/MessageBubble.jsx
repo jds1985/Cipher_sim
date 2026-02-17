@@ -17,6 +17,10 @@ export default function MessageBubble({
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef(null);
 
+  const memoryCount = Array.isArray(memoryInfluence)
+    ? memoryInfluence.length
+    : 0;
+
   function copy(e) {
     e.stopPropagation();
     try {
@@ -58,19 +62,21 @@ export default function MessageBubble({
     isSelected ? onSelect?.(null) : onSelect?.(index);
   }
 
-  const memoryCount = Array.isArray(memoryInfluence)
-    ? memoryInfluence.length
-    : 0;
+  function stop(e) {
+    e.stopPropagation();
+  }
 
   return (
     <div
       className="cipher-row"
       style={{
         display: "flex",
-        justifyContent: isUser ? "flex-end" : "flex-start",
+        flexDirection: "column",
+        alignItems: isUser ? "flex-end" : "flex-start",
         padding: "8px 12px",
       }}
     >
+      {/* MAIN BUBBLE */}
       <div
         onClick={handleSelect}
         className={
@@ -85,29 +91,10 @@ export default function MessageBubble({
           opacity: transforming ? 0.75 : 1,
         }}
       >
-        {/* MODEL + MEMORY HEADER */}
-        {!isUser && (
-          <div
-            style={{
-              fontSize: "11px",
-              opacity: 0.65,
-              marginBottom: "6px",
-              display: "flex",
-              gap: "10px",
-              alignItems: "center",
-            }}
-          >
-            {modelUsed && <span>model: {modelUsed}</span>}
-            {memoryCount > 0 && <span>memory: {memoryCount}</span>}
-          </div>
-        )}
-
-        {/* TEXT */}
         <div className="cipher-text">
           {transforming ? "Thinking…" : content || "…"}
         </div>
 
-        {/* SPEAK + COPY */}
         {!isUser && content && !transforming && (
           <div className="cipher-actions">
             <div className="cipher-buttons">
@@ -127,6 +114,37 @@ export default function MessageBubble({
           </div>
         )}
       </div>
+
+      {/* METADATA TABS (OUTSIDE BUBBLE) */}
+      {!isUser && (
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            marginTop: "4px",
+            fontSize: "11px",
+            opacity: 0.7,
+          }}
+        >
+          {modelUsed && (
+            <span
+              onClick={stop}
+              style={{ cursor: "default" }}
+            >
+              {modelUsed}
+            </span>
+          )}
+
+          {memoryCount > 0 && (
+            <span
+              onClick={stop}
+              style={{ cursor: "pointer" }}
+            >
+              memory ({memoryCount})
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
