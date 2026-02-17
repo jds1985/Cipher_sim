@@ -139,7 +139,9 @@ body {
 ================================ */
 
 .cipher-quick-actions {
-  position: relative;
+  /* ✅ FIX: keep dock visible even when chat reflows */
+  position: sticky;
+  bottom: 0;
 
   display: flex;
   gap: 10px;
