@@ -51,29 +51,38 @@ export default function MessageBubble({
     }
   }
 
-  function handleSelect() {
+  function handleSelect(e) {
+    // prevent nested elements from hijacking
     if (!selectable || isUser) return;
-    onSelect?.(index);
+
+    e.stopPropagation();
+
+    // toggle behavior
+    if (isSelected) {
+      onSelect?.(null);
+    } else {
+      onSelect?.(index);
+    }
   }
 
   return (
     <div
       className="cipher-row"
-      onClick={handleSelect}
       style={{
         display: "flex",
         justifyContent: isUser ? "flex-end" : "flex-start",
         padding: "8px 12px",
-        cursor: selectable && !isUser ? "pointer" : "default",
       }}
     >
       <div
+        onClick={handleSelect}
         className={
           isUser ? "cipher-msg-user cipher-live" : "cipher-msg-assistant"
         }
         style={{
           maxWidth: "75%",
           width: "fit-content",
+          cursor: selectable && !isUser ? "pointer" : "default",
           outline: isSelected
             ? "2px solid rgba(0,255,200,0.9)"
             : "none",
