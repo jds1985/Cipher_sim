@@ -74,9 +74,15 @@ export default function ChatPanel() {
   const [coinBalance, setCoinBalance] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(null);
 
+  // ⭐ NEW: toggle memory panel
+  const [showMemory, setShowMemory] = useState(false);
+
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
+  /* ===============================
+     AUTO SCROLL
+  ================================= */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
@@ -102,8 +108,12 @@ export default function ChatPanel() {
     } catch {}
     setMessages([]);
     setSelectedIndex(null);
+    setShowMemory(false);
   }
 
+  /* ===============================
+     INLINE TRANSFORM
+  ================================= */
   async function runInlineTransform(instruction) {
     if (selectedIndex === null) return;
 
@@ -134,7 +144,14 @@ export default function ChatPanel() {
       if (!res.ok) throw new Error("transform failed");
 
       const data = await res.json();
-      const newText = data?.text || data?.content;
+
+      // ✅ FIX: your API returns { reply } in non-stream mode
+      const newText =
+        data?.reply ||
+        data?.text ||
+        data?.content ||
+        data?.message ||
+        null;
 
       if (!newText) throw new Error("empty response");
 
@@ -144,10 +161,16 @@ export default function ChatPanel() {
           ...copy[selectedIndex],
           content: newText,
           transforming: false,
+          // optional: keep model + memory in sync if provided
+          modelUsed: data?.model || copy[selectedIndex]?.modelUsed || null,
+          memoryInfluence:
+            data?.memoryInfluence || copy[selectedIndex]?.memoryInfluence || [],
         };
         return copy;
       });
-    } catch {
+    } catch (err) {
+      console.error("INLINE TRANSFORM ERROR:", err);
+
       setMessages((m) => {
         const copy = [...m];
         copy[selectedIndex] = {
@@ -162,6 +185,9 @@ export default function ChatPanel() {
     }
   }
 
+  /* ===============================
+     USER SEND
+  ================================= */
   async function sendMessage(opts = {}) {
     if (sendingRef.current) return;
 
@@ -182,6 +208,7 @@ export default function ChatPanel() {
 
     setInput("");
     setSelectedIndex(null);
+    setShowMemory(false);
 
     setMessages((m) => [
       ...m,
@@ -260,6 +287,19 @@ export default function ChatPanel() {
     }
   }
 
+  /* ===============================
+     HELPERS
+  =============================== */
+  const selectedMsg =
+    selectedIndex !== null ? messages?.[selectedIndex] : null;
+
+  const selectedMemory = Array.isArray(selectedMsg?.memoryInfluence)
+    ? selectedMsg.memoryInfluence
+    : [];
+
+  /* ===============================
+     RENDER
+  =============================== */
   return (
     <div className="cipher-wrap">
       <HeaderMenu
@@ -275,43 +315,84 @@ export default function ChatPanel() {
         onOpenStore={() => (window.location.href = "/store")}
       />
 
+      {/* NEW MAIN CONTAINER */}
       <div className="cipher-main">
         <div className="cipher-chat">
           <MessageList
             messages={messages}
             bottomRef={bottomRef}
-            onSelectMessage={setSelectedIndex}
+            onSelectMessage={(i) => {
+              setSelectedIndex(i);
+              setShowMemory(false);
+            }}
             selectedIndex={selectedIndex}
           />
         </div>
-      </div>
 
-      {/* FLOATING ACTION DOCK */}
-      {selectedIndex !== null && (
-        <div
-          className="cipher-quick-actions"
-          style={{
-            position: "fixed",
-            bottom: "92px",
-            left: 0,
-            right: 0,
-            zIndex: 99999,
-          }}
-        >
-          <button onClick={() => runInlineTransform("Analyze this answer:")}>
-            Analyze
-          </button>
-          <button onClick={() => runInlineTransform("Make this shorter:")}>
-            Shorter
-          </button>
-          <button onClick={() => runInlineTransform("Expand this answer:")}>
-            Longer
-          </button>
-          <button onClick={() => runInlineTransform("Summarize this:")}>
-            Summarize
-          </button>
-        </div>
-      )}
+        {/* ACTION DOCK */}
+        {selectedIndex !== null && (
+          <div className="cipher-quick-actions">
+            <button onClick={() => runInlineTransform("Analyze this answer:")}>
+              Analyze
+            </button>
+            <button onClick={() => runInlineTransform("Make this shorter:")}>
+              Shorter
+            </button>
+            <button onClick={() => runInlineTransform("Expand this answer:")}>
+              Longer
+            </button>
+            <button onClick={() => runInlineTransform("Summarize this:")}>
+              Summarize
+            </button>
+
+            {/* ⭐ MISSING MEMORY BUTTON RESTORED */}
+            <button
+              onClick={() => setShowMemory((v) => !v)}
+              className="cipher-btn-memory"
+              title="Show memory influence for this reply"
+            >
+              Memory
+            </button>
+          </div>
+        )}
+
+        {/* MEMORY PANEL */}
+        {selectedIndex !== null && showMemory && (
+          <div className="cipher-memory-panel">
+            <div className="cipher-memory-title">
+              Memory Influence ({selectedMemory.length})
+            </div>
+
+            {selectedMemory.length === 0 ? (
+              <div className="cipher-memory-empty">No memory nodes attached.</div>
+            ) : (
+              <div className="cipher-memory-list">
+                {selectedMemory.map((n, idx) => (
+                  <div key={n?.id || idx} className="cipher-memory-item">
+                    <div className="cipher-memory-meta">
+                      <span className="cipher-memory-type">
+                        {n?.type || "node"}
+                      </span>
+                      <span className="cipher-memory-id">
+                        {n?.id ? `#${String(n.id).slice(0, 10)}` : ""}
+                      </span>
+                      <span className="cipher-memory-score">
+                        {Number.isFinite(n?.importance) ? `★ ${n.importance}` : ""}
+                      </span>
+                      {n?.locked ? (
+                        <span className="cipher-memory-locked">locked</span>
+                      ) : null}
+                    </div>
+                    <div className="cipher-memory-preview">
+                      {n?.preview || ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <InputBar
         input={input}
