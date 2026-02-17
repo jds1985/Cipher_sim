@@ -72,7 +72,6 @@ export default function ChatPanel() {
   const [typing, setTyping] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
-
   const [selectedIndex, setSelectedIndex] = useState(null);
 
   const bottomRef = useRef(null);
@@ -290,32 +289,35 @@ export default function ChatPanel() {
         onOpenStore={() => (window.location.href = "/store")}
       />
 
-      <div className="cipher-chat">
-        <MessageList
-          messages={messages}
-          bottomRef={bottomRef}
-          onSelectMessage={setSelectedIndex}
-          selectedIndex={selectedIndex}
-        />
-      </div>
-
-      {/* ACTION DOCK */}
-      {selectedIndex !== null && (
-        <div className="cipher-quick-actions" style={{ padding: "10px 18px" }}>
-          <button onClick={() => runInlineTransform("Analyze this answer:")}>
-            Analyze
-          </button>
-          <button onClick={() => runInlineTransform("Make this shorter:")}>
-            Shorter
-          </button>
-          <button onClick={() => runInlineTransform("Expand this answer:")}>
-            Longer
-          </button>
-          <button onClick={() => runInlineTransform("Summarize this:")}>
-            Summarize
-          </button>
+      {/* NEW MAIN CONTAINER */}
+      <div className="cipher-main">
+        <div className="cipher-chat">
+          <MessageList
+            messages={messages}
+            bottomRef={bottomRef}
+            onSelectMessage={setSelectedIndex}
+            selectedIndex={selectedIndex}
+          />
         </div>
-      )}
+
+        {/* ACTION DOCK */}
+        {selectedIndex !== null && (
+          <div className="cipher-quick-actions">
+            <button onClick={() => runInlineTransform("Analyze this answer:")}>
+              Analyze
+            </button>
+            <button onClick={() => runInlineTransform("Make this shorter:")}>
+              Shorter
+            </button>
+            <button onClick={() => runInlineTransform("Expand this answer:")}>
+              Longer
+            </button>
+            <button onClick={() => runInlineTransform("Summarize this:")}>
+              Summarize
+            </button>
+          </div>
+        )}
+      </div>
 
       <InputBar
         input={input}
