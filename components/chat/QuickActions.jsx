@@ -1,24 +1,15 @@
-// components/chat/QuickActions.jsx
-
-export default function QuickActions({ onSelect }) {
+export default function QuickActions({ onAction }) {
   const actions = [
-    { id: "summarize", label: "Summarize" },
-    { id: "explain_code", label: "Explain Code" },
-    { id: "analyze", label: "Analyze" },
-    { id: "improve", label: "Improve" },
-    { id: "longer", label: "Longer" },
-    { id: "shorter", label: "Shorter" },
+    { id: "analyze", label: "Analyze", prompt: "Analyze this answer:" },
+    { id: "shorter", label: "Shorter", prompt: "Make this shorter:" },
+    { id: "longer", label: "Longer", prompt: "Expand this answer:" },
+    { id: "summarize", label: "Summarize", prompt: "Summarize this:" },
   ];
 
   return (
-    <div className="cipher-qa">
+    <div className="cipher-quick-actions">
       {actions.map((a) => (
-        <button
-          key={a.id}
-          className="cipher-btn"
-          type="button"
-          onClick={() => onSelect?.(a.id)}
-        >
+        <button key={a.id} onClick={() => onAction(a.prompt)}>
           {a.label}
         </button>
       ))}
