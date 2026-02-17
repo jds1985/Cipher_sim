@@ -23,6 +23,7 @@ export default function MessageList({
                 ? m.memoryInfluence || null
                 : null
             }
+            transforming={m.transforming || false}  {/* ⭐ ADDED */}
             isSelected={selectedIndex === i}
             selectable={selectable}
             onSelect={onSelectMessage}
