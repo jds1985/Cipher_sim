@@ -73,8 +73,6 @@ export default function ChatPanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(null);
-
-  // ⭐ NEW: toggle memory panel
   const [showMemory, setShowMemory] = useState(false);
 
   const bottomRef = useRef(null);
@@ -145,7 +143,6 @@ export default function ChatPanel() {
 
       const data = await res.json();
 
-      // ✅ FIX: your API returns { reply } in non-stream mode
       const newText =
         data?.reply ||
         data?.text ||
@@ -161,7 +158,6 @@ export default function ChatPanel() {
           ...copy[selectedIndex],
           content: newText,
           transforming: false,
-          // optional: keep model + memory in sync if provided
           modelUsed: data?.model || copy[selectedIndex]?.modelUsed || null,
           memoryInfluence:
             data?.memoryInfluence || copy[selectedIndex]?.memoryInfluence || [],
@@ -287,9 +283,6 @@ export default function ChatPanel() {
     }
   }
 
-  /* ===============================
-     HELPERS
-  =============================== */
   const selectedMsg =
     selectedIndex !== null ? messages?.[selectedIndex] : null;
 
@@ -315,7 +308,6 @@ export default function ChatPanel() {
         onOpenStore={() => (window.location.href = "/store")}
       />
 
-      {/* NEW MAIN CONTAINER */}
       <div className="cipher-main">
         <div className="cipher-chat">
           <MessageList
@@ -329,7 +321,6 @@ export default function ChatPanel() {
           />
         </div>
 
-        {/* ACTION DOCK */}
         {selectedIndex !== null && (
           <div className="cipher-quick-actions">
             <button onClick={() => runInlineTransform("Analyze this answer:")}>
@@ -345,7 +336,6 @@ export default function ChatPanel() {
               Summarize
             </button>
 
-            {/* ⭐ MISSING MEMORY BUTTON RESTORED */}
             <button
               onClick={() => setShowMemory((v) => !v)}
               className="cipher-btn-memory"
@@ -356,7 +346,6 @@ export default function ChatPanel() {
           </div>
         )}
 
-        {/* MEMORY PANEL */}
         {selectedIndex !== null && showMemory && (
           <div className="cipher-memory-panel">
             <div className="cipher-memory-title">
@@ -364,7 +353,9 @@ export default function ChatPanel() {
             </div>
 
             {selectedMemory.length === 0 ? (
-              <div className="cipher-memory-empty">No memory nodes attached.</div>
+              <div className="cipher-memory-empty">
+                No memory nodes attached.
+              </div>
             ) : (
               <div className="cipher-memory-list">
                 {selectedMemory.map((n, idx) => (
@@ -377,7 +368,9 @@ export default function ChatPanel() {
                         {n?.id ? `#${String(n.id).slice(0, 10)}` : ""}
                       </span>
                       <span className="cipher-memory-score">
-                        {Number.isFinite(n?.importance) ? `★ ${n.importance}` : ""}
+                        {Number.isFinite(n?.importance)
+                          ? `★ ${n.importance}`
+                          : ""}
                       </span>
                       {n?.locked ? (
                         <span className="cipher-memory-locked">locked</span>
@@ -392,14 +385,15 @@ export default function ChatPanel() {
             )}
           </div>
         )}
-      </div>
 
-      <InputBar
-        input={input}
-        setInput={setInput}
-        onSend={sendMessage}
-        typing={typing}
-      />
+        {/* ✅ MOVED INPUTBAR INSIDE cipher-main */}
+        <InputBar
+          input={input}
+          setInput={setInput}
+          onSend={sendMessage}
+          typing={typing}
+        />
+      </div>
     </div>
   );
 }
