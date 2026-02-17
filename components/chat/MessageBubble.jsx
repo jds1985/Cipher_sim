@@ -58,6 +58,10 @@ export default function MessageBubble({
     isSelected ? onSelect?.(null) : onSelect?.(index);
   }
 
+  const memoryCount = Array.isArray(memoryInfluence)
+    ? memoryInfluence.length
+    : 0;
+
   return (
     <div
       className="cipher-row"
@@ -70,8 +74,7 @@ export default function MessageBubble({
       <div
         onClick={handleSelect}
         className={
-          (isUser ? "cipher-msg-user cipher-live " : "cipher-msg-assistant ") +
-          (transforming ? "cipher-transforming" : "")
+          isUser ? "cipher-msg-user cipher-live" : "cipher-msg-assistant"
         }
         style={{
           maxWidth: "75%",
@@ -79,9 +82,26 @@ export default function MessageBubble({
           cursor: selectable && !isUser ? "pointer" : "default",
           boxShadow: isSelected ? "0 0 0 2px rgba(0,255,200,0.9)" : "none",
           transition: "box-shadow 0.15s ease",
-          opacity: transforming ? 0.85 : 1,
+          opacity: transforming ? 0.75 : 1,
         }}
       >
+        {/* MODEL + MEMORY HEADER */}
+        {!isUser && (
+          <div
+            style={{
+              fontSize: "11px",
+              opacity: 0.65,
+              marginBottom: "6px",
+              display: "flex",
+              gap: "10px",
+              alignItems: "center",
+            }}
+          >
+            {modelUsed && <span>model: {modelUsed}</span>}
+            {memoryCount > 0 && <span>memory: {memoryCount}</span>}
+          </div>
+        )}
+
         {/* TEXT */}
         <div className="cipher-text">
           {transforming ? "Thinking…" : content || "…"}
