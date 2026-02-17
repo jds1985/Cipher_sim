@@ -62,8 +62,9 @@ export default function MessageBubble({
     isSelected ? onSelect?.(null) : onSelect?.(index);
   }
 
-  function stop(e) {
+  function handleMemoryClick(e) {
     e.stopPropagation();
+    onSelect?.(index, { openMemory: true });
   }
 
   return (
@@ -76,7 +77,6 @@ export default function MessageBubble({
         padding: "8px 12px",
       }}
     >
-      {/* MAIN BUBBLE */}
       <div
         onClick={handleSelect}
         className={
@@ -88,7 +88,7 @@ export default function MessageBubble({
           cursor: selectable && !isUser ? "pointer" : "default",
           boxShadow: isSelected ? "0 0 0 2px rgba(0,255,200,0.9)" : "none",
           transition: "box-shadow 0.15s ease",
-          opacity: transforming ? 0.75 : 1,
+          opacity: transforming ? 0.85 : 1,
         }}
       >
         <div className="cipher-text">
@@ -100,9 +100,7 @@ export default function MessageBubble({
             <div className="cipher-buttons">
               <button
                 onClick={speak}
-                className={`cipher-btn-secondary ${
-                  speaking ? "cipher-live" : ""
-                }`}
+                className={speaking ? "cipher-btn-secondary cipher-live" : "cipher-btn-secondary"}
               >
                 {speaking ? "speaking…" : "speak"}
               </button>
@@ -115,33 +113,28 @@ export default function MessageBubble({
         )}
       </div>
 
-      {/* METADATA TABS (OUTSIDE BUBBLE) */}
-{!isUser && (
-  <div
-    style={{
-      display: "flex",
-      gap: "12px",
-      marginTop: "4px",
-      fontSize: "11px",
-      opacity: 0.7,
-    }}
-  >
-    {modelUsed && (
-      <span style={{ cursor: "default" }}>
-        {modelUsed}
-      </span>
-    )}
+      {!isUser && (
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            marginTop: "4px",
+            fontSize: "11px",
+            opacity: 0.7,
+          }}
+        >
+          {modelUsed && <span>{modelUsed}</span>}
 
-    {memoryCount > 0 && (
-      <span
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect?.(index, { openMemory: true });
-        }}
-        style={{ cursor: "pointer" }}
-      >
-        memory ({memoryCount})
-      </span>
-    )}
-  </div>
-)}
+          {memoryCount > 0 && (
+            <span
+              style={{ cursor: "pointer" }}
+              onClick={handleMemoryClick}
+            >
+              memory ({memoryCount})
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
