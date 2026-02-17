@@ -3,7 +3,7 @@ import HeaderMenu from "./HeaderMenu";
 import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
-import QuickActions from "./QuickActions"; // ✅ RESTORED
+import QuickActions from "./QuickActions";
 
 import { getCipherCoin } from "./CipherCoin";
 
@@ -119,6 +119,13 @@ export default function ChatPanel() {
 
     const backup = original.content;
 
+    // ⭐ show visual transforming state
+    setMessages((m) => {
+      const copy = [...m];
+      copy[selectedIndex] = { ...copy[selectedIndex], transforming: true };
+      return copy;
+    });
+
     setTyping(true);
 
     try {
@@ -150,21 +157,34 @@ export default function ChatPanel() {
         copy[selectedIndex] = {
           ...copy[selectedIndex],
           content: newText,
+          transforming: false,
           modelUsed: data?.model || copy[selectedIndex]?.modelUsed || null,
           memoryInfluence:
-            data?.memoryInfluence || copy[selectedIndex]?.memoryInfluence || [],
+            data?.memoryInfluence ||
+            copy[selectedIndex]?.memoryInfluence ||
+            [],
         };
         return copy;
       });
     } catch (err) {
       console.error("INLINE TRANSFORM ERROR:", err);
+
+      setMessages((m) => {
+        const copy = [...m];
+        copy[selectedIndex] = {
+          ...copy[selectedIndex],
+          content: backup,
+          transforming: false,
+        };
+        return copy;
+      });
     } finally {
       setTyping(false);
     }
   }
 
   /* ===============================
-     USER SEND (UNCHANGED)
+     USER SEND
   ================================= */
   async function sendMessage(opts = {}) {
     if (sendingRef.current) return;
@@ -284,7 +304,6 @@ export default function ChatPanel() {
         </div>
       </div>
 
-      {/* ✅ QUICK ACTIONS RESTORED ABOVE INPUT */}
       {selectedIndex !== null && (
         <QuickActions onAction={runInlineTransform} />
       )}
