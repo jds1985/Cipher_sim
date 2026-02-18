@@ -13,7 +13,6 @@ import { getCipherCoin } from "./CipherCoin";
 const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
-const LAST_USER_MESSAGE_KEY = "cipher_last_user_message";
 
 /* ===============================
    SSE PARSER
@@ -74,7 +73,7 @@ export default function ChatPanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(null);
-  const [showMemory, setShowMemory] = useState(false); // ⭐ added
+  const [showMemory, setShowMemory] = useState(false);
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
@@ -112,11 +111,7 @@ export default function ChatPanel() {
 
   function handleSelectMessage(i, options = {}) {
     setSelectedIndex(i);
-    if (options.openMemory) {
-      setShowMemory(true);
-    } else {
-      setShowMemory(false);
-    }
+    setShowMemory(!!options.openMemory);
   }
 
   /* ===============================
@@ -168,17 +163,12 @@ export default function ChatPanel() {
           ...copy[selectedIndex],
           content: newText,
           transforming: false,
-          modelUsed: data?.model || copy[selectedIndex]?.modelUsed || null,
-          memoryInfluence:
-            data?.memoryInfluence ||
-            copy[selectedIndex]?.memoryInfluence ||
-            [],
+          modelUsed: data?.model || null,
+          memoryInfluence: data?.memoryInfluence || [],
         };
         return copy;
       });
-    } catch (err) {
-      console.error("INLINE TRANSFORM ERROR:", err);
-
+    } catch {
       setMessages((m) => {
         const copy = [...m];
         copy[selectedIndex] = {
@@ -196,7 +186,7 @@ export default function ChatPanel() {
   /* ===============================
      USER SEND
   ================================= */
-  async function sendMessage(opts = {}) {
+  async function sendMessage() {
     if (sendingRef.current) return;
 
     const text = (input || "").trim();
@@ -315,20 +305,44 @@ export default function ChatPanel() {
         </div>
       </div>
 
+      {/* MEMORY OVERLAY */}
       {showMemory && selectedIndex !== null && (
-        <div className="cipher-memory-panel">
-          {messages[selectedIndex]?.memoryInfluence?.length > 0 ? (
-            messages[selectedIndex].memoryInfluence.map((mem, i) => (
-              <div key={i} className="cipher-memory-item">
-                <div>{mem.type}</div>
-                <div>{mem.id}</div>
-                <div>score: {mem.score}</div>
-                <div>{mem.preview}</div>
+        <div
+          className="cipher-memory-overlay"
+          onClick={() => setShowMemory(false)}
+        >
+          <div
+            className="cipher-memory-panel slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cipher-memory-header">
+              <div>Memory Used</div>
+              <button
+                className="cipher-memory-close"
+                onClick={() => setShowMemory(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {messages[selectedIndex]?.memoryInfluence?.length > 0 ? (
+              messages[selectedIndex].memoryInfluence.map((mem, i) => (
+                <div key={i} className="cipher-memory-card">
+                  <div className="cipher-memory-type">{mem.type}</div>
+                  <div className="cipher-memory-preview">
+                    {mem.preview}
+                  </div>
+                  <div className="cipher-memory-score">
+                    score: {mem.score}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="cipher-memory-empty">
+                No memory used.
               </div>
-            ))
-          ) : (
-            <div>No memory used.</div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
