@@ -194,7 +194,7 @@ img {
 
   padding: 18px;
   padding-top: 12px;
-  padding-bottom: 24px;
+  padding-bottom: calc(var(--input-h) + 40px);
 
   display: flex;
   flex-direction: column;
