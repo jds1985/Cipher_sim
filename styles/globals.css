@@ -11,7 +11,9 @@
    PAGE
 ================================ */
 
-html, body, #__next {
+html,
+body,
+#__next {
   height: 100%;
 }
 
@@ -21,10 +23,18 @@ body {
 
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
-  background:
-    radial-gradient(circle at 15% 10%, rgba(90, 70, 255, 0.35), transparent 40%),
-    radial-gradient(circle at 85% 90%, rgba(0, 255, 200, 0.25), transparent 45%),
-    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03), transparent 60%),
+  background: radial-gradient(
+      circle at 15% 10%,
+      rgba(90, 70, 255, 0.35),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 85% 90%,
+      rgba(0, 255, 200, 0.25),
+      transparent 45%
+    ),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03), transparent
+          60%),
     #05060a;
 
   color: rgba(255, 255, 255, 0.94);
@@ -42,6 +52,9 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
+  /* ✅ IMPORTANT: keep overlays INSIDE the app shell */
+  position: relative;
 }
 
 .cipher-main {
@@ -65,7 +78,7 @@ body {
 
   backdrop-filter: blur(20px);
   background: rgba(10, 10, 20, 0.95);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 
   z-index: 10000;
   flex-shrink: 0;
@@ -103,14 +116,14 @@ body {
   flex-wrap: wrap;
   padding: 12px 18px;
   background: rgba(10, 10, 20, 0.98);
-  border-top: 1px solid rgba(0,255,200,0.35);
+  border-top: 1px solid rgba(0, 255, 200, 0.35);
   z-index: 9500;
   flex-shrink: 0;
 }
 
 .cipher-quick-actions button {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(0,255,200,0.45);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 255, 200, 0.45);
   color: white;
   padding: 8px 12px;
   border-radius: 12px;
@@ -133,7 +146,7 @@ body {
   padding: 16px 18px;
   backdrop-filter: blur(20px);
   background: rgba(10, 10, 20, 0.85);
-  border-top: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 9000;
   display: flex;
   align-items: center;
@@ -156,8 +169,8 @@ body {
 
 .cipher-bubble.assistant {
   align-self: flex-start;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(0,255,200,0.25);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 200, 0.25);
 }
 
 .cipher-bubble.user {
@@ -167,7 +180,7 @@ body {
     rgba(90, 70, 255, 0.95),
     rgba(0, 255, 200, 0.65)
   );
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .cipher-text {
@@ -176,37 +189,55 @@ body {
 }
 
 /* ===============================
-   ⭐ MEMORY TRAY SYSTEM
+   ⭐ MEMORY TRAY SYSTEM (FIXED)
+   ✅ NO MORE position:fixed (it nukes the app)
+   ✅ overlay stays INSIDE .cipher-wrap
 ================================ */
 
 .cipher-btn-memory {
-  border-color: rgba(90,70,255,0.55) !important;
+  border-color: rgba(90, 70, 255, 0.55) !important;
 }
 
-/* overlay */
+/* overlay (inside the app shell) */
 .cipher-memory-overlay {
-  position: fixed;
+  position: absolute;
+
+  /* cover only the app shell */
   inset: 0;
-  background: rgba(0,0,0,0.45);
+
+  /* dim but don’t break layout */
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
+
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  z-index: 20000;
+
+  /* ABOVE input + quick actions, BELOW header if you want taps blocked there */
+  z-index: 12000;
+
+  /* keep taps on overlay working */
+  pointer-events: auto;
 }
 
 /* sliding tray */
 .cipher-memory-panel {
   width: 100%;
   max-width: 640px;
+
+  /* sit above the input bar */
+  margin-bottom: calc(var(--input-h) + 10px);
+
   background: rgba(12, 14, 28, 0.98);
   border-top-left-radius: 22px;
   border-top-right-radius: 22px;
+
   padding: 22px;
   max-height: 70vh;
   overflow-y: auto;
-  box-shadow: 0 -12px 40px rgba(0,255,200,0.15);
-  border-top: 1px solid rgba(0,255,200,0.25);
+
+  box-shadow: 0 -12px 40px rgba(0, 255, 200, 0.15);
+  border-top: 1px solid rgba(0, 255, 200, 0.25);
 }
 
 .slide-up {
@@ -214,8 +245,12 @@ body {
 }
 
 @keyframes cipherSlideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 /* header */
@@ -246,8 +281,8 @@ body {
 
 /* card */
 .cipher-memory-card {
-  background: rgba(0,255,200,0.06);
-  border: 1px solid rgba(0,255,200,0.25);
+  background: rgba(0, 255, 200, 0.06);
+  border: 1px solid rgba(0, 255, 200, 0.25);
   border-radius: 16px;
   padding: 14px;
   margin-bottom: 14px;
@@ -280,14 +315,24 @@ body {
 ================================ */
 
 @keyframes cipherShimmer {
-  0% { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
 }
 
 @keyframes cipherPulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
 }
 
 .cipher-transforming {
@@ -303,7 +348,7 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(0,255,200,0.15),
+    rgba(0, 255, 200, 0.15),
     transparent
   );
   background-size: 400px 100%;
