@@ -1,137 +1,43 @@
-import { useState, useRef } from "react";
-
 export default function MessageBubble({
   index,
   role,
   content,
-  modelUsed = null,
-  memoryInfluence = null,
-  transforming = false,
-  isSelected = false,
-  selectable = true,
+  modelUsed,
+  memoryInfluence,
+  isSelected,
+  selectable,
   onSelect,
 }) {
-  const cleanRole = String(role || "").trim();
-  const isUser = cleanRole === "user";
-
-  const [speaking, setSpeaking] = useState(false);
-  const audioRef = useRef(null);
-
-  const memoryCount = Array.isArray(memoryInfluence)
-    ? memoryInfluence.length
-    : 0;
-
-  function copy(e) {
-    e.stopPropagation();
-    try {
-      navigator.clipboard.writeText(content || "");
-    } catch {}
-  }
-
-  async function speak(e) {
-    e.stopPropagation();
-    if (!content || speaking) return;
-
-    try {
-      setSpeaking(true);
-
-      const res = await fetch("/api/voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: content }),
-      });
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-
-      if (audioRef.current) audioRef.current.pause();
-
-      const audio = new Audio(url);
-      audioRef.current = audio;
-
-      audio.onended = () => setSpeaking(false);
-      await audio.play();
-    } catch {
-      setSpeaking(false);
-    }
-  }
-
-  function handleSelect(e) {
-    if (!selectable || isUser) return;
-    e.stopPropagation();
-    isSelected ? onSelect?.(null) : onSelect?.(index);
-  }
-
-  function handleMemoryClick(e) {
-    e.stopPropagation();
-    onSelect?.(index, { openMemory: true });
-  }
+  const handleClick = () => {
+    if (!selectable) return;
+    onSelect?.(index);
+  };
 
   return (
     <div
-      className="cipher-row"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: isUser ? "flex-end" : "flex-start",
-        padding: "8px 12px",
-      }}
+      className={`cipher-bubble ${role} ${
+        isSelected ? "selected" : ""
+      }`}
+      onClick={handleClick}
     >
-      <div
-        onClick={handleSelect}
-        className={
-          isUser ? "cipher-msg-user cipher-live" : "cipher-msg-assistant"
-        }
-        style={{
-          maxWidth: "75%",
-          width: "fit-content",
-          cursor: selectable && !isUser ? "pointer" : "default",
-          boxShadow: isSelected ? "0 0 0 2px rgba(0,255,200,0.9)" : "none",
-          transition: "box-shadow 0.15s ease",
-          opacity: transforming ? 0.85 : 1,
-        }}
-      >
-        <div className="cipher-text">
-          {transforming ? "Thinking…" : content || "…"}
-        </div>
+      <div className="cipher-text">{content}</div>
 
-        {!isUser && content && !transforming && (
-          <div className="cipher-actions">
-            <div className="cipher-buttons">
-              <button
-                onClick={speak}
-                className={speaking ? "cipher-btn-secondary cipher-live" : "cipher-btn-secondary"}
-              >
-                {speaking ? "speaking…" : "speak"}
-              </button>
+      {role === "assistant" && (
+        <div className="cipher-meta">
+          {modelUsed && (
+            <span className="cipher-model">{modelUsed}</span>
+          )}
 
-              <button onClick={copy} className="cipher-btn-secondary">
-                copy
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {!isUser && (
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            marginTop: "4px",
-            fontSize: "11px",
-            opacity: 0.7,
-          }}
-        >
-          {modelUsed && <span>{modelUsed}</span>}
-
-          {memoryCount > 0 && (
-            <span
-              style={{ cursor: "pointer" }}
-              onClick={handleMemoryClick}
+          {memoryInfluence && memoryInfluence.length > 0 && (
+            <button
+              className="cipher-btn-memory"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log("Memory tapped:", memoryInfluence);
+              }}
             >
-              memory ({memoryCount})
-            </span>
+              Memory
+            </button>
           )}
         </div>
       )}
