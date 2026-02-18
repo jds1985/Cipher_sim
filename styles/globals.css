@@ -33,13 +33,17 @@ body {
       rgba(0, 255, 200, 0.25),
       transparent 45%
     ),
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03), transparent
-          60%),
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 255, 255, 0.03),
+      transparent 60%
+    ),
     #05060a;
 
   color: rgba(255, 255, 255, 0.94);
 
-  overflow: hidden;
+  /* 🔥 FIXED */
+  overflow: auto;
 }
 
 /* ===============================
@@ -51,9 +55,9 @@ body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 
-  /* ✅ IMPORTANT: keep overlays INSIDE the app shell */
+  /* app itself handles containment */
+  overflow: hidden;
   position: relative;
 }
 
@@ -91,14 +95,18 @@ body {
 .cipher-chat {
   flex: 1;
   min-height: 0;
+
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+
   padding: 18px;
   padding-top: 12px;
   padding-bottom: 24px;
+
   display: flex;
   flex-direction: column;
   gap: 18px;
+
   z-index: 1;
   pointer-events: auto;
   touch-action: pan-y;
@@ -111,12 +119,16 @@ body {
 .cipher-quick-actions {
   position: sticky;
   bottom: 0;
+
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+
   padding: 12px 18px;
+
   background: rgba(10, 10, 20, 0.98);
   border-top: 1px solid rgba(0, 255, 200, 0.35);
+
   z-index: 9500;
   flex-shrink: 0;
 }
@@ -125,10 +137,13 @@ body {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(0, 255, 200, 0.45);
   color: white;
+
   padding: 8px 12px;
   border-radius: 12px;
+
   cursor: pointer;
   font-size: 13px;
+
   backdrop-filter: blur(10px);
   transition: 0.15s ease;
 }
@@ -144,12 +159,16 @@ body {
 .cipher-input-wrap {
   height: var(--input-h);
   padding: 16px 18px;
+
   backdrop-filter: blur(20px);
   background: rgba(10, 10, 20, 0.85);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
+
   z-index: 9000;
+
   display: flex;
   align-items: center;
+
   box-sizing: border-box;
   overflow: hidden;
   flex-shrink: 0;
@@ -189,23 +208,17 @@ body {
 }
 
 /* ===============================
-   ⭐ MEMORY TRAY SYSTEM (FIXED)
-   ✅ NO MORE position:fixed (it nukes the app)
-   ✅ overlay stays INSIDE .cipher-wrap
+   MEMORY TRAY SYSTEM (SAFE)
 ================================ */
 
 .cipher-btn-memory {
   border-color: rgba(90, 70, 255, 0.55) !important;
 }
 
-/* overlay (inside the app shell) */
 .cipher-memory-overlay {
   position: absolute;
-
-  /* cover only the app shell */
   inset: 0;
 
-  /* dim but don’t break layout */
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
 
@@ -213,19 +226,13 @@ body {
   align-items: flex-end;
   justify-content: center;
 
-  /* ABOVE input + quick actions, BELOW header if you want taps blocked there */
   z-index: 12000;
-
-  /* keep taps on overlay working */
-  pointer-events: auto;
 }
 
-/* sliding tray */
 .cipher-memory-panel {
   width: 100%;
   max-width: 640px;
 
-  /* sit above the input bar */
   margin-bottom: calc(var(--input-h) + 10px);
 
   background: rgba(12, 14, 28, 0.98);
@@ -240,99 +247,28 @@ body {
   border-top: 1px solid rgba(0, 255, 200, 0.25);
 }
 
+/* ===============================
+   ANIMATIONS
+================================ */
+
+@keyframes cipherSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 .slide-up {
   animation: cipherSlideUp 0.28s ease-out;
 }
 
-@keyframes cipherSlideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-/* header */
-.cipher-memory-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
-  font-weight: 600;
-  font-size: 15px;
-  opacity: 0.9;
-}
-
-/* close button */
-.cipher-memory-close {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: white;
-  opacity: 0.7;
-  transition: 0.15s ease;
-}
-
-.cipher-memory-close:hover {
-  opacity: 1;
-}
-
-/* card */
-.cipher-memory-card {
-  background: rgba(0, 255, 200, 0.06);
-  border: 1px solid rgba(0, 255, 200, 0.25);
-  border-radius: 16px;
-  padding: 14px;
-  margin-bottom: 14px;
-}
-
-.cipher-memory-type {
-  font-size: 0.85rem;
-  opacity: 0.7;
-  margin-bottom: 6px;
-}
-
-.cipher-memory-preview {
-  font-size: 0.95rem;
-  margin-bottom: 8px;
-  line-height: 1.4;
-}
-
-.cipher-memory-score {
-  font-size: 0.75rem;
-  opacity: 0.6;
-}
-
-.cipher-memory-empty {
-  font-size: 14px;
-  opacity: 0.75;
-}
-
-/* ===============================
-   ⭐ TRANSFORM + THINKING ANIMATION
-================================ */
-
 @keyframes cipherShimmer {
-  0% {
-    background-position: -400px 0;
-  }
-  100% {
-    background-position: 400px 0;
-  }
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
 }
 
 @keyframes cipherPulse {
-  0% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.6;
-  }
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
 }
 
 .cipher-transforming {
@@ -354,15 +290,4 @@ body {
   background-size: 400px 100%;
   animation: cipherShimmer 1.4s linear infinite;
   pointer-events: none;
-}
-
-/* ===============================
-   FIX: MESSAGE CONTAINER
-================================ */
-
-.cipher-messages {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-height: 100%;
 }
