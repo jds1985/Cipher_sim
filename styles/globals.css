@@ -355,3 +355,14 @@ body {
   animation: cipherShimmer 1.4s linear infinite;
   pointer-events: none;
 }
+
+/* ===============================
+   FIX: MESSAGE CONTAINER
+================================ */
+
+.cipher-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 100%;
+}
