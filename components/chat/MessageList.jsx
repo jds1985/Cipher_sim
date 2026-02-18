@@ -18,12 +18,7 @@ export default function MessageList({
             role={m.role}
             content={m.content}
             modelUsed={m.modelUsed || null}
-            memoryInfluence={
-              m.role === "assistant" || m.role === "decipher"
-                ? m.memoryInfluence || null
-                : null
-            }
-            transforming={m.transforming || false}
+            memoryInfluence={m.memoryInfluence || []}
             isSelected={selectedIndex === i}
             selectable={selectable}
             onSelect={onSelectMessage}
