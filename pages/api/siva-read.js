@@ -1,14 +1,24 @@
 // pages/api/siva-read.js
-// READ-ONLY FILE FETCH (NO COMMITS)
+// READ-ONLY FILE FETCH (NO COMMITS) — ADMIN GATED
 
 const {
   GITHUB_TOKEN,
   GITHUB_OWNER,
   GITHUB_REPO,
   GITHUB_BRANCH = "main",
+  SIVA_ADMIN_KEY,
 } = process.env;
 
+function isAuthorized(req) {
+  const k = req.headers["x-siva-admin"];
+  return Boolean(SIVA_ADMIN_KEY && k && k === SIVA_ADMIN_KEY);
+}
+
 export default async function handler(req, res) {
+  if (!isAuthorized(req)) {
+    return res.status(403).json({ status: "SIVA_UNAUTHORIZED" });
+  }
+
   const { path } = req.query;
 
   if (!path) {
@@ -16,12 +26,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}?ref=${GITHUB_BRANCH}`;
+    const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(
+      String(path)
+    )}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
 
     const gh = await fetch(apiUrl, {
       headers: {
         Authorization: `Bearer ${GITHUB_TOKEN}`,
         Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
       },
     });
 
@@ -31,14 +44,14 @@ export default async function handler(req, res) {
 
     const data = await gh.json();
 
-    const content = Buffer.from(data.content, "base64").toString("utf8");
+    const content = Buffer.from(data.content || "", "base64").toString("utf8");
 
-    res.status(200).json({
+    return res.status(200).json({
       exists: true,
       content,
       sha: data.sha,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 }
