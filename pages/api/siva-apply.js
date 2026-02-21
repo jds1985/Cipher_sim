@@ -150,8 +150,6 @@ async function putFile(path, content, sha, message) {
 
 // ─────────────────────────────────────────────
 // 🧠 PATCH ENGINE (deterministic)
-// patchOps: [{ op, match, insert, replace, once }]
-// Supported ops: INSERT_AFTER, INSERT_BEFORE, REPLACE, APPEND, PREPEND
 // ─────────────────────────────────────────────
 
 function applyPatchOps(original, patchOps = []) {
@@ -176,7 +174,7 @@ function applyPatchOps(original, patchOps = []) {
       throw new Error(op?.reason || "Patch failed safe");
     }
 
-    const once = op?.once !== false; // default true
+    const once = op?.once !== false;
     const match = op?.match;
 
     if (kind === "APPEND") {
@@ -210,9 +208,6 @@ function applyPatchOps(original, patchOps = []) {
       content = content.slice(0, at) + insert + content.slice(at);
       changed = true;
       applied.push({ op: "INSERT_AFTER", match });
-      if (!once) {
-        // optional: could loop; staying conservative for now
-      }
       continue;
     }
 
@@ -242,17 +237,26 @@ function applyPatchOps(original, patchOps = []) {
 }
 
 function diffSummary(a, b) {
-  // lightweight summary (no external deps)
   const aLines = (a || "").split("\n").length;
   const bLines = (b || "").split("\n").length;
   const deltaLines = bLines - aLines;
-  const deltaBytes = Buffer.byteLength(b || "", "utf8") - Buffer.byteLength(a || "", "utf8");
+  const deltaBytes =
+    Buffer.byteLength(b || "", "utf8") -
+    Buffer.byteLength(a || "", "utf8");
   return { aLines, bLines, deltaLines, deltaBytes };
 }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return json(res, 405, { status: "METHOD_NOT_ALLOWED" });
+  }
+
+  // 🔐 ADMIN GATE (NEW)
+  const ADMIN_KEY = process.env.SIVA_ADMIN_KEY;
+  const headerKey = req.headers["x-siva-admin"];
+
+  if (!ADMIN_KEY || headerKey !== ADMIN_KEY) {
+    return json(res, 403, { status: "SIVA_UNAUTHORIZED" });
   }
 
   if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
@@ -282,7 +286,6 @@ export default async function handler(req, res) {
       const mode = (file?.mode || "FULL_CONTENT").toUpperCase();
       const mutation = (file?.mutation || "").toUpperCase();
 
-      // Writable modes: FULL_CONTENT, PATCH
       const writable = mode === "FULL_CONTENT" || mode === "PATCH";
       if (!writable) {
         results.push({
@@ -317,7 +320,6 @@ export default async function handler(req, res) {
 
       const existing = await getExistingFile(check.normalized);
 
-      // PATCH mode: read → mutate → commit
       if (mode === "PATCH" || mutation === "PATCH_EXISTING") {
         if (!existing.exists || typeof existing.content !== "string") {
           results.push({
@@ -330,7 +332,6 @@ export default async function handler(req, res) {
         }
 
         const patchOps = file?.patchOps || [];
-
         const patched = applyPatchOps(existing.content, patchOps);
         const newContent = patched.content;
 
@@ -396,7 +397,6 @@ export default async function handler(req, res) {
         continue;
       }
 
-      // FULL_CONTENT mode: write as provided (your original behavior)
       const content = file?.content;
 
       if (typeof content !== "string") {
