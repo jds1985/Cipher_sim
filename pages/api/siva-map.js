@@ -77,6 +77,26 @@ async function readDir(path = "", depth = 0) {
   return items;
 }
 
+/* ─────────────────────────────────────────────
+   🔎 FLATTEN TREE → CREATE INDEX
+───────────────────────────────────────────── */
+
+function flattenTree(node, list = []) {
+  if (!Array.isArray(node)) return list;
+
+  for (const item of node) {
+    if (item?.path) {
+      list.push(item.path);
+    }
+
+    if (Array.isArray(item?.children)) {
+      flattenTree(item.children, list);
+    }
+  }
+
+  return list;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return json(res, 405, { status: "METHOD_NOT_ALLOWED" });
@@ -91,15 +111,19 @@ export default async function handler(req, res) {
 
   try {
     const map = {};
+    const flatIndex = [];
 
     for (const dir of IMPORTANT_DIRS) {
-      map[dir] = await readDir(dir);
+      const tree = await readDir(dir);
+      map[dir] = tree;
+      flattenTree(tree, flatIndex);
     }
 
     return json(res, 200, {
       status: "SIVA_MAP_OK",
       branch: GITHUB_BRANCH,
       depth: MAX_DEPTH,
+      index: flatIndex,   // ← NEW
       map,
     });
   } catch (err) {
