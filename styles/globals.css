@@ -611,8 +611,59 @@ img {
     transparent
   );
 
+   
   background-size: 400px 100%;
   animation: cipherShimmer 1.4s linear infinite;
 
   pointer-events: none;
+}
+
+.entry-screen {
+  position: fixed;
+  inset: 0;
+  background: url("/images/cipher-os-hero.jpg") center center / cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.entry-screen .overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 12, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.entry-screen .content {
+  position: relative;
+  text-align: center;
+  color: white;
+  z-index: 2;
+}
+
+.entry-screen h1 {
+  font-size: 3rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.entry-screen p {
+  opacity: 0.8;
+  margin-bottom: 2rem;
+}
+
+.entry-screen button {
+  padding: 12px 28px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #00c6ff, #00ff88);
+  color: black;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.entry-screen button:hover {
+  transform: scale(1.05);
 }
