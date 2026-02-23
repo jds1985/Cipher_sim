@@ -4,6 +4,7 @@ import EntryScreen from "../components/EntryScreen";
 
 export default function Home() {
   const [entered, setEntered] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -15,14 +16,21 @@ export default function Home() {
   }, []);
 
   const handleEnter = () => {
-    localStorage.setItem("cipherEntered", "true");
-    setEntered(true);
+    // Start loading animation
+    setLoading(true);
+
+    // Simulate OS boot delay
+    setTimeout(() => {
+      localStorage.setItem("cipherEntered", "true");
+      setEntered(true);
+      setLoading(false);
+    }, 1800); // 1.8 second boot sequence
   };
 
   if (!ready) return null;
 
   if (!entered) {
-    return <EntryScreen onEnter={handleEnter} />;
+    return <EntryScreen onEnter={handleEnter} loading={loading} />;
   }
 
   return (
