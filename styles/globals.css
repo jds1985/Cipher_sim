@@ -618,52 +618,80 @@ img {
   pointer-events: none;
 }
 
+/* ===============================
+   ENTRY SCREEN (UPDATED + RESPONSIVE)
+================================ */
+
 .entry-screen {
   position: fixed;
   inset: 0;
-  background: url("/images/cipher-os-hero.jpg") center center / cover no-repeat;
+  z-index: 20000;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
-.entry-screen .overlay {
+/* Desktop */
+@media (min-width: 768px) {
+  .entry-screen {
+    background: url("/images/cipher-hero-desktop.webp") center center / cover no-repeat;
+  }
+}
+
+/* Mobile */
+@media (max-width: 767px) {
+  .entry-screen {
+    background: url("/images/cipher-hero-mobile.webp") center center / cover no-repeat;
+  }
+}
+
+.entry-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(5, 6, 12, 0.75);
-  backdrop-filter: blur(4px);
+  background: rgba(5, 6, 12, 0.65);
+  backdrop-filter: blur(3px);
+  z-index: 1;
 }
 
-.entry-screen .content {
+.entry-content {
   position: relative;
   text-align: center;
   color: white;
   z-index: 2;
+  padding: 20px;
 }
 
-.entry-screen h1 {
+.entry-content h1 {
   font-size: 3rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
 }
 
-.entry-screen p {
-  opacity: 0.8;
+.entry-content p {
+  opacity: 0.85;
   margin-bottom: 2rem;
 }
 
-.entry-screen button {
+.entry-content button {
   padding: 12px 28px;
   font-size: 1rem;
   border: none;
-  border-radius: 6px;
-  background: linear-gradient(90deg, #00c6ff, #00ff88);
-  color: black;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    rgba(90,70,255,1),
+    rgba(0,255,200,1)
+  );
+  color: white;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow:
+    0 0 16px rgba(0,255,200,0.4),
+    0 0 24px rgba(90,70,255,0.3);
 }
 
-.entry-screen button:hover {
-  transform: scale(1.05);
+.entry-content button:active {
+  transform: scale(0.96);
 }
