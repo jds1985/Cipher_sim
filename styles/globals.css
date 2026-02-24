@@ -736,3 +736,37 @@ img {
   letter-spacing: 1px;
   opacity: 0.8;
 }
+
+/* ===============================
+   INLINE AUTH CARD
+================================ */
+
+.cipher-auth-card {
+  margin-top: 20px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(0,255,200,0.06);
+  border: 1px solid rgba(0,255,200,0.25);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cipher-auth-card h3 {
+  margin: 0;
+}
+
+.cipher-auth-card button {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.cipher-auth-card button.secondary {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+}
