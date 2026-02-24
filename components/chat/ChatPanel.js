@@ -6,7 +6,7 @@ import InputBar from "./InputBar";
 import QuickActions from "./QuickActions";
 import { getCipherCoin } from "./CipherCoin";
 
-import { auth } from "../lib/firebaseClient";
+import { auth } from "../../lib/firebaseClient";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 
 /* ===============================
