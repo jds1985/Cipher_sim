@@ -6,6 +6,9 @@ import InputBar from "./InputBar";
 import QuickActions from "./QuickActions";
 import { getCipherCoin } from "./CipherCoin";
 
+import { auth } from "../lib/firebaseClient";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+
 /* ===============================
    CONFIG
 ================================ */
@@ -79,6 +82,10 @@ export default function ChatPanel() {
   const [authDismissed, setAuthDismissed] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
@@ -141,12 +148,33 @@ export default function ChatPanel() {
     setShowAuthModal(true);
   }
 
+  async function handleSubmitSignup() {
+    if (!authEmail || !authPassword) return;
+
+    try {
+      setAuthLoading(true);
+      await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+
+      setShowAuthModal(false);
+      setShowAuthPrompt(false);
+      setAuthDismissed(true);
+
+      setAuthEmail("");
+      setAuthPassword("");
+
+      alert("Cipher account created.");
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   /* ===============================
      INLINE TRANSFORM
   ================================= */
   async function runInlineTransform(instruction) {
     if (selectedIndex === null) return;
-
     const original = messages[selectedIndex];
     if (!original?.content) return;
 
@@ -214,7 +242,6 @@ export default function ChatPanel() {
   ================================= */
   async function sendMessage() {
     if (sendingRef.current) return;
-
     const text = (input || "").trim();
     if (!text) return;
 
@@ -231,12 +258,7 @@ export default function ChatPanel() {
     setMessages((m) => [
       ...m,
       userMessage,
-      {
-        role: "assistant",
-        content: "",
-        modelUsed: null,
-        memoryInfluence: [],
-      },
+      { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
     ]);
 
     try {
@@ -347,7 +369,6 @@ export default function ChatPanel() {
         </div>
       </div>
 
-      {/* 🔥 AUTH MODAL */}
       {showAuthModal && (
         <div
           className="cipher-auth-overlay"
@@ -357,30 +378,30 @@ export default function ChatPanel() {
             className="cipher-auth-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="cipher-auth-header">
-              <h3>Create Your Cipher Account</h3>
-              <button
-                className="cipher-auth-close"
-                onClick={() => setShowAuthModal(false)}
-              >
-                ✕
-              </button>
-            </div>
+            <h3>Create Your Cipher Account</h3>
 
             <input
               type="email"
               placeholder="Email"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
               className="cipher-auth-input"
             />
 
             <input
               type="password"
               placeholder="Password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
               className="cipher-auth-input"
             />
 
-            <button className="cipher-auth-primary">
-              Create Account
+            <button
+              className="cipher-auth-primary"
+              onClick={handleSubmitSignup}
+              disabled={authLoading}
+            >
+              {authLoading ? "Creating..." : "Create Account"}
             </button>
 
             <button
