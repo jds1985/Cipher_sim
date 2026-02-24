@@ -74,6 +74,7 @@ export default function ChatPanel() {
   const [typing, setTyping] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
+
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [showMemory, setShowMemory] = useState(false);
 
@@ -113,14 +114,13 @@ export default function ChatPanel() {
 
   /* ===============================
      RETENTION TRIGGER
+     Show after 3 user messages (unless dismissed)
   ================================= */
   useEffect(() => {
     if (authDismissed) return;
 
     const userCount = messages.filter((m) => m.role === "user").length;
-    if (userCount >= 3) {
-      setShowAuthPrompt(true);
-    }
+    if (userCount >= 3) setShowAuthPrompt(true);
   }, [messages, authDismissed]);
 
   function clearChat() {
@@ -130,8 +130,13 @@ export default function ChatPanel() {
     setMessages([]);
     setSelectedIndex(null);
     setShowMemory(false);
+
     setShowAuthPrompt(false);
     setAuthDismissed(false);
+    setShowAuthModal(false);
+    setAuthEmail("");
+    setAuthPassword("");
+    setAuthLoading(false);
   }
 
   function handleSelectMessage(i, options = {}) {
@@ -149,11 +154,22 @@ export default function ChatPanel() {
   }
 
   async function handleSubmitSignup() {
-    if (!authEmail || !authPassword) return;
+    const email = (authEmail || "").trim();
+    const pass = authPassword || "";
+
+    if (!email || !pass) {
+      alert("Enter email + password.");
+      return;
+    }
+
+    if (!auth) {
+      alert("Firebase auth not initialized.");
+      return;
+    }
 
     try {
       setAuthLoading(true);
-      await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+      await createUserWithEmailAndPassword(auth, email, pass);
 
       setShowAuthModal(false);
       setShowAuthPrompt(false);
@@ -164,7 +180,11 @@ export default function ChatPanel() {
 
       alert("Cipher account created.");
     } catch (err) {
-      alert(err.message);
+      const msg =
+        err?.message ||
+        err?.code ||
+        "Firebase signup error";
+      alert(msg);
     } finally {
       setAuthLoading(false);
     }
@@ -172,9 +192,11 @@ export default function ChatPanel() {
 
   /* ===============================
      INLINE TRANSFORM
+     (Rewrite selected message via /api/chat)
   ================================= */
   async function runInlineTransform(instruction) {
     if (selectedIndex === null) return;
+
     const original = messages[selectedIndex];
     if (!original?.content) return;
 
@@ -238,10 +260,11 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     USER SEND
+     USER SEND (SSE)
   ================================= */
   async function sendMessage() {
     if (sendingRef.current) return;
+
     const text = (input || "").trim();
     if (!text) return;
 
@@ -258,7 +281,12 @@ export default function ChatPanel() {
     setMessages((m) => [
       ...m,
       userMessage,
-      { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
+      {
+        role: "assistant",
+        content: "",
+        modelUsed: null,
+        memoryInfluence: [],
+      },
     ]);
 
     try {
@@ -281,6 +309,7 @@ export default function ChatPanel() {
       await readSSEStream(res, (evt) => {
         if (evt?.type === "delta" && typeof evt?.text === "string") {
           streamed += evt.text;
+
           setMessages((m) => {
             const next = [...m];
             next[next.length - 1] = {
@@ -351,17 +380,13 @@ export default function ChatPanel() {
             selectedIndex={selectedIndex}
           />
 
+          {/* 🔥 INLINE AUTH CARD */}
           {showAuthPrompt && (
             <div className="cipher-auth-card">
               <h3>Save Your Cipher</h3>
               <p>Your session is running in guest mode.</p>
-              <button onClick={handleCreateAccount}>
-                Create Account
-              </button>
-              <button
-                className="secondary"
-                onClick={handleDismissAuth}
-              >
+              <button onClick={handleCreateAccount}>Create Account</button>
+              <button className="secondary" onClick={handleDismissAuth}>
                 Continue as Guest
               </button>
             </div>
@@ -369,6 +394,42 @@ export default function ChatPanel() {
         </div>
       </div>
 
+      {/* MEMORY OVERLAY */}
+      {showMemory && selectedIndex !== null && (
+        <div
+          className="cipher-memory-overlay"
+          onClick={() => setShowMemory(false)}
+        >
+          <div
+            className="cipher-memory-panel slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cipher-memory-header">
+              <div>Memory Used</div>
+              <button
+                className="cipher-memory-close"
+                onClick={() => setShowMemory(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {messages[selectedIndex]?.memoryInfluence?.length > 0 ? (
+              messages[selectedIndex].memoryInfluence.map((mem, i) => (
+                <div key={i} className="cipher-memory-card">
+                  <div className="cipher-memory-type">{mem.type}</div>
+                  <div className="cipher-memory-preview">{mem.preview}</div>
+                  <div className="cipher-memory-score">score: {mem.score}</div>
+                </div>
+              ))
+            ) : (
+              <div className="cipher-memory-empty">No memory used.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 AUTH MODAL */}
       {showAuthModal && (
         <div
           className="cipher-auth-overlay"
@@ -378,7 +439,15 @@ export default function ChatPanel() {
             className="cipher-auth-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3>Create Your Cipher Account</h3>
+            <div className="cipher-auth-header">
+              <h3>Create Your Cipher Account</h3>
+              <button
+                className="cipher-auth-close"
+                onClick={() => setShowAuthModal(false)}
+              >
+                ✕
+              </button>
+            </div>
 
             <input
               type="email"
@@ -386,6 +455,7 @@ export default function ChatPanel() {
               value={authEmail}
               onChange={(e) => setAuthEmail(e.target.value)}
               className="cipher-auth-input"
+              autoComplete="email"
             />
 
             <input
@@ -394,6 +464,7 @@ export default function ChatPanel() {
               value={authPassword}
               onChange={(e) => setAuthPassword(e.target.value)}
               className="cipher-auth-input"
+              autoComplete="new-password"
             />
 
             <button
@@ -414,9 +485,7 @@ export default function ChatPanel() {
         </div>
       )}
 
-      {selectedIndex !== null && (
-        <QuickActions onAction={runInlineTransform} />
-      )}
+      {selectedIndex !== null && <QuickActions onAction={runInlineTransform} />}
 
       <InputBar
         input={input}
