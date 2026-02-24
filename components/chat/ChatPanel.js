@@ -75,6 +75,9 @@ export default function ChatPanel() {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [showMemory, setShowMemory] = useState(false);
 
+  // 🔥 NEW: retention hook state
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
@@ -100,6 +103,17 @@ export default function ChatPanel() {
     if (drawerOpen) setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
 
+  /* ===============================
+     🔥 RETENTION TRIGGER
+     Show auth prompt after 3 user messages
+  ================================= */
+  useEffect(() => {
+    const userCount = messages.filter((m) => m.role === "user").length;
+    if (userCount >= 3 && !showAuthPrompt) {
+      setShowAuthPrompt(true);
+    }
+  }, [messages, showAuthPrompt]);
+
   function clearChat() {
     try {
       localStorage.removeItem(MEMORY_KEY);
@@ -107,6 +121,7 @@ export default function ChatPanel() {
     setMessages([]);
     setSelectedIndex(null);
     setShowMemory(false);
+    setShowAuthPrompt(false);
   }
 
   function handleSelectMessage(i, options = {}) {
@@ -302,6 +317,18 @@ export default function ChatPanel() {
             onSelectMessage={handleSelectMessage}
             selectedIndex={selectedIndex}
           />
+
+          {/* 🔥 INLINE AUTH CARD */}
+          {showAuthPrompt && (
+            <div className="cipher-auth-card">
+              <h3>Save Your Cipher</h3>
+              <p>Your session is running in guest mode.</p>
+              <button>Create Account</button>
+              <button className="secondary">
+                Continue as Guest
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
