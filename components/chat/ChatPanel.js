@@ -4,7 +4,6 @@ import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import QuickActions from "./QuickActions";
-
 import { getCipherCoin } from "./CipherCoin";
 
 /* ===============================
@@ -75,8 +74,9 @@ export default function ChatPanel() {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [showMemory, setShowMemory] = useState(false);
 
-  // 🔥 NEW: retention hook state
+  // 🔥 Retention State
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [authDismissed, setAuthDismissed] = useState(false);
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
@@ -105,14 +105,16 @@ export default function ChatPanel() {
 
   /* ===============================
      🔥 RETENTION TRIGGER
-     Show auth prompt after 3 user messages
+     Show after 3 user messages
   ================================= */
   useEffect(() => {
+    if (authDismissed) return;
+
     const userCount = messages.filter((m) => m.role === "user").length;
-    if (userCount >= 3 && !showAuthPrompt) {
+    if (userCount >= 3) {
       setShowAuthPrompt(true);
     }
-  }, [messages, showAuthPrompt]);
+  }, [messages, authDismissed]);
 
   function clearChat() {
     try {
@@ -122,11 +124,22 @@ export default function ChatPanel() {
     setSelectedIndex(null);
     setShowMemory(false);
     setShowAuthPrompt(false);
+    setAuthDismissed(false);
   }
 
   function handleSelectMessage(i, options = {}) {
     setSelectedIndex(i);
     setShowMemory(!!options.openMemory);
+  }
+
+  function handleDismissAuth() {
+    setShowAuthPrompt(false);
+    setAuthDismissed(true);
+  }
+
+  function handleCreateAccount() {
+    // Placeholder for future auth modal
+    alert("Auth flow coming next");
   }
 
   /* ===============================
@@ -162,7 +175,6 @@ export default function ChatPanel() {
       if (!res.ok) throw new Error("transform failed");
 
       const data = await res.json();
-
       const newText =
         data?.reply ||
         data?.text ||
@@ -318,60 +330,23 @@ export default function ChatPanel() {
             selectedIndex={selectedIndex}
           />
 
-          {/* 🔥 INLINE AUTH CARD */}
           {showAuthPrompt && (
             <div className="cipher-auth-card">
               <h3>Save Your Cipher</h3>
               <p>Your session is running in guest mode.</p>
-              <button>Create Account</button>
-              <button className="secondary">
+              <button onClick={handleCreateAccount}>
+                Create Account
+              </button>
+              <button
+                className="secondary"
+                onClick={handleDismissAuth}
+              >
                 Continue as Guest
               </button>
             </div>
           )}
         </div>
       </div>
-
-      {/* MEMORY OVERLAY */}
-      {showMemory && selectedIndex !== null && (
-        <div
-          className="cipher-memory-overlay"
-          onClick={() => setShowMemory(false)}
-        >
-          <div
-            className="cipher-memory-panel slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="cipher-memory-header">
-              <div>Memory Used</div>
-              <button
-                className="cipher-memory-close"
-                onClick={() => setShowMemory(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            {messages[selectedIndex]?.memoryInfluence?.length > 0 ? (
-              messages[selectedIndex].memoryInfluence.map((mem, i) => (
-                <div key={i} className="cipher-memory-card">
-                  <div className="cipher-memory-type">{mem.type}</div>
-                  <div className="cipher-memory-preview">
-                    {mem.preview}
-                  </div>
-                  <div className="cipher-memory-score">
-                    score: {mem.score}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="cipher-memory-empty">
-                No memory used.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {selectedIndex !== null && (
         <QuickActions onAction={runInlineTransform} />
