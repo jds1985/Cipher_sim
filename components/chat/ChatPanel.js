@@ -74,9 +74,10 @@ export default function ChatPanel() {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [showMemory, setShowMemory] = useState(false);
 
-  // 🔥 Retention State
+  /* 🔥 Retention + Auth */
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [authDismissed, setAuthDismissed] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
@@ -104,8 +105,7 @@ export default function ChatPanel() {
   }, [drawerOpen]);
 
   /* ===============================
-     🔥 RETENTION TRIGGER
-     Show after 3 user messages
+     RETENTION TRIGGER
   ================================= */
   useEffect(() => {
     if (authDismissed) return;
@@ -138,8 +138,7 @@ export default function ChatPanel() {
   }
 
   function handleCreateAccount() {
-    // Placeholder for future auth modal
-    alert("Auth flow coming next");
+    setShowAuthModal(true);
   }
 
   /* ===============================
@@ -347,6 +346,52 @@ export default function ChatPanel() {
           )}
         </div>
       </div>
+
+      {/* 🔥 AUTH MODAL */}
+      {showAuthModal && (
+        <div
+          className="cipher-auth-overlay"
+          onClick={() => setShowAuthModal(false)}
+        >
+          <div
+            className="cipher-auth-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cipher-auth-header">
+              <h3>Create Your Cipher Account</h3>
+              <button
+                className="cipher-auth-close"
+                onClick={() => setShowAuthModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <input
+              type="email"
+              placeholder="Email"
+              className="cipher-auth-input"
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              className="cipher-auth-input"
+            />
+
+            <button className="cipher-auth-primary">
+              Create Account
+            </button>
+
+            <button
+              className="cipher-auth-secondary"
+              onClick={() => setShowAuthModal(false)}
+            >
+              Continue as Guest
+            </button>
+          </div>
+        </div>
+      )}
 
       {selectedIndex !== null && (
         <QuickActions onAction={runInlineTransform} />
