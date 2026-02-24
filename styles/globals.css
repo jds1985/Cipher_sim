@@ -770,3 +770,59 @@ img {
   border: 1px solid rgba(255,255,255,0.2);
   color: white;
 }
+.cipher-auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30000;
+}
+
+.cipher-auth-modal {
+  width: 90%;
+  max-width: 400px;
+  background: rgba(12,14,28,0.98);
+  border-radius: 18px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid rgba(0,255,200,0.25);
+  box-shadow: 0 0 40px rgba(0,255,200,0.2);
+  animation: fadeInScale 0.25s ease-out;
+}
+
+@keyframes fadeInScale {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.cipher-auth-input {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(5,8,18,0.9);
+  color: white;
+}
+
+.cipher-auth-primary {
+  background: linear-gradient(135deg, rgba(90,70,255,1), rgba(0,255,200,1));
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+}
+
+.cipher-auth-secondary {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  padding: 12px;
+  color: white;
+  cursor: pointer;
+}
