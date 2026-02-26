@@ -9,6 +9,7 @@ import { getCipherCoin } from "./CipherCoin";
 import { auth } from "../../lib/firebaseClient";
 import {
   createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
 } from "firebase/auth";
@@ -90,15 +91,16 @@ export default function ChatPanel() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(false); // NEW
 
-  /* 🔥 Logged-in user (drawer profile) */
+  /* 🔥 Logged-in user */
   const [currentUser, setCurrentUser] = useState(null);
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
   /* ===============================
-     AUTH LISTENER (NEW)
+     AUTH LISTENER
   ================================= */
   useEffect(() => {
     if (!auth) return;
@@ -127,25 +129,17 @@ export default function ChatPanel() {
     if (drawerOpen) setCoinBalance(getCipherCoin());
   }, [drawerOpen]);
 
-  /* ===============================
-     RETENTION TRIGGER
-     Show after 3 user messages (unless dismissed)
-  ================================= */
   useEffect(() => {
     if (authDismissed) return;
-
     const userCount = messages.filter((m) => m.role === "user").length;
     if (userCount >= 3) setShowAuthPrompt(true);
   }, [messages, authDismissed]);
 
   function clearChat() {
-    try {
-      localStorage.removeItem(MEMORY_KEY);
-    } catch {}
+    try { localStorage.removeItem(MEMORY_KEY); } catch {}
     setMessages([]);
     setSelectedIndex(null);
     setShowMemory(false);
-
     setShowAuthPrompt(false);
     setAuthDismissed(false);
     setShowAuthModal(false);
@@ -165,12 +159,13 @@ export default function ChatPanel() {
   }
 
   function handleCreateAccount() {
+    setIsLoginMode(false);
     setShowAuthModal(true);
   }
 
-  async function handleSubmitSignup() {
-    const email = (authEmail || "").trim();
-    const pass = authPassword || "";
+  async function handleAuthSubmit() {
+    const email = authEmail.trim();
+    const pass = authPassword;
 
     if (!email || !pass) {
       alert("Enter email + password.");
@@ -184,19 +179,21 @@ export default function ChatPanel() {
 
     try {
       setAuthLoading(true);
-      await createUserWithEmailAndPassword(auth, email, pass);
+
+      if (isLoginMode) {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, pass);
+      }
 
       setShowAuthModal(false);
       setShowAuthPrompt(false);
       setAuthDismissed(true);
-
       setAuthEmail("");
       setAuthPassword("");
 
-      alert("Cipher account created.");
     } catch (err) {
-      const msg = err?.message || err?.code || "Firebase signup error";
-      alert(msg);
+      alert(err?.message || err?.code || "Auth error");
     } finally {
       setAuthLoading(false);
     }
@@ -204,11 +201,9 @@ export default function ChatPanel() {
 
   /* ===============================
      INLINE TRANSFORM
-     (Rewrite selected message via /api/chat)
   ================================= */
   async function runInlineTransform(instruction) {
     if (selectedIndex === null) return;
-
     const original = messages[selectedIndex];
     if (!original?.content) return;
 
@@ -233,13 +228,9 @@ export default function ChatPanel() {
         }),
       });
 
-      if (!res.ok) throw new Error("transform failed");
-
       const data = await res.json();
       const newText =
-        data?.reply || data?.text || data?.content || data?.message || null;
-
-      if (!newText) throw new Error("empty response");
+        data?.reply || data?.text || data?.content || data?.message;
 
       setMessages((m) => {
         const copy = [...m];
@@ -252,6 +243,7 @@ export default function ChatPanel() {
         };
         return copy;
       });
+
     } catch {
       setMessages((m) => {
         const copy = [...m];
@@ -268,12 +260,11 @@ export default function ChatPanel() {
   }
 
   /* ===============================
-     USER SEND (SSE)
+     USER SEND
   ================================= */
   async function sendMessage() {
     if (sendingRef.current) return;
-
-    const text = (input || "").trim();
+    const text = input.trim();
     if (!text) return;
 
     sendingRef.current = true;
@@ -289,12 +280,7 @@ export default function ChatPanel() {
     setMessages((m) => [
       ...m,
       userMessage,
-      {
-        role: "assistant",
-        content: "",
-        modelUsed: null,
-        memoryInfluence: [],
-      },
+      { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
     ]);
 
     try {
@@ -302,58 +288,30 @@ export default function ChatPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: userMessage.content,
+          message: text,
           history: historySnapshot.slice(-HISTORY_WINDOW),
           stream: true,
         }),
       });
 
-      if (!res.ok) throw new Error("Request failed");
-
       let streamed = "";
-      let modelUsed = null;
-      let memoryInfluence = [];
-
       await readSSEStream(res, (evt) => {
-        if (evt?.type === "delta" && typeof evt?.text === "string") {
-          streamed += evt.text;
-
+        if (evt?.type === "delta") {
+          streamed += evt.text || "";
           setMessages((m) => {
             const next = [...m];
-            next[next.length - 1] = {
-              ...next[next.length - 1],
-              content: streamed,
-              modelUsed,
-              memoryInfluence,
-            };
-            return next;
-          });
-        }
-
-        if (evt?.type === "done") {
-          modelUsed = evt?.model || null;
-          memoryInfluence = evt?.memoryInfluence || [];
-
-          setMessages((m) => {
-            const next = [...m];
-            next[next.length - 1] = {
-              ...next[next.length - 1],
-              content: streamed,
-              modelUsed,
-              memoryInfluence,
-            };
+            next[next.length - 1].content = streamed;
             return next;
           });
         }
       });
+
     } catch {
       setMessages((m) => {
         const next = [...m];
         next[next.length - 1] = {
           role: "assistant",
           content: "Transport error",
-          modelUsed: null,
-          memoryInfluence: [],
         };
         return next;
       });
@@ -375,13 +333,7 @@ export default function ChatPanel() {
         onClose={() => setDrawerOpen(false)}
         cipherCoin={coinBalance}
         user={currentUser}
-        onLogout={async () => {
-          try {
-            if (auth) await signOut(auth);
-          } catch (e) {
-            alert(e?.message || "Logout failed");
-          }
-        }}
+        onLogout={async () => auth && signOut(auth)}
       />
 
       <div className="cipher-main">
@@ -393,12 +345,16 @@ export default function ChatPanel() {
             selectedIndex={selectedIndex}
           />
 
-          {/* 🔥 INLINE AUTH CARD */}
           {showAuthPrompt && (
             <div className="cipher-auth-card">
               <h3>Save Your Cipher</h3>
-              <p>Your session is running in guest mode.</p>
               <button onClick={handleCreateAccount}>Create Account</button>
+              <button onClick={() => {
+                setIsLoginMode(true);
+                setShowAuthModal(true);
+              }}>
+                Log In
+              </button>
               <button className="secondary" onClick={handleDismissAuth}>
                 Continue as Guest
               </button>
@@ -407,59 +363,16 @@ export default function ChatPanel() {
         </div>
       </div>
 
-      {/* MEMORY OVERLAY */}
-      {showMemory && selectedIndex !== null && (
-        <div className="cipher-memory-overlay" onClick={() => setShowMemory(false)}>
-          <div
-            className="cipher-memory-panel slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="cipher-memory-header">
-              <div>Memory Used</div>
-              <button
-                className="cipher-memory-close"
-                onClick={() => setShowMemory(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            {messages[selectedIndex]?.memoryInfluence?.length > 0 ? (
-              messages[selectedIndex].memoryInfluence.map((mem, i) => (
-                <div key={i} className="cipher-memory-card">
-                  <div className="cipher-memory-type">{mem.type}</div>
-                  <div className="cipher-memory-preview">{mem.preview}</div>
-                  <div className="cipher-memory-score">score: {mem.score}</div>
-                </div>
-              ))
-            ) : (
-              <div className="cipher-memory-empty">No memory used.</div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 🔥 AUTH MODAL */}
       {showAuthModal && (
         <div className="cipher-auth-overlay" onClick={() => setShowAuthModal(false)}>
           <div className="cipher-auth-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="cipher-auth-header">
-              <h3>Create Your Cipher Account</h3>
-              <button
-                className="cipher-auth-close"
-                onClick={() => setShowAuthModal(false)}
-              >
-                ✕
-              </button>
-            </div>
+            <h3>{isLoginMode ? "Log In" : "Create Account"}</h3>
 
             <input
               type="email"
               placeholder="Email"
               value={authEmail}
               onChange={(e) => setAuthEmail(e.target.value)}
-              className="cipher-auth-input"
-              autoComplete="email"
             />
 
             <input
@@ -467,23 +380,23 @@ export default function ChatPanel() {
               placeholder="Password"
               value={authPassword}
               onChange={(e) => setAuthPassword(e.target.value)}
-              className="cipher-auth-input"
-              autoComplete="new-password"
             />
 
-            <button
-              className="cipher-auth-primary"
-              onClick={handleSubmitSignup}
-              disabled={authLoading}
-            >
-              {authLoading ? "Creating..." : "Create Account"}
+            <button onClick={handleAuthSubmit} disabled={authLoading}>
+              {authLoading
+                ? "Processing..."
+                : isLoginMode
+                ? "Log In"
+                : "Create Account"}
             </button>
 
             <button
-              className="cipher-auth-secondary"
-              onClick={() => setShowAuthModal(false)}
+              className="secondary"
+              onClick={() => setIsLoginMode((v) => !v)}
             >
-              Continue as Guest
+              {isLoginMode
+                ? "Need an account? Create one"
+                : "Already have an account? Log in"}
             </button>
           </div>
         </div>
@@ -491,7 +404,12 @@ export default function ChatPanel() {
 
       {selectedIndex !== null && <QuickActions onAction={runInlineTransform} />}
 
-      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
+      <InputBar
+        input={input}
+        setInput={setInput}
+        onSend={sendMessage}
+        typing={typing}
+      />
     </div>
   );
 }
