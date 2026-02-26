@@ -389,19 +389,16 @@ export default function ChatPanel() {
                 ? "Log In"
                 : "Create Account"}
             </button>
-              <button
+              
+
+            <button
   className="cipher-auth-secondary"
   onClick={() => setIsLoginMode((v) => !v)}
 >
   {isLoginMode
-    ? "Need an account? Sign up"
+    ? "Need an account? Create one"
     : "Already have an account? Log in"}
 </button>
-
-            <button
-              className="secondary"
-              onClick={() => setIsLoginMode((v) => !v)}
-            >
               {isLoginMode
                 ? "Need an account? Create one"
                 : "Already have an account? Log in"}
