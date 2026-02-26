@@ -7,7 +7,11 @@ import QuickActions from "./QuickActions";
 import { getCipherCoin } from "./CipherCoin";
 
 import { auth } from "../../lib/firebaseClient";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut,
+} from "firebase/auth";
 
 /* ===============================
    CONFIG
@@ -87,8 +91,22 @@ export default function ChatPanel() {
   const [authPassword, setAuthPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
+  /* 🔥 Logged-in user (drawer profile) */
+  const [currentUser, setCurrentUser] = useState(null);
+
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
+
+  /* ===============================
+     AUTH LISTENER (NEW)
+  ================================= */
+  useEffect(() => {
+    if (!auth) return;
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user || null);
+    });
+    return () => unsub();
+  }, []);
 
   /* ===============================
      AUTO SCROLL
@@ -102,10 +120,7 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(
-      MEMORY_KEY,
-      JSON.stringify(messages.slice(-MEMORY_LIMIT))
-    );
+    localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
   }, [messages]);
 
   useEffect(() => {
@@ -180,10 +195,7 @@ export default function ChatPanel() {
 
       alert("Cipher account created.");
     } catch (err) {
-      const msg =
-        err?.message ||
-        err?.code ||
-        "Firebase signup error";
+      const msg = err?.message || err?.code || "Firebase signup error";
       alert(msg);
     } finally {
       setAuthLoading(false);
@@ -225,11 +237,7 @@ export default function ChatPanel() {
 
       const data = await res.json();
       const newText =
-        data?.reply ||
-        data?.text ||
-        data?.content ||
-        data?.message ||
-        null;
+        data?.reply || data?.text || data?.content || data?.message || null;
 
       if (!newText) throw new Error("empty response");
 
@@ -360,15 +368,20 @@ export default function ChatPanel() {
   ================================= */
   return (
     <div className="cipher-wrap">
-      <HeaderMenu
-        onOpenDrawer={() => setDrawerOpen(true)}
-        onNewChat={clearChat}
-      />
+      <HeaderMenu onOpenDrawer={() => setDrawerOpen(true)} onNewChat={clearChat} />
 
       <DrawerMenu
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         cipherCoin={coinBalance}
+        user={currentUser}
+        onLogout={async () => {
+          try {
+            if (auth) await signOut(auth);
+          } catch (e) {
+            alert(e?.message || "Logout failed");
+          }
+        }}
       />
 
       <div className="cipher-main">
@@ -396,10 +409,7 @@ export default function ChatPanel() {
 
       {/* MEMORY OVERLAY */}
       {showMemory && selectedIndex !== null && (
-        <div
-          className="cipher-memory-overlay"
-          onClick={() => setShowMemory(false)}
-        >
+        <div className="cipher-memory-overlay" onClick={() => setShowMemory(false)}>
           <div
             className="cipher-memory-panel slide-up"
             onClick={(e) => e.stopPropagation()}
@@ -431,14 +441,8 @@ export default function ChatPanel() {
 
       {/* 🔥 AUTH MODAL */}
       {showAuthModal && (
-        <div
-          className="cipher-auth-overlay"
-          onClick={() => setShowAuthModal(false)}
-        >
-          <div
-            className="cipher-auth-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="cipher-auth-overlay" onClick={() => setShowAuthModal(false)}>
+          <div className="cipher-auth-modal" onClick={(e) => e.stopPropagation()}>
             <div className="cipher-auth-header">
               <h3>Create Your Cipher Account</h3>
               <button
@@ -487,12 +491,7 @@ export default function ChatPanel() {
 
       {selectedIndex !== null && <QuickActions onAction={runInlineTransform} />}
 
-      <InputBar
-        input={input}
-        setInput={setInput}
-        onSend={sendMessage}
-        typing={typing}
-      />
+      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
     </div>
   );
 }
