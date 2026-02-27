@@ -83,7 +83,6 @@ export default function ChatPanel() {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [showMemory, setShowMemory] = useState(false);
 
-  /* 🔥 Retention + Auth */
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [authDismissed, setAuthDismissed] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -91,17 +90,13 @@ export default function ChatPanel() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(false); // NEW
+  const [isLoginMode, setIsLoginMode] = useState(false);
 
-  /* 🔥 Logged-in user */
   const [currentUser, setCurrentUser] = useState(null);
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
-  /* ===============================
-     AUTH LISTENER
-  ================================= */
   useEffect(() => {
     if (!auth) return;
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -110,9 +105,6 @@ export default function ChatPanel() {
     return () => unsub();
   }, []);
 
-  /* ===============================
-     AUTO SCROLL
-  ================================= */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
@@ -199,69 +191,6 @@ export default function ChatPanel() {
     }
   }
 
-  /* ===============================
-     INLINE TRANSFORM
-  ================================= */
-  async function runInlineTransform(instruction) {
-    if (selectedIndex === null) return;
-    const original = messages[selectedIndex];
-    if (!original?.content) return;
-
-    const backup = original.content;
-
-    setMessages((m) => {
-      const copy = [...m];
-      copy[selectedIndex] = { ...copy[selectedIndex], transforming: true };
-      return copy;
-    });
-
-    setTyping(true);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `${instruction}\n\n${backup}`,
-          history: [],
-          stream: false,
-        }),
-      });
-
-      const data = await res.json();
-      const newText =
-        data?.reply || data?.text || data?.content || data?.message;
-
-      setMessages((m) => {
-        const copy = [...m];
-        copy[selectedIndex] = {
-          ...copy[selectedIndex],
-          content: newText,
-          transforming: false,
-          modelUsed: data?.model || null,
-          memoryInfluence: data?.memoryInfluence || [],
-        };
-        return copy;
-      });
-
-    } catch {
-      setMessages((m) => {
-        const copy = [...m];
-        copy[selectedIndex] = {
-          ...copy[selectedIndex],
-          content: backup,
-          transforming: false,
-        };
-        return copy;
-      });
-    } finally {
-      setTyping(false);
-    }
-  }
-
-  /* ===============================
-     USER SEND
-  ================================= */
   async function sendMessage() {
     if (sendingRef.current) return;
     const text = input.trim();
@@ -321,9 +250,6 @@ export default function ChatPanel() {
     }
   }
 
-  /* ===============================
-     RENDER
-  ================================= */
   return (
     <div className="cipher-wrap">
       <HeaderMenu onOpenDrawer={() => setDrawerOpen(true)} onNewChat={clearChat} />
@@ -389,25 +315,21 @@ export default function ChatPanel() {
                 ? "Log In"
                 : "Create Account"}
             </button>
-              
 
             <button
-  className="cipher-auth-secondary"
-  onClick={() => setIsLoginMode((v) => !v)}
->
-  {isLoginMode
-    ? "Need an account? Create one"
-    : "Already have an account? Log in"}
-</button>
+              className="cipher-auth-secondary"
+              onClick={() => setIsLoginMode((v) => !v)}
+            >
               {isLoginMode
                 ? "Need an account? Create one"
                 : "Already have an account? Log in"}
             </button>
+
           </div>
         </div>
       )}
 
-      {selectedIndex !== null && <QuickActions onAction={runInlineTransform} />}
+      {selectedIndex !== null && <QuickActions onAction={() => {}} />}
 
       <InputBar
         input={input}
