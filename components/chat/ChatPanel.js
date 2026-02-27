@@ -255,12 +255,17 @@ export default function ChatPanel() {
       <HeaderMenu onOpenDrawer={() => setDrawerOpen(true)} onNewChat={clearChat} />
 
       <DrawerMenu
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        cipherCoin={coinBalance}
-        user={currentUser}
-        onLogout={async () => auth && signOut(auth)}
-      />
+  open={drawerOpen}
+  onClose={() => setDrawerOpen(false)}
+  onOpenLogin={() => {
+    setIsLoginMode(true);
+    setShowAuthModal(true);
+  }}
+  onOpenSignup={() => {
+    setIsLoginMode(false);
+    setShowAuthModal(true);
+  }}
+/>
 
       <div className="cipher-main">
         <div className="cipher-chat">
