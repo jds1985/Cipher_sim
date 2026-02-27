@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { auth } from "../../lib/firebaseClient";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
-export default function DrawerMenu({ open, onClose }) {
+export default function DrawerMenu({
+  open,
+  onClose,
+  onOpenLogin,
+  onOpenSignup
+}) {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -103,9 +108,42 @@ export default function DrawerMenu({ open, onClose }) {
               </button>
             </>
           ) : (
-            <div style={{ opacity: 0.7 }}>
-              Not signed in
-            </div>
+            <>
+              <div style={{ opacity: 0.7, marginBottom: 16 }}>
+                Not signed in
+              </div>
+
+              <button
+                onClick={onOpenLogin}
+                style={{
+                  width: "100%",
+                  padding: 8,
+                  marginBottom: 10,
+                  background: "#222",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                }}
+              >
+                Log In
+              </button>
+
+              <button
+                onClick={onOpenSignup}
+                style={{
+                  width: "100%",
+                  padding: 8,
+                  background: "#222",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                }}
+              >
+                Create Account
+              </button>
+            </>
           )}
         </div>
 
