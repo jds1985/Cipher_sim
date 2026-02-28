@@ -95,7 +95,7 @@ export default function ChatPanel() {
   const [currentUser, setCurrentUser] = useState(null);
 
   /* ===============================
-     ROLE MODE STATE (NEW)
+     ROLE MODE STATE
   ================================ */
   const [roleMode, setRoleMode] = useState(false);
 
@@ -288,19 +288,11 @@ export default function ChatPanel() {
           setIsLoginMode(false);
           setShowAuthModal(true);
         }}
+        roleMode={roleMode}
+        setRoleMode={setRoleMode}
+        roles={roles}
+        setRoles={setRoles}
       />
-
-      {/* Temporary Role Mode Toggle */}
-      <div style={{ padding: 6 }}>
-        <label style={{ fontSize: 12 }}>
-          <input
-            type="checkbox"
-            checked={roleMode}
-            onChange={() => setRoleMode((v) => !v)}
-          />
-          Role Mode
-        </label>
-      </div>
 
       <div className="cipher-main">
         <div className="cipher-chat">
