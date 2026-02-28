@@ -7,34 +7,41 @@ export default function MessageBubble({
   isSelected,
   selectable,
   onSelect,
+  transforming,
 }) {
   const handleClick = () => {
     if (!selectable) return;
     onSelect?.(index);
   };
 
+  const handleMemoryClick = (e) => {
+    e.stopPropagation();
+    onSelect?.(index, { openMemory: true });
+  };
+
   return (
     <div
       className={`cipher-bubble ${role} ${
         isSelected ? "selected" : ""
-      }`}
+      } ${transforming ? "transforming" : ""}`}
       onClick={handleClick}
     >
-      <div className="cipher-text">{content}</div>
+      <div className="cipher-text">
+        {content}
+      </div>
 
       {role === "assistant" && (
         <div className="cipher-meta">
           {modelUsed && (
-            <span className="cipher-model">{modelUsed}</span>
+            <span className="cipher-model">
+              {modelUsed}
+            </span>
           )}
 
           {memoryInfluence && memoryInfluence.length > 0 && (
             <button
               className="cipher-btn-memory"
-              onClick={(e) => {
-                e.stopPropagation();
-                console.log("Memory tapped:", memoryInfluence);
-              }}
+              onClick={handleMemoryClick}
             >
               Memory
             </button>
