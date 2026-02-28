@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 // pages/api/chat.js
-// Cipher OS — stable core + streaming + memory visibility
+// Cipher OS — stable core + streaming + memory visibility + Role Mode
 
 import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
@@ -15,25 +15,15 @@ import {
 } from "../../cipher_os/memory/memoryGraph.js";
 
 import { writebackFromTurn } from "../../cipher_os/memory/memoryWriteback.js";
-
-// gravity
 import { runMemoryDecay } from "../../cipher_os/memory/memoryDecay.js";
-
-// extractor
 import { extractMemoryFromTurn } from "../../cipher_os/memory/memoryExtractor.js";
-
-// influence
 import { buildMemoryInfluence } from "../../cipher_os/runtime/memoryInfluence.js";
-
-// prioritizer
 import { prioritizeContext } from "../../cipher_os/runtime/contextPrioritizer.js";
 
 function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
 
-/* ⭐ MEMORY VISIBILITY
-   Keep it lightweight: previews only (no full content leaks by accident). */
 function exposeMemory(nodes = []) {
   return (nodes || []).map((n) => ({
     id: n?.id || n?.docId || null,
@@ -44,6 +34,85 @@ function exposeMemory(nodes = []) {
   }));
 }
 
+/* ─────────────────────────────────────────────
+   ROLE MODE PIPELINE
+───────────────────────────────────────────── */
+
+async function runRolePipeline({
+  roles,
+  osContext,
+  executivePacket,
+  trace,
+}) {
+  const { architect, refiner, polisher } = roles;
+
+  let stageSystemPrompt = executivePacket.systemPrompt || "";
+  let stageReply = null;
+  let lastModelUsed = null;
+
+  // helper to override model inside orchestrator
+  const runStage = async (overrideModel, injectedPrompt) => {
+    const stageExecutive = {
+      ...executivePacket,
+      systemPrompt: stageSystemPrompt + "\n" + injectedPrompt,
+      forceModel: overrideModel || null,
+    };
+
+    const out = await runOrchestrator({
+      osContext,
+      executivePacket: stageExecutive,
+      trace,
+    });
+
+    const reply =
+      typeof out === "string" ? out : out?.reply || out?.text || null;
+
+    if (!reply) throw new Error("Role stage produced no reply");
+
+    lastModelUsed = out?.modelUsed || null;
+    return reply;
+  };
+
+  // ── ARCHITECT ──
+  stageReply = await runStage(
+    architect,
+    `You are the Architect.
+Generate the best possible response to the user request.
+Be thorough, structured, and intelligent.`
+  );
+
+  // ── REFINER ──
+  if (refiner) {
+    stageReply = await runStage(
+      refiner,
+      `You are the Refiner.
+Improve clarity, structure, and reasoning.
+Do not change meaning unless absolutely necessary.
+
+Original Response:
+${stageReply}`
+    );
+  }
+
+  // ── POLISHER ──
+  if (polisher) {
+    stageReply = await runStage(
+      polisher,
+      `You are the Polisher.
+Improve tone, formatting, and readability.
+Do not alter the core meaning.
+
+Text:
+${stageReply}`
+    );
+  }
+
+  return {
+    reply: stageReply,
+    modelUsed: lastModelUsed,
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -52,6 +121,7 @@ export default async function handler(req, res) {
   try {
     const message = req.body?.message?.trim() || "Hello";
     const wantStream = Boolean(req.body?.stream);
+    const roles = req.body?.roles || null;
 
     const userId = "jim";
     const userName = "Jim";
@@ -60,29 +130,15 @@ export default async function handler(req, res) {
       log: (event, payload) => console.log(`[TRACE] ${event}`, payload ?? ""),
     };
 
-    trace.log("request.received", { messageLength: message.length, wantStream });
-
-    // ── Load long-term memory ─────────────────────────────
+    // ── Load memory ─────────────────────────────
     const memoryData = await loadMemory(userId);
     const longTermHistory = memoryData?.history || [];
-    trace.log("memory.loaded", { longTermTurns: longTermHistory.length });
 
-    // ── Load memory graph ─────────────────────────────────
     const nodes = await loadMemoryNodes(userId, 60);
-    console.log("🔥 MEMORY NODES LOADED:", nodes?.length);
-
     const summaryDoc = await loadSummary(userId);
 
-    trace.log("memoryGraph.loaded", {
-      nodes: nodes?.length || 0,
-      hasSummary: Boolean(summaryDoc?.text),
-    });
-
-    // ⭐ PRIORITIZE (top-K nodes become active context)
     const prioritizedNodes = prioritizeContext(nodes || [], 15);
-    trace.log("context.prioritized", { selected: prioritizedNodes.length });
 
-    // ── Build OS context ──────────────────────────────────
     const osContext = buildOSContext({
       requestId: Date.now().toString(),
       userId,
@@ -96,9 +152,6 @@ export default async function handler(req, res) {
     osContext.memory.nodes = prioritizedNodes;
     osContext.memory.longTermSummary = summaryDoc?.text || "";
 
-    trace.log("osContext.built", { requestId: osContext.requestId });
-
-    // ── Executive layer ───────────────────────────────────
     const executivePacket = await runCipherCore(
       {
         history: osContext.memory.mergedHistory,
@@ -108,38 +161,28 @@ export default async function handler(req, res) {
       { userMessage: message, returnPacket: true }
     );
 
-    trace.log("executive.complete", {
-      hasSystemPrompt: Boolean(executivePacket?.systemPrompt),
-    });
-
-    // ⭐ APPLY INFLUENCE
     const influenceText = buildMemoryInfluence(prioritizedNodes);
-
     if (influenceText) {
       executivePacket.systemPrompt =
         (executivePacket.systemPrompt || "") + "\n" + influenceText;
     }
 
-    trace.log("memory.influence", { applied: Boolean(influenceText) });
-
-    // ──────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────
     // STREAM MODE
-    // ──────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────
+    if (wantStream && roles) {
+      return res
+        .status(400)
+        .json({ error: "Streaming not supported in Role Mode yet." });
+    }
+
     if (wantStream) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("Connection", "keep-alive");
       res.flushHeaders?.();
 
-      const heartbeat = setInterval(() => {
-        try {
-          res.write(`: ping\n\n`);
-        } catch {}
-      }, 15000);
-
       let streamedText = "";
-
-      sseWrite(res, { type: "meta", ok: true });
 
       const out = await runOrchestrator({
         osContext,
@@ -152,7 +195,6 @@ export default async function handler(req, res) {
         },
       });
 
-      // ✅ SEND THE NAME UI EXPECTS
       sseWrite(res, {
         type: "done",
         reply: out?.reply || streamedText || "",
@@ -161,55 +203,36 @@ export default async function handler(req, res) {
         memoryInfluence: exposeMemory(prioritizedNodes),
       });
 
-      clearInterval(heartbeat);
-
-      const finalReply = out?.reply || streamedText || "";
-
-      await saveMemory(userId, { type: "interaction", role: "user", content: message });
-      await saveMemory(userId, {
-        type: "interaction",
-        role: "assistant",
-        content: finalReply,
-      });
-
-      trace.log("memory.saved", { userTurnSaved: true, assistantTurnSaved: true });
-
-      const extracted = extractMemoryFromTurn(message, finalReply);
-
-      await writebackFromTurn({
-        userId,
-        userText: message,
-        assistantText: finalReply,
-        extracted,
-      });
-
-      trace.log("memoryGraph.writeback", { completed: true });
-
-      await runMemoryDecay(userId);
-      trace.log("memory.decay.complete");
-
-      const turns = (summaryDoc?.turns || 0) + 1;
-      await saveSummary(userId, summaryDoc?.text || "", turns);
-      trace.log("summary.updated", { turns });
-
       res.end();
       return;
     }
 
-    // ──────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────
     // NORMAL MODE
-    // ──────────────────────────────────────────────────────
-    const out = await runOrchestrator({
-      osContext,
-      executivePacket,
-      trace,
-    });
+    // ─────────────────────────────────────────────
+
+    let out;
+
+    if (roles) {
+      trace.log("roleMode.active", roles);
+      out = await runRolePipeline({
+        roles,
+        osContext,
+        executivePacket,
+        trace,
+      });
+    } else {
+      out = await runOrchestrator({
+        osContext,
+        executivePacket,
+        trace,
+      });
+    }
 
     const reply =
       typeof out === "string" ? out : out?.reply || out?.text || null;
 
     if (!reply) {
-      console.error("❌ Orchestrator returned no reply", out);
       return res.status(500).json({ error: "Model produced no reply" });
     }
 
@@ -226,8 +249,6 @@ export default async function handler(req, res) {
       content: reply,
     });
 
-    trace.log("memory.saved", { userTurnSaved: true, assistantTurnSaved: true });
-
     const extracted = extractMemoryFromTurn(message, reply);
 
     await writebackFromTurn({
@@ -237,19 +258,15 @@ export default async function handler(req, res) {
       extracted,
     });
 
-    trace.log("memoryGraph.writeback", { completed: true });
-
     await runMemoryDecay(userId);
-    trace.log("memory.decay.complete");
 
     const turns = (summaryDoc?.turns || 0) + 1;
     await saveSummary(userId, summaryDoc?.text || "", turns);
-    trace.log("summary.updated", { turns });
 
-    // ✅ SEND THE NAME UI EXPECTS
     return res.status(200).json({
       reply,
       model,
+      roleStack: roles || null,
       memoryInfluence: exposeMemory(prioritizedNodes),
     });
   } catch (err) {
