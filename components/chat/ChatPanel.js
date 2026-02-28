@@ -94,6 +94,17 @@ export default function ChatPanel() {
 
   const [currentUser, setCurrentUser] = useState(null);
 
+  /* ===============================
+     ROLE MODE STATE (NEW)
+  ================================ */
+  const [roleMode, setRoleMode] = useState(false);
+
+  const [roles, setRoles] = useState({
+    architect: "openai",
+    refiner: "gemini",
+    polisher: "anthropic",
+  });
+
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
@@ -213,27 +224,39 @@ export default function ChatPanel() {
     ]);
 
     try {
+      const useStream = !roleMode;
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
           history: historySnapshot.slice(-HISTORY_WINDOW),
-          stream: true,
+          stream: useStream,
+          roles: roleMode ? roles : undefined,
         }),
       });
 
-      let streamed = "";
-      await readSSEStream(res, (evt) => {
-        if (evt?.type === "delta") {
-          streamed += evt.text || "";
-          setMessages((m) => {
-            const next = [...m];
-            next[next.length - 1].content = streamed;
-            return next;
-          });
-        }
-      });
+      if (!useStream) {
+        const data = await res.json();
+        setMessages((m) => {
+          const next = [...m];
+          next[next.length - 1].content = data.reply || "";
+          return next;
+        });
+      } else {
+        let streamed = "";
+        await readSSEStream(res, (evt) => {
+          if (evt?.type === "delta") {
+            streamed += evt.text || "";
+            setMessages((m) => {
+              const next = [...m];
+              next[next.length - 1].content = streamed;
+              return next;
+            });
+          }
+        });
+      }
 
     } catch {
       setMessages((m) => {
@@ -255,17 +278,29 @@ export default function ChatPanel() {
       <HeaderMenu onOpenDrawer={() => setDrawerOpen(true)} onNewChat={clearChat} />
 
       <DrawerMenu
-  open={drawerOpen}
-  onClose={() => setDrawerOpen(false)}
-  onOpenLogin={() => {
-    setIsLoginMode(true);
-    setShowAuthModal(true);
-  }}
-  onOpenSignup={() => {
-    setIsLoginMode(false);
-    setShowAuthModal(true);
-  }}
-/>
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onOpenLogin={() => {
+          setIsLoginMode(true);
+          setShowAuthModal(true);
+        }}
+        onOpenSignup={() => {
+          setIsLoginMode(false);
+          setShowAuthModal(true);
+        }}
+      />
+
+      {/* Temporary Role Mode Toggle */}
+      <div style={{ padding: 6 }}>
+        <label style={{ fontSize: 12 }}>
+          <input
+            type="checkbox"
+            checked={roleMode}
+            onChange={() => setRoleMode((v) => !v)}
+          />
+          Role Mode
+        </label>
+      </div>
 
       <div className="cipher-main">
         <div className="cipher-chat">
@@ -329,7 +364,6 @@ export default function ChatPanel() {
                 ? "Need an account? Create one"
                 : "Already have an account? Log in"}
             </button>
-
           </div>
         </div>
       )}
