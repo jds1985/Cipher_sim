@@ -6,7 +6,11 @@ export default function DrawerMenu({
   open,
   onClose,
   onOpenLogin,
-  onOpenSignup
+  onOpenSignup,
+  roleMode,
+  setRoleMode,
+  roles,
+  setRoles
 }) {
   const [user, setUser] = useState(null);
 
@@ -29,6 +33,19 @@ export default function DrawerMenu({
     }
   }
 
+  function updateRole(key, value) {
+    setRoles((prev) => ({
+      ...prev,
+      [key]: value
+    }));
+  }
+
+  const modelOptions = [
+    { label: "OpenAI", value: "openai" },
+    { label: "Gemini", value: "gemini" },
+    { label: "Anthropic", value: "anthropic" },
+  ];
+
   return (
     <>
       {/* Backdrop */}
@@ -48,7 +65,7 @@ export default function DrawerMenu({
           position: "fixed",
           top: 0,
           right: 0,
-          width: 280,
+          width: 300,
           height: "100%",
           background: "#0e0e14",
           color: "white",
@@ -57,6 +74,7 @@ export default function DrawerMenu({
           display: "flex",
           flexDirection: "column",
           boxShadow: "-8px 0 20px rgba(0,0,0,0.5)",
+          overflowY: "auto",
         }}
       >
         {/* Header */}
@@ -144,6 +162,78 @@ export default function DrawerMenu({
                 Create Account
               </button>
             </>
+          )}
+        </div>
+
+        {/* Role Mode Section */}
+        <div
+          style={{
+            marginBottom: 30,
+            padding: 16,
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: 12,
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 10 }}>
+            Cognitive Mode
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={roleMode}
+              onChange={() => setRoleMode((v) => !v)}
+            />
+            Enable Role Stack
+          </label>
+
+          {roleMode && (
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>Architect</div>
+                <select
+                  value={roles.architect}
+                  onChange={(e) => updateRole("architect", e.target.value)}
+                  style={{ width: "100%", marginTop: 4 }}
+                >
+                  {modelOptions.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>Refiner</div>
+                <select
+                  value={roles.refiner}
+                  onChange={(e) => updateRole("refiner", e.target.value)}
+                  style={{ width: "100%", marginTop: 4 }}
+                >
+                  {modelOptions.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>Polisher</div>
+                <select
+                  value={roles.polisher}
+                  onChange={(e) => updateRole("polisher", e.target.value)}
+                  style={{ width: "100%", marginTop: 4 }}
+                >
+                  {modelOptions.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           )}
         </div>
 
