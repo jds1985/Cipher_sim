@@ -1,5 +1,4 @@
 export const runtime = "nodejs";
-console.log("ROLES:", req.body.roles);
 // pages/api/chat.js
 // Cipher OS — stable core + streaming + memory visibility + Role Mode
 
