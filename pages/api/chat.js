@@ -118,6 +118,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  console.log("ROLES:", req.body.roles);
   try {
     const message = req.body?.message?.trim() || "Hello";
     const wantStream = Boolean(req.body?.stream);
