@@ -214,7 +214,7 @@ export default async function handler(req, res) {
 
     let out;
 
-    if (roles) {
+    if (roles && roles.architect && roles.refiner && roles.polisher) {
       trace.log("roleMode.active", roles);
       out = await runRolePipeline({
         roles,
