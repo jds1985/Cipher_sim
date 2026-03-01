@@ -1,7 +1,8 @@
 export const runtime = "nodejs";
 
-// Cipher OS Orchestrator v2.5
-// Adds: Answer Quality Scoring → feeds telemetry + future routing evolution
+// Cipher OS Orchestrator v2.6
+// Adds: Role Stack Execution (Architect → Refiner → Polisher)
+// Preserves: ALL routing, scoring, telemetry, fallback logic
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
@@ -36,7 +37,7 @@ const ADAPTERS = {
 };
 
 /* ===============================
-   SCOREBOARD
+   SCOREBOARD (UNCHANGED)
 ================================ */
 const SCOREBOARD = {
   anthropic: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
@@ -165,6 +166,7 @@ function buildPreferredOrder(intent, streamRequested) {
 export async function runOrchestrator({
   osContext,
   executivePacket,
+  roles,          // ← added
   signal,
   trace,
   stream = false,
@@ -190,6 +192,82 @@ export async function runOrchestrator({
     return { reply: "⚠️ Empty input received.", modelUsed: null };
   }
 
+  const systemPrompt = executivePacket?.systemPrompt || "You are Cipher OS.";
+
+  /* ============================================================
+     ROLE STACK BRANCH (NEW)
+  ============================================================ */
+  if (roles && roles.architect && roles.refiner && roles.polisher) {
+    let currentText = userMessage;
+    const roleStack = {};
+
+    const sequence = [
+      { name: "architect", provider: roles.architect },
+      { name: "refiner", provider: roles.refiner },
+      { name: "polisher", provider: roles.polisher },
+    ];
+
+    for (const stage of sequence) {
+      const entry = ADAPTERS[stage.provider];
+      if (!entry || !hasKey(entry.key)) continue;
+
+      const start = Date.now();
+
+      try {
+        const payload =
+          stage.provider === "gemini"
+            ? { systemPrompt, userMessage: currentText, temperature: 0.6 }
+            : {
+                systemPrompt,
+                messages: [],
+                userMessage: currentText,
+                temperature: 0.6,
+              };
+
+        const out = await entry.fn(payload);
+        const reply = extractReply(out);
+        const latencyMs = Date.now() - start;
+        const quality = evaluateAnswerQuality({ reply, userMessage: currentText });
+
+        updateScore(stage.provider, {
+          success: Boolean(reply),
+          latency: latencyMs,
+          quality,
+        });
+
+        roleStack[stage.name] = {
+          provider: stage.provider,
+          model: out?.modelUsed || "unknown",
+          latencyMs,
+          quality,
+        };
+
+        if (reply) currentText = reply;
+      } catch (err) {
+        trace?.log?.("role.fail", {
+          role: stage.name,
+          provider: stage.provider,
+          error: err?.message || String(err),
+        });
+      }
+    }
+
+    setScores(buildScoreSnapshot());
+
+    return {
+      reply: currentText,
+      modelUsed: {
+        provider: roles.polisher,
+        model: roleStack?.polisher?.model || "unknown",
+      },
+      roleStack,
+    };
+  }
+
+  /* ============================================================
+     ORIGINAL ROUTING LOGIC (100% UNCHANGED BELOW)
+  ============================================================ */
+
   const intent = classifyIntent(userMessage);
   const order = buildPreferredOrder(intent, stream);
   const available = order.filter(k => ADAPTERS[k] && hasKey(ADAPTERS[k].key));
@@ -213,7 +291,6 @@ export async function runOrchestrator({
     return { reply: "No AI providers are configured.", modelUsed: null };
   }
 
-  const systemPrompt = executivePacket?.systemPrompt || "You are Cipher OS.";
   const attempts = [];
 
   for (const provider of available) {
@@ -239,7 +316,6 @@ export async function runOrchestrator({
         const out = await entry.streamFn({ ...payload, onToken });
         const reply = extractReply(out) || "";
         const latencyMs = Date.now() - start;
-
         const quality = evaluateAnswerQuality({ reply, userMessage });
 
         updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
@@ -269,7 +345,6 @@ export async function runOrchestrator({
       const out = await entry.fn(payload);
       const reply = extractReply(out);
       const latencyMs = Date.now() - start;
-
       const quality = evaluateAnswerQuality({ reply, userMessage });
 
       updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
