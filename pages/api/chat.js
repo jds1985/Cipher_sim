@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 // pages/api/chat.js
-// Cipher OS — stable core + streaming + memory visibility + Role Mode
+// Cipher OS — stable core + streaming + memory visibility + Role Mode (Orchestrator-Driven)
 
 import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
@@ -34,91 +34,13 @@ function exposeMemory(nodes = []) {
   }));
 }
 
-/* ─────────────────────────────────────────────
-   ROLE MODE PIPELINE
-───────────────────────────────────────────── */
-
-async function runRolePipeline({
-  roles,
-  osContext,
-  executivePacket,
-  trace,
-}) {
-  const { architect, refiner, polisher } = roles;
-
-  let stageSystemPrompt = executivePacket.systemPrompt || "";
-  let stageReply = null;
-  let lastModelUsed = null;
-
-  // helper to override model inside orchestrator
-  const runStage = async (overrideModel, injectedPrompt) => {
-    const stageExecutive = {
-      ...executivePacket,
-      systemPrompt: stageSystemPrompt + "\n" + injectedPrompt,
-      forceModel: overrideModel || null,
-    };
-
-    const out = await runOrchestrator({
-      osContext,
-      executivePacket: stageExecutive,
-      trace,
-    });
-
-    const reply =
-      typeof out === "string" ? out : out?.reply || out?.text || null;
-
-    if (!reply) throw new Error("Role stage produced no reply");
-
-    lastModelUsed = out?.modelUsed || null;
-    return reply;
-  };
-
-  // ── ARCHITECT ──
-  stageReply = await runStage(
-    architect,
-    `You are the Architect.
-Generate the best possible response to the user request.
-Be thorough, structured, and intelligent.`
-  );
-
-  // ── REFINER ──
-  if (refiner) {
-    stageReply = await runStage(
-      refiner,
-      `You are the Refiner.
-Improve clarity, structure, and reasoning.
-Do not change meaning unless absolutely necessary.
-
-Original Response:
-${stageReply}`
-    );
-  }
-
-  // ── POLISHER ──
-  if (polisher) {
-    stageReply = await runStage(
-      polisher,
-      `You are the Polisher.
-Improve tone, formatting, and readability.
-Do not alter the core meaning.
-
-Text:
-${stageReply}`
-    );
-  }
-
-  return {
-    reply: stageReply,
-    modelUsed: lastModelUsed,
-  };
-}
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   console.log("ROLES:", req.body.roles);
+
   try {
     const message = req.body?.message?.trim() || "Hello";
     const wantStream = Boolean(req.body?.stream);
@@ -128,7 +50,8 @@ export default async function handler(req, res) {
     const userName = "Jim";
 
     const trace = {
-      log: (event, payload) => console.log(`[TRACE] ${event}`, payload ?? ""),
+      log: (event, payload) =>
+        console.log(`[TRACE] ${event}`, payload ?? ""),
     };
 
     // ── Load memory ─────────────────────────────
@@ -188,6 +111,10 @@ export default async function handler(req, res) {
       const out = await runOrchestrator({
         osContext,
         executivePacket,
+        roles:
+          roles && roles.architect && roles.refiner && roles.polisher
+            ? roles
+            : null,
         trace,
         stream: true,
         onToken: (delta) => {
@@ -201,6 +128,7 @@ export default async function handler(req, res) {
         reply: out?.reply || streamedText || "",
         model: out?.modelUsed?.model || null,
         provider: out?.modelUsed?.provider || null,
+        roleStack: out?.roleStack || null,
         memoryInfluence: exposeMemory(prioritizedNodes),
       });
 
@@ -212,26 +140,20 @@ export default async function handler(req, res) {
     // NORMAL MODE
     // ─────────────────────────────────────────────
 
-    let out;
-
-    if (roles && roles.architect && roles.refiner && roles.polisher) {
-      trace.log("roleMode.active", roles);
-      out = await runRolePipeline({
-        roles,
-        osContext,
-        executivePacket,
-        trace,
-      });
-    } else {
-      out = await runOrchestrator({
-        osContext,
-        executivePacket,
-        trace,
-      });
-    }
+    const out = await runOrchestrator({
+      osContext,
+      executivePacket,
+      roles:
+        roles && roles.architect && roles.refiner && roles.polisher
+          ? roles
+          : null,
+      trace,
+    });
 
     const reply =
-      typeof out === "string" ? out : out?.reply || out?.text || null;
+      typeof out === "string"
+        ? out
+        : out?.reply || out?.text || null;
 
     if (!reply) {
       return res.status(500).json({ error: "Model produced no reply" });
@@ -243,7 +165,12 @@ export default async function handler(req, res) {
       out?.engine ||
       null;
 
-    await saveMemory(userId, { type: "interaction", role: "user", content: message });
+    await saveMemory(userId, {
+      type: "interaction",
+      role: "user",
+      content: message,
+    });
+
     await saveMemory(userId, {
       type: "interaction",
       role: "assistant",
@@ -267,7 +194,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       reply,
       model,
-      roleStack: roles || null,
+      roleStack: out?.roleStack || null,
       memoryInfluence: exposeMemory(prioritizedNodes),
     });
   } catch (err) {
