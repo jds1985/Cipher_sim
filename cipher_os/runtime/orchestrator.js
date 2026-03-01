@@ -1,8 +1,13 @@
 export const runtime = "nodejs";
 
-// Cipher OS Orchestrator v2.6
-// Adds: Role Stack Execution (Architect → Refiner → Polisher)
-// Preserves: ALL routing, scoring, telemetry, fallback logic
+// Cipher OS Orchestrator v2.7
+// Adds:
+// - Role-specific system prompts
+// - Delta quality scoring between role stages
+// Preserves:
+// - ALL routing
+// - ALL telemetry
+// - ALL fallback logic
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
@@ -161,12 +166,24 @@ function buildPreferredOrder(intent, streamRequested) {
 }
 
 /* ===============================
+   ROLE SYSTEM PROMPTS
+================================ */
+const ROLE_PROMPTS = {
+  architect:
+    "You are a systems architect. Produce structured, foundational output with clear modules and boundaries.",
+  refiner:
+    "You are a refinement specialist. Improve clarity, organization, and logical flow without changing meaning.",
+  polisher:
+    "You are a language optimizer. Make the text concise, precise, and elegant. Reduce redundancy.",
+};
+
+/* ===============================
    MAIN
 ================================ */
 export async function runOrchestrator({
   osContext,
   executivePacket,
-  roles,          // ← added
+  roles,
   signal,
   trace,
   stream = false,
@@ -192,14 +209,16 @@ export async function runOrchestrator({
     return { reply: "⚠️ Empty input received.", modelUsed: null };
   }
 
-  const systemPrompt = executivePacket?.systemPrompt || "You are Cipher OS.";
+  const baseSystemPrompt =
+    executivePacket?.systemPrompt || "You are Cipher OS.";
 
   /* ============================================================
-     ROLE STACK BRANCH (NEW)
+     ROLE STACK EXECUTION (UPGRADED)
   ============================================================ */
   if (roles && roles.architect && roles.refiner && roles.polisher) {
     let currentText = userMessage;
     const roleStack = {};
+    let previousQuality = 0;
 
     const sequence = [
       { name: "architect", provider: roles.architect },
@@ -214,11 +233,18 @@ export async function runOrchestrator({
       const start = Date.now();
 
       try {
+        const stageSystemPrompt =
+          ROLE_PROMPTS[stage.name] + "\n\n" + baseSystemPrompt;
+
         const payload =
           stage.provider === "gemini"
-            ? { systemPrompt, userMessage: currentText, temperature: 0.6 }
+            ? {
+                systemPrompt: stageSystemPrompt,
+                userMessage: currentText,
+                temperature: 0.6,
+              }
             : {
-                systemPrompt,
+                systemPrompt: stageSystemPrompt,
                 messages: [],
                 userMessage: currentText,
                 temperature: 0.6,
@@ -227,7 +253,14 @@ export async function runOrchestrator({
         const out = await entry.fn(payload);
         const reply = extractReply(out);
         const latencyMs = Date.now() - start;
-        const quality = evaluateAnswerQuality({ reply, userMessage: currentText });
+
+        const quality = evaluateAnswerQuality({
+          reply,
+          userMessage: currentText,
+        });
+
+        const delta = Number((quality - previousQuality).toFixed(4));
+        previousQuality = quality;
 
         updateScore(stage.provider, {
           success: Boolean(reply),
@@ -240,6 +273,7 @@ export async function runOrchestrator({
           model: out?.modelUsed || "unknown",
           latencyMs,
           quality,
+          delta,
         };
 
         if (reply) currentText = reply;
@@ -254,6 +288,17 @@ export async function runOrchestrator({
 
     setScores(buildScoreSnapshot());
 
+    recordRun({
+      timestamp: Date.now(),
+      intent: "role-stack",
+      orderTried: sequence.map(s => s.provider),
+      chosen: roles.polisher,
+      stream: false,
+      success: true,
+      latencyMs: 0,
+      roleStack,
+    });
+
     return {
       reply: currentText,
       modelUsed: {
@@ -265,7 +310,7 @@ export async function runOrchestrator({
   }
 
   /* ============================================================
-     ORIGINAL ROUTING LOGIC (100% UNCHANGED BELOW)
+     ORIGINAL ROUTING LOGIC (UNCHANGED)
   ============================================================ */
 
   const intent = classifyIntent(userMessage);
@@ -302,9 +347,9 @@ export async function runOrchestrator({
 
       const payload =
         provider === "gemini"
-          ? { systemPrompt, userMessage, temperature: 0.6 }
+          ? { systemPrompt: baseSystemPrompt, userMessage, temperature: 0.6 }
           : {
-              systemPrompt,
+              systemPrompt: baseSystemPrompt,
               messages: osContext?.memory?.uiHistory || [],
               userMessage,
               temperature: 0.6,
@@ -318,11 +363,23 @@ export async function runOrchestrator({
         const latencyMs = Date.now() - start;
         const quality = evaluateAnswerQuality({ reply, userMessage });
 
-        updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
+        updateScore(provider, {
+          success: Boolean(reply),
+          latency: latencyMs,
+          quality,
+        });
+
         setScores(buildScoreSnapshot());
 
         if (reply) {
-          setLastRun({ intent, orderTried: attempts, chosen: provider, latencyMs, stream: true, success: true });
+          setLastRun({
+            intent,
+            orderTried: attempts,
+            chosen: provider,
+            latencyMs,
+            stream: true,
+            success: true,
+          });
 
           recordRun({
             timestamp: Date.now(),
@@ -336,7 +393,13 @@ export async function runOrchestrator({
             quality,
           });
 
-          return { reply, modelUsed: { provider, model: out?.modelUsed || "unknown" } };
+          return {
+            reply,
+            modelUsed: {
+              provider,
+              model: out?.modelUsed || "unknown",
+            },
+          };
         }
 
         continue;
@@ -347,13 +410,25 @@ export async function runOrchestrator({
       const latencyMs = Date.now() - start;
       const quality = evaluateAnswerQuality({ reply, userMessage });
 
-      updateScore(provider, { success: Boolean(reply), latency: latencyMs, quality });
+      updateScore(provider, {
+        success: Boolean(reply),
+        latency: latencyMs,
+        quality,
+      });
+
       setScores(buildScoreSnapshot());
 
       if (stream && reply) pseudoStream(reply, onToken);
 
       if (reply) {
-        setLastRun({ intent, orderTried: attempts, chosen: provider, latencyMs, stream, success: true });
+        setLastRun({
+          intent,
+          orderTried: attempts,
+          chosen: provider,
+          latencyMs,
+          stream,
+          success: true,
+        });
 
         recordRun({
           timestamp: Date.now(),
@@ -368,7 +443,13 @@ export async function runOrchestrator({
           pseudoStream: Boolean(stream && !entry.supportsStream),
         });
 
-        return { reply, modelUsed: { provider, model: out?.modelUsed || "unknown" } };
+        return {
+          reply,
+          modelUsed: {
+            provider,
+            model: out?.modelUsed || "unknown",
+          },
+        };
       }
     } catch (err) {
       const latencyMs = Date.now() - start;
@@ -383,7 +464,13 @@ export async function runOrchestrator({
     }
   }
 
-  setLastRun({ intent, orderTried: attempts, chosen: null, stream, success: false });
+  setLastRun({
+    intent,
+    orderTried: attempts,
+    chosen: null,
+    stream,
+    success: false,
+  });
 
   recordRun({
     timestamp: Date.now(),
@@ -396,5 +483,8 @@ export async function runOrchestrator({
     error: "All models failed",
   });
 
-  return { reply: "All models failed to produce a response.", modelUsed: null };
+  return {
+    reply: "All models failed to produce a response.",
+    modelUsed: null,
+  };
 }
