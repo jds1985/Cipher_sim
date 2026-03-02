@@ -11,7 +11,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   onAuthStateChanged,
-  signOut,
 } from "firebase/auth";
 
 /* ===============================
@@ -78,7 +77,6 @@ export default function ChatPanel() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [coinBalance, setCoinBalance] = useState(0);
 
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [showMemory, setShowMemory] = useState(false);
@@ -95,10 +93,8 @@ export default function ChatPanel() {
   const [currentUser, setCurrentUser] = useState(null);
 
   /* ===============================
-     ROLE MODE STATE
+     MODEL STACK STATE (Always Active)
   ================================ */
-  const [roleMode, setRoleMode] = useState(false);
-
   const [roles, setRoles] = useState({
     architect: "openai",
     refiner: "gemini",
@@ -129,10 +125,6 @@ export default function ChatPanel() {
   }, [messages]);
 
   useEffect(() => {
-    if (drawerOpen) setCoinBalance(getCipherCoin());
-  }, [drawerOpen]);
-
-  useEffect(() => {
     if (authDismissed) return;
     const userCount = messages.filter((m) => m.role === "user").length;
     if (userCount >= 3) setShowAuthPrompt(true);
@@ -154,16 +146,6 @@ export default function ChatPanel() {
   function handleSelectMessage(i, options = {}) {
     setSelectedIndex(i);
     setShowMemory(!!options.openMemory);
-  }
-
-  function handleDismissAuth() {
-    setShowAuthPrompt(false);
-    setAuthDismissed(true);
-  }
-
-  function handleCreateAccount() {
-    setIsLoginMode(false);
-    setShowAuthModal(true);
   }
 
   async function handleAuthSubmit() {
@@ -224,7 +206,12 @@ export default function ChatPanel() {
     ]);
 
     try {
-      const useStream = !roleMode;
+      // Determine if stack is single or multi
+      const isSingleModel =
+        roles.architect === roles.refiner &&
+        roles.refiner === roles.polisher;
+
+      const useStream = isSingleModel;
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -233,7 +220,7 @@ export default function ChatPanel() {
           message: text,
           history: historySnapshot.slice(-HISTORY_WINDOW),
           stream: useStream,
-          roles: roleMode ? roles : undefined,
+          roles, // ALWAYS send roles
         }),
       });
 
@@ -242,6 +229,7 @@ export default function ChatPanel() {
         setMessages((m) => {
           const next = [...m];
           next[next.length - 1].content = data.reply || "";
+          next[next.length - 1].modelUsed = data.model || null;
           return next;
         });
       } else {
@@ -288,8 +276,6 @@ export default function ChatPanel() {
           setIsLoginMode(false);
           setShowAuthModal(true);
         }}
-        roleMode={roleMode}
-        setRoleMode={setRoleMode}
         roles={roles}
         setRoles={setRoles}
       />
@@ -302,63 +288,8 @@ export default function ChatPanel() {
             onSelectMessage={handleSelectMessage}
             selectedIndex={selectedIndex}
           />
-
-          {showAuthPrompt && (
-            <div className="cipher-auth-card">
-              <h3>Save Your Cipher</h3>
-              <button onClick={handleCreateAccount}>Create Account</button>
-              <button onClick={() => {
-                setIsLoginMode(true);
-                setShowAuthModal(true);
-              }}>
-                Log In
-              </button>
-              <button className="secondary" onClick={handleDismissAuth}>
-                Continue as Guest
-              </button>
-            </div>
-          )}
         </div>
       </div>
-
-      {showAuthModal && (
-        <div className="cipher-auth-overlay" onClick={() => setShowAuthModal(false)}>
-          <div className="cipher-auth-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{isLoginMode ? "Log In" : "Create Account"}</h3>
-
-            <input
-              type="email"
-              placeholder="Email"
-              value={authEmail}
-              onChange={(e) => setAuthEmail(e.target.value)}
-            />
-
-            <input
-              type="password"
-              placeholder="Password"
-              value={authPassword}
-              onChange={(e) => setAuthPassword(e.target.value)}
-            />
-
-            <button onClick={handleAuthSubmit} disabled={authLoading}>
-              {authLoading
-                ? "Processing..."
-                : isLoginMode
-                ? "Log In"
-                : "Create Account"}
-            </button>
-
-            <button
-              className="cipher-auth-secondary"
-              onClick={() => setIsLoginMode((v) => !v)}
-            >
-              {isLoginMode
-                ? "Need an account? Create one"
-                : "Already have an account? Log in"}
-            </button>
-          </div>
-        </div>
-      )}
 
       {selectedIndex !== null && <QuickActions onAction={() => {}} />}
 
