@@ -5,11 +5,17 @@ export default function MessageList({
   bottomRef,
   onSelectMessage,
   selectedIndex,
+  tier = "free",
+  typing = false,
 }) {
   return (
     <div className="cipher-messages">
       {messages.map((m, i) => {
         const selectable = m.role !== "user";
+
+        // only show typing dots on the LAST assistant bubble while typing
+        const isLast = i === messages.length - 1;
+        const isTypingBubble = Boolean(typing && isLast && m.role === "assistant");
 
         return (
           <MessageBubble
@@ -22,6 +28,9 @@ export default function MessageList({
             isSelected={selectedIndex === i}
             selectable={selectable}
             onSelect={onSelectMessage}
+            transforming={Boolean(m.transforming)}
+            tier={tier}
+            isTyping={isTypingBubble}
           />
         );
       })}
