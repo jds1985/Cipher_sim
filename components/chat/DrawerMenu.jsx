@@ -33,22 +33,65 @@ export default function DrawerMenu({
     }
   }
 
-  function updateRole(key, value) {
+  const modelCycle = ["openai", "gemini", "anthropic"];
+
+  function cycleRole(roleKey) {
+    const currentIndex = modelCycle.indexOf(roles[roleKey]);
+    const nextIndex = (currentIndex + 1) % modelCycle.length;
     setRoles((prev) => ({
       ...prev,
-      [key]: value
+      [roleKey]: modelCycle[nextIndex],
     }));
   }
 
-  const modelOptions = [
-    { label: "OpenAI", value: "openai" },
-    { label: "Gemini", value: "gemini" },
-    { label: "Anthropic", value: "anthropic" },
-  ];
+  function getModelLabel(model) {
+    if (model === "openai") return "OpenAI";
+    if (model === "gemini") return "Gemini";
+    if (model === "anthropic") return "Anthropic";
+    return model;
+  }
+
+  function getModelColor(model) {
+    if (model === "openai") return "#5a46ff";
+    if (model === "gemini") return "#00c2ff";
+    if (model === "anthropic") return "#ff8a00";
+    return "#666";
+  }
+
+  function RoleCircle({ label, roleKey }) {
+    const model = roles[roleKey];
+
+    return (
+      <div style={{ textAlign: "center" }}>
+        <div
+          onClick={() => roleMode && cycleRole(roleKey)}
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: "50%",
+            background: `radial-gradient(circle at 30% 30%, ${getModelColor(model)}, #111)`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: roleMode ? "pointer" : "not-allowed",
+            boxShadow: roleMode
+              ? `0 0 20px ${getModelColor(model)}88`
+              : "none",
+            transition: "all 0.3s ease",
+            marginBottom: 8,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600 }}>
+            {getModelLabel(model)}
+          </div>
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.6 }}>{label}</div>
+      </div>
+    );
+  }
 
   return (
     <>
-      {/* Backdrop */}
       <div
         style={{
           position: "fixed",
@@ -59,7 +102,6 @@ export default function DrawerMenu({
         onClick={onClose}
       />
 
-      {/* Drawer */}
       <div
         style={{
           position: "fixed",
@@ -77,12 +119,10 @@ export default function DrawerMenu({
           overflowY: "auto",
         }}
       >
-        {/* Header */}
         <div style={{ marginBottom: 30 }}>
           <h3 style={{ margin: 0 }}>Cipher OS</h3>
         </div>
 
-        {/* Profile Section */}
         <div
           style={{
             marginBottom: 30,
@@ -165,7 +205,7 @@ export default function DrawerMenu({
           )}
         </div>
 
-        {/* Role Mode Section */}
+        {/* NEW Cognitive Mode UI */}
         <div
           style={{
             marginBottom: 30,
@@ -174,7 +214,7 @@ export default function DrawerMenu({
             borderRadius: 12,
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 10 }}>
+          <div style={{ fontWeight: 600, marginBottom: 12 }}>
             Cognitive Mode
           </div>
 
@@ -188,56 +228,20 @@ export default function DrawerMenu({
           </label>
 
           {roleMode && (
-            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>Architect</div>
-                <select
-                  value={roles.architect}
-                  onChange={(e) => updateRole("architect", e.target.value)}
-                  style={{ width: "100%", marginTop: 4 }}
-                >
-                  {modelOptions.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>Refiner</div>
-                <select
-                  value={roles.refiner}
-                  onChange={(e) => updateRole("refiner", e.target.value)}
-                  style={{ width: "100%", marginTop: 4 }}
-                >
-                  {modelOptions.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>Polisher</div>
-                <select
-                  value={roles.polisher}
-                  onChange={(e) => updateRole("polisher", e.target.value)}
-                  style={{ width: "100%", marginTop: 4 }}
-                >
-                  {modelOptions.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div
+              style={{
+                marginTop: 20,
+                display: "flex",
+                justifyContent: "space-between",
+              }}
+            >
+              <RoleCircle label="Architect" roleKey="architect" />
+              <RoleCircle label="Refiner" roleKey="refiner" />
+              <RoleCircle label="Polisher" roleKey="polisher" />
             </div>
           )}
         </div>
 
-        {/* Close Button */}
         <button
           onClick={onClose}
           style={{
