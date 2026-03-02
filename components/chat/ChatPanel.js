@@ -4,7 +4,6 @@ import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import QuickActions from "./QuickActions";
-import { getCipherCoin } from "./CipherCoin";
 
 import { auth } from "../../lib/firebaseClient";
 import {
@@ -121,14 +120,11 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
+    localStorage.setItem(
+      MEMORY_KEY,
+      JSON.stringify(messages.slice(-MEMORY_LIMIT))
+    );
   }, [messages]);
-
-  useEffect(() => {
-    if (authDismissed) return;
-    const userCount = messages.filter((m) => m.role === "user").length;
-    if (userCount >= 3) setShowAuthPrompt(true);
-  }, [messages, authDismissed]);
 
   function clearChat() {
     try { localStorage.removeItem(MEMORY_KEY); } catch {}
@@ -141,11 +137,6 @@ export default function ChatPanel() {
     setAuthEmail("");
     setAuthPassword("");
     setAuthLoading(false);
-  }
-
-  function handleSelectMessage(i, options = {}) {
-    setSelectedIndex(i);
-    setShowMemory(!!options.openMemory);
   }
 
   async function handleAuthSubmit() {
@@ -202,11 +193,10 @@ export default function ChatPanel() {
     setMessages((m) => [
       ...m,
       userMessage,
-      { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
+      { role: "assistant", content: "", modelUsed: null },
     ]);
 
     try {
-      // Determine if stack is single or multi
       const isSingleModel =
         roles.architect === roles.refiner &&
         roles.refiner === roles.polisher;
@@ -220,12 +210,13 @@ export default function ChatPanel() {
           message: text,
           history: historySnapshot.slice(-HISTORY_WINDOW),
           stream: useStream,
-          roles, // ALWAYS send roles
+          roles,
         }),
       });
 
       if (!useStream) {
         const data = await res.json();
+
         setMessages((m) => {
           const next = [...m];
           next[next.length - 1].content = data.reply || "";
@@ -234,12 +225,23 @@ export default function ChatPanel() {
         });
       } else {
         let streamed = "";
+        let finalModel = null;
+
         await readSSEStream(res, (evt) => {
           if (evt?.type === "delta") {
             streamed += evt.text || "";
             setMessages((m) => {
               const next = [...m];
               next[next.length - 1].content = streamed;
+              return next;
+            });
+          }
+
+          if (evt?.type === "done") {
+            finalModel = evt.model || null;
+            setMessages((m) => {
+              const next = [...m];
+              next[next.length - 1].modelUsed = finalModel;
               return next;
             });
           }
@@ -263,7 +265,10 @@ export default function ChatPanel() {
 
   return (
     <div className="cipher-wrap">
-      <HeaderMenu onOpenDrawer={() => setDrawerOpen(true)} onNewChat={clearChat} />
+      <HeaderMenu
+        onOpenDrawer={() => setDrawerOpen(true)}
+        onNewChat={clearChat}
+      />
 
       <DrawerMenu
         open={drawerOpen}
@@ -285,7 +290,6 @@ export default function ChatPanel() {
           <MessageList
             messages={messages}
             bottomRef={bottomRef}
-            onSelectMessage={handleSelectMessage}
             selectedIndex={selectedIndex}
           />
         </div>
