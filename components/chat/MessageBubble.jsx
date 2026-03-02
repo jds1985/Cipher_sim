@@ -8,6 +8,8 @@ export default function MessageBubble({
   selectable,
   onSelect,
   transforming,
+  tier = "free",
+  isTyping = false,
 }) {
   const handleClick = () => {
     if (!selectable) return;
@@ -19,31 +21,53 @@ export default function MessageBubble({
     onSelect?.(index, { openMemory: true });
   };
 
+  const handleDecipherClick = (e) => {
+    e.stopPropagation();
+    onSelect?.(index, { openDecipher: true });
+  };
+
+  const showTyping = role === "assistant" && isTyping && (!content || content.trim() === "");
+
+  const canShowMemory =
+    role === "assistant" &&
+    tier !== "free" &&
+    Array.isArray(memoryInfluence) &&
+    memoryInfluence.length > 0;
+
+  const canShowDecipher = role === "assistant" && tier === "free";
+
   return (
     <div
-      className={`cipher-bubble ${role} ${
-        isSelected ? "selected" : ""
-      } ${transforming ? "transforming" : ""}`}
+      className={`cipher-bubble ${role} ${isSelected ? "selected" : ""} ${
+        transforming ? "transforming" : ""
+      }`}
       onClick={handleClick}
     >
       <div className="cipher-text">
-        {content}
+        {showTyping ? (
+          <span className="cipher-typing">
+            <span className="dot" />
+            <span className="dot" />
+            <span className="dot" />
+          </span>
+        ) : (
+          content
+        )}
       </div>
 
       {role === "assistant" && (
         <div className="cipher-meta">
-          {modelUsed && (
-            <span className="cipher-model">
-              {modelUsed}
-            </span>
+          {modelUsed && <span className="cipher-model">{modelUsed}</span>}
+
+          {canShowMemory && (
+            <button className="cipher-btn-memory" onClick={handleMemoryClick}>
+              Memory
+            </button>
           )}
 
-          {memoryInfluence && memoryInfluence.length > 0 && (
-            <button
-              className="cipher-btn-memory"
-              onClick={handleMemoryClick}
-            >
-              Memory
+          {canShowDecipher && (
+            <button className="cipher-btn-memory" onClick={handleDecipherClick}>
+              Decipher
             </button>
           )}
         </div>
