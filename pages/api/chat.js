@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 // pages/api/chat.js
-// Cipher OS — stable core + streaming + memory visibility + Role Mode (Orchestrator-Driven)
+// Cipher OS — stable core + streaming + memory visibility + tier-safe role handling
 
 import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
@@ -34,24 +34,47 @@ function exposeMemory(nodes = []) {
   }));
 }
 
+function clampRolesByTier(roles, tier) {
+  const safe = roles && roles.architect && roles.refiner && roles.polisher ? roles : null;
+  if (!safe) return null;
+
+  if (tier === "free") {
+    // Free: single model only (Decipher is a UI feature, not multi-model routing)
+    return { architect: "openai", refiner: "openai", polisher: "openai" };
+  }
+
+  if (tier === "pro") {
+    // Pro: allow up to 2 unique models
+    const vals = [safe.architect, safe.refiner, safe.polisher];
+    const uniq = Array.from(new Set(vals));
+    if (uniq.length <= 2) return safe;
+    // clamp: force polisher to match refiner
+    return { ...safe, polisher: safe.refiner };
+  }
+
+  // Builder: allow 3 unique
+  return safe;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  console.log("ROLES:", req.body.roles);
-
   try {
     const message = req.body?.message?.trim() || "Hello";
     const wantStream = Boolean(req.body?.stream);
-    const roles = req.body?.roles || null;
 
+    const tier = (req.body?.tier || "free").toLowerCase();
+    const requestedRoles = req.body?.roles || null;
+    const roles = clampRolesByTier(requestedRoles, tier);
+
+    // NOTE: you can swap this later for auth-based IDs
     const userId = "jim";
     const userName = "Jim";
 
     const trace = {
-      log: (event, payload) =>
-        console.log(`[TRACE] ${event}`, payload ?? ""),
+      log: (event, payload) => console.log(`[TRACE] ${event}`, payload ?? ""),
     };
 
     // ── Load memory ─────────────────────────────
@@ -85,21 +108,30 @@ export default async function handler(req, res) {
       { userMessage: message, returnPacket: true }
     );
 
+    // ── Memory influence ─────────────────────────
     const influenceText = buildMemoryInfluence(prioritizedNodes);
     if (influenceText) {
       executivePacket.systemPrompt =
         (executivePacket.systemPrompt || "") + "\n" + influenceText;
     }
 
+    // ── Tiny greeting clamp (prevents “essay on hey”) ──
+    const raw = message.trim();
+    const tinyGreeting = /^(hi|hey|yo|hello|sup)$/i.test(raw);
+    const isTiny = raw.length <= 10 && !/[?.!]/.test(raw);
+
+    if (tinyGreeting || isTiny) {
+      executivePacket.systemPrompt =
+        (executivePacket.systemPrompt || "") +
+        "\nIf the user input is a simple greeting or very short message, reply in 1-2 short sentences and ask one simple follow-up question at most.";
+    }
+
     // ─────────────────────────────────────────────
     // STREAM MODE
     // ─────────────────────────────────────────────
-    if (wantStream && roles) {
-      return res
-        .status(400)
-        .json({ error: "Streaming not supported in Role Mode yet." });
-    }
-
+    // IMPORTANT FIX:
+    // Streaming cannot run role-stack yet. Also, your client always sends roles,
+    // so we IGNORE roles during stream to avoid 400 errors and broken UX.
     if (wantStream) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -111,10 +143,7 @@ export default async function handler(req, res) {
       const out = await runOrchestrator({
         osContext,
         executivePacket,
-        roles:
-          roles && roles.architect && roles.refiner && roles.polisher
-            ? roles
-            : null,
+        roles: null, // <-- key: keep stream stable + fast
         trace,
         stream: true,
         onToken: (delta) => {
@@ -128,7 +157,7 @@ export default async function handler(req, res) {
         reply: out?.reply || streamedText || "",
         model: out?.modelUsed?.model || null,
         provider: out?.modelUsed?.provider || null,
-        roleStack: out?.roleStack || null,
+        roleStack: null,
         memoryInfluence: exposeMemory(prioritizedNodes),
       });
 
@@ -139,43 +168,25 @@ export default async function handler(req, res) {
     // ─────────────────────────────────────────────
     // NORMAL MODE
     // ─────────────────────────────────────────────
-
     const out = await runOrchestrator({
       osContext,
       executivePacket,
-      roles:
-        roles && roles.architect && roles.refiner && roles.polisher
-          ? roles
-          : null,
+      roles: roles, // only applies in non-stream mode
       trace,
     });
 
     const reply =
-      typeof out === "string"
-        ? out
-        : out?.reply || out?.text || null;
+      typeof out === "string" ? out : out?.reply || out?.text || null;
 
     if (!reply) {
       return res.status(500).json({ error: "Model produced no reply" });
     }
 
     const model =
-      out?.modelUsed?.model ||
-      out?.model ||
-      out?.engine ||
-      null;
+      out?.modelUsed?.model || out?.model || out?.engine || null;
 
-    await saveMemory(userId, {
-      type: "interaction",
-      role: "user",
-      content: message,
-    });
-
-    await saveMemory(userId, {
-      type: "interaction",
-      role: "assistant",
-      content: reply,
-    });
+    await saveMemory(userId, { type: "interaction", role: "user", content: message });
+    await saveMemory(userId, { type: "interaction", role: "assistant", content: reply });
 
     const extracted = extractMemoryFromTurn(message, reply);
 
