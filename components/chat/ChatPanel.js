@@ -112,6 +112,7 @@ export default function ChatPanel() {
 
   /* ===============================
      AUTH + TIER LOAD
+     NOTE: Firestore doc id should be user.uid (not email)
   ================================ */
   useEffect(() => {
     if (!auth) return;
@@ -149,7 +150,11 @@ export default function ChatPanel() {
   ================================ */
   useEffect(() => {
     if (tier === "free") {
-      const next = { architect: "openai", refiner: "openai", polisher: "openai" };
+      const next = {
+        architect: "openai",
+        refiner: "openai",
+        polisher: "openai",
+      };
       const same =
         roles.architect === next.architect &&
         roles.refiner === next.refiner &&
@@ -172,7 +177,10 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
+    localStorage.setItem(
+      MEMORY_KEY,
+      JSON.stringify(messages.slice(-MEMORY_LIMIT))
+    );
   }, [messages]);
 
   function clearChat() {
@@ -274,10 +282,15 @@ export default function ChatPanel() {
           message: text,
           history: historySnapshot.slice(-HISTORY_WINDOW),
           stream: useStream,
-          roles, // ok to always send; API ignores roles in stream mode
+          roles,
           tier,
         }),
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || `HTTP ${res.status}`);
+      }
 
       if (!useStream) {
         const data = await res.json();
@@ -312,10 +325,13 @@ export default function ChatPanel() {
           }
         });
       }
-    } catch {
+    } catch (e) {
       setMessages((m) => {
         const next = [...m];
-        next[next.length - 1] = { role: "assistant", content: "Transport error" };
+        next[next.length - 1] = {
+          role: "assistant",
+          content: e?.message || "Transport error",
+        };
         return next;
       });
     } finally {
@@ -425,7 +441,17 @@ export default function ChatPanel() {
         </div>
       )}
 
-      {showQuickActions && <QuickActions onAction={() => {}} />}
+      {showQuickActions && (
+        <QuickActions
+          tier={tier}
+          onAction={(prompt) => {
+            if (selectedIndex === null) return;
+            const target = messages[selectedIndex];
+            if (!target?.content) return;
+            setInput(`${prompt}\n\n${target.content}`);
+          }}
+        />
+      )}
 
       <InputBar
         input={input}
