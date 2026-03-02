@@ -1,4 +1,7 @@
-export default function QuickActions({ onAction }) {
+export default function QuickActions({ onAction, tier = "free" }) {
+  // Free tier does NOT get quick actions
+  if (tier === "free") return null;
+
   const actions = [
     { id: "analyze", label: "Analyze", prompt: "Analyze this answer:" },
     { id: "shorter", label: "Shorter", prompt: "Make this shorter:" },
