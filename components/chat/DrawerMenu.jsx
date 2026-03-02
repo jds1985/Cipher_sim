@@ -30,11 +30,19 @@ export default function DrawerMenu({
     }
   }
 
+  const isPro = !!user; // temporary tier logic
+
   const modelCycle = ["openai", "gemini", "anthropic"];
 
   function cycleRole(roleKey) {
+    if (!isPro && roleKey !== "architect") {
+      alert("Upgrade required for multi-model stack.");
+      return;
+    }
+
     const currentIndex = modelCycle.indexOf(roles[roleKey]);
     const nextIndex = (currentIndex + 1) % modelCycle.length;
+
     setRoles((prev) => ({
       ...prev,
       [roleKey]: modelCycle[nextIndex],
@@ -57,9 +65,10 @@ export default function DrawerMenu({
 
   function RoleCircle({ label, roleKey }) {
     const model = roles[roleKey];
+    const locked = !isPro && roleKey !== "architect";
 
     return (
-      <div style={{ textAlign: "center" }}>
+      <div style={{ textAlign: "center", position: "relative" }}>
         <div
           onClick={() => cycleRole(roleKey)}
           style={{
@@ -70,16 +79,36 @@ export default function DrawerMenu({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            cursor: "pointer",
-            boxShadow: `0 0 20px ${getModelColor(model)}88`,
+            cursor: locked ? "not-allowed" : "pointer",
+            boxShadow: locked
+              ? "none"
+              : `0 0 20px ${getModelColor(model)}88`,
             transition: "all 0.3s ease",
             marginBottom: 8,
+            opacity: locked ? 0.35 : 1,
           }}
         >
           <div style={{ fontSize: 12, fontWeight: 600 }}>
             {getModelLabel(model)}
           </div>
         </div>
+
+        {locked && (
+          <div
+            style={{
+              position: "absolute",
+              top: 28,
+              left: 0,
+              right: 0,
+              fontSize: 11,
+              textAlign: "center",
+              opacity: 0.8,
+            }}
+          >
+            🔒
+          </div>
+        )}
+
         <div style={{ fontSize: 12, opacity: 0.6 }}>{label}</div>
       </div>
     );
@@ -213,7 +242,7 @@ export default function DrawerMenu({
           }}
         >
           <div style={{ fontWeight: 600, marginBottom: 16 }}>
-            Cognitive Mode
+            Cognitive Stack
           </div>
 
           <div
