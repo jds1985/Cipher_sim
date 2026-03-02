@@ -7,8 +7,6 @@ export default function DrawerMenu({
   onClose,
   onOpenLogin,
   onOpenSignup,
-  roleMode,
-  setRoleMode,
   roles,
   setRoles
 }) {
@@ -18,7 +16,6 @@ export default function DrawerMenu({
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
     });
-
     return () => unsub();
   }, []);
 
@@ -64,7 +61,7 @@ export default function DrawerMenu({
     return (
       <div style={{ textAlign: "center" }}>
         <div
-          onClick={() => roleMode && cycleRole(roleKey)}
+          onClick={() => cycleRole(roleKey)}
           style={{
             width: 80,
             height: 80,
@@ -73,10 +70,8 @@ export default function DrawerMenu({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            cursor: roleMode ? "pointer" : "not-allowed",
-            boxShadow: roleMode
-              ? `0 0 20px ${getModelColor(model)}88`
-              : "none",
+            cursor: "pointer",
+            boxShadow: `0 0 20px ${getModelColor(model)}88`,
             transition: "all 0.3s ease",
             marginBottom: 8,
           }}
@@ -89,6 +84,10 @@ export default function DrawerMenu({
       </div>
     );
   }
+
+  const stackActive =
+    roles.architect !== roles.refiner ||
+    roles.refiner !== roles.polisher;
 
   return (
     <>
@@ -205,7 +204,6 @@ export default function DrawerMenu({
           )}
         </div>
 
-        {/* NEW Cognitive Mode UI */}
         <div
           style={{
             marginBottom: 30,
@@ -214,32 +212,31 @@ export default function DrawerMenu({
             borderRadius: 12,
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, marginBottom: 16 }}>
             Cognitive Mode
           </div>
 
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={roleMode}
-              onChange={() => setRoleMode((v) => !v)}
-            />
-            Enable Role Stack
-          </label>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+            }}
+          >
+            <RoleCircle label="Architect" roleKey="architect" />
+            <RoleCircle label="Refiner" roleKey="refiner" />
+            <RoleCircle label="Polisher" roleKey="polisher" />
+          </div>
 
-          {roleMode && (
-            <div
-              style={{
-                marginTop: 20,
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
-              <RoleCircle label="Architect" roleKey="architect" />
-              <RoleCircle label="Refiner" roleKey="refiner" />
-              <RoleCircle label="Polisher" roleKey="polisher" />
-            </div>
-          )}
+          <div
+            style={{
+              marginTop: 14,
+              fontSize: 12,
+              opacity: 0.7,
+              textAlign: "center",
+            }}
+          >
+            {stackActive ? "Role Stack Active" : "Single Model Mode"}
+          </div>
         </div>
 
         <button
