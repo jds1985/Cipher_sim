@@ -64,7 +64,7 @@ async function readSSEStream(res, onEvent) {
    COMPONENT
 ================================ */
 export default function ChatPanel() {
-  const [tier, setTier] = useState("free"); // ✅ NEW
+  const [tier, setTier] = useState("free");
 
   const [messages, setMessages] = useState(() => {
     if (typeof window === "undefined") return [];
@@ -97,6 +97,9 @@ export default function ChatPanel() {
 
   /* ===============================
      MODEL STACK STATE
+     free: forced to single model
+     pro: up to 2 unique
+     builder: up to 3 unique
   ================================ */
   const [roles, setRoles] = useState({
     architect: "openai",
@@ -136,37 +139,35 @@ export default function ChatPanel() {
   ================================ */
   useEffect(() => {
     if (authDismissed) return;
-    if (currentUser) return; // signed-in users don’t need prompt
+    if (currentUser) return;
     const userCount = messages.filter((m) => m.role === "user").length;
     if (userCount >= 3) setShowAuthPrompt(true);
   }, [messages, authDismissed, currentUser]);
 
   /* ===============================
      TIER ENFORCEMENT (ROLES)
-     free  = 1 model (all same)
-     pro   = up to 2 unique models
-     builder = 3 unique allowed
   ================================ */
   useEffect(() => {
     if (tier === "free") {
-      setRoles({ architect: "openai", refiner: "openai", polisher: "openai" });
+      const next = { architect: "openai", refiner: "openai", polisher: "openai" };
+      const same =
+        roles.architect === next.architect &&
+        roles.refiner === next.refiner &&
+        roles.polisher === next.polisher;
+      if (!same) setRoles(next);
       return;
     }
 
     if (tier === "pro") {
-      const unique = Array.from(new Set(Object.values(roles)));
-      if (unique.length > 2) {
-        // clamp to 2 by snapping polisher to refiner
+      const uniq = Array.from(new Set(Object.values(roles)));
+      if (uniq.length > 2) {
         setRoles((prev) => ({ ...prev, polisher: prev.refiner }));
       }
     }
-  }, [tier]);
+  }, [tier, roles]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "end",
-    });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, typing]);
 
   useEffect(() => {
@@ -175,7 +176,9 @@ export default function ChatPanel() {
   }, [messages]);
 
   function clearChat() {
-    try { localStorage.removeItem(MEMORY_KEY); } catch {}
+    try {
+      localStorage.removeItem(MEMORY_KEY);
+    } catch {}
     setMessages([]);
     setSelectedIndex(null);
     setShowMemory(false);
@@ -260,10 +263,9 @@ export default function ChatPanel() {
 
     try {
       const isSingleModel =
-        roles.architect === roles.refiner &&
-        roles.refiner === roles.polisher;
+        roles.architect === roles.refiner && roles.refiner === roles.polisher;
 
-      const useStream = isSingleModel;
+      const useStream = isSingleModel; // single model = stream
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -272,7 +274,7 @@ export default function ChatPanel() {
           message: text,
           history: historySnapshot.slice(-HISTORY_WINDOW),
           stream: useStream,
-          roles,
+          roles, // ok to always send; API ignores roles in stream mode
           tier,
         }),
       });
@@ -301,7 +303,8 @@ export default function ChatPanel() {
           if (evt?.type === "done") {
             setMessages((m) => {
               const next = [...m];
-              next[next.length - 1].content = evt.reply || next[next.length - 1].content;
+              next[next.length - 1].content =
+                evt.reply || next[next.length - 1].content;
               next[next.length - 1].modelUsed = evt.model || null;
               next[next.length - 1].memoryInfluence = evt.memoryInfluence || [];
               return next;
@@ -321,11 +324,15 @@ export default function ChatPanel() {
     }
   }
 
+  // Free: no quick actions. Pro/Builder: yes.
   const showQuickActions = selectedIndex !== null && tier !== "free";
 
   return (
     <div className="cipher-wrap">
-      <HeaderMenu onOpenDrawer={() => setDrawerOpen(true)} onNewChat={clearChat} />
+      <HeaderMenu
+        onOpenDrawer={() => setDrawerOpen(true)}
+        onNewChat={clearChat}
+      />
 
       <DrawerMenu
         open={drawerOpen}
@@ -374,8 +381,14 @@ export default function ChatPanel() {
       </div>
 
       {showAuthModal && (
-        <div className="cipher-auth-overlay" onClick={() => setShowAuthModal(false)}>
-          <div className="cipher-auth-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="cipher-auth-overlay"
+          onClick={() => setShowAuthModal(false)}
+        >
+          <div
+            className="cipher-auth-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3>{isLoginMode ? "Log In" : "Create Account"}</h3>
 
             <input
@@ -393,14 +406,20 @@ export default function ChatPanel() {
             />
 
             <button onClick={handleAuthSubmit} disabled={authLoading}>
-              {authLoading ? "Processing..." : isLoginMode ? "Log In" : "Create Account"}
+              {authLoading
+                ? "Processing..."
+                : isLoginMode
+                ? "Log In"
+                : "Create Account"}
             </button>
 
             <button
               className="cipher-auth-secondary"
               onClick={() => setIsLoginMode((v) => !v)}
             >
-              {isLoginMode ? "Need an account? Create one" : "Already have an account? Log in"}
+              {isLoginMode
+                ? "Need an account? Create one"
+                : "Already have an account? Log in"}
             </button>
           </div>
         </div>
@@ -408,7 +427,12 @@ export default function ChatPanel() {
 
       {showQuickActions && <QuickActions onAction={() => {}} />}
 
-      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
+      <InputBar
+        input={input}
+        setInput={setInput}
+        onSend={sendMessage}
+        typing={typing}
+      />
     </div>
   );
 }
