@@ -5,12 +5,14 @@ import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import QuickActions from "./QuickActions";
 
-import { auth } from "../../lib/firebaseClient";
+import { auth, db } from "../../lib/firebaseClient";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   onAuthStateChanged,
 } from "firebase/auth";
+
+import { doc, getDoc } from "firebase/firestore";
 
 /* ===============================
    CONFIG
@@ -62,6 +64,9 @@ async function readSSEStream(res, onEvent) {
    COMPONENT
 ================================ */
 export default function ChatPanel() {
+
+  const [tier, setTier] = useState("free"); // ✅ NEW
+
   const [messages, setMessages] = useState(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -91,25 +96,64 @@ export default function ChatPanel() {
 
   const [currentUser, setCurrentUser] = useState(null);
 
-  /* ===============================
-     MODEL STACK STATE (Always Active)
-  ================================ */
   const [roles, setRoles] = useState({
     architect: "openai",
-    refiner: "gemini",
-    polisher: "anthropic",
+    refiner: "openai",
+    polisher: "openai",
   });
 
   const bottomRef = useRef(null);
   const sendingRef = useRef(false);
 
+  /* ===============================
+     AUTH + TIER LOAD
+  ================================ */
   useEffect(() => {
     if (!auth) return;
-    const unsub = onAuthStateChanged(auth, (user) => {
+
+    const unsub = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user || null);
+
+      if (user) {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          setTier(snap.data().tier || "free");
+        } else {
+          setTier("free");
+        }
+      } else {
+        setTier("free");
+      }
     });
+
     return () => unsub();
   }, []);
+
+  /* ===============================
+     TIER ENFORCEMENT
+  ================================ */
+  useEffect(() => {
+    if (tier === "free") {
+      setRoles({
+        architect: "openai",
+        refiner: "openai",
+        polisher: "openai",
+      });
+    }
+
+    if (tier === "pro") {
+      // Max 2 unique models
+      const unique = new Set(Object.values(roles));
+      if (unique.size > 2) {
+        setRoles((prev) => ({
+          architect: prev.architect,
+          refiner: prev.refiner,
+          polisher: prev.refiner,
+        }));
+      }
+    }
+
+  }, [tier]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -148,11 +192,6 @@ export default function ChatPanel() {
       return;
     }
 
-    if (!auth) {
-      alert("Firebase auth not initialized.");
-      return;
-    }
-
     try {
       setAuthLoading(true);
 
@@ -163,8 +202,6 @@ export default function ChatPanel() {
       }
 
       setShowAuthModal(false);
-      setShowAuthPrompt(false);
-      setAuthDismissed(true);
       setAuthEmail("");
       setAuthPassword("");
 
@@ -211,6 +248,7 @@ export default function ChatPanel() {
           history: historySnapshot.slice(-HISTORY_WINDOW),
           stream: useStream,
           roles,
+          tier, // ✅ backend aware
         }),
       });
 
@@ -283,6 +321,7 @@ export default function ChatPanel() {
         }}
         roles={roles}
         setRoles={setRoles}
+        tier={tier} // optional for UI later
       />
 
       <div className="cipher-main">
@@ -295,7 +334,9 @@ export default function ChatPanel() {
         </div>
       </div>
 
-      {selectedIndex !== null && <QuickActions onAction={() => {}} />}
+      {selectedIndex !== null && tier !== "free" && (
+        <QuickActions onAction={() => {}} />
+      )}
 
       <InputBar
         input={input}
