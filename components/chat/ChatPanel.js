@@ -64,7 +64,6 @@ async function readSSEStream(res, onEvent) {
    COMPONENT
 ================================ */
 export default function ChatPanel() {
-
   const [tier, setTier] = useState("free"); // ✅ NEW
 
   const [messages, setMessages] = useState(() => {
@@ -96,6 +95,9 @@ export default function ChatPanel() {
 
   const [currentUser, setCurrentUser] = useState(null);
 
+  /* ===============================
+     MODEL STACK STATE
+  ================================ */
   const [roles, setRoles] = useState({
     architect: "openai",
     refiner: "openai",
@@ -115,10 +117,10 @@ export default function ChatPanel() {
       setCurrentUser(user || null);
 
       if (user) {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        if (snap.exists()) {
-          setTier(snap.data().tier || "free");
-        } else {
+        try {
+          const snap = await getDoc(doc(db, "users", user.uid));
+          setTier(snap.exists() ? snap.data()?.tier || "free" : "free");
+        } catch {
           setTier("free");
         }
       } else {
@@ -130,29 +132,34 @@ export default function ChatPanel() {
   }, []);
 
   /* ===============================
-     TIER ENFORCEMENT
+     AUTH PROMPT (RESTORED)
+  ================================ */
+  useEffect(() => {
+    if (authDismissed) return;
+    if (currentUser) return; // signed-in users don’t need prompt
+    const userCount = messages.filter((m) => m.role === "user").length;
+    if (userCount >= 3) setShowAuthPrompt(true);
+  }, [messages, authDismissed, currentUser]);
+
+  /* ===============================
+     TIER ENFORCEMENT (ROLES)
+     free  = 1 model (all same)
+     pro   = up to 2 unique models
+     builder = 3 unique allowed
   ================================ */
   useEffect(() => {
     if (tier === "free") {
-      setRoles({
-        architect: "openai",
-        refiner: "openai",
-        polisher: "openai",
-      });
+      setRoles({ architect: "openai", refiner: "openai", polisher: "openai" });
+      return;
     }
 
     if (tier === "pro") {
-      // Max 2 unique models
-      const unique = new Set(Object.values(roles));
-      if (unique.size > 2) {
-        setRoles((prev) => ({
-          architect: prev.architect,
-          refiner: prev.refiner,
-          polisher: prev.refiner,
-        }));
+      const unique = Array.from(new Set(Object.values(roles)));
+      if (unique.length > 2) {
+        // clamp to 2 by snapping polisher to refiner
+        setRoles((prev) => ({ ...prev, polisher: prev.refiner }));
       }
     }
-
   }, [tier]);
 
   useEffect(() => {
@@ -164,10 +171,7 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(
-      MEMORY_KEY,
-      JSON.stringify(messages.slice(-MEMORY_LIMIT))
-    );
+    localStorage.setItem(MEMORY_KEY, JSON.stringify(messages.slice(-MEMORY_LIMIT)));
   }, [messages]);
 
   function clearChat() {
@@ -183,12 +187,32 @@ export default function ChatPanel() {
     setAuthLoading(false);
   }
 
+  function handleSelectMessage(i, options = {}) {
+    setSelectedIndex(i);
+    setShowMemory(!!options.openMemory);
+  }
+
+  function handleDismissAuth() {
+    setShowAuthPrompt(false);
+    setAuthDismissed(true);
+  }
+
+  function handleCreateAccount() {
+    setIsLoginMode(false);
+    setShowAuthModal(true);
+  }
+
   async function handleAuthSubmit() {
     const email = authEmail.trim();
     const pass = authPassword;
 
     if (!email || !pass) {
       alert("Enter email + password.");
+      return;
+    }
+
+    if (!auth) {
+      alert("Firebase auth not initialized.");
       return;
     }
 
@@ -202,9 +226,10 @@ export default function ChatPanel() {
       }
 
       setShowAuthModal(false);
+      setShowAuthPrompt(false);
+      setAuthDismissed(true);
       setAuthEmail("");
       setAuthPassword("");
-
     } catch (err) {
       alert(err?.message || err?.code || "Auth error");
     } finally {
@@ -230,7 +255,7 @@ export default function ChatPanel() {
     setMessages((m) => [
       ...m,
       userMessage,
-      { role: "assistant", content: "", modelUsed: null },
+      { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
     ]);
 
     try {
@@ -248,23 +273,21 @@ export default function ChatPanel() {
           history: historySnapshot.slice(-HISTORY_WINDOW),
           stream: useStream,
           roles,
-          tier, // ✅ backend aware
+          tier,
         }),
       });
 
       if (!useStream) {
         const data = await res.json();
-
         setMessages((m) => {
           const next = [...m];
           next[next.length - 1].content = data.reply || "";
           next[next.length - 1].modelUsed = data.model || null;
+          next[next.length - 1].memoryInfluence = data.memoryInfluence || [];
           return next;
         });
       } else {
         let streamed = "";
-        let finalModel = null;
-
         await readSSEStream(res, (evt) => {
           if (evt?.type === "delta") {
             streamed += evt.text || "";
@@ -276,23 +299,20 @@ export default function ChatPanel() {
           }
 
           if (evt?.type === "done") {
-            finalModel = evt.model || null;
             setMessages((m) => {
               const next = [...m];
-              next[next.length - 1].modelUsed = finalModel;
+              next[next.length - 1].content = evt.reply || next[next.length - 1].content;
+              next[next.length - 1].modelUsed = evt.model || null;
+              next[next.length - 1].memoryInfluence = evt.memoryInfluence || [];
               return next;
             });
           }
         });
       }
-
     } catch {
       setMessages((m) => {
         const next = [...m];
-        next[next.length - 1] = {
-          role: "assistant",
-          content: "Transport error",
-        };
+        next[next.length - 1] = { role: "assistant", content: "Transport error" };
         return next;
       });
     } finally {
@@ -301,12 +321,11 @@ export default function ChatPanel() {
     }
   }
 
+  const showQuickActions = selectedIndex !== null && tier !== "free";
+
   return (
     <div className="cipher-wrap">
-      <HeaderMenu
-        onOpenDrawer={() => setDrawerOpen(true)}
-        onNewChat={clearChat}
-      />
+      <HeaderMenu onOpenDrawer={() => setDrawerOpen(true)} onNewChat={clearChat} />
 
       <DrawerMenu
         open={drawerOpen}
@@ -321,7 +340,7 @@ export default function ChatPanel() {
         }}
         roles={roles}
         setRoles={setRoles}
-        tier={tier} // optional for UI later
+        tier={tier}
       />
 
       <div className="cipher-main">
@@ -329,21 +348,67 @@ export default function ChatPanel() {
           <MessageList
             messages={messages}
             bottomRef={bottomRef}
+            onSelectMessage={handleSelectMessage}
             selectedIndex={selectedIndex}
+            showMemory={showMemory}
           />
+
+          {showAuthPrompt && (
+            <div className="cipher-auth-card">
+              <h3>Save Your Cipher</h3>
+              <button onClick={handleCreateAccount}>Create Account</button>
+              <button
+                onClick={() => {
+                  setIsLoginMode(true);
+                  setShowAuthModal(true);
+                }}
+              >
+                Log In
+              </button>
+              <button className="secondary" onClick={handleDismissAuth}>
+                Continue as Guest
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {selectedIndex !== null && tier !== "free" && (
-        <QuickActions onAction={() => {}} />
+      {showAuthModal && (
+        <div className="cipher-auth-overlay" onClick={() => setShowAuthModal(false)}>
+          <div className="cipher-auth-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{isLoginMode ? "Log In" : "Create Account"}</h3>
+
+            <input
+              type="email"
+              placeholder="Email"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+            />
+
+            <button onClick={handleAuthSubmit} disabled={authLoading}>
+              {authLoading ? "Processing..." : isLoginMode ? "Log In" : "Create Account"}
+            </button>
+
+            <button
+              className="cipher-auth-secondary"
+              onClick={() => setIsLoginMode((v) => !v)}
+            >
+              {isLoginMode ? "Need an account? Create one" : "Already have an account? Log in"}
+            </button>
+          </div>
+        </div>
       )}
 
-      <InputBar
-        input={input}
-        setInput={setInput}
-        onSend={sendMessage}
-        typing={typing}
-      />
+      {showQuickActions && <QuickActions onAction={() => {}} />}
+
+      <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing} />
     </div>
   );
 }
