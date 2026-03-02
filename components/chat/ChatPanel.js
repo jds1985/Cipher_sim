@@ -64,7 +64,7 @@ async function readSSEStream(res, onEvent) {
    COMPONENT
 ================================ */
 export default function ChatPanel() {
-  const [tier, setTier] = useState("free");
+  const [tier, setTier] = useState("builder");
 
   const [messages, setMessages] = useState(() => {
     if (typeof window === "undefined") return [];
