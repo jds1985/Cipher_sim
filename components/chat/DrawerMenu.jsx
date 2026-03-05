@@ -30,7 +30,7 @@ export default function DrawerMenu({
     }
   }
 
-  const isPro = !!user; // temporary tier logic
+  const isPro = !!user;
 
   const modelCycle = ["openai", "gemini", "anthropic"];
 
@@ -267,6 +267,24 @@ export default function DrawerMenu({
             {stackActive ? "Role Stack Active" : "Single Model Mode"}
           </div>
         </div>
+
+        <button
+          onClick={() => {
+            window.location.href = "/import";
+          }}
+          style={{
+            width: "100%",
+            padding: 10,
+            background: "#1a1a22",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+            marginBottom: 10,
+          }}
+        >
+          Import History
+        </button>
 
         <button
           onClick={onClose}
