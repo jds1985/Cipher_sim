@@ -39,20 +39,16 @@ function clampRolesByTier(roles, tier) {
   if (!safe) return null;
 
   if (tier === "free") {
-    // Free: single model only (Decipher is a UI feature, not multi-model routing)
     return { architect: "openai", refiner: "openai", polisher: "openai" };
   }
 
   if (tier === "pro") {
-    // Pro: allow up to 2 unique models
     const vals = [safe.architect, safe.refiner, safe.polisher];
     const uniq = Array.from(new Set(vals));
     if (uniq.length <= 2) return safe;
-    // clamp: force polisher to match refiner
     return { ...safe, polisher: safe.refiner };
   }
 
-  // Builder: allow 3 unique
   return safe;
 }
 
@@ -69,7 +65,6 @@ export default async function handler(req, res) {
     const requestedRoles = req.body?.roles || null;
     const roles = clampRolesByTier(requestedRoles, tier);
 
-    // NOTE: you can swap this later for auth-based IDs
     const userId = "jim";
     const userName = "Jim";
 
@@ -77,14 +72,28 @@ export default async function handler(req, res) {
       log: (event, payload) => console.log(`[TRACE] ${event}`, payload ?? ""),
     };
 
-    // ── Load memory ─────────────────────────────
+    // ─────────────────────────────
+    // LOAD MEMORY
+    // ─────────────────────────────
+
     const memoryData = await loadMemory(userId);
     const longTermHistory = memoryData?.history || [];
 
-    const nodes = await loadMemoryNodes(userId, 60);
+    const nodes = await loadMemoryNodes(userId, 120); // allow more raw nodes
+
     const summaryDoc = await loadSummary(userId);
 
-    const prioritizedNodes = prioritizeContext(nodes || [], 15);
+    // smarter prioritization (important for imported history)
+    const prioritizedNodes = prioritizeContext(
+      nodes
+        .sort((a, b) => (b.importance || 0) - (a.importance || 0))
+        .slice(0, 40),
+      15
+    );
+
+    // ─────────────────────────────
+    // BUILD OS CONTEXT
+    // ─────────────────────────────
 
     const osContext = buildOSContext({
       requestId: Date.now().toString(),
@@ -108,14 +117,19 @@ export default async function handler(req, res) {
       { userMessage: message, returnPacket: true }
     );
 
-    // ── Memory influence ─────────────────────────
+    // ─────────────────────────────
+    // MEMORY INFLUENCE
+    // ─────────────────────────────
+
     const influenceText = buildMemoryInfluence(prioritizedNodes);
+
     if (influenceText) {
       executivePacket.systemPrompt =
         (executivePacket.systemPrompt || "") + "\n" + influenceText;
     }
 
-    // ── Tiny greeting clamp (prevents “essay on hey”) ──
+    // greeting clamp
+
     const raw = message.trim();
     const tinyGreeting = /^(hi|hey|yo|hello|sup)$/i.test(raw);
     const isTiny = raw.length <= 10 && !/[?.!]/.test(raw);
@@ -126,12 +140,10 @@ export default async function handler(req, res) {
         "\nIf the user input is a simple greeting or very short message, reply in 1-2 short sentences and ask one simple follow-up question at most.";
     }
 
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────
     // STREAM MODE
-    // ─────────────────────────────────────────────
-    // IMPORTANT FIX:
-    // Streaming cannot run role-stack yet. Also, your client always sends roles,
-    // so we IGNORE roles during stream to avoid 400 errors and broken UX.
+    // ─────────────────────────────
+
     if (wantStream) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -143,7 +155,7 @@ export default async function handler(req, res) {
       const out = await runOrchestrator({
         osContext,
         executivePacket,
-        roles: null, // <-- key: keep stream stable + fast
+        roles: null,
         trace,
         stream: true,
         onToken: (delta) => {
@@ -165,13 +177,14 @@ export default async function handler(req, res) {
       return;
     }
 
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────
     // NORMAL MODE
-    // ─────────────────────────────────────────────
+    // ─────────────────────────────
+
     const out = await runOrchestrator({
       osContext,
       executivePacket,
-      roles: roles, // only applies in non-stream mode
+      roles: roles,
       trace,
     });
 
