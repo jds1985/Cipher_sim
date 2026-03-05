@@ -2,7 +2,8 @@
 
 import { createHash } from "crypto";
 import { detectImporter } from "../../lib/importers/registry";
-import { getDb } from "../../lib/firebaseAdmin";
+// NOTE: firebaseAdmin.js lives at the project root (not /lib)
+import { getDb } from "../../firebaseAdmin";
 
 const CHUNK_SIZE = 80;
 
@@ -48,7 +49,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // safer parsing
     let raw;
 
     try {
