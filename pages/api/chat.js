@@ -79,17 +79,22 @@ export default async function handler(req, res) {
     const memoryData = await loadMemory(userId);
     const longTermHistory = memoryData?.history || [];
 
-    const nodes = await loadMemoryNodes(userId, 120); // allow more raw nodes
-
+    const nodes = await loadMemoryNodes(userId, 120);
     const summaryDoc = await loadSummary(userId);
 
     // smarter prioritization (important for imported history)
-    const prioritizedNodes = prioritizeContext(
+    let prioritizedNodes = prioritizeContext(
       nodes
         .sort((a, b) => (b.importance || 0) - (a.importance || 0))
         .slice(0, 40),
       15
     );
+
+    // 🔥 HISTORY BOOST — prioritize imported nodes when user asks for them
+    const historyQuery = /history|imported|past conversations|memory vault|previous chats/i.test(message);
+    if (historyQuery) {
+      prioritizedNodes = nodes || [];
+    }
 
     // ─────────────────────────────
     // BUILD OS CONTEXT
@@ -127,8 +132,6 @@ export default async function handler(req, res) {
       executivePacket.systemPrompt =
         (executivePacket.systemPrompt || "") + "\n" + influenceText;
     }
-
-    // greeting clamp
 
     const raw = message.trim();
     const tinyGreeting = /^(hi|hey|yo|hello|sup)$/i.test(raw);
