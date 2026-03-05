@@ -1,20 +1,22 @@
 // pages/api/import-history.js
 
-import crypto from "crypto";
+import { createHash } from "crypto";
 import { detectImporter } from "../../lib/importers/registry";
 import { getDb } from "../../lib/firebaseAdmin";
 
-const CHUNK_SIZE = 80; // within your 50–100 memory
+const CHUNK_SIZE = 80;
 
 function hashId(input) {
-  return crypto.createHash("sha256").update(input).digest("hex").slice(0, 24);
+  return createHash("sha256").update(input).digest("hex").slice(0, 24);
 }
 
 function chunkMessages(messages, size = CHUNK_SIZE) {
   const out = [];
+
   for (let i = 0; i < messages.length; i += size) {
     out.push(messages.slice(i, i + size));
   }
+
   return out;
 }
 
@@ -32,26 +34,45 @@ export default async function handler(req, res) {
       });
     }
 
-    const { userId, rawJson, mode } = req.body || {};
+    const { userId, rawJson } = req.body || {};
 
     if (!userId) {
-      return res.status(400).json({ error: "Missing userId" });
+      return res.status(400).json({
+        error: "Missing userId",
+      });
     }
 
     if (!rawJson) {
-      return res.status(400).json({ error: "Missing rawJson" });
+      return res.status(400).json({
+        error: "Missing rawJson",
+      });
     }
 
-    // rawJson can be string or object
-    const raw = typeof rawJson === "string" ? JSON.parse(rawJson) : rawJson;
+    // safer parsing
+    let raw;
+
+    try {
+      raw = typeof rawJson === "string" ? JSON.parse(rawJson) : rawJson;
+    } catch (e) {
+      return res.status(400).json({
+        error: "Invalid JSON file",
+      });
+    }
 
     const importer = detectImporter(raw);
+
+    if (!importer) {
+      return res.status(400).json({
+        error: "Unsupported export format",
+      });
+    }
+
     const normalized = importer.parse(raw);
 
-    if (!normalized.threads || normalized.threads.length === 0) {
+    if (!normalized?.threads || normalized.threads.length === 0) {
       return res.status(200).json({
         ok: true,
-        source: normalized.source,
+        source: normalized?.source || importer.id || "unknown",
         importedThreads: 0,
         importedNodes: 0,
       });
@@ -63,9 +84,13 @@ export default async function handler(req, res) {
     let importedNodes = 0;
 
     for (const t of threads) {
+      if (!t.messages || t.messages.length === 0) continue;
+
       const source = normalized.source || importer.id || "unknown";
 
-      const branchId = hashId(`${userId}:${source}:${t.sourceThreadId}`);
+      const branchId = hashId(
+        `${userId}:${source}:${t.sourceThreadId || t.title}`
+      );
 
       const branchRef = db.collection("cipher_branches").doc(branchId);
 
@@ -77,7 +102,9 @@ export default async function handler(req, res) {
         const chunk = chunks[ci];
 
         const contentHash = hashId(
-          JSON.stringify(chunk.map((m) => [m.role, m.ts, m.content]))
+          JSON.stringify(
+            chunk.map((m) => [m.role || "", m.ts || "", m.content || ""])
+          )
         );
 
         const nodeId = hashId(`${branchId}:${ci}:${contentHash}`);
@@ -91,8 +118,8 @@ export default async function handler(req, res) {
             userId,
             branchId,
             source,
-            sourceThreadId: t.sourceThreadId,
-            title: t.title,
+            sourceThreadId: t.sourceThreadId || null,
+            title: t.title || null,
             chunkIndex: ci,
             createdAt: t.createdAt || Date.now() / 1000,
             importedAt: Date.now(),
@@ -110,8 +137,8 @@ export default async function handler(req, res) {
         {
           userId,
           source,
-          sourceThreadId: t.sourceThreadId,
-          title: t.title,
+          sourceThreadId: t.sourceThreadId || null,
+          title: t.title || null,
           createdAt: t.createdAt || Date.now() / 1000,
           importedAt: Date.now(),
           nodeIds,
@@ -127,7 +154,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      source: normalized.source,
+      source: normalized.source || importer.id || "unknown",
       importedThreads,
       importedNodes,
     });
