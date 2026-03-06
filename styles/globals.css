@@ -36,7 +36,6 @@ body,
 body {
   margin: 0;
   padding: 0;
-
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
   background:
@@ -46,19 +45,15 @@ body {
     var(--bg-0);
 
   color: rgba(255, 255, 255, 0.94);
-
-  /* IMPORTANT: app manages scrolling internally */
   overflow: hidden;
 }
 
-/* Prevent images from blowing up layouts */
 img {
   max-width: 100%;
   height: auto;
   display: block;
 }
 
-/* Make Next root behave like an app shell */
 #__next {
   height: 100dvh;
   width: 100%;
@@ -68,24 +63,19 @@ img {
 }
 
 /* ===============================
-   APP ROOT (FLEX COLUMN)
+   APP ROOT
 ================================ */
 
 .cipher-wrap {
   height: 100%;
   width: 100%;
-
   display: flex;
   flex-direction: column;
-
   overflow: hidden;
-
-  /* overlay anchoring */
   position: relative;
   min-height: 0;
 }
 
-/* main flex layer between header + input */
 .cipher-main {
   flex: 1;
   display: flex;
@@ -101,15 +91,12 @@ img {
 .cipher-header {
   height: var(--header-h);
   padding: 0 18px;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
-
   backdrop-filter: blur(20px);
   background: var(--glass-1);
   border-bottom: 1px solid var(--line);
-
   z-index: 10000;
   flex-shrink: 0;
 }
@@ -122,23 +109,12 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
-
   height: 56px;
   width: 56px;
-
   border-radius: 14px;
-
-  background: linear-gradient(
-    145deg,
-    rgba(255,255,255,0.07),
-    rgba(255,255,255,0.03)
-  );
-
+  background: linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
   border: 1px solid rgba(255,255,255,0.10);
-
-  box-shadow:
-    inset 0 0 12px rgba(255,255,255,0.06),
-    0 0 18px rgba(0,255,200,0.25);
+  box-shadow: inset 0 0 12px rgba(255,255,255,0.06), 0 0 18px rgba(0,255,200,0.25);
 }
 
 .cipher-logo {
@@ -148,7 +124,7 @@ img {
 }
 
 /* ===============================
-   HEADER BUTTONS (New / Menu)
+   HEADER BUTTONS
 ================================ */
 
 .cipher-header-actions {
@@ -161,53 +137,36 @@ img {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.10);
   color: rgba(255,255,255,0.92);
-
   padding: 10px 14px;
   border-radius: 14px;
-
   font-size: 14px;
   cursor: pointer;
-
   backdrop-filter: blur(14px);
   transition: 0.15s ease;
 }
 
-.cipher-btn:active {
-  transform: scale(0.98);
-}
+.cipher-btn:active { transform: scale(0.98); }
 
 .cipher-btn-primary {
-  background: linear-gradient(
-    135deg,
-    rgba(90,70,255,0.75),
-    rgba(0,255,200,0.60)
-  );
+  background: linear-gradient(135deg, rgba(90,70,255,0.75), rgba(0,255,200,0.60));
   border: 1px solid rgba(255,255,255,0.10);
 }
 
 /* ===============================
-   CHAT (SCROLL AREA)
+   CHAT
 ================================ */
 
 .cipher-chat {
   flex: 1;
   min-height: 0;
-
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-
   padding: 18px;
   padding-top: 12px;
   padding-bottom: calc(var(--input-h) + 80px);
-
   display: flex;
   flex-direction: column;
   gap: 18px;
-
-  z-index: 1;
-
-  pointer-events: auto;
-  touch-action: pan-y;
 }
 
 .cipher-messages {
@@ -237,11 +196,7 @@ img {
 
 .cipher-bubble.user {
   align-self: flex-end;
-  background: linear-gradient(
-    135deg,
-    rgba(90, 70, 255, 0.95),
-    rgba(0, 255, 200, 0.65)
-  );
+  background: linear-gradient(135deg, rgba(90,70,255,0.95), rgba(0,255,200,0.65));
   border: 1px solid rgba(255,255,255,0.2);
 }
 
@@ -251,740 +206,84 @@ img {
 }
 
 /* ===============================
-   QUICK ACTION DOCK
-   (sits above input, stays visible)
-================================ */
-
-.cipher-quick-actions {
-  position: sticky;
-  bottom: var(--input-h);
-
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-
-  padding: 12px 18px;
-
-  background: rgba(10, 10, 20, 0.96);
-  border-top: 1px solid rgba(0,255,200,0.25);
-
-  z-index: 9500;
-  flex-shrink: 0;
-}
-
-.cipher-quick-actions button {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(0,255,200,0.45);
-  color: white;
-
-  padding: 8px 12px;
-  border-radius: 12px;
-
-  cursor: pointer;
-  font-size: 13px;
-
-  backdrop-filter: blur(10px);
-  transition: 0.15s ease;
-}
-
-.cipher-quick-actions button:active {
-  transform: scale(0.95);
-}
-
-/* ===============================
    INPUT WRAP
 ================================ */
 
 .cipher-input-wrap {
   height: var(--input-h);
   padding: 16px 18px;
-
-  backdrop-filter: blur(20px);
-  background: rgba(10, 10, 20, 0.88);
-  border-top: 1px solid rgba(255,255,255,0.05);
-
-  z-index: 9000;
-
   display: flex;
   align-items: center;
-
   overflow: hidden;
-
   flex-shrink: 0;
 }
 
-/* input shell */
-.cipher-input-shell {
+/* ===============================
+   💎 UNIFIED GLASS INPUT SYSTEM
+================================ */
+
+.cipher-input-wrap{
+  background: linear-gradient(to top, rgba(10,12,22,0.92), rgba(10,12,22,0.75));
+  backdrop-filter: blur(26px) saturate(140%);
+  -webkit-backdrop-filter: blur(26px) saturate(140%);
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.cipher-input-shell{
   position: relative;
   width: 100%;
   height: 58px;
-  border-radius: 18px;
-
-  background: linear-gradient(
-    90deg,
-    rgba(90,70,255,0.6),
-    rgba(0,255,200,0.6)
-  );
-
   padding: 2px;
-}
-
-/* inner glass */
-.cipher-input-inner {
-  height: 100%;
-  width: 100%;
-  border-radius: 16px;
-
-  background: rgba(5, 8, 18, 0.96);
-  backdrop-filter: blur(12px);
-
-  display: flex;
-  align-items: center;
-
-  padding: 0 10px 0 16px;
-  gap: 10px;
-}
-
-.cipher-input-field {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-
-  color: white;
-  font-size: 15px;
-}
-
-.cipher-send-btn {
-  height: 44px;
-  width: 44px;
-
-  border-radius: 12px;
-  border: none;
-
-  background: linear-gradient(
-    135deg,
-    rgba(90,70,255,1),
-    rgba(0,255,200,1)
-  );
-
-  color: white;
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  flex-shrink: 0;
-
-  box-shadow:
-    0 0 12px rgba(0,255,200,0.4),
-    0 0 22px rgba(90,70,255,0.35);
-}
-
-.cipher-send-btn:active {
-  transform: scale(0.95);
-}
-
-.cipher-send-btn.charging {
-  box-shadow:
-    0 0 20px rgba(255,90,90,0.9),
-    0 0 40px rgba(255,90,90,0.5);
-}
-
-/* safety containment */
-.cipher-input-wrap * {
-  max-width: 100%;
-}
-
-/* ===============================
-   FLOATING ACTION BUTTON (optional)
-================================ */
-
-.cipher-fab {
-  position: fixed;
-  right: 16px;
-  bottom: calc(var(--input-h) + 16px);
-
-  height: 56px;
-  width: 56px;
-  border-radius: 16px;
-  border: none;
-
-  background: linear-gradient(
-    135deg,
-    rgba(90,70,255,0.95),
-    rgba(0,255,200,0.70)
-  );
-  color: white;
-
-  box-shadow:
-    0 0 14px rgba(0,255,200,0.25),
-    0 0 22px rgba(90,70,255,0.22);
-
-  z-index: 9600;
-}
-
-/* ===============================
-   ⭐ MEMORY BUTTON
-================================ */
-
-.cipher-btn-memory {
-  border-color: rgba(90,70,255,0.55) !important;
-}
-
-/* ===============================
-   ⭐ MEMORY TRAY (SLIDE UP + X CLOSE)
-   NOTE: THIS ONLY WORKS IF YOUR JSX RENDERS:
-   <div className="cipher-memory-overlay" onClick=...>
-     <div className="cipher-memory-panel slide-up" onClick={e=>e.stopPropagation()}>
-       <div className="cipher-memory-header">
-         <div>Memory used</div>
-         <button className="cipher-memory-close">✕</button>
-       </div>
-       ...cards...
-     </div>
-   </div>
-================================ */
-
-.cipher-memory-overlay {
-  position: absolute;
-  inset: 0;
-
-  background: rgba(0,0,0,0.45);
-  backdrop-filter: blur(10px);
-
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-
-  z-index: 12000;
-
-  /* clicks should work */
-  pointer-events: auto;
-}
-
-.cipher-memory-panel {
-  width: 100%;
-  max-width: 640px;
-
-  margin: 0 10px;
-  margin-bottom: calc(var(--input-h) + 10px);
-
-  background: rgba(12, 14, 28, 0.98);
-  border-top-left-radius: 22px;
-  border-top-right-radius: 22px;
-
-  padding: 18px 18px 16px;
-
-  max-height: 70vh;
-  overflow-y: auto;
-
-  box-shadow: 0 -12px 40px rgba(0,255,200,0.15);
-  border-top: 1px solid rgba(0,255,200,0.25);
-}
-
-.slide-up {
-  animation: cipherSlideUp 0.28s ease-out;
-}
-
-@keyframes cipherSlideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-.cipher-memory-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  margin-bottom: 14px;
-
-  font-weight: 600;
-  font-size: 15px;
-  opacity: 0.95;
-}
-
-.cipher-memory-close {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 12px;
-
-  height: 36px;
-  width: 36px;
-
-  cursor: pointer;
-
-  color: rgba(255,255,255,0.92);
-  font-size: 16px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  opacity: 0.85;
-  transition: 0.15s ease;
-}
-
-.cipher-memory-close:active {
-  transform: scale(0.96);
-  opacity: 1;
-}
-
-.cipher-memory-empty {
-  font-size: 14px;
-  opacity: 0.75;
-  padding: 8px 2px;
-}
-
-/* memory cards */
-.cipher-memory-card,
-.cipher-memory-item {
-  background: rgba(0,255,200,0.06);
-  border: 1px solid rgba(0,255,200,0.22);
-  border-radius: 16px;
-
-  padding: 14px;
-  margin-bottom: 12px;
-}
-
-.cipher-memory-meta {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-
-  font-size: 12px;
-  opacity: 0.9;
-
-  margin-bottom: 8px;
-}
-
-.cipher-memory-type {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(0,255,200,0.10);
-  border: 1px solid rgba(0,255,200,0.20);
-}
-
-.cipher-memory-id {
-  opacity: 0.75;
-}
-
-.cipher-memory-score {
-  opacity: 0.85;
-}
-
-.cipher-memory-preview {
-  font-size: 13px;
-  opacity: 0.90;
-  white-space: pre-wrap;
-  line-height: 1.4;
-}
-
-/* ===============================
-   ⭐ TRANSFORM + THINKING ANIMATION
-================================ */
-
-@keyframes cipherShimmer {
-  0% { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
-}
-
-@keyframes cipherPulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
-}
-
-.cipher-transforming {
-  position: relative;
-  overflow: hidden;
-  animation: cipherPulse 1.2s ease-in-out infinite;
-}
-
-.cipher-transforming::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(0,255,200,0.15),
-    transparent
-  );
-
-   
-  background-size: 400px 100%;
-  animation: cipherShimmer 1.4s linear infinite;
-
-  pointer-events: none;
-}
-
-/* ===============================
-   ENTRY SCREEN (UPDATED + RESPONSIVE)
-================================ */
-
-.entry-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 20000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-/* Desktop */
-@media (min-width: 768px) {
-  .entry-screen {
-    background: url("/images/cipher-hero-desktop.webp") center center / cover no-repeat;
-  }
-}
-
-/* Mobile */
-@media (max-width: 767px) {
-  .entry-screen {
-    background: url("/images/cipher-hero-mobile.webp") center center / cover no-repeat;
-  }
-}
-
-.entry-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(5, 6, 12, 0.65);
-  backdrop-filter: blur(3px);
-  z-index: 1;
-}
-
-.entry-content {
-  position: relative;
-  text-align: center;
-  color: white;
-  z-index: 2;
-  padding: 20px;
-}
-
-.entry-content h1 {
-  font-size: 3rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.entry-content p {
-  opacity: 0.85;
-  margin-bottom: 2rem;
-}
-
-.entry-content button {
-  padding: 12px 28px;
-  font-size: 1rem;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(
-    135deg,
-    rgba(90,70,255,1),
-    rgba(0,255,200,1)
-  );
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow:
-    0 0 16px rgba(0,255,200,0.4),
-    0 0 24px rgba(90,70,255,0.3);
-}
-
-.entry-content button:active {
-  transform: scale(0.96);
-}
-
-
-/* ===============================
-   ENTRY LOADING STATE
-================================ */
-
-.entry-screen.loading {
-  filter: blur(0px);
-  animation: sharpen 1.2s ease forwards;
-}
-
-@keyframes sharpen {
-  from { filter: blur(8px); }
-  to { filter: blur(0px); }
-}
-
-.entry-loader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.loader-ring {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  border: 3px solid rgba(0,255,200,0.2);
-  border-top: 3px solid rgba(0,255,200,1);
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.loader-text {
-  font-size: 14px;
-  letter-spacing: 1px;
-  opacity: 0.8;
-}
-
-/* ===============================
-   INLINE AUTH CARD
-================================ */
-
-.cipher-auth-card {
-  margin-top: 20px;
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(0,255,200,0.06);
-  border: 1px solid rgba(0,255,200,0.25);
-  backdrop-filter: blur(12px);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.cipher-auth-card h3 {
-  margin: 0;
-}
-
-.cipher-auth-card button {
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.cipher-auth-card button.secondary {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.2);
-  color: white;
-}
-.cipher-auth-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 30000;
-}
-
-.cipher-auth-modal {
-  width: 90%;
-  max-width: 400px;
-  background: rgba(12,14,28,0.98);
-  border-radius: 18px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  border: 1px solid rgba(0,255,200,0.25);
-  box-shadow: 0 0 40px rgba(0,255,200,0.2);
-  animation: fadeInScale 0.25s ease-out;
-}
-
-@keyframes fadeInScale {
-  from { transform: scale(0.9); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-.cipher-auth-input {
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(5,8,18,0.9);
-  color: white;
-}
-
-.cipher-auth-primary {
-  background: linear-gradient(135deg, rgba(90,70,255,1), rgba(0,255,200,1));
-  border: none;
-  border-radius: 12px;
-  padding: 12px;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-}
-
-.cipher-auth-secondary {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 12px;
-  padding: 12px;
-  color: white;
-  cursor: pointer;
-}
-
-/* ================================
-   ✨ CIPHER GLASS SYSTEM ✨
-================================ */
-
-.cipher-input-wrap{
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-.cipher-input-shell{
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 22px;
-
-  box-shadow:
-    0 0 30px rgba(90,70,255,0.18),
-    inset 0 0 18px rgba(255,255,255,0.05);
-
-  transition: all .25s ease;
-}
-
-.cipher-input-shell:focus-within{
-  border: 1px solid rgba(0,255,200,0.45);
-  box-shadow:
-    0 0 40px rgba(0,255,200,0.35),
-    inset 0 0 20px rgba(255,255,255,0.08);
-}
-
-.cipher-input-field{
-  background: transparent;
-  color: rgba(255,255,255,0.95);
-}
-
-.cipher-send-btn{
-  border-radius: 16px;
-  border: none;
-  background: linear-gradient(135deg,#5a46ff,#00ffd5);
-
-  box-shadow:
-    0 0 18px rgba(90,70,255,0.65),
-    0 0 30px rgba(0,255,213,0.25);
-
-  transition: transform .15s ease, box-shadow .15s ease;
-}
-
-.cipher-send-btn:hover{
-  transform: scale(1.07);
-  box-shadow:
-    0 0 22px rgba(90,70,255,0.9),
-    0 0 40px rgba(0,255,213,0.35);
-}
-
-/* ================================
-   🔥 FINAL GLASS OVERRIDES 🔥
-   (force modern glass look)
-================================ */
-
-.cipher-input-wrap{
-  background: rgba(10,14,28,0.55) !important;
-  backdrop-filter: blur(28px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(140%) !important;
-  border-top: 1px solid rgba(255,255,255,0.08) !important;
-}
-
-.cipher-input-shell{
-  background: rgba(255,255,255,0.05) !important;
-  border-radius: 26px !important;
-  border: 1px solid rgba(255,255,255,0.14) !important;
-
-  box-shadow:
-    0 0 60px rgba(90,70,255,0.18),
-    inset 0 0 30px rgba(255,255,255,0.06) !important;
-}
-
-.cipher-input-shell:focus-within{
-  border: 1px solid rgba(0,255,200,0.55) !important;
-  box-shadow:
-    0 0 80px rgba(0,255,200,0.35),
-    inset 0 0 36px rgba(255,255,255,0.08) !important;
-}
-
-.cipher-input-inner{
-  background: rgba(6,10,22,0.55) !important;
-  backdrop-filter: blur(18px) !important;
-  border-radius: 22px !important;
-}
-
-.cipher-send-btn{
-  border-radius: 18px !important;
-  background: linear-gradient(135deg,#5a46ff,#00ffd5) !important;
-
-  box-shadow:
-    0 0 24px rgba(90,70,255,0.7),
-    0 0 44px rgba(0,255,213,0.35) !important;
-
-  transition: transform .15s ease, box-shadow .15s ease !important;
-}
-
-.cipher-send-btn:hover{
-  transform: scale(1.08) !important;
-  box-shadow:
-    0 0 30px rgba(90,70,255,1),
-    0 0 60px rgba(0,255,213,0.45) !important;
-}
-/* ===== ULTRA GLASS INPUT SYSTEM ===== */
-
-.cipher-input-wrap{
-  background: linear-gradient(
-    to top,
-    rgba(10,12,22,0.92),
-    rgba(10,12,22,0.75)
-  );
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-}
-
-.cipher-input-shell{
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.18);
   border-radius: 26px;
-
-  box-shadow:
-    0 0 60px rgba(0,255,200,0.18),
-    inset 0 0 30px rgba(255,255,255,0.05);
-
+  box-shadow: 0 0 80px rgba(0,255,200,0.15), inset 0 0 30px rgba(255,255,255,0.05);
   transition: all .3s ease;
 }
 
 .cipher-input-shell:focus-within{
   border: 1px solid rgba(0,255,200,0.65);
-  box-shadow:
-    0 0 80px rgba(0,255,200,0.35),
-    inset 0 0 40px rgba(255,255,255,0.08);
+  box-shadow: 0 0 100px rgba(0,255,200,0.35), inset 0 0 40px rgba(255,255,255,0.08);
 }
 
 .cipher-input-inner{
-  background: rgba(8,12,28,0.75);
-  backdrop-filter: blur(18px);
+  height: 100%;
+  width: 100%;
   border-radius: 24px;
+  background: rgba(8,12,28,0.72);
+  backdrop-filter: blur(18px);
+  display: flex;
+  align-items: center;
+  padding: 0 10px 0 16px;
+  gap: 10px;
 }
 
 .cipher-input-field{
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
   font-size: 16px;
   letter-spacing: .3px;
+  color: rgba(255,255,255,0.95);
 }
 
 .cipher-send-btn{
+  height: 44px;
+  width: 44px;
   border-radius: 18px;
+  border: none;
   background: linear-gradient(135deg,#5a46ff,#00ffd5);
-
-  box-shadow:
-    0 0 30px rgba(90,70,255,0.8),
-    0 0 60px rgba(0,255,213,0.35);
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 0 30px rgba(90,70,255,0.8), 0 0 60px rgba(0,255,213,0.35);
+  transition: transform .15s ease, box-shadow .15s ease;
 }
 
 .cipher-send-btn:hover{
   transform: scale(1.08);
-  box-shadow:
-    0 0 40px rgba(90,70,255,1),
-    0 0 80px rgba(0,255,213,0.45);
+  box-shadow: 0 0 40px rgba(90,70,255,1), 0 0 80px rgba(0,255,213,0.45);
 }
+
+.cipher-send-btn:active { transform: scale(0.95); }
