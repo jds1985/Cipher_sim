@@ -931,18 +931,60 @@ img {
     0 0 30px rgba(90,70,255,1),
     0 0 60px rgba(0,255,213,0.45) !important;
 }
-/* === VISUAL TEST MODE (temporary) === */
+/* ===== ULTRA GLASS INPUT SYSTEM ===== */
+
+.cipher-input-wrap{
+  background: linear-gradient(
+    to top,
+    rgba(10,12,22,0.92),
+    rgba(10,12,22,0.75)
+  );
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
 
 .cipher-input-shell{
-  background: rgba(0,255,200,0.25) !important;
-  border: 2px solid rgba(0,255,200,1) !important;
-  box-shadow: 0 0 40px rgba(0,255,200,1) !important;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 26px;
+
+  box-shadow:
+    0 0 60px rgba(0,255,200,0.18),
+    inset 0 0 30px rgba(255,255,255,0.05);
+
+  transition: all .3s ease;
+}
+
+.cipher-input-shell:focus-within{
+  border: 1px solid rgba(0,255,200,0.65);
+  box-shadow:
+    0 0 80px rgba(0,255,200,0.35),
+    inset 0 0 40px rgba(255,255,255,0.08);
 }
 
 .cipher-input-inner{
-  background: rgba(255,0,255,0.25) !important;
+  background: rgba(8,12,28,0.75);
+  backdrop-filter: blur(18px);
+  border-radius: 24px;
 }
 
-.cipher-input-wrap{
-  background: rgba(255,255,255,0.08) !important;
+.cipher-input-field{
+  font-size: 16px;
+  letter-spacing: .3px;
+}
+
+.cipher-send-btn{
+  border-radius: 18px;
+  background: linear-gradient(135deg,#5a46ff,#00ffd5);
+
+  box-shadow:
+    0 0 30px rgba(90,70,255,0.8),
+    0 0 60px rgba(0,255,213,0.35);
+}
+
+.cipher-send-btn:hover{
+  transform: scale(1.08);
+  box-shadow:
+    0 0 40px rgba(90,70,255,1),
+    0 0 80px rgba(0,255,213,0.45);
 }
