@@ -931,3 +931,18 @@ img {
     0 0 30px rgba(90,70,255,1),
     0 0 60px rgba(0,255,213,0.45) !important;
 }
+/* === VISUAL TEST MODE (temporary) === */
+
+.cipher-input-shell{
+  background: rgba(0,255,200,0.25) !important;
+  border: 2px solid rgba(0,255,200,1) !important;
+  box-shadow: 0 0 40px rgba(0,255,200,1) !important;
+}
+
+.cipher-input-inner{
+  background: rgba(255,0,255,0.25) !important;
+}
+
+.cipher-input-wrap{
+  background: rgba(255,255,255,0.08) !important;
+}
