@@ -95,6 +95,10 @@ export default function ChatPanel() {
 
   const [currentUser, setCurrentUser] = useState(null);
 
+  // 🔋 token display state
+  const [remainingTokens, setRemainingTokens] = useState(42000);
+  const [tokenLimit, setTokenLimit] = useState(50000);
+
   /* ===============================
      MODEL STACK STATE
      free: forced to single model
@@ -123,12 +127,24 @@ export default function ChatPanel() {
       if (user) {
         try {
           const snap = await getDoc(doc(db, "users", user.uid));
-          setTier(snap.exists() ? snap.data()?.tier || "free" : "free");
+          const nextTier = snap.exists() ? snap.data()?.tier || "free" : "free";
+          setTier(nextTier);
+
+          // 🔋 set token limit by tier for display
+          if (nextTier === "builder") {
+            setTokenLimit(2000000);
+          } else if (nextTier === "pro") {
+            setTokenLimit(500000);
+          } else {
+            setTokenLimit(50000);
+          }
         } catch {
           setTier("free");
+          setTokenLimit(50000);
         }
       } else {
         setTier("free");
+        setTokenLimit(50000);
       }
     });
 
@@ -294,6 +310,11 @@ export default function ChatPanel() {
 
       if (!useStream) {
         const data = await res.json();
+
+        if (typeof data.remainingTokens === "number") {
+          setRemainingTokens(data.remainingTokens);
+        }
+
         setMessages((m) => {
           const next = [...m];
           next[next.length - 1].content = data.reply || "";
@@ -324,6 +345,10 @@ export default function ChatPanel() {
             });
           }
         });
+
+        // stream response does not currently send remainingTokens,
+        // so simulate a small visual drain until backend stream adds it
+        setRemainingTokens((prev) => Math.max(0, prev - Math.ceil(text.length * 1.5)));
       }
     } catch (e) {
       setMessages((m) => {
@@ -458,6 +483,8 @@ export default function ChatPanel() {
         setInput={setInput}
         onSend={sendMessage}
         typing={typing}
+        remainingTokens={remainingTokens}
+        tokenLimit={tokenLimit}
       />
     </div>
   );
