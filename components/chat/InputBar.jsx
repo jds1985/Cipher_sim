@@ -5,6 +5,8 @@ export default function InputBar({
   setInput,
   onSend,
   typing,
+  remainingTokens = 0,
+  tokenLimit = 50000
 }) {
   const holdTimer = useRef(null);
   const decipherArmed = useRef(false);
@@ -54,8 +56,43 @@ export default function InputBar({
     onSend({ forceDecipher: false });
   }
 
+  // 🔋 Power calculations
+  const percent = Math.max(0, Math.min(100, Math.round((remainingTokens / tokenLimit) * 100)));
+
   return (
     <div className="cipher-input-wrap">
+
+      {/* 🔋 AI POWER METER */}
+      <div style={{
+        marginBottom: 10,
+        padding: "6px 12px",
+        borderRadius: 12,
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.06)",
+        fontSize: 12,
+        color: "rgba(255,255,255,0.85)"
+      }}>
+        ⚡ AI Power Remaining: {percent}%
+        <div style={{
+          height: 6,
+          borderRadius: 6,
+          background: "rgba(255,255,255,0.08)",
+          marginTop: 6,
+          overflow: "hidden"
+        }}>
+          <div style={{
+            width: `${percent}%`,
+            height: "100%",
+            background: percent > 50
+              ? "linear-gradient(90deg,#00ffc8,#5a46ff)"
+              : percent > 20
+              ? "linear-gradient(90deg,#ffd166,#ff8a00)"
+              : "linear-gradient(90deg,#ff4d4d,#b30000)",
+            transition: "width 0.4s ease"
+          }} />
+        </div>
+      </div>
+
       <div className="cipher-input-shell">
         <div className="cipher-input-inner">
           <input
@@ -84,7 +121,6 @@ export default function InputBar({
             onClick={handleClick}
             className={`cipher-send-btn ${charging ? "charging" : ""}`}
           >
-            {/* 🔥 PRO ARROW */}
             <svg
               width="18"
               height="18"
