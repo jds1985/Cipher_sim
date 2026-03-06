@@ -20,6 +20,9 @@ import { extractMemoryFromTurn } from "../../cipher_os/memory/memoryExtractor.js
 import { buildMemoryInfluence } from "../../cipher_os/runtime/memoryInfluence.js";
 import { prioritizeContext } from "../../cipher_os/runtime/contextPrioritizer.js";
 
+// 🆕 TOKEN BANK
+import { canSpend, spendTokens, getRemaining } from "../../cipher_os/billing/tokenBank.js";
+
 function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
@@ -68,6 +71,19 @@ export default async function handler(req, res) {
     const userId = "jim";
     const userName = "Jim";
 
+    // ─────────────────────────────
+    // 🆕 TOKEN CHECK
+    // ─────────────────────────────
+
+    const estimatedCost = Math.ceil(message.length * 1.5);
+
+    if (!canSpend(userId, estimatedCost, tier)) {
+      return res.status(402).json({
+        error: "Token limit reached",
+        remaining: getRemaining(userId, tier),
+      });
+    }
+
     const trace = {
       log: (event, payload) => console.log(`[TRACE] ${event}`, payload ?? ""),
     };
@@ -82,7 +98,6 @@ export default async function handler(req, res) {
     const nodes = await loadMemoryNodes(userId, 120);
     const summaryDoc = await loadSummary(userId);
 
-    // smarter prioritization (important for imported history)
     let prioritizedNodes = prioritizeContext(
       nodes
         .sort((a, b) => (b.importance || 0) - (a.importance || 0))
@@ -90,7 +105,6 @@ export default async function handler(req, res) {
       15
     );
 
-    // 🔥 HISTORY BOOST — prioritize imported nodes when user asks for them
     const historyQuery = /history|imported|past conversations|memory vault|previous chats/i.test(message);
     if (historyQuery) {
       prioritizedNodes = nodes || [];
@@ -121,10 +135,6 @@ export default async function handler(req, res) {
       },
       { userMessage: message, returnPacket: true }
     );
-
-    // ─────────────────────────────
-    // MEMORY INFLUENCE
-    // ─────────────────────────────
 
     const influenceText = buildMemoryInfluence(prioritizedNodes);
 
@@ -167,6 +177,9 @@ export default async function handler(req, res) {
         },
       });
 
+      // 🆕 charge tokens after success
+      spendTokens(userId, estimatedCost, tier);
+
       sseWrite(res, {
         type: "done",
         reply: out?.reply || streamedText || "",
@@ -204,6 +217,9 @@ export default async function handler(req, res) {
     await saveMemory(userId, { type: "interaction", role: "user", content: message });
     await saveMemory(userId, { type: "interaction", role: "assistant", content: reply });
 
+    // 🆕 charge tokens after success
+    spendTokens(userId, estimatedCost, tier);
+
     const extracted = extractMemoryFromTurn(message, reply);
 
     await writebackFromTurn({
@@ -223,6 +239,7 @@ export default async function handler(req, res) {
       model,
       roleStack: out?.roleStack || null,
       memoryInfluence: exposeMemory(prioritizedNodes),
+      remainingTokens: getRemaining(userId, tier),
     });
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
