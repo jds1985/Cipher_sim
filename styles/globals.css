@@ -374,3 +374,107 @@ img {
 .cipher-input-shell{
   animation: cipherEnergyPulse 4s ease-in-out infinite;
 }
+/* =========================================
+   🌌 CIPHER CINEMATIC GLASS ENGINE v2
+   (full-interface transformation)
+========================================= */
+
+/* ---- GLOBAL LIGHTING ---- */
+body{
+  background:
+    radial-gradient(1200px 800px at 20% 10%, rgba(90,70,255,0.20), transparent 60%),
+    radial-gradient(900px 700px at 85% 85%, rgba(0,255,200,0.18), transparent 60%),
+    radial-gradient(600px 500px at 50% 40%, rgba(255,255,255,0.04), transparent 70%),
+    linear-gradient(to bottom, #05060a, #070912);
+}
+
+/* ---- HEADER GLASS ---- */
+.cipher-header{
+  background: rgba(10,14,28,0.55) !important;
+  backdrop-filter: blur(30px) saturate(140%);
+  -webkit-backdrop-filter: blur(30px) saturate(140%);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+
+  box-shadow:
+    0 10px 40px rgba(0,255,200,0.08),
+    inset 0 0 20px rgba(255,255,255,0.05);
+}
+
+/* ---- GLASS BUTTONS ---- */
+.cipher-btn{
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 0 20px rgba(0,255,200,0.12),
+    inset 0 0 10px rgba(255,255,255,0.06);
+}
+
+.cipher-btn-primary{
+  box-shadow:
+    0 0 30px rgba(90,70,255,0.35),
+    0 0 50px rgba(0,255,200,0.25);
+}
+
+/* ---- CHAT PANEL DEPTH ---- */
+.cipher-chat{
+  background:
+    linear-gradient(to bottom,
+      rgba(255,255,255,0.02),
+      rgba(255,255,255,0.00));
+}
+
+/* ---- GLASS MESSAGE BUBBLES ---- */
+.cipher-bubble.assistant{
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(0,255,200,0.35) !important;
+  backdrop-filter: blur(18px);
+
+  box-shadow:
+    0 0 30px rgba(0,255,200,0.12),
+    inset 0 0 16px rgba(255,255,255,0.05);
+}
+
+.cipher-bubble.user{
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 0 40px rgba(90,70,255,0.25),
+    inset 0 0 20px rgba(255,255,255,0.08);
+}
+
+/* ---- INPUT ZONE GLOW ---- */
+.cipher-input-wrap{
+  background:
+    radial-gradient(100% 140% at 50% 120%, rgba(0,255,200,0.16), transparent 60%),
+    linear-gradient(to top, rgba(6,10,22,0.96), rgba(10,14,28,0.75));
+}
+
+/* ---- GLASS CONTAINERS ---- */
+.cipher-input-shell{
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.22) !important;
+
+  box-shadow:
+    0 0 120px rgba(0,255,213,0.16),
+    0 0 60px rgba(90,70,255,0.25),
+    inset 0 0 40px rgba(255,255,255,0.06);
+}
+
+/* ---- SEND BUTTON ENERGY CORE ---- */
+.cipher-send-btn{
+  box-shadow:
+    0 0 50px rgba(90,70,255,0.9),
+    0 0 90px rgba(0,255,213,0.45),
+    inset 0 0 14px rgba(255,255,255,0.35);
+}
+
+/* ---- SOFT AMBIENT PULSE ---- */
+@keyframes ambientPulse{
+  0%{ filter: brightness(1); }
+  50%{ filter: brightness(1.08); }
+  100%{ filter: brightness(1); }
+}
+
+.cipher-wrap{
+  animation: ambientPulse 6s ease-in-out infinite;
+}
