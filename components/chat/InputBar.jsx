@@ -63,41 +63,48 @@ export default function InputBar({
   return (
     <div className="cipher-input-wrap">
 
-      {/* 🔋 AI POWER METER */}
-      <div
-        style={{
-          marginBottom: 10,
-          padding: "6px 12px",
-          borderRadius: 12,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.06)",
+      {/* ⚡ AI POWER — GLASS PANEL */}
+      <div style={{
+        marginBottom: 14,
+        padding: "10px 14px",
+        borderRadius: 16,
+        background: "rgba(255,255,255,0.06)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: "0 0 12px rgba(90,70,255,0.15)",
+      }}>
+        <div style={{
           fontSize: 12,
-          color: "rgba(255,255,255,0.85)",
-        }}
-      >
-        ⚡ AI Power Remaining: {percent}%
-        <div
-          style={{
-            height: 6,
-            borderRadius: 6,
-            background: "rgba(255,255,255,0.08)",
-            marginTop: 6,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              width: `${percent}%`,
-              height: "100%",
-              background:
-                percent > 50
-                  ? "linear-gradient(90deg,#00ffc8,#5a46ff)"
-                  : percent > 20
-                  ? "linear-gradient(90deg,#ffd166,#ff8a00)"
-                  : "linear-gradient(90deg,#ff4d4d,#b30000)",
-              transition: "width 0.4s ease",
-            }}
-          />
+          letterSpacing: 0.5,
+          marginBottom: 8,
+          color: "rgba(255,255,255,0.85)"
+        }}>
+          ⚡ AI Power • {percent}%
+        </div>
+
+        <div style={{
+          height: 8,
+          borderRadius: 999,
+          background: "rgba(255,255,255,0.08)",
+          overflow: "hidden",
+          position: "relative"
+        }}>
+          <div style={{
+            width: `${percent}%`,
+            height: "100%",
+            borderRadius: 999,
+            background: "linear-gradient(90deg,#00ffd5,#5a46ff,#b845ff)",
+            boxShadow: "0 0 12px rgba(120,100,255,0.6)",
+            transition: "width 0.5s cubic-bezier(.4,2,.3,1)"
+          }} />
+
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg,rgba(255,255,255,0.15),transparent)",
+            pointerEvents: "none"
+          }} />
         </div>
       </div>
 
