@@ -18,13 +18,11 @@ export default function InputBar({
   function startHold() {
     decipherArmed.current = false;
     longPressTriggered.current = false;
-
     setCharging(true);
 
     holdTimer.current = setTimeout(() => {
       decipherArmed.current = true;
       longPressTriggered.current = true;
-
       if (navigator.vibrate) navigator.vibrate([20, 30, 20]);
     }, 600);
   }
@@ -57,39 +55,49 @@ export default function InputBar({
   }
 
   // 🔋 Power calculations
-  const percent = Math.max(0, Math.min(100, Math.round((remainingTokens / tokenLimit) * 100)));
+  const percent = Math.max(
+    0,
+    Math.min(100, Math.round((remainingTokens / tokenLimit) * 100))
+  );
 
   return (
     <div className="cipher-input-wrap">
 
       {/* 🔋 AI POWER METER */}
-      <div style={{
-        marginBottom: 10,
-        padding: "6px 12px",
-        borderRadius: 12,
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.06)",
-        fontSize: 12,
-        color: "rgba(255,255,255,0.85)"
-      }}>
+      <div
+        style={{
+          marginBottom: 10,
+          padding: "6px 12px",
+          borderRadius: 12,
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          fontSize: 12,
+          color: "rgba(255,255,255,0.85)",
+        }}
+      >
         ⚡ AI Power Remaining: {percent}%
-        <div style={{
-          height: 6,
-          borderRadius: 6,
-          background: "rgba(255,255,255,0.08)",
-          marginTop: 6,
-          overflow: "hidden"
-        }}>
-          <div style={{
-            width: `${percent}%`,
-            height: "100%",
-            background: percent > 50
-              ? "linear-gradient(90deg,#00ffc8,#5a46ff)"
-              : percent > 20
-              ? "linear-gradient(90deg,#ffd166,#ff8a00)"
-              : "linear-gradient(90deg,#ff4d4d,#b30000)",
-            transition: "width 0.4s ease"
-          }} />
+        <div
+          style={{
+            height: 6,
+            borderRadius: 6,
+            background: "rgba(255,255,255,0.08)",
+            marginTop: 6,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: `${percent}%`,
+              height: "100%",
+              background:
+                percent > 50
+                  ? "linear-gradient(90deg,#00ffc8,#5a46ff)"
+                  : percent > 20
+                  ? "linear-gradient(90deg,#ffd166,#ff8a00)"
+                  : "linear-gradient(90deg,#ff4d4d,#b30000)",
+              transition: "width 0.4s ease",
+            }}
+          />
         </div>
       </div>
 
