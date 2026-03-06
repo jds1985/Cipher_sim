@@ -878,3 +878,56 @@ img {
     0 0 22px rgba(90,70,255,0.9),
     0 0 40px rgba(0,255,213,0.35);
 }
+
+/* ================================
+   🔥 FINAL GLASS OVERRIDES 🔥
+   (force modern glass look)
+================================ */
+
+.cipher-input-wrap{
+  background: rgba(10,14,28,0.55) !important;
+  backdrop-filter: blur(28px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(140%) !important;
+  border-top: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+.cipher-input-shell{
+  background: rgba(255,255,255,0.05) !important;
+  border-radius: 26px !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+
+  box-shadow:
+    0 0 60px rgba(90,70,255,0.18),
+    inset 0 0 30px rgba(255,255,255,0.06) !important;
+}
+
+.cipher-input-shell:focus-within{
+  border: 1px solid rgba(0,255,200,0.55) !important;
+  box-shadow:
+    0 0 80px rgba(0,255,200,0.35),
+    inset 0 0 36px rgba(255,255,255,0.08) !important;
+}
+
+.cipher-input-inner{
+  background: rgba(6,10,22,0.55) !important;
+  backdrop-filter: blur(18px) !important;
+  border-radius: 22px !important;
+}
+
+.cipher-send-btn{
+  border-radius: 18px !important;
+  background: linear-gradient(135deg,#5a46ff,#00ffd5) !important;
+
+  box-shadow:
+    0 0 24px rgba(90,70,255,0.7),
+    0 0 44px rgba(0,255,213,0.35) !important;
+
+  transition: transform .15s ease, box-shadow .15s ease !important;
+}
+
+.cipher-send-btn:hover{
+  transform: scale(1.08) !important;
+  box-shadow:
+    0 0 30px rgba(90,70,255,1),
+    0 0 60px rgba(0,255,213,0.45) !important;
+}
