@@ -287,3 +287,90 @@ img {
 }
 
 .cipher-send-btn:active { transform: scale(0.95); }
+
+/* ================================
+   🚀 CINEMATIC GLASS OVERRIDES
+================================ */
+
+/* dramatic dock glow */
+.cipher-input-wrap{
+  background:
+    radial-gradient(120% 160% at 50% 120%,
+      rgba(0,255,200,0.18),
+      transparent 60%),
+    linear-gradient(to top,
+      rgba(6,8,18,0.98),
+      rgba(10,14,28,0.82));
+}
+
+/* stronger glass depth */
+.cipher-input-shell{
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,0.10),
+      rgba(255,255,255,0.02)
+    );
+
+  border: 1px solid rgba(255,255,255,0.22);
+
+  box-shadow:
+    0 0 120px rgba(0,255,213,0.18),
+    0 0 60px rgba(90,70,255,0.25),
+    inset 0 0 40px rgba(255,255,255,0.06);
+}
+
+/* intense focus state */
+.cipher-input-shell:focus-within{
+  border: 1px solid rgba(0,255,200,0.85);
+  box-shadow:
+    0 0 140px rgba(0,255,200,0.35),
+    0 0 80px rgba(90,70,255,0.35),
+    inset 0 0 50px rgba(255,255,255,0.10);
+}
+
+/* deeper inner chamber */
+.cipher-input-inner{
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(10,14,30,0.85),
+      rgba(6,10,22,0.92)
+    );
+
+  box-shadow:
+    inset 0 0 24px rgba(0,0,0,0.6),
+    inset 0 0 12px rgba(0,255,200,0.08);
+}
+
+/* bigger glowing send button */
+.cipher-send-btn{
+  background: linear-gradient(135deg,#5a46ff,#00ffd5);
+
+  box-shadow:
+    0 0 40px rgba(90,70,255,0.9),
+    0 0 80px rgba(0,255,213,0.45),
+    inset 0 0 12px rgba(255,255,255,0.35);
+
+  transform: scale(1.05);
+}
+
+/* hovering energy surge */
+.cipher-send-btn:hover{
+  transform: scale(1.12);
+  box-shadow:
+    0 0 60px rgba(90,70,255,1),
+    0 0 120px rgba(0,255,213,0.65),
+    inset 0 0 16px rgba(255,255,255,0.45);
+}
+
+/* breathing glow animation */
+@keyframes cipherEnergyPulse {
+  0% { box-shadow: 0 0 60px rgba(0,255,200,0.25); }
+  50% { box-shadow: 0 0 110px rgba(0,255,200,0.45); }
+  100% { box-shadow: 0 0 60px rgba(0,255,200,0.25); }
+}
+
+.cipher-input-shell{
+  animation: cipherEnergyPulse 4s ease-in-out infinite;
+}
