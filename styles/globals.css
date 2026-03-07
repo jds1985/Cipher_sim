@@ -80,6 +80,9 @@ img {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+
+  /* allow children to shrink properly */
+  height: 0;
 }
 
 /* ===============================
