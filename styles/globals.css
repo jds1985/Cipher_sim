@@ -478,3 +478,86 @@ body{
 .cipher-wrap{
   animation: ambientPulse 6s ease-in-out infinite;
 }
+
+/* ================================
+   FLOATING HEADER SYSTEM
+================================ */
+
+.cipher-float-left,
+.cipher-float-right{
+  position: fixed;
+  top: 18px;
+  z-index: 15000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cipher-float-left{ left: 18px; }
+.cipher-float-right{ right: 18px; }
+
+/* Floating glass buttons */
+.cipher-float-btn{
+  padding: 10px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(12,16,34,0.65);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+
+  box-shadow:
+    0 0 20px rgba(90,70,255,0.25),
+    inset 0 0 12px rgba(255,255,255,0.05);
+
+  transition: all .18s ease;
+}
+
+.cipher-float-btn:hover{
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 30px rgba(0,255,200,0.35),
+    inset 0 0 14px rgba(255,255,255,0.08);
+}
+
+.cipher-float-btn.primary{
+  background: linear-gradient(135deg,#5a46ff,#00ffd5);
+  border: none;
+}
+
+/* Floating profile orb */
+.cipher-profile-float{
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#5a46ff,#00ffd5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 15px;
+  color: white;
+
+  box-shadow:
+    0 0 25px rgba(90,70,255,0.7),
+    0 0 40px rgba(0,255,213,0.35);
+
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.cipher-profile-float:hover{
+  transform: scale(1.08);
+  box-shadow:
+    0 0 35px rgba(90,70,255,1),
+    0 0 70px rgba(0,255,213,0.5);
+}
+
+/* floating logo glass */
+.cipher-logo-wrap.floating{
+  backdrop-filter: blur(16px);
+  background: rgba(12,16,34,0.55);
+  border: 1px solid rgba(255,255,255,0.18);
+}
