@@ -432,4 +432,62 @@ export default function ChatPanel() {
             className="cipher-auth-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3>{
+            <h3>{isLoginMode ? "Log In" : "Create Account"}</h3>
+
+<input
+  type="email"
+  placeholder="Email"
+  value={authEmail}
+  onChange={(e) => setAuthEmail(e.target.value)}
+/>
+
+<input
+  type="password"
+  placeholder="Password"
+  value={authPassword}
+  onChange={(e) => setAuthPassword(e.target.value)}
+/>
+
+<button onClick={handleAuthSubmit} disabled={authLoading}>
+  {authLoading
+    ? "Processing..."
+    : isLoginMode
+    ? "Log In"
+    : "Create Account"}
+</button>
+
+<button
+  className="cipher-auth-secondary"
+  onClick={() => setIsLoginMode((v) => !v)}
+>
+  {isLoginMode
+    ? "Need an account? Create one"
+    : "Already have an account? Log in"}
+</button>
+          </div>
+        </div>
+      )}
+
+      {showQuickActions && (
+        <QuickActions
+          tier={tier}
+          onAction={(prompt) => {
+            if (selectedIndex === null) return;
+            const target = messages[selectedIndex];
+            if (!target?.content) return;
+            setInput(`${prompt}\n\n${target.content}`);
+          }}
+        />
+      )}
+
+      <InputBar
+        input={input}
+        setInput={setInput}
+        onSend={sendMessage}
+        typing={typing}
+        remainingTokens={remainingTokens}
+        tokenLimit={tokenLimit}
+      />
+    </div>
+  );
+}
