@@ -163,7 +163,7 @@ img {
   -webkit-overflow-scrolling: touch;
   padding: 18px;
   padding-top: 12px;
-  padding-bottom: calc(var(--input-h) + 80px);
+  padding-bottom: 140px;
   display: flex;
   flex-direction: column;
   gap: 18px;
