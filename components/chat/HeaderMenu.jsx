@@ -14,53 +14,43 @@ export default function HeaderMenu({ onOpenDrawer, onNewChat }) {
   }, []);
 
   return (
-    <header className="cipher-header">
-      {/* LEFT → LOGO */}
-      <div className="cipher-logo-wrap">
-        <img
-          src="/logo.png"
-          alt="Cipher OS"
-          className="cipher-logo"
-        />
+    <>
+      {/* FLOATING LEFT — LOGO */}
+      <div className="cipher-float-left">
+        <div className="cipher-logo-wrap floating">
+          <img
+            src="/logo.png"
+            alt="Cipher OS"
+            className="cipher-logo"
+          />
+        </div>
       </div>
 
-      {/* RIGHT → BUTTONS */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      {/* FLOATING RIGHT — CONTROLS */}
+      <div className="cipher-float-right">
         {onNewChat && (
-          <button className="cipher-btn-secondary" onClick={onNewChat}>
+          <button className="cipher-float-btn" onClick={onNewChat}>
             New
           </button>
         )}
 
-        {/* Profile Circle (if logged in) */}
         {user ? (
           <div
             onClick={onOpenDrawer}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg,#5a46ff,#00ffc8)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontSize: 14,
-            }}
+            className="cipher-profile-float"
             title={user.email}
           >
             {user.email?.charAt(0).toUpperCase()}
           </div>
         ) : (
           <button
-            className="cipher-btn-primary"
+            className="cipher-float-btn primary"
             onClick={onOpenDrawer}
           >
             Menu
           </button>
         )}
       </div>
-    </header>
+    </>
   );
 }
