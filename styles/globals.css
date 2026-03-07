@@ -158,13 +158,17 @@ img {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 18px;
-  padding-top: 12px;
-  padding-bottom: 140px;
+
+  padding: 18px 18px 140px 18px;
+
   display: flex;
   flex-direction: column;
   gap: 18px;
+
+  /* critical for mobile scrolling */
+  height: 100%;
 }
 
 .cipher-messages {
