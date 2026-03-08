@@ -214,16 +214,17 @@ top: 0;
 ================================ */
 
 .cipher-input-wrap {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+
   height: var(--input-h);
   padding: 16px 18px;
   display: flex;
   align-items: center;
-  overflow: hidden;
-  flex-shrink: 0;
-   position: fixed;
-left: 0;
-right: 0;
-bottom: 0;
+
+  z-index: 20000;
 }
 
 /* ===============================
