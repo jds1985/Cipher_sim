@@ -178,7 +178,7 @@ padding: 18px 18px calc(var(--input-h) + 140px) 18px;
   gap: 18px;
   flex: 1;
 overflow-y: auto;
-padding-bottom: calc(var(--input-h) + 40px);
+padding-bottom: calc(var(--input-h) + 20px);
 }
 
 /* ===============================
