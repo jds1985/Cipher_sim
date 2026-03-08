@@ -83,6 +83,7 @@ img {
 
   /* allow children to shrink properly */
   height: 0;
+   padding-top: var(--header-h);
 }
 
 /* ===============================
@@ -221,6 +222,9 @@ img {
   align-items: center;
   overflow: hidden;
   flex-shrink: 0;
+   position: sticky;
+bottom: 0;
+z-index: 1200;
 }
 
 /* ===============================
