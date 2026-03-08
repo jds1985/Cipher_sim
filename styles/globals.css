@@ -166,7 +166,7 @@ top: 0;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 
-  padding: 18px 18px calc(var(--input-h) + 40px) 18px;
+  padding: 18px 18px calc(var(--input-h) + 80px) 18px;
 
   display: flex;
   flex-direction: column;
