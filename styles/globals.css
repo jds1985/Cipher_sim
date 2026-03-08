@@ -82,7 +82,7 @@ img {
   overflow: hidden;
 
   /* allow children to shrink properly */
-  height: 0;
+  
    padding-top: var(--header-h);
 }
 
@@ -101,6 +101,8 @@ img {
   border-bottom: 1px solid var(--line);
   z-index: 10000;
   flex-shrink: 0;
+   position: sticky;
+top: 0;
 }
 
 /* ===============================
@@ -222,9 +224,10 @@ img {
   align-items: center;
   overflow: hidden;
   flex-shrink: 0;
-   position: sticky;
+   position: fixed;
+left: 0;
+right: 0;
 bottom: 0;
-z-index: 1200;
 }
 
 /* ===============================
