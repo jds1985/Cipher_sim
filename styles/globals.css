@@ -11,7 +11,7 @@
 
 :root {
   --header-h: 64px;
-  --input-h: 92px;
+  --input-h: 160px;
 
   --bg-0: #05060a;
   --glass-0: rgba(10, 10, 20, 0.85);
@@ -164,7 +164,7 @@ top: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-padding: 18px 18px 220px 18px; 
+padding: 18px 18px calc(var(--input-h) + 140px) 18px;
   display: flex;
   flex-direction: column;
   gap: 18px;
