@@ -13,7 +13,6 @@ export default function MessageList({
       {messages.map((m, i) => {
         const selectable = m.role !== "user";
 
-        // only show typing dots on the LAST assistant bubble while typing
         const isLast = i === messages.length - 1;
         const isTypingBubble = Boolean(typing && isLast && m.role === "assistant");
 
@@ -27,10 +26,22 @@ export default function MessageList({
             memoryInfluence={m.memoryInfluence || []}
             isSelected={selectedIndex === i}
             selectable={selectable}
-            onSelect={onSelectMessage}
             transforming={Boolean(m.transforming)}
             tier={tier}
             isTyping={isTypingBubble}
+            onSelect={(index, action) => {
+              if (action?.openMemory) {
+                alert("🧠 Memory panel coming online...");
+                return;
+              }
+
+              if (action?.openDecipher) {
+                alert("🔎 Decipher panel coming online...");
+                return;
+              }
+
+              onSelectMessage?.(index);
+            }}
           />
         );
       })}
