@@ -14,17 +14,30 @@ export default function MessageBubble({
     onSelect?.(index);
   };
 
-  const handleSpeak = (e) => {
+  // 🔊 OpenAI Voice Playback
+  const handleSpeak = async (e) => {
     e.stopPropagation();
     if (!content) return;
 
-    const utterance = new SpeechSynthesisUtterance(content);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.lang = "en-US";
+    try {
+      const res = await fetch("/api/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: content,
+          voice: "alloy",
+        }),
+      });
 
-    window.speechSynthesis.cancel(); // stop any current speech
-    window.speechSynthesis.speak(utterance);
+      if (!res.ok) throw new Error("Voice request failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+    } catch (err) {
+      console.error("Voice playback error:", err);
+    }
   };
 
   const showTyping =
