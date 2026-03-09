@@ -31,14 +31,14 @@ export default function MessageList({
             isTyping={isTypingBubble}
             onSelect={(index, action) => {
               if (action?.openMemory) {
-                alert("🧠 Memory panel coming online...");
-                return;
-              }
+  console.log("Memory clicked", index);
+  return;
+}
 
-              if (action?.openDecipher) {
-                alert("🔎 Decipher panel coming online...");
-                return;
-              }
+if (action?.openDecipher) {
+  console.log("Decipher clicked", index);
+  return;
+}
 
               onSelectMessage?.(index);
             }}
