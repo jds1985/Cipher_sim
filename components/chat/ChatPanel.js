@@ -377,9 +377,7 @@ export default function ChatPanel() {
         />
       </div>
 
-      <DrawerMenu
-      // ONLY showing the changed part so you can paste safely
-
+  
 <DrawerMenu
   open={drawerOpen}
   onClose={() => setDrawerOpen(false)}
