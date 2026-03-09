@@ -378,20 +378,25 @@ export default function ChatPanel() {
       </div>
 
       <DrawerMenu
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onOpenLogin={() => {
-          setIsLoginMode(true);
-          setShowAuthModal(true);
-        }}
-        onOpenSignup={() => {
-          setIsLoginMode(false);
-          setShowAuthModal(true);
-        }}
-        roles={roles}
-        setRoles={setRoles}
-        tier={tier}
-      />
+      // ONLY showing the changed part so you can paste safely
+
+<DrawerMenu
+  open={drawerOpen}
+  onClose={() => setDrawerOpen(false)}
+  onOpenLogin={() => {
+    setDrawerOpen(false);      // ⭐ FIX: close drawer
+    setIsLoginMode(true);
+    setShowAuthModal(true);
+  }}
+  onOpenSignup={() => {
+    setDrawerOpen(false);      // ⭐ FIX: close drawer
+    setIsLoginMode(false);
+    setShowAuthModal(true);
+  }}
+  roles={roles}
+  setRoles={setRoles}
+  tier={tier}
+/>
 
       <div className="cipher-main">
         <div className="cipher-chat">
