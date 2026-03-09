@@ -3,12 +3,10 @@ export default function MessageBubble({
   role,
   content,
   modelUsed,
-  memoryInfluence,
   isSelected,
   selectable,
   onSelect,
   transforming,
-  tier = "free",
   isTyping = false,
 }) {
   const handleClick = () => {
@@ -16,27 +14,21 @@ export default function MessageBubble({
     onSelect?.(index);
   };
 
-  const handleMemoryClick = (e) => {
+  const handleSpeak = (e) => {
     e.stopPropagation();
-    onSelect?.(index, { openMemory: true });
-  };
+    if (!content) return;
 
-  const handleDecipherClick = (e) => {
-    e.stopPropagation();
-    onSelect?.(index, { openDecipher: true });
+    const utterance = new SpeechSynthesisUtterance(content);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.lang = "en-US";
+
+    window.speechSynthesis.cancel(); // stop any current speech
+    window.speechSynthesis.speak(utterance);
   };
 
   const showTyping =
-    role === "assistant" &&
-    isTyping &&
-    (!content || content.trim() === "");
-
-  const canShowMemory =
-    role === "assistant" &&
-    Array.isArray(memoryInfluence) &&
-    memoryInfluence.length > 0;
-
-  const canShowDecipher = role === "assistant" && tier === "free";
+    role === "assistant" && isTyping && (!content || content.trim() === "");
 
   return (
     <div
@@ -57,21 +49,13 @@ export default function MessageBubble({
         )}
       </div>
 
-      {role === "assistant" && (
+      {role === "assistant" && content && (
         <div className="cipher-meta">
           {modelUsed && <span className="cipher-model">{modelUsed}</span>}
 
-          {canShowMemory && (
-            <button className="cipher-btn-memory" onClick={handleMemoryClick}>
-              Memory
-            </button>
-          )}
-
-          {canShowDecipher && (
-            <button className="cipher-btn-memory" onClick={handleDecipherClick}>
-              Decipher
-            </button>
-          )}
+          <button className="cipher-btn-speak" onClick={handleSpeak}>
+            🔊 Speak
+          </button>
         </div>
       )}
     </div>
