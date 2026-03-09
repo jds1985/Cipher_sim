@@ -26,11 +26,13 @@ export default function MessageBubble({
     onSelect?.(index, { openDecipher: true });
   };
 
-  const showTyping = role === "assistant" && isTyping && (!content || content.trim() === "");
+  const showTyping =
+    role === "assistant" &&
+    isTyping &&
+    (!content || content.trim() === "");
 
   const canShowMemory =
     role === "assistant" &&
-    tier !== "free" &&
     Array.isArray(memoryInfluence) &&
     memoryInfluence.length > 0;
 
