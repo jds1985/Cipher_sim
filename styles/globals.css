@@ -658,7 +658,7 @@ body{
   background: url("/images/cipher-hero-mobile.webp") center / cover no-repeat;
 
   /* softer cinematic look */
-  filter: blur(4px) brightness(.75);
+  filter: blur(2px) brightness(.85);
   transform: scale(1.02);
 
   z-index: 0;
