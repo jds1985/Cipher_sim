@@ -211,6 +211,30 @@ padding-bottom: calc(var(--input-h) + 14px);
 }
 
 /* ===============================
+   MEMORY BUTTON (Glass Style)
+================================ */
+
+.cipher-btn-memory {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(10px);
+  color: rgba(255,255,255,0.85);
+
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.cipher-btn-memory:hover {
+  background: rgba(255,255,255,0.16);
+  border-color: rgba(255,255,255,0.25);
+  transform: translateY(-1px);
+}
+
+/* ===============================
    INPUT WRAP
 ================================ */
 
