@@ -31,7 +31,6 @@ export default function DrawerMenu({
   }
 
   const isPro = !!user;
-
   const modelCycle = ["openai", "gemini", "anthropic"];
 
   function cycleRole(roleKey) {
@@ -80,9 +79,7 @@ export default function DrawerMenu({
             alignItems: "center",
             justifyContent: "center",
             cursor: locked ? "not-allowed" : "pointer",
-            boxShadow: locked
-              ? "none"
-              : `0 0 20px ${getModelColor(model)}88`,
+            boxShadow: locked ? "none" : `0 0 20px ${getModelColor(model)}88`,
             transition: "all 0.3s ease",
             marginBottom: 8,
             opacity: locked ? 0.35 : 1,
@@ -200,23 +197,20 @@ export default function DrawerMenu({
               </div>
 
               <button
-  onClick={() => {
-    alert("Login pressed");
-    onOpenLogin();
-  }}
-  style={{
-    width: "100%",
-    padding: 8,
-    marginBottom: 10,
-    background: "#222",
-    color: "white",
-    border: "none",
-    borderRadius: 8,
-    cursor: "pointer",
-  }}
->
-  Log In
-</button>
+                onClick={onOpenLogin}
+                style={{
+                  width: "100%",
+                  padding: 8,
+                  marginBottom: 10,
+                  background: "#222",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                }}
+              >
+                Log In
+              </button>
 
               <button
                 onClick={onOpenSignup}
