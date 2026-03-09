@@ -743,3 +743,26 @@ body{
   from{ opacity:0; transform: translateY(10px); }
   to{ opacity:1; transform: translateY(0); }
 }
+
+/* ===============================
+   🔐 AUTH MODAL FIX
+================================ */
+
+.cipher-auth-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50000; /* above drawer */
+}
+
+.cipher-auth-modal{
+  width: 90%;
+  max-width: 360px;
+  background: #0e0e14;
+  border-radius: 16px;
+  padding: 24px;
+  z-index: 50001;
+}
