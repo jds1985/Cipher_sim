@@ -8,27 +8,28 @@ export default function ImportPage() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) {
-        setUserId(u.uid);
-      }
+      if (u) setUserId(u.uid);
     });
-
     return () => unsub();
   }, []);
 
   if (!userId) {
     return (
-      <div style={{ padding: 40 }}>
-        Please log in to import history.
+      <div className="import-wrap">
+        <div className="import-card">
+          <h1>Authentication Required</h1>
+          <p>Please log in to import your conversation history.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 40, maxWidth: 900, margin: "0 auto" }}>
-      <h1>Import Conversations</h1>
-
-      <ImportHistoryPanel userId={userId} />
+    <div className="import-wrap">
+      <div className="import-card">
+        <h1>Import Conversations</h1>
+        <ImportHistoryPanel userId={userId} />
+      </div>
     </div>
   );
 }
