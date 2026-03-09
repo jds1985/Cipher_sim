@@ -745,24 +745,100 @@ body{
 }
 
 /* ===============================
-   🔐 AUTH MODAL FIX
+   🔐 AUTH MODAL — CIPHER GLASS
 ================================ */
 
 .cipher-auth-overlay{
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.65);
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50000; /* above drawer */
+  z-index: 50000;
 }
 
 .cipher-auth-modal{
-  width: 90%;
-  max-width: 360px;
-  background: #0e0e14;
+  width: 92%;
+  max-width: 380px;
+  padding: 28px 24px 26px;
+  border-radius: 22px;
+
+  background:
+    linear-gradient(145deg,
+      rgba(255,255,255,0.07),
+      rgba(255,255,255,0.03)
+    );
+
+  border: 1px solid rgba(255,255,255,0.14);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+
+  box-shadow:
+    0 0 120px rgba(0,255,200,0.15),
+    0 0 60px rgba(90,70,255,0.25),
+    inset 0 0 40px rgba(255,255,255,0.05);
+
+  color: white;
+  animation: fadeUp .35s ease;
+}
+
+.cipher-auth-modal h3{
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: .4px;
+}
+
+/* inputs */
+.cipher-auth-modal input{
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: white;
+  font-size: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.cipher-auth-modal input::placeholder{
+  color: rgba(255,255,255,0.45);
+}
+
+/* primary button */
+.cipher-auth-modal button{
+  width: 100%;
+  padding: 12px;
   border-radius: 16px;
-  padding: 24px;
-  z-index: 50001;
+  border: none;
+  margin-top: 6px;
+  font-size: 15px;
+  cursor: pointer;
+
+  background: linear-gradient(135deg,#5a46ff,#00ffd5);
+  color: white;
+
+  box-shadow:
+    0 0 30px rgba(90,70,255,0.6),
+    0 0 60px rgba(0,255,213,0.35);
+
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.cipher-auth-modal button:hover{
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 40px rgba(90,70,255,0.9),
+    0 0 80px rgba(0,255,213,0.5);
+}
+
+.cipher-auth-secondary{
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  margin-top: 10px;
+  box-shadow: none !important;
 }
