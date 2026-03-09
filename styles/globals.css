@@ -641,6 +641,7 @@ body{
 ================================ */
 
 .entry-screen{
+   background: url("/images/cipher-hero-mobile.webp") center / cover no-repeat;
   position: relative;
   height: 100vh;
   width: 100%;
