@@ -655,7 +655,7 @@ body{
   content: "";
   position: absolute;
   inset: 0;
-  background: url("/images/cipher-hero-mobile.jpg") center / cover no-repeat;
+  background: url("/images/cipher-hero-mobile.webp") center / cover no-repeat;
   filter: blur(10px) brightness(.55);
   transform: scale(1.05);
   z-index: 0;
