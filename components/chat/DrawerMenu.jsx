@@ -199,8 +199,7 @@ export default function DrawerMenu({
                 Not signed in
               </div>
 
-              <button
-                onClick={onOpenLogin}
+              <button onClick={() => { alert("Login pressed"); onOpenLogin(); }}>
                 style={{
                   width: "100%",
                   padding: 8,
