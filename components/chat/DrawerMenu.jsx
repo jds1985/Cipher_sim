@@ -88,6 +88,12 @@ export default function DrawerMenu({
         >
           <img
             src={getModelLogo(model)}
+            function getModelLogo(model) {
+  if (model === "openai") return "/images/openai.png";
+  if (model === "gemini") return "/images/gemini.png";
+  if (model === "anthropic") return "/images/anthropic.png";
+  return "";
+}
             alt={model}
             style={{
               width: 38,
