@@ -57,7 +57,7 @@ img {
 /* Role Logos */
 .cognitive-stack img {
   transform: scale(1.35);
-  filter: drop-shadow(0 0 2px rgba(255,255,255,0.12));
+  filter: brightness(0.92) drop-shadow(0 0 3px rgba(255,255,255,0.22));
 }
 
 #__next {
