@@ -12,12 +12,9 @@ export default function DrawerMenu({
 }) {
   const [user, setUser] = useState(null);
 
-  // ✅ FIXED: forces UI refresh after login/logout
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
-
-      // trigger rerender so stack UI refreshes
       setRoles((prev) => ({ ...prev }));
     });
     return () => unsub();
@@ -52,18 +49,15 @@ export default function DrawerMenu({
     }));
   }
 
-  function getModelLabel(model) {
-    if (model === "openai") return "OpenAI";
-    if (model === "gemini") return "Gemini";
-    if (model === "anthropic") return "Anthropic";
-    return model;
-  }
-
   function getModelColor(model) {
     if (model === "openai") return "#5a46ff";
     if (model === "gemini") return "#00c2ff";
     if (model === "anthropic") return "#ff8a00";
     return "#666";
+  }
+
+  function getModelLogo(model) {
+    return `/images/${model}.png`;
   }
 
   function RoleCircle({ label, roleKey }) {
@@ -92,9 +86,17 @@ export default function DrawerMenu({
             opacity: locked ? 0.35 : 1,
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 600 }}>
-            {getModelLabel(model)}
-          </div>
+          <img
+            src={getModelLogo(model)}
+            alt={model}
+            style={{
+              width: 38,
+              height: 38,
+              objectFit: "contain",
+              filter: "drop-shadow(0 0 6px rgba(255,255,255,0.35))",
+              pointerEvents: "none"
+            }}
+          />
         </div>
 
         {locked && (
@@ -118,7 +120,6 @@ export default function DrawerMenu({
     );
   }
 
-  // ✅ FIXED: accurate stack detection
   const stackActive = new Set([
     roles.architect,
     roles.refiner,
