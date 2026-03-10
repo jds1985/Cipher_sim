@@ -73,6 +73,7 @@ export default function DrawerMenu({
     return (
       <div style={{ textAlign: "center", position: "relative" }}>
         <div
+          key={model}
           onClick={() => cycleRole(roleKey)}
           style={{
             width: 80,
@@ -293,6 +294,8 @@ export default function DrawerMenu({
             cursor: "pointer",
             fontWeight: 600,
             marginBottom: 12,
+            boxShadow:
+              "0 0 25px rgba(90,70,255,0.4), 0 0 45px rgba(0,255,213,0.25)",
           }}
         >
           Import History
