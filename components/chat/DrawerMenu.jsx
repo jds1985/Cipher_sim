@@ -93,14 +93,15 @@ export default function DrawerMenu({
             opacity: locked ? 0.35 : 1,
           }}
         >
-          <img
+<img
   src={getModelLogo(model)}
   alt={model}
   style={{
-    width: 72,
-    height: 72,
+    width: "100%",
+    height: "100%",
     objectFit: "contain",
-    filter: "drop-shadow(0 0 12px rgba(255,255,255,0.9))",
+    transform: "scale(0.78)",
+    filter: "drop-shadow(0 0 18px rgba(255,255,255,0.95))",
     pointerEvents: "none"
   }}
 />
