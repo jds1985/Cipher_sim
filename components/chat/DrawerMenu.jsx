@@ -103,7 +103,7 @@ export default function DrawerMenu({
     height: "140%",
     objectFit: "contain",
     transform: "scale(1.1)",
-    filter: "drop-shadow(0 0 22px rgba(255,255,255,0.95))",
+    filter: "drop-shadow(0 0 4px rgba(255,255,255,0.18))",
     pointerEvents: "none"
   }}
 />
