@@ -57,6 +57,13 @@ export default function DrawerMenu({
   }
 
   function getModelLogo(model) {
+  if (model === "openai") return "/images/openai.png";
+  if (model === "gemini") return "/images/gemini.png";
+  if (model === "anthropic") return "/images/anthropic.png";
+  return "";
+}
+
+  function getModelLogo(model) {
     return `/images/${model}.png`;
   }
 
@@ -88,13 +95,8 @@ export default function DrawerMenu({
         >
           <img
             src={getModelLogo(model)}
-            function getModelLogo(model) {
-  if (model === "openai") return "/images/openai.png";
-  if (model === "gemini") return "/images/gemini.png";
-  if (model === "anthropic") return "/images/anthropic.png";
-  return "";
-}
-            alt={model}
+          
+      alt={model}
             style={{
               width: 38,
               height: 38,
