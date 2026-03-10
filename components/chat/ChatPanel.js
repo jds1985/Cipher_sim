@@ -165,12 +165,20 @@ export default function ChatPanel() {
      TIER ENFORCEMENT (ROLES)
   ================================ */
   useEffect(() => {
-    if (tier === "free") {
-      const next = {
-        architect: "openai",
-        refiner: "openai",
-        polisher: "openai",
-      };
+  if (tier === "free") {
+  const allSame =
+    roles.architect === roles.refiner &&
+    roles.refiner === roles.polisher;
+
+  // only force reset if user somehow bypassed UI
+  if (!allSame) {
+    setRoles({
+      architect: "openai",
+      refiner: "openai",
+      polisher: "openai",
+    });
+  }
+}
       const same =
         roles.architect === next.architect &&
         roles.refiner === next.refiner &&
