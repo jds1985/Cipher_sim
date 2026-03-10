@@ -126,7 +126,7 @@ export default function ChatPanel() {
 
       if (user) {
         try {
-          const snap = await getDoc(doc(db, "users", user.uid));
+          const snap = await getDoc(doc(db, "cipher_users", user.uid));
           const nextTier = snap.exists() ? snap.data()?.tier || "free" : "free";
           setTier(nextTier);
 
