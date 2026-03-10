@@ -154,46 +154,31 @@ export default function ChatPanel() {
   /* ===============================
      AUTH PROMPT (RESTORED)
   ================================ */
-  useEffect(() => {
-    if (authDismissed) return;
-    if (currentUser) return;
-    const userCount = messages.filter((m) => m.role === "user").length;
-    if (userCount >= 3) setShowAuthPrompt(true);
-  }, [messages, authDismissed, currentUser]);
 
-  /* ===============================
-     TIER ENFORCEMENT (ROLES)
-  ================================ */
   useEffect(() => {
   if (tier === "free") {
-  const allSame =
-    roles.architect === roles.refiner &&
-    roles.refiner === roles.polisher;
+    const allSame =
+      roles.architect === roles.refiner &&
+      roles.refiner === roles.polisher;
 
-  // only force reset if user somehow bypassed UI
-  if (!allSame) {
-    setRoles({
-      architect: "openai",
-      refiner: "openai",
-      polisher: "openai",
-    });
+    if (!allSame) {
+      setRoles({
+        architect: "openai",
+        refiner: "openai",
+        polisher: "openai",
+      });
+    }
+
+    return;
   }
-}
-      const same =
-        roles.architect === next.architect &&
-        roles.refiner === next.refiner &&
-        roles.polisher === next.polisher;
-      if (!same) setRoles(next);
-      return;
-    }
 
-    if (tier === "pro") {
-      const uniq = Array.from(new Set(Object.values(roles)));
-      if (uniq.length > 2) {
-        setRoles((prev) => ({ ...prev, polisher: prev.refiner }));
-      }
+  if (tier === "pro") {
+    const uniq = Array.from(new Set(Object.values(roles)));
+    if (uniq.length > 2) {
+      setRoles((prev) => ({ ...prev, polisher: prev.refiner }));
     }
-  }, [tier, roles]);
+  }
+}, [tier, roles]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
