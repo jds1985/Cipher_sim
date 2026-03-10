@@ -12,12 +12,16 @@ export default function DrawerMenu({
 }) {
   const [user, setUser] = useState(null);
 
+  // ✅ FIXED: forces UI refresh after login/logout
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
+
+      // trigger rerender so stack UI refreshes
+      setRoles((prev) => ({ ...prev }));
     });
     return () => unsub();
-  }, []);
+  }, [setRoles]);
 
   if (!open) return null;
 
@@ -113,9 +117,12 @@ export default function DrawerMenu({
     );
   }
 
-  const stackActive =
-    roles.architect !== roles.refiner ||
-    roles.refiner !== roles.polisher;
+  // ✅ FIXED: accurate stack detection
+  const stackActive = new Set([
+    roles.architect,
+    roles.refiner,
+    roles.polisher,
+  ]).size > 1;
 
   return (
     <>
@@ -194,8 +201,6 @@ export default function DrawerMenu({
                   borderRadius: 16,
                   cursor: "pointer",
                   fontWeight: 600,
-                  boxShadow:
-                    "0 0 25px rgba(90,70,255,0.4), 0 0 45px rgba(0,255,213,0.25)",
                 }}
               >
                 Log Out
@@ -218,8 +223,6 @@ export default function DrawerMenu({
                   borderRadius: 16,
                   cursor: "pointer",
                   fontWeight: 600,
-                  boxShadow:
-                    "0 0 25px rgba(90,70,255,0.4), 0 0 45px rgba(0,255,213,0.25)",
                 }}
               >
                 Log In
@@ -290,8 +293,6 @@ export default function DrawerMenu({
             cursor: "pointer",
             fontWeight: 600,
             marginBottom: 12,
-            boxShadow:
-              "0 0 25px rgba(90,70,255,0.4), 0 0 45px rgba(0,255,213,0.25)",
           }}
         >
           Import History
