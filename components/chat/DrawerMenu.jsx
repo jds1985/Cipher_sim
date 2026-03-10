@@ -79,7 +79,9 @@ export default function DrawerMenu({
             alignItems: "center",
             justifyContent: "center",
             cursor: locked ? "not-allowed" : "pointer",
-            boxShadow: locked ? "none" : `0 0 20px ${getModelColor(model)}88`,
+            boxShadow: locked
+              ? "none"
+              : `0 0 35px ${getModelColor(model)}55, 0 0 60px ${getModelColor(model)}22`,
             transition: "all 0.3s ease",
             marginBottom: 8,
             opacity: locked ? 0.35 : 1,
@@ -134,13 +136,17 @@ export default function DrawerMenu({
           right: 0,
           width: 300,
           height: "100%",
-          background: "#0e0e14",
+          background:
+            "linear-gradient(to bottom, rgba(10,14,30,0.96), rgba(6,10,22,0.98))",
+          backdropFilter: "blur(26px)",
+          WebkitBackdropFilter: "blur(26px)",
+          borderLeft: "1px solid rgba(255,255,255,0.08)",
           color: "white",
           padding: 24,
           zIndex: 20001,
           display: "flex",
           flexDirection: "column",
-          boxShadow: "-8px 0 20px rgba(0,0,0,0.5)",
+          boxShadow: "-12px 0 60px rgba(0,255,200,0.12)",
           overflowY: "auto",
         }}
       >
@@ -152,8 +158,11 @@ export default function DrawerMenu({
           style={{
             marginBottom: 30,
             padding: 16,
-            background: "rgba(255,255,255,0.05)",
-            borderRadius: 12,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: 18,
+            backdropFilter: "blur(18px)",
+            boxShadow: "0 0 30px rgba(0,255,200,0.08)",
           }}
         >
           {user ? (
@@ -179,12 +188,14 @@ export default function DrawerMenu({
                 style={{
                   marginTop: 16,
                   width: "100%",
-                  padding: 8,
-                  background: "#222",
-                  color: "white",
+                  padding: 10,
+                  background: "linear-gradient(135deg,#5a46ff,#00ffd5)",
                   border: "none",
-                  borderRadius: 8,
+                  borderRadius: 16,
                   cursor: "pointer",
+                  fontWeight: 600,
+                  boxShadow:
+                    "0 0 25px rgba(90,70,255,0.4), 0 0 45px rgba(0,255,213,0.25)",
                 }}
               >
                 Log Out
@@ -200,13 +211,15 @@ export default function DrawerMenu({
                 onClick={onOpenLogin}
                 style={{
                   width: "100%",
-                  padding: 8,
+                  padding: 10,
                   marginBottom: 10,
-                  background: "#222",
-                  color: "white",
+                  background: "linear-gradient(135deg,#5a46ff,#00ffd5)",
                   border: "none",
-                  borderRadius: 8,
+                  borderRadius: 16,
                   cursor: "pointer",
+                  fontWeight: 600,
+                  boxShadow:
+                    "0 0 25px rgba(90,70,255,0.4), 0 0 45px rgba(0,255,213,0.25)",
                 }}
               >
                 Log In
@@ -216,12 +229,13 @@ export default function DrawerMenu({
                 onClick={onOpenSignup}
                 style={{
                   width: "100%",
-                  padding: 8,
-                  background: "#222",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 8,
+                  padding: 10,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  borderRadius: 16,
                   cursor: "pointer",
+                  backdropFilter: "blur(14px)",
+                  color: "white",
                 }}
               >
                 Create Account
@@ -234,20 +248,18 @@ export default function DrawerMenu({
           style={{
             marginBottom: 30,
             padding: 16,
-            background: "rgba(255,255,255,0.05)",
-            borderRadius: 12,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: 18,
+            backdropFilter: "blur(18px)",
+            boxShadow: "0 0 30px rgba(0,255,200,0.08)",
           }}
         >
           <div style={{ fontWeight: 600, marginBottom: 16 }}>
             Cognitive Stack
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-            }}
-          >
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
             <RoleCircle label="Architect" roleKey="architect" />
             <RoleCircle label="Refiner" roleKey="refiner" />
             <RoleCircle label="Polisher" roleKey="polisher" />
@@ -271,13 +283,15 @@ export default function DrawerMenu({
           }}
           style={{
             width: "100%",
-            padding: 10,
-            background: "#1a1a22",
-            color: "white",
+            padding: 12,
+            background: "linear-gradient(135deg,#5a46ff,#00ffd5)",
             border: "none",
-            borderRadius: 8,
+            borderRadius: 16,
             cursor: "pointer",
-            marginBottom: 10,
+            fontWeight: 600,
+            marginBottom: 12,
+            boxShadow:
+              "0 0 25px rgba(90,70,255,0.4), 0 0 45px rgba(0,255,213,0.25)",
           }}
         >
           Import History
@@ -287,12 +301,13 @@ export default function DrawerMenu({
           onClick={onClose}
           style={{
             marginTop: "auto",
-            padding: 10,
-            background: "#1a1a22",
-            color: "white",
-            border: "none",
-            borderRadius: 8,
+            padding: 12,
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 16,
             cursor: "pointer",
+            backdropFilter: "blur(14px)",
+            color: "white",
           }}
         >
           Close
