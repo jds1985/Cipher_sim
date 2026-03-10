@@ -99,8 +99,8 @@ export default function DrawerMenu({
   alt={model}
   style={{
     position: "absolute",
-    width: "160%",
-    height: "160%",
+    width: "140%",
+    height: "140%",
     objectFit: "contain",
     transform: "scale(1.1)",
     filter: "drop-shadow(0 0 22px rgba(255,255,255,0.95))",
