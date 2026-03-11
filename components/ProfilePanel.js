@@ -6,9 +6,25 @@ export default function ProfilePanel({
   onProfileChange,
   onOpenStore,
   onOpenDeviceLink,
+  tier = "free",
 }) {
   const name = profile?.displayName || "Jim";
   const voiceOn = profile?.voiceEnabled !== false; // default = true
+
+  const tierGlyphs = {
+    free: "/images/glyph-initiate.png",
+    pro: "/images/glyph-architect.png",
+    builder: "/images/glyph-ascendant.png",
+  };
+
+  const tierGlow = {
+    free: "0 0 14px rgba(120,120,255,0.35)",
+    pro: "0 0 18px rgba(0,255,200,0.45)",
+    builder: "0 0 22px rgba(255,180,0,0.55)",
+  };
+
+  const glyph = tierGlyphs[tier] || tierGlyphs.free;
+  const glow = tierGlow[tier] || tierGlow.free;
 
   return (
     <div
@@ -32,8 +48,38 @@ export default function ProfilePanel({
           color: "#e5e7eb",
           boxShadow: "0 20px 60px rgba(15,23,42,0.9)",
           fontFamily: "Inter, sans-serif",
+          position: "relative",
         }}
       >
+
+        {/* ✨ Tier Glyph Badge */}
+        <div
+          style={{
+            position: "absolute",
+            top: -12,
+            right: -12,
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "#020617",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: glow,
+            border: "1px solid rgba(255,255,255,0.12)",
+          }}
+        >
+          <img
+            src={glyph}
+            alt="tier glyph"
+            style={{
+              width: "70%",
+              height: "70%",
+              objectFit: "contain",
+            }}
+          />
+        </div>
+
         <div
           style={{
             display: "flex",
