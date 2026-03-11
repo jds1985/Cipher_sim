@@ -12,9 +12,9 @@ export default function ProfilePanel({
   const voiceOn = profile?.voiceEnabled !== false; // default = true
 
   const tierGlyphs = {
-    free: "/images/glyph-initiate.png",
-    pro: "/images/glyph-architect.png",
-    builder: "/images/glyph-ascendant.png",
+    free: "/images/glyph_tier1.png",
+    pro: "/images/glyph_tier2.png",
+    builder: "/images/glyph_tier3.png",
   };
 
   const tierGlow = {
