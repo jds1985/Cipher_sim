@@ -291,6 +291,48 @@ export default function DrawerMenu({
           >
             {stackActive ? "Role Stack Active" : "Single Model Mode"}
           </div>
+       <div
+  style={{
+    marginBottom: 30,
+    padding: 16,
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    borderRadius: 18,
+    backdropFilter: "blur(18px)",
+    boxShadow: "0 0 30px rgba(0,255,200,0.08)",
+  }}
+>
+  <div style={{ fontWeight: 600, marginBottom: 14, opacity: 0.85 }}>
+    Future Systems
+  </div>
+
+  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    
+    <div style={{
+      padding: "10px 14px",
+      borderRadius: 14,
+      background: "rgba(90,70,255,0.15)",
+      border: "1px solid rgba(90,70,255,0.35)",
+      fontSize: 13,
+      letterSpacing: ".4px"
+    }}>
+      🌐 CipherNet <span style={{opacity:.6}}>• Coming Soon</span>
+    </div>
+
+    <div style={{
+      padding: "10px 14px",
+      borderRadius: 14,
+      background: "rgba(0,255,200,0.12)",
+      border: "1px solid rgba(0,255,200,0.35)",
+      fontSize: 13,
+      letterSpacing: ".4px"
+    }}>
+      🛍️ ShopStream <span style={{opacity:.6}}>• Coming Soon</span>
+    </div>
+
+  </div>
+</div>
+       
         </div>
 
         <button
