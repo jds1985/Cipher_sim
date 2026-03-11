@@ -316,7 +316,7 @@ export default function DrawerMenu({
       fontSize: 13,
       letterSpacing: ".4px"
     }}>
-      🌐 CipherNet <span style={{opacity:.6}}>• Coming Soon</span>
+      CipherNet <span style={{opacity:.6}}>• Coming Soon</span>
     </div>
 
     <div style={{
@@ -327,7 +327,7 @@ export default function DrawerMenu({
       fontSize: 13,
       letterSpacing: ".4px"
     }}>
-      🛍️ ShopStream <span style={{opacity:.6}}>• Coming Soon</span>
+      ShopStream <span style={{opacity:.6}}>• Coming Soon</span>
     </div>
 
   </div>
