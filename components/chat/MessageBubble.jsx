@@ -1,3 +1,5 @@
+import TypingText from "./TypingText";
+
 export default function MessageBubble({
   index,
   role,
@@ -57,6 +59,8 @@ export default function MessageBubble({
             <span className="dot" />
             <span className="dot" />
           </span>
+        ) : role === "assistant" ? (
+          <TypingText text={content || ""} />
         ) : (
           content
         )}
