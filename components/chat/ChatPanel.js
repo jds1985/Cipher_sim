@@ -262,6 +262,24 @@ export default function ChatPanel() {
     const text = options.quickAction
   ? options.quickAction
   : input.trim();
+   let targetIndex = selectedIndex;
+
+if (options.quickAction && targetIndex !== null) {
+  const original = messages[targetIndex]?.content || "";
+
+  // mark message as transforming
+  if (options.quickAction && targetIndex !== null) {
+  // do NOT add a new message
+} else {
+  setMessages((m) => [
+    ...m,
+    userMessage,
+    { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
+  ]);
+}
+
+  options.target = original;
+}
     if (!text) return;
 
     sendingRef.current = true;
