@@ -287,16 +287,17 @@ export default function ChatPanel() {
       const useStream = isSingleModel; // single model = stream
 
       const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-  message: text,
-  target: options.target || null,
-  history: historySnapshot.slice(-HISTORY_WINDOW),
-  stream: useStream,
-  roles,
-  tier
-}),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    message: text,
+    target: options?.target || null,
+    history: historySnapshot.slice(-HISTORY_WINDOW),
+    stream: useStream,
+    roles,
+    tier
+  })
+});
 
       if (!res.ok) {
         const err = await res.json().catch(() => null);
