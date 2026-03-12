@@ -1,18 +1,17 @@
-export default function QuickActions({ onAction, tier = "free" }) {
-  // Free tier does NOT get quick actions
+export default function QuickActions({ onAction, tier = "free", content }) {
   if (tier === "free") return null;
 
   const actions = [
-    { id: "analyze", label: "Analyze", prompt: "Analyze this answer:" },
-    { id: "shorter", label: "Shorter", prompt: "Make this shorter:" },
-    { id: "longer", label: "Longer", prompt: "Expand this answer:" },
-    { id: "summarize", label: "Summarize", prompt: "Summarize this:" },
+    { id: "analyze", label: "Analyze", prompt: "Analyze the following response:" },
+    { id: "shorter", label: "Shorter", prompt: "Rewrite the following response in a shorter form:" },
+    { id: "longer", label: "Longer", prompt: "Expand the following response with more detail:" },
+    { id: "summarize", label: "Summarize", prompt: "Summarize the following response:" },
   ];
 
   return (
     <div className="cipher-quick-actions">
       {actions.map((a) => (
-        <button key={a.id} onClick={() => onAction(a.prompt)}>
+        <button key={a.id} onClick={() => onAction(`${a.prompt}\n\n${content}`)}>
           {a.label}
         </button>
       ))}
