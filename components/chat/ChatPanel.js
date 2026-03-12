@@ -257,9 +257,11 @@ export default function ChatPanel() {
     }
   }
 
-  async function sendMessage() {
+  async function sendMessage(options = {}) {
     if (sendingRef.current) return;
-    const text = input.trim();
+    const text = options.quickAction
+  ? options.quickAction
+  : input.trim();
     if (!text) return;
 
     sendingRef.current = true;
@@ -288,13 +290,13 @@ export default function ChatPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: text,
-          history: historySnapshot.slice(-HISTORY_WINDOW),
-          stream: useStream,
-          roles,
-          tier,
-        }),
-      });
+  message: text,
+  target: options.target || null,
+  history: historySnapshot.slice(-HISTORY_WINDOW),
+  stream: useStream,
+  roles,
+  tier,
+}),
 
       if (!res.ok) {
         const err = await res.json().catch(() => null);
@@ -468,16 +470,21 @@ export default function ChatPanel() {
       )}
 
       {showQuickActions && (
-        <QuickActions
-          tier={tier}
-          onAction={(prompt) => {
-            if (selectedIndex === null) return;
-            const target = messages[selectedIndex];
-            if (!target?.content) return;
-            setInput(`${prompt}\n\n${target.content}`);
-          }}
-        />
-      )}
+  <QuickActions
+    tier={tier}
+    onAction={(prompt) => {
+      if (selectedIndex === null) return;
+
+      const target = messages[selectedIndex];
+      if (!target?.content) return;
+
+      sendMessage({
+        quickAction: prompt,
+        target: target.content
+      });
+    }}
+  />
+)}
 
       <InputBar
   input={input}
