@@ -258,129 +258,142 @@ export default function ChatPanel() {
   }
 
   async function sendMessage(options = {}) {
-    if (sendingRef.current) return;
-    const text = options.quickAction
-  ? options.quickAction
-  : input.trim();
-   let targetIndex = selectedIndex;
+  if (sendingRef.current) return;
 
-if (options.quickAction && targetIndex !== null) {
-  const original = messages[targetIndex]?.content || "";
+  const isQuickAction = Boolean(options.quickAction);
+  const text = isQuickAction ? options.quickAction : input.trim();
+  if (!text) return;
 
-  // mark message as transforming
-  if (options.quickAction && targetIndex !== null) {
-  // do NOT add a new message
-} else {
-  setMessages((m) => [
-    ...m,
-    userMessage,
-    { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
-  ]);
-}
+  const targetIndex = selectedIndex;
 
-  options.target = original;
-}
-    if (!text) return;
+  sendingRef.current = true;
+  setTyping(true);
 
-    sendingRef.current = true;
-    setTyping(true);
+  // grab original message if transforming
+  let originalContent = null;
+  if (isQuickAction && targetIndex !== null) {
+    originalContent = messages[targetIndex]?.content || "";
 
-    const userMessage = { role: "user", content: text };
-    const historySnapshot = [...messages, userMessage];
+    setMessages((m) => {
+      const next = [...m];
+      next[targetIndex] = {
+        ...next[targetIndex],
+        transforming: true
+      };
+      return next;
+    });
 
+    options.target = originalContent;
+
+    // close quick actions immediately
+    setSelectedIndex(null);
+  }
+
+  const userMessage = { role: "user", content: text };
+  const historySnapshot = [...messages, userMessage];
+
+  if (!isQuickAction) {
     setInput("");
-
-if (!options.quickAction) {
-  setSelectedIndex(null);
-  setShowMemory(false);
-}
 
     setMessages((m) => [
       ...m,
       userMessage,
       { role: "assistant", content: "", modelUsed: null, memoryInfluence: [] },
     ]);
+  }
 
-    try {
-      const isSingleModel =
-        roles.architect === roles.refiner && roles.refiner === roles.polisher;
+  try {
+    const isSingleModel =
+      roles.architect === roles.refiner && roles.refiner === roles.polisher;
 
-      const useStream = isSingleModel; // single model = stream
+    const useStream = isSingleModel;
 
-      const res = await fetch("/api/chat", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    message: text,
-    target: options?.target || null,
-    history: historySnapshot.slice(-HISTORY_WINDOW),
-    stream: useStream,
-    roles,
-    tier
-  })
-});
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: text,
+        target: options?.target || null,
+        history: historySnapshot.slice(-HISTORY_WINDOW),
+        stream: useStream,
+        roles,
+        tier
+      })
+    });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || `HTTP ${res.status}`);
-      }
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.error || `HTTP ${res.status}`);
+    }
 
-      if (!useStream) {
-        const data = await res.json();
+    if (!useStream) {
+      const data = await res.json();
 
-        if (typeof data.remainingTokens === "number") {
-          setRemainingTokens(data.remainingTokens);
-        }
+      setMessages((m) => {
+        const next = [...m];
 
-        setMessages((m) => {
-          const next = [...m];
+        if (isQuickAction && targetIndex !== null) {
+          next[targetIndex].content = data.reply || "";
+          next[targetIndex].transforming = false;
+        } else {
           next[next.length - 1].content = data.reply || "";
           next[next.length - 1].modelUsed = data.model || null;
           next[next.length - 1].memoryInfluence = data.memoryInfluence || [];
-          return next;
-        });
-      } else {
-        let streamed = "";
-        await readSSEStream(res, (evt) => {
-          if (evt?.type === "delta") {
-            streamed += evt.text || "";
-            setMessages((m) => {
-              const next = [...m];
-              next[next.length - 1].content = streamed;
-              return next;
-            });
-          }
+        }
 
-          if (evt?.type === "done") {
-            setMessages((m) => {
-              const next = [...m];
+        return next;
+      });
+
+    } else {
+      let streamed = "";
+
+      await readSSEStream(res, (evt) => {
+        if (evt?.type === "delta") {
+          streamed += evt.text || "";
+
+          setMessages((m) => {
+            const next = [...m];
+
+            if (isQuickAction && targetIndex !== null) {
+              next[targetIndex].content = streamed;
+            } else {
+              next[next.length - 1].content = streamed;
+            }
+
+            return next;
+          });
+        }
+
+        if (evt?.type === "done") {
+          setMessages((m) => {
+            const next = [...m];
+
+            if (isQuickAction && targetIndex !== null) {
+              next[targetIndex].content =
+                evt.reply || next[targetIndex].content;
+              next[targetIndex].transforming = false;
+            } else {
               next[next.length - 1].content =
                 evt.reply || next[next.length - 1].content;
               next[next.length - 1].modelUsed = evt.model || null;
-              next[next.length - 1].memoryInfluence = evt.memoryInfluence || [];
-              return next;
-            });
-          }
-        });
+              next[next.length - 1].memoryInfluence =
+                evt.memoryInfluence || [];
+            }
 
-        // stream response does not currently send remainingTokens,
-        // so simulate a small visual drain until backend stream adds it
-        setRemainingTokens((prev) => Math.max(0, prev - Math.ceil(text.length * 1.5)));
-      }
-    } catch (e) {
-      setMessages((m) => {
-        const next = [...m];
-        next[next.length - 1] = {
-          role: "assistant",
-          content: e?.message || "Transport error",
-        };
-        return next;
+            return next;
+          });
+        }
       });
-    } finally {
-      setTyping(false);
-      sendingRef.current = false;
     }
+
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setTyping(false);
+    sendingRef.current = false;
   }
+}
+  
 
   // Free: no quick actions. Pro/Builder: yes.
   const showQuickActions = selectedIndex !== null && tier !== "free";
