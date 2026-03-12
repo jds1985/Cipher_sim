@@ -4,13 +4,12 @@ export default function InputBar({
   input,
   setInput,
   onSend,
-  typing,
-  remainingTokens = 0,
-  tokenLimit = 50000
+  typing
 }) {
   const holdTimer = useRef(null);
   const decipherArmed = useRef(false);
   const longPressTriggered = useRef(false);
+  const textareaRef = useRef(null);
 
   const [charging, setCharging] = useState(false);
   const [ripple, setRipple] = useState(false);
@@ -54,70 +53,38 @@ export default function InputBar({
     onSend({ forceDecipher: false });
   }
 
-  // 🔋 Power calculations
-  const percent = Math.max(
-    0,
-    Math.min(100, Math.round((remainingTokens / tokenLimit) * 100))
-  );
+  function handleInput(e) {
+    setInput(e.target.value);
+
+    const el = textareaRef.current;
+    if (!el) return;
+
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
 
   return (
     <div className="cipher-input-wrap">
 
-      {/* ⚡ AI POWER — GLASS PANEL */}
-      <div style={{
-        marginBottom: 14,
-        padding: "10px 14px",
-        borderRadius: 16,
-        background: "rgba(255,255,255,0.06)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "0 0 12px rgba(90,70,255,0.15)",
-      }}>
-        <div style={{
-          fontSize: 12,
-          letterSpacing: 0.5,
-          marginBottom: 8,
-          color: "rgba(255,255,255,0.85)"
-        }}>
-          ⚡ AI Power • {percent}%
-        </div>
-
-        <div style={{
-          height: 8,
-          borderRadius: 999,
-          background: "rgba(255,255,255,0.08)",
-          overflow: "hidden",
-          position: "relative"
-        }}>
-          <div style={{
-            width: `${percent}%`,
-            height: "100%",
-            borderRadius: 999,
-            background: "linear-gradient(90deg,#00ffd5,#5a46ff,#b845ff)",
-            boxShadow: "0 0 12px rgba(120,100,255,0.6)",
-            transition: "width 0.5s cubic-bezier(.4,2,.3,1)"
-          }} />
-
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            background: "linear-gradient(180deg,rgba(255,255,255,0.15),transparent)",
-            pointerEvents: "none"
-          }} />
-        </div>
-      </div>
-
       <div className="cipher-input-shell">
         <div className="cipher-input-inner">
-          <input
+
+          <textarea
+            ref={textareaRef}
             className="cipher-input-field"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInput}
             placeholder="Talk to Cipher…"
             disabled={typing}
+            rows={1}
+            style={{
+              resize: "none",
+              overflow: "hidden",
+              maxHeight: "180px"
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && e.shiftKey) return;
+
               if (e.key === "Enter") {
                 e.preventDefault();
                 handleClick();
@@ -152,8 +119,10 @@ export default function InputBar({
 
             {ripple && <span className="ripple" />}
           </button>
+
         </div>
       </div>
+
     </div>
   );
 }
