@@ -325,6 +325,7 @@ export default function DrawerMenu({
               >
                 Create Account
               </button>
-            </>
-          )}
-        </div>
+</div>
+</>
+);
+}
