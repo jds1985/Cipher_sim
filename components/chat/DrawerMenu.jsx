@@ -139,7 +139,7 @@ export default function DrawerMenu({
 
   const tokenPercent = Math.min(
     100,
-    Math.round((remainingTokens / tokenLimit) * 100)
+    Math.round((remainingTokens / Math.max(tokenLimit, 1)) * 100)
   );
 
   return (
@@ -175,7 +175,6 @@ export default function DrawerMenu({
           overflowY: "auto",
         }}
       >
-
         <div style={{ marginBottom: 30, textAlign: "center" }}>
           <h3 style={{ margin: 0 }}>Cipher OS</h3>
 
@@ -197,7 +196,6 @@ export default function DrawerMenu({
         </div>
 
         {/* TOKEN METER */}
-
         <div
           style={{
             marginBottom: 30,
@@ -226,8 +224,7 @@ export default function DrawerMenu({
               style={{
                 width: `${tokenPercent}%`,
                 height: "100%",
-                background:
-                  "linear-gradient(90deg,#5a46ff,#00ffd5)",
+                background: "linear-gradient(90deg,#5a46ff,#00ffd5)",
               }}
             />
           </div>
@@ -238,7 +235,6 @@ export default function DrawerMenu({
         </div>
 
         {/* ACCOUNT */}
-
         <div
           style={{
             marginBottom: 30,
@@ -325,6 +321,120 @@ export default function DrawerMenu({
           )}
         </div>
 
+        {/* COGNITIVE STACK */}
+        <div
+          style={{
+            marginBottom: 30,
+            padding: 16,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: 18,
+            backdropFilter: "blur(18px)",
+            boxShadow: "0 0 30px rgba(0,255,200,0.08)",
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 16 }}>
+            Cognitive Stack
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <RoleCircle label="Architect" roleKey="architect" />
+            <RoleCircle label="Refiner" roleKey="refiner" />
+            <RoleCircle label="Polisher" roleKey="polisher" />
+          </div>
+
+          <div
+            style={{
+              marginTop: 14,
+              fontSize: 12,
+              opacity: 0.7,
+              textAlign: "center",
+            }}
+          >
+            {stackActive ? "Role Stack Active" : "Single Model Mode"}
+          </div>
+        </div>
+
+        {/* FUTURE SYSTEMS */}
+        <div
+          style={{
+            marginBottom: 30,
+            padding: 16,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: 18,
+            backdropFilter: "blur(18px)",
+            boxShadow: "0 0 30px rgba(0,255,200,0.08)",
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 14, opacity: 0.85 }}>
+            Future Systems
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div
+              style={{
+                padding: "10px 14px",
+                borderRadius: 14,
+                background: "rgba(90,70,255,0.15)",
+                border: "1px solid rgba(90,70,255,0.35)",
+                fontSize: 13,
+                letterSpacing: ".4px"
+              }}
+            >
+              CipherNet <span style={{ opacity: 0.6 }}>• Coming Soon</span>
+            </div>
+
+            <div
+              style={{
+                padding: "10px 14px",
+                borderRadius: 14,
+                background: "rgba(0,255,200,0.12)",
+                border: "1px solid rgba(0,255,200,0.35)",
+                fontSize: 13,
+                letterSpacing: ".4px"
+              }}
+            >
+              ShopStream <span style={{ opacity: 0.6 }}>• Coming Soon</span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            window.location.href = "/import";
+          }}
+          style={{
+            width: "100%",
+            padding: 12,
+            background: "linear-gradient(135deg,#5a46ff,#00ffd5)",
+            border: "none",
+            borderRadius: 16,
+            cursor: "pointer",
+            fontWeight: 600,
+            marginBottom: 12,
+            boxShadow:
+              "0 0 25px rgba(90,70,255,0.4), 0 0 45px rgba(0,255,213,0.25)",
+          }}
+        >
+          Import History
+        </button>
+
+        <button
+          onClick={onClose}
+          style={{
+            marginTop: "auto",
+            padding: 12,
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 16,
+            cursor: "pointer",
+            backdropFilter: "blur(14px)",
+            color: "white",
+          }}
+        >
+          Close
+        </button>
       </div>
     </>
   );
