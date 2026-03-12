@@ -987,3 +987,66 @@ body{
   font-size: 13px;
   opacity: .6;
 }
+
+/* ===============================
+   CIPHER QUICK ACTIONS
+================================ */
+
+.cipher-quick-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+
+  animation: cipherActionsFade 0.18s ease;
+}
+
+.cipher-quick-actions button {
+  padding: 6px 14px;
+  border-radius: 20px;
+
+  border: none;
+  outline: none;
+
+  font-size: 12px;
+  font-weight: 500;
+
+  color: white;
+
+  background: linear-gradient(
+    135deg,
+    #6a5cff,
+    #3dd8c5
+  );
+
+  cursor: pointer;
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+
+/* hover lift */
+.cipher-quick-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+}
+
+/* press */
+.cipher-quick-actions button:active {
+  transform: scale(0.95);
+}
+
+/* fade in animation */
+
+@keyframes cipherActionsFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
