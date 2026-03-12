@@ -95,21 +95,19 @@ export default function DrawerMenu({
             opacity: locked ? 0.35 : 1,
           }}
         >
-
-<img
-  src={getModelLogo(model)}
-  alt={model}
-  style={{
-    position: "absolute",
-    width: "140%",
-    height: "140%",
-    objectFit: "contain",
-    transform: "scale(1.1)",
-    filter: "drop-shadow(0 0 4px rgba(255,255,255,0.18))",
-    pointerEvents: "none"
-  }}
-/>
-
+          <img
+            src={getModelLogo(model)}
+            alt={model}
+            style={{
+              position: "absolute",
+              width: "140%",
+              height: "140%",
+              objectFit: "contain",
+              transform: "scale(1.1)",
+              filter: "drop-shadow(0 0 4px rgba(255,255,255,0.18))",
+              pointerEvents: "none"
+            }}
+          />
         </div>
 
         {locked && (
@@ -198,7 +196,6 @@ export default function DrawerMenu({
           </div>
         </div>
 
-
         {/* TOKEN METER */}
 
         <div
@@ -239,7 +236,6 @@ export default function DrawerMenu({
             {remainingTokens.toLocaleString()} / {tokenLimit.toLocaleString()}
           </div>
         </div>
-
 
         {/* ACCOUNT */}
 
@@ -325,7 +321,11 @@ export default function DrawerMenu({
               >
                 Create Account
               </button>
-</div>
-</>
-);
+            </>
+          )}
+        </div>
+
+      </div>
+    </>
+  );
 }
