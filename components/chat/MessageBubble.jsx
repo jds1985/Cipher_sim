@@ -45,7 +45,6 @@ export default function MessageBubble({
   const showTyping =
     role === "assistant" && isTyping && (!content || content.trim() === "");
 
-  // 🔧 Prevent old messages from re-animating on reload
   const shouldAnimate =
     role === "assistant" && isTyping && content && content.trim().length > 0;
 
@@ -55,8 +54,9 @@ export default function MessageBubble({
         transforming ? "transforming" : ""
       }`}
       onClick={handleClick}
+      style={{ cursor: selectable ? "pointer" : "default" }}
     >
-      <div className="cipher-text">
+      <div className="cipher-text" onClick={handleClick}>
         {showTyping ? (
           <span className="cipher-typing">
             <span className="dot" />
