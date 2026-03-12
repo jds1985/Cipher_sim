@@ -14,7 +14,9 @@ export default function MessageList({
         const selectable = m.role !== "user";
 
         const isLast = i === messages.length - 1;
-        const isTypingBubble = Boolean(typing && isLast && m.role === "assistant");
+        const isTypingBubble = Boolean(
+          typing && isLast && m.role === "assistant"
+        );
 
         return (
           <MessageBubble
@@ -30,17 +32,21 @@ export default function MessageList({
             tier={tier}
             isTyping={isTypingBubble}
             onSelect={(index, action) => {
+
               if (action?.openMemory) {
-  console.log("Memory clicked", index);
-  return;
-}
+                console.log("Memory clicked", index);
+                return;
+              }
 
-if (action?.openDecipher) {
-  console.log("Decipher clicked", index);
-  return;
-}
+              if (action?.openDecipher) {
+                console.log("Decipher clicked", index);
+                return;
+              }
 
-              onSelectMessage?.(index);
+              // ⭐ normal tap selection
+              if (onSelectMessage) {
+                onSelectMessage(index);
+              }
             }}
           />
         );
