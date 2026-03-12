@@ -295,7 +295,7 @@ export default function ChatPanel() {
   history: historySnapshot.slice(-HISTORY_WINDOW),
   stream: useStream,
   roles,
-  tier,
+  tier
 }),
 
       if (!res.ok) {
