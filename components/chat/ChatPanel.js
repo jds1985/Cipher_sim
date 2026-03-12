@@ -271,8 +271,11 @@ export default function ChatPanel() {
     const historySnapshot = [...messages, userMessage];
 
     setInput("");
-    setSelectedIndex(null);
-    setShowMemory(false);
+
+if (!options.quickAction) {
+  setSelectedIndex(null);
+  setShowMemory(false);
+}
 
     setMessages((m) => [
       ...m,
