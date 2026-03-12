@@ -208,9 +208,9 @@ export default function ChatPanel() {
   }
 
   function handleSelectMessage(i, options = {}) {
-    setSelectedIndex(i);
-    setShowMemory(!!options.openMemory);
-  }
+  setSelectedIndex((prev) => (prev === i ? prev : i));
+  setShowMemory(!!options.openMemory);
+}
 
   function handleDismissAuth() {
     setShowAuthPrompt(false);
