@@ -45,6 +45,10 @@ export default function MessageBubble({
   const showTyping =
     role === "assistant" && isTyping && (!content || content.trim() === "");
 
+  // 🔧 Prevent old messages from re-animating on reload
+  const shouldAnimate =
+    role === "assistant" && isTyping && content && content.trim().length > 0;
+
   return (
     <div
       className={`cipher-bubble ${role} ${isSelected ? "selected" : ""} ${
@@ -60,7 +64,11 @@ export default function MessageBubble({
             <span className="dot" />
           </span>
         ) : role === "assistant" ? (
-          <TypingText text={content || ""} />
+          shouldAnimate ? (
+            <TypingText text={content || ""} />
+          ) : (
+            content
+          )
         ) : (
           content
         )}
