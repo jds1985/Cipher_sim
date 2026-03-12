@@ -1,4 +1,5 @@
 import MessageBubble from "./MessageBubble";
+import QuickActions from "./QuickActions";
 
 export default function MessageList({
   messages,
@@ -7,6 +8,7 @@ export default function MessageList({
   selectedIndex,
   tier = "free",
   typing = false,
+  onQuickAction,
 }) {
   return (
     <div className="cipher-messages">
@@ -19,36 +21,48 @@ export default function MessageList({
         );
 
         return (
-          <MessageBubble
-            key={i}
-            index={i}
-            role={m.role}
-            content={m.content}
-            modelUsed={m.modelUsed || null}
-            memoryInfluence={m.memoryInfluence || []}
-            isSelected={selectedIndex === i}
-            selectable={selectable}
-            transforming={Boolean(m.transforming)}
-            tier={tier}
-            isTyping={isTypingBubble}
-            onSelect={(index, action) => {
+          <div key={i}>
+            <MessageBubble
+              index={i}
+              role={m.role}
+              content={m.content}
+              modelUsed={m.modelUsed || null}
+              memoryInfluence={m.memoryInfluence || []}
+              isSelected={selectedIndex === i}
+              selectable={selectable}
+              transforming={Boolean(m.transforming)}
+              tier={tier}
+              isTyping={isTypingBubble}
+              onSelect={(index, action) => {
 
-              if (action?.openMemory) {
-                console.log("Memory clicked", index);
-                return;
-              }
+                if (action?.openMemory) {
+                  console.log("Memory clicked", index);
+                  return;
+                }
 
-              if (action?.openDecipher) {
-                console.log("Decipher clicked", index);
-                return;
-              }
+                if (action?.openDecipher) {
+                  console.log("Decipher clicked", index);
+                  return;
+                }
 
-              // ⭐ normal tap selection
-              if (onSelectMessage) {
-                onSelectMessage(index);
-              }
-            }}
-          />
+                // ⭐ normal tap selection
+                if (onSelectMessage) {
+                  onSelectMessage(index);
+                }
+              }}
+            />
+
+            {selectedIndex === i && tier !== "free" && (
+              <QuickActions
+                tier={tier}
+                onAction={(prompt) => {
+                  if (onQuickAction) {
+                    onQuickAction(prompt, m.content);
+                  }
+                }}
+              />
+            )}
+          </div>
         );
       })}
       <div ref={bottomRef} />
