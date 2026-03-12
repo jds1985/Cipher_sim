@@ -375,19 +375,22 @@ export default function ChatPanel() {
   open={drawerOpen}
   onClose={() => setDrawerOpen(false)}
   onOpenLogin={() => {
-    setDrawerOpen(false);      // ⭐ FIX: close drawer
+    setDrawerOpen(false);
     setIsLoginMode(true);
     setShowAuthModal(true);
   }}
   onOpenSignup={() => {
-    setDrawerOpen(false);      // ⭐ FIX: close drawer
+    setDrawerOpen(false);
     setIsLoginMode(false);
     setShowAuthModal(true);
   }}
   roles={roles}
   setRoles={setRoles}
   tier={tier}
+  remainingTokens={remainingTokens}
+  tokenLimit={tokenLimit}
 />
+
 
       <div className="cipher-main">
         <div className="cipher-chat">
@@ -477,13 +480,11 @@ export default function ChatPanel() {
       )}
 
       <InputBar
-        input={input}
-        setInput={setInput}
-        onSend={sendMessage}
-        typing={typing}
-        remainingTokens={remainingTokens}
-        tokenLimit={tokenLimit}
-      />
+  input={input}
+  setInput={setInput}
+  onSend={sendMessage}
+  typing={typing}
+/>
     </div>
   );
 }
