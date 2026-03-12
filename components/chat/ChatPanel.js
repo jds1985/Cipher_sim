@@ -473,22 +473,7 @@ if (!options.quickAction) {
         </div>
       )}
 
-      {showQuickActions && (
-  <QuickActions
-    tier={tier}
-    onAction={(prompt) => {
-      if (selectedIndex === null) return;
-
-      const target = messages[selectedIndex];
-      if (!target?.content) return;
-
-      sendMessage({
-        quickAction: prompt,
-        target: target.content
-      });
-    }}
-  />
-)}
+  
 
       <InputBar
   input={input}
