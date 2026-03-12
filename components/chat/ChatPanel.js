@@ -401,12 +401,19 @@ if (!options.quickAction) {
       <div className="cipher-main">
         <div className="cipher-chat">
           <MessageList
-            messages={messages}
-            bottomRef={bottomRef}
-            onSelectMessage={handleSelectMessage}
-            selectedIndex={selectedIndex}
-            showMemory={showMemory}
-          />
+  messages={messages}
+  bottomRef={bottomRef}
+  onSelectMessage={handleSelectMessage}
+  selectedIndex={selectedIndex}
+  showMemory={showMemory}
+  tier={tier}
+  onQuickAction={(prompt, content) => {
+    sendMessage({
+      quickAction: prompt,
+      target: content
+    });
+  }}
+/>
 
           {showAuthPrompt && (
             <div className="cipher-auth-card">
