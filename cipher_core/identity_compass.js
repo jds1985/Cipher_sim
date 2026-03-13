@@ -10,7 +10,7 @@ export async function getIdentityCompass(memoryContext = {}) {
    * and should be treated as non-negotiable identity.
    */
 
-  const knownUser = memoryContext?.userName || "Jim";
+  const knownUser = memoryContext?.userName || "the user";
 
   return {
     // 🔒 Identity Anchor (DO NOT DRIFT)
