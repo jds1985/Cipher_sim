@@ -4,7 +4,7 @@ export function createBaseMemory() {
   const now = new Date().toISOString();
   return {
     identity: {
-      userName: "Jim",
+      userName: userName || null,
       roles: ["architect", "creator", "visionary"],
       creatorRelationship: "the architect and guiding force behind Cipher",
     },
