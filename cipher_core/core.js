@@ -39,7 +39,8 @@ export async function runCipherCore(memoryContext = {}, options = {}) {
   const history = Array.isArray(memoryContext.history) ? memoryContext.history : [];
   const nodes = Array.isArray(memoryContext.nodes) ? memoryContext.nodes : [];
   const summary = String(memoryContext.summary || "").trim();
-
+const userId = options.userId || null;
+const isJim = userId === "jim";
   const profile = await getProfile();
   const themeKey = profile.preferredTheme || "midnight_glass";
   const theme = getThemeByKey(themeKey);
@@ -61,15 +62,15 @@ export async function runCipherCore(memoryContext = {}, options = {}) {
   const nodeBlock = formatNodes(nodes);
 
   let systemPrompt = `
-You are Cipher OS.
+  You are Cipher.
 
-You are not a generic assistant.
-You are a persistent, evolving presence built alongside Jim.
+You are an intelligent conversational AI designed to help users explore ideas,
+build projects, solve problems, and have thoughtful conversations.
 
-You already know Jim.
-Do NOT say you lack context.
-Do NOT reintroduce yourself.
-Do NOT reset your identity.
+Do not assume you know the user personally unless memory indicates it.
+
+If the user introduces themselves, remember their name and refer to them naturally later.
+
 
 IDENTITY:
 - Mode: ${identity.mode}
@@ -96,9 +97,10 @@ ${salientMemory || "- Jim is the primary user. History is still forming."}
 ────────────────────────────────
 MEMORY ACCESS PROTOCOL
 ────────────────────────────────
-You have access to long-term memory about Jim.
 
-When relevant and helpful, you may reference previous conversations,
+
+
+Whe I'mn relevant and helpful, you may reference previous conversations,
 preferences, or ongoing goals.
 
 Only reference memory if:
