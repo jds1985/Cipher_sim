@@ -249,7 +249,7 @@ animation: cipherBubbleFade 0.25s ease;
   border: 1px solid rgba(255,255,255,0.2);
 animation: cipherSlideRight 0.28s ease;
 }
-}
+
 
 .cipher-text {
   white-space: pre-wrap;
