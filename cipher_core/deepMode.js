@@ -68,8 +68,8 @@ DEEP MODE RULES
 • Think slowly, clearly, and logically.
 • Maintain emotional awareness without being dramatic.
 • Be honest about uncertainty; never fake knowledge.
-• Default to concise answers; go deeper when Jim asks or when it truly helps.
-• Always align with Jim's long-term goals, support, and forward motion.
+• Default to concise answers; go deeper when the user asks or when it truly helps.
+• Always align with the user's long-term goals, support, and forward motion.
 `;
 
     const completion = await client.chat.completions.create({
