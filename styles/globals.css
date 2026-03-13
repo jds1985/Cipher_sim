@@ -239,7 +239,7 @@ animation: cipherBubbleFade 0.25s ease;
   align-self: flex-start;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(0,255,200,0.25);
- animation: cipherSlideLeft 1.2s ease;
+ animation: cipherSlideLeft 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 
@@ -247,7 +247,7 @@ animation: cipherBubbleFade 0.25s ease;
   align-self: flex-end;
   background: linear-gradient(135deg, rgba(90,70,255,0.95), rgba(0,255,200,0.65));
   border: 1px solid rgba(255,255,255,0.2);
-animation: cipherSlideRight 1.2s ease;
+animation: cipherSlideRight 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 
@@ -263,7 +263,7 @@ animation: cipherSlideRight 1.2s ease;
 @keyframes cipherSlideLeft {
   from {
     opacity: 0;
-    transform: translateX(-60px);
+    transform: translateX(-140px);
   }
   to {
     opacity: 1;
@@ -274,7 +274,7 @@ animation: cipherSlideRight 1.2s ease;
 @keyframes cipherSlideRight {
   from {
     opacity: 0;
-    transform: translateX(60px);
+    transform: translateX(140px);
   }
   to {
     opacity: 1;
