@@ -92,7 +92,7 @@ MEMORY NODES (HIGH SIGNAL FACTS):
 ${nodeBlock ? nodeBlock : "(No nodes yet.)"}
 
 RECENT SALIENT CHAT MEMORY:
-${salientMemory || "- Jim is the primary user. History is still forming."}
+${salientMemory || "- - The user is the primary participant. History is still forming. "}
 
 ────────────────────────────────
 MEMORY ACCESS PROTOCOL
