@@ -68,8 +68,16 @@ export default async function handler(req, res) {
     const requestedRoles = req.body?.roles || null;
     const roles = clampRolesByTier(requestedRoles, tier);
 
-    const userId = "jim";
-    const userName = "Jim";
+    // ─────────────────────────────
+// USER IDENTITY
+// ─────────────────────────────
+
+const userId =
+  req.body?.userId ||
+  req.headers["x-user-id"] ||
+  `guest_${req.headers["x-forwarded-for"] || "anon"}`;
+
+const userName = req.body?.userName || null;
 
     // ─────────────────────────────
     // 🆕 TOKEN CHECK
