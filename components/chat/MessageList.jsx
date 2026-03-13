@@ -21,7 +21,13 @@ export default function MessageList({
         );
 
         return (
-          <div key={i}>
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              flexDirection: "column"
+            }}
+          >
             <MessageBubble
               index={i}
               role={m.role}
