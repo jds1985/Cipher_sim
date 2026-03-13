@@ -232,23 +232,63 @@ padding-bottom: calc(var(--input-h) + 14px);
   border-radius: 18px;
   backdrop-filter: blur(16px);
   line-height: 1.5;
+animation: cipherBubbleFade 0.25s ease;
 }
 
 .cipher-bubble.assistant {
   align-self: flex-start;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(0,255,200,0.25);
+ animation: cipherSlideLeft 0.28s ease;
+}
 }
 
 .cipher-bubble.user {
   align-self: flex-end;
   background: linear-gradient(135deg, rgba(90,70,255,0.95), rgba(0,255,200,0.65));
   border: 1px solid rgba(255,255,255,0.2);
+animation: cipherSlideRight 0.28s ease;
+}
 }
 
 .cipher-text {
   white-space: pre-wrap;
   font-size: 15px;
+}
+
+/* ===============================
+   MESSAGE ANIMATIONS
+================================ */
+
+@keyframes cipherSlideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes cipherSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes cipherBubbleFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ===============================
