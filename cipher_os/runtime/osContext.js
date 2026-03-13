@@ -43,7 +43,7 @@ function weightMemories(nodes = []) {
 export function buildOSContext({
   requestId,
   userId,
-  userName = "Jim",
+  userName = userName || null,
   userMessage,
   uiHistory,
   longTermHistory,
