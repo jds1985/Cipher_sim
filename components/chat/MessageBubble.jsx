@@ -136,14 +136,15 @@ export default function MessageBubble({
       style={{ cursor: selectable ? "pointer" : "default" }}
     >
       <div className="cipher-text" onClick={handleClick}>
-        {showTyping ? (
-          <span className="cipher-thinking-label">Cipher is thinking
-          
-          </span>
-                  className="dot" />
-            <span className="dot" />
-            <span className="dot" />
-          </span>
+        
+      {showTyping ? (
+  <div className="cipher-typing">
+    <span className="cipher-thinking-label">Cipher is thinking</span>
+    <span className="dot"></span>
+    <span className="dot"></span>
+    <span className="dot"></span>
+  </div>
+) : role === "assistant" ? (
         ) : role === "assistant" ? (
           shouldAnimate ? (
             <TypingText text={content || ""} />
