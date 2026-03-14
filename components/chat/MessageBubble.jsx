@@ -128,35 +128,33 @@ export default function MessageBubble({
     role === "assistant" && isTyping && content && content.trim().length > 0;
 
   return (
-    <div
-      className={`cipher-bubble ${role} ${isSelected ? "selected" : ""} ${
-        transforming ? "transforming" : ""
-      }`}
-      onClick={handleClick}
-      style={{ cursor: selectable ? "pointer" : "default" }}
-    >
-      <div className="cipher-text" onClick={handleClick}>
-  {renderContent()}
-</div>
-
+  <div
+    className={`cipher-bubble ${role} ${isSelected ? "selected" : ""} ${
+      transforming ? "transforming" : ""
+    }`}
+    onClick={handleClick}
+    style={{ cursor: selectable ? "pointer" : "default" }}
+  >
+    <div className="cipher-text" onClick={handleClick}>
+      {renderContent()}
     </div>
 
-      {role === "assistant" && content && (
-        <div className="cipher-meta">
-          {modelUsed && <span className="cipher-model">{modelUsed}</span>}
+    {role === "assistant" && content && (
+      <div className="cipher-meta">
+        {modelUsed && <span className="cipher-model">{modelUsed}</span>}
 
-          <button className="cipher-btn-speak" onClick={handleSpeak}>
-            🔊 Speak
-          </button>
+        <button className="cipher-btn-speak" onClick={handleSpeak}>
+          🔊 Speak
+        </button>
 
-          <button
-            className="cipher-share-btn"
-            onClick={() => shareMessage(content)}
-          >
-            Share
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+        <button
+          className="cipher-share-btn"
+          onClick={() => shareMessage(content)}
+        >
+          Share
+        </button>
+      </div>
+    )}
+  </div>
+);
+  
