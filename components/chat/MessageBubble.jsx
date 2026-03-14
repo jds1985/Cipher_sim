@@ -137,8 +137,10 @@ export default function MessageBubble({
     >
       <div className="cipher-text" onClick={handleClick}>
         {showTyping ? (
-          <span className="cipher-typing">
-            <span className="dot" />
+          <span className="cipher-thinking-label">Cipher is thinking
+          
+          </span>
+                  className="dot" />
             <span className="dot" />
             <span className="dot" />
           </span>
