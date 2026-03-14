@@ -96,8 +96,8 @@ export default function ChatPanel() {
   const [currentUser, setCurrentUser] = useState(null);
 
   // 🔋 token display state
-  const [remainingTokens, setRemainingTokens] = useState(42000);
-  const [tokenLimit, setTokenLimit] = useState(50000);
+const [remainingTokens, setRemainingTokens] = useState(50000);
+const [tokenLimit, setTokenLimit] = useState(50000);
 
   /* ===============================
      MODEL STACK STATE
@@ -333,6 +333,10 @@ export default function ChatPanel() {
     if (!useStream) {
       const data = await res.json();
 
+      // 🔋 update token meter from backend
+if (data?.remainingTokens !== undefined) {
+  setRemainingTokens(data.remainingTokens);
+}
       setMessages((m) => {
         const next = [...m];
 
@@ -369,6 +373,13 @@ export default function ChatPanel() {
         }
 
         if (evt?.type === "done") {
+
+  // 🔋 update tokens after streamed reply
+  if (evt?.remainingTokens !== undefined) {
+    setRemainingTokens(evt.remainingTokens);
+  }
+
+  setMessages((m) => {
           setMessages((m) => {
             const next = [...m];
 
