@@ -237,13 +237,14 @@ console.log("TOKENS AFTER SPEND:", {
 });
 
       sseWrite(res, {
-        type: "done",
-        reply: out?.reply || streamedText || "",
-        model: out?.modelUsed?.model || null,
-        provider: out?.modelUsed?.provider || null,
-        roleStack: null,
-        memoryInfluence: exposeMemory(prioritizedNodes),
-      });
+  type: "done",
+  reply: out?.reply || streamedText || "",
+  model: out?.modelUsed?.model || null,
+  provider: out?.modelUsed?.provider || null,
+  roleStack: null,
+  memoryInfluence: exposeMemory(prioritizedNodes),
+  remainingTokens: getRemaining(userId, tier)
+});
 
       res.end();
       return;
