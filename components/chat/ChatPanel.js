@@ -330,7 +330,7 @@ const [tokenLimit, setTokenLimit] = useState(50000);
     tier,
 
     // NEW
-    userId: currentUser?.uid || null,
+    userId: currentUser?.uid || getBrowserId(),
     userName: currentUser?.email || null
   })
 });
