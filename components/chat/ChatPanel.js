@@ -134,32 +134,36 @@ const [tokenLimit, setTokenLimit] = useState(50000);
      NOTE: Firestore doc id should be user.uid (not email)
   ================================ */
   useEffect(() => {
-    if (!auth) return;
+  if (!auth) return;
 
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user || null);
+  const unsub = onAuthStateChanged(auth, async (user) => {
+    setCurrentUser(user || null);
 
-      if (user) {
-        try {
-          const snap = await getDoc(doc(db, "cipher_users", user.uid));
-          const nextTier = snap.exists() ? snap.data()?.tier || "free" : "free";
-          setTier(nextTier);
+    if (user) {
+      try {
+        const snap = await getDoc(doc(db, "cipher_users", user.uid));
+        const nextTier = snap.exists() ? snap.data()?.tier || "free" : "free";
+        setTier(nextTier);
 
-          // 🔋 set token limit by tier for display
-          if (nextTier === "builder") {
-  setTokenLimit(2000000);
-  setRemainingTokens(2000000);
-} else if (nextTier === "pro") {
-  setTokenLimit(500000);
-  setRemainingTokens(500000);
-} else {
-  setTokenLimit(50000);
-  setRemainingTokens(50000);
-}
-    });
+        // 🔋 set token limit by tier
+        if (nextTier === "builder") {
+          setTokenLimit(2000000);
+          setRemainingTokens(2000000);
+        } else if (nextTier === "pro") {
+          setTokenLimit(500000);
+          setRemainingTokens(500000);
+        } else {
+          setTokenLimit(50000);
+          setRemainingTokens(50000);
+        }
+      } catch (err) {
+        console.error("Tier load failed:", err);
+      }
+    }
+  });
 
-    return () => unsub();
-  }, []);
+  return () => unsub();
+}, []);
 
   /* ===============================
      AUTH PROMPT (RESTORED)
