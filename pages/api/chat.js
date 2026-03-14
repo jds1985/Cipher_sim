@@ -121,7 +121,13 @@ const userName = req.body?.userName || null;
     // ─────────────────────────────
 
     const estimatedCost = Math.ceil(message.length * 1.5);
-
+console.log("TOKEN CHECK:", {
+  userId,
+  tier,
+  estimatedCost,
+  remainingBefore: getRemaining(userId, tier),
+});
+    
     if (!canSpend(userId, estimatedCost, tier)) {
       return res.status(402).json({
         error: "Token limit reached",
@@ -272,7 +278,11 @@ await saveMemory(userId, { type: "interaction", role: "assistant", content: fina
 
     // 🆕 charge tokens after success
     spendTokens(userId, estimatedCost, tier);
-
+console.log("TOKENS AFTER SPEND:", {
+  userId,
+  remainingAfter: getRemaining(userId, tier),
+});
+    
     const extracted = extractMemoryFromTurn(message, finalReply);
 
     await writebackFromTurn({
