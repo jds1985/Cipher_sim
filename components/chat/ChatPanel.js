@@ -393,7 +393,7 @@ if (data?.remainingTokens !== undefined) {
     setRemainingTokens(evt.remainingTokens);
   }
 
-  setMessages((m) => {
+
           setMessages((m) => {
             const next = [...m];
 
