@@ -55,6 +55,43 @@ function clampRolesByTier(roles, tier) {
   return safe;
 }
 
+async function refineReply({ message, draftReply, osContext, executivePacket }) {
+  if (!draftReply) return draftReply;
+
+  const reviewPrompt = `
+Review the response written by Cipher.
+
+USER MESSAGE:
+${message}
+
+DRAFT RESPONSE:
+${draftReply}
+
+Check:
+- Did it answer the user's question?
+- Is it specific rather than generic?
+- Could it be clearer or more useful?
+
+If the response is already strong return it unchanged.
+Otherwise rewrite it once to improve clarity and usefulness.
+
+Return ONLY the final response.
+`;
+
+  const reviewPacket = {
+    ...executivePacket,
+    systemPrompt: (executivePacket.systemPrompt || "") + "\n\n" + reviewPrompt,
+  };
+
+  const improved = await runOrchestrator({
+    osContext,
+    executivePacket: reviewPacket,
+    roles: null,
+  });
+
+  return improved?.reply || draftReply;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -214,7 +251,15 @@ const userName = req.body?.userName || null;
 
     const reply =
       typeof out === "string" ? out : out?.reply || out?.text || null;
+let finalReply = reply;
 
+finalReply = await refineReply({
+  message,
+  draftReply: reply,
+  osContext,
+  executivePacket,
+});
+    
     if (!reply) {
       return res.status(500).json({ error: "Model produced no reply" });
     }
@@ -223,17 +268,17 @@ const userName = req.body?.userName || null;
       out?.modelUsed?.model || out?.model || out?.engine || null;
 
     await saveMemory(userId, { type: "interaction", role: "user", content: message });
-    await saveMemory(userId, { type: "interaction", role: "assistant", content: reply });
+await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
 
     // 🆕 charge tokens after success
     spendTokens(userId, estimatedCost, tier);
 
-    const extracted = extractMemoryFromTurn(message, reply);
+    const extracted = extractMemoryFromTurn(message, finalReply);
 
     await writebackFromTurn({
       userId,
       userText: message,
-      assistantText: reply,
+      assistantText: finalReply,
       extracted,
     });
 
@@ -243,7 +288,7 @@ const userName = req.body?.userName || null;
     await saveSummary(userId, summaryDoc?.text || "", turns);
 
     return res.status(200).json({
-      reply,
+      reply: finalReply,
       model,
       roleStack: out?.roleStack || null,
       memoryInfluence: exposeMemory(prioritizedNodes),
