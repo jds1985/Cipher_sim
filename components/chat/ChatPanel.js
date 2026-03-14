@@ -20,7 +20,22 @@ import { doc, getDoc } from "firebase/firestore";
 const MEMORY_KEY = "cipher_memory";
 const MEMORY_LIMIT = 50;
 const HISTORY_WINDOW = 12;
+/* ===============================
+   BROWSER ID
+================================ */
 
+function getBrowserId() {
+  if (typeof window === "undefined") return null;
+
+  let id = localStorage.getItem("cipher_browser_id");
+
+  if (!id) {
+    id = "browser_" + crypto.randomUUID();
+    localStorage.setItem("cipher_browser_id", id);
+  }
+
+  return id;
+}
 /* ===============================
    SSE PARSER
 ================================ */
@@ -132,20 +147,15 @@ const [tokenLimit, setTokenLimit] = useState(50000);
 
           // 🔋 set token limit by tier for display
           if (nextTier === "builder") {
-            setTokenLimit(2000000);
-          } else if (nextTier === "pro") {
-            setTokenLimit(500000);
-          } else {
-            setTokenLimit(50000);
-          }
-        } catch {
-          setTier("free");
-          setTokenLimit(50000);
-        }
-      } else {
-        setTier("free");
-        setTokenLimit(50000);
-      }
+  setTokenLimit(2000000);
+  setRemainingTokens(2000000);
+} else if (nextTier === "pro") {
+  setTokenLimit(500000);
+  setRemainingTokens(500000);
+} else {
+  setTokenLimit(50000);
+  setRemainingTokens(50000);
+}
     });
 
     return () => unsub();
