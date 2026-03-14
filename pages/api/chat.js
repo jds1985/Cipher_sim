@@ -20,7 +20,7 @@ import { extractMemoryFromTurn } from "../../cipher_os/memory/memoryExtractor.js
 import { buildMemoryInfluence } from "../../cipher_os/runtime/memoryInfluence.js";
 import { prioritizeContext } from "../../cipher_os/runtime/contextPrioritizer.js";
 
-// 🆕 TOKEN BANK
+// 🆕TOKEN BANK
 import { canSpend, spendTokens, getRemaining } from "../../cipher_os/billing/tokenBank.js";
 
 function sseWrite(res, obj) {
