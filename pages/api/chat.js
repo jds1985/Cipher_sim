@@ -231,6 +231,11 @@ console.log("TOKEN CHECK:", {
       // 🆕 charge tokens after success
       spendTokens(userId, estimatedCost, tier);
 
+console.log("TOKENS AFTER SPEND:", {
+  userId,
+  remainingAfter: getRemaining(userId, tier),
+});
+
       sseWrite(res, {
         type: "done",
         reply: out?.reply || streamedText || "",
