@@ -81,6 +81,12 @@ export default function MessageBubble({
           <button className="cipher-btn-speak" onClick={handleSpeak}>
             🔊 Speak
           </button>
+       <button
+  className="cipher-share-btn"
+  onClick={() => shareMessage(content)}
+>
+  Share
+</button>
         </div>
       )}
     </div>
