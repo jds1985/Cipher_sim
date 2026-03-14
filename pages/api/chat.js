@@ -278,7 +278,8 @@ await saveMemory(userId, { type: "interaction", role: "assistant", content: fina
 
     // 🆕 charge tokens after success
     spendTokens(userId, estimatedCost, tier);
-console.log("TOKENS AFTER SPEND:", {
+
+    console.log("TOKENS AFTER SPEND:", {
   userId,
   remainingAfter: getRemaining(userId, tier),
 });
