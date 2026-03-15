@@ -120,7 +120,7 @@ export default function MessageBubble({
   };
 
   const showTyping =
-    role === "assistant" && isTyping && (!content || content.trim() === "");
+  role === "assistant" && isTyping;
 
   const shouldAnimate =
     role === "assistant" && isTyping && content && content.trim().length > 0;
