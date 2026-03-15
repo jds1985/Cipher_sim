@@ -129,7 +129,7 @@ export default function MessageBubble({
      CONTENT RENDERER
   ================================ */
   function renderContent() {
-    if (true) {
+    if (showTyping) {
       return (
         <div className="cipher-typing">
           <span className="cipher-thinking-label">Cipher is thinking</span>
