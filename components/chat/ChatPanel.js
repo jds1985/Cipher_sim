@@ -296,7 +296,10 @@ useEffect(() => {
   const targetIndex = selectedIndex;
 
   sendingRef.current = true;
-  setTyping(true);
+setTyping(true);
+
+// allow the typing animation to appear
+await new Promise((resolve) => setTimeout(resolve, 250));
 
   // grab original message if transforming
   let originalContent = null;
