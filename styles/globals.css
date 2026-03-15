@@ -1093,6 +1093,14 @@ body{
 /* ===============================
    CIPHER THINKING ANIMATION
 ================================ */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9d7bff;
+  display: inline-block;
+  animation: cipherDot 1.2s infinite ease-in-out;
+}
 
 .cipher-typing {
   display: flex;
