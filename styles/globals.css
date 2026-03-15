@@ -1090,3 +1090,68 @@ body{
     transform: translateY(0);
   }
 }
+/* ===============================
+   CIPHER THINKING ANIMATION
+================================ */
+
+.cipher-typing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.cipher-thinking-label {
+  margin-right: 6px;
+  color: #9d7bff;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  background: #9d7bff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: cipherDot 1.4s infinite ease-in-out;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes cipherDot {
+  0%, 80%, 100% {
+    transform: scale(0.5);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ===============================
+   SHARE BUTTON
+================================ */
+
+.cipher-share-btn {
+  background: linear-gradient(135deg, #5b5bff, #9d7bff);
+  border: none;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.2s ease;
+}
+
+.cipher-share-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 10px rgba(157,123,255,0.5);
+}
