@@ -111,8 +111,23 @@ export default function ChatPanel() {
   const [currentUser, setCurrentUser] = useState(null);
 
   // 🔋 token display state
-const [remainingTokens, setRemainingTokens] = useState(50000);
-const [tokenLimit, setTokenLimit] = useState(50000);
+const [remainingTokens, setRemainingTokens] = useState(() => {
+  const saved = localStorage.getItem("cipher_remaining_tokens");
+  return saved ? Number(saved) : 50000;
+});
+
+const [tokenLimit, setTokenLimit] = useState(() => {
+  const saved = localStorage.getItem("cipher_token_limit");
+  return saved ? Number(saved) : 50000;
+});
+
+  useEffect(() => {
+  localStorage.setItem("cipher_remaining_tokens", remainingTokens);
+}, [remainingTokens]);
+
+useEffect(() => {
+  localStorage.setItem("cipher_token_limit", tokenLimit);
+}, [tokenLimit]);
 
   /* ===============================
      MODEL STACK STATE
