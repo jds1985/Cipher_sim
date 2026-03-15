@@ -120,7 +120,7 @@ export default function MessageBubble({
   };
 
   const showTyping =
-  role === "assistant" && isTyping;
+    role === "assistant" && isTyping;
 
   const shouldAnimate =
     role === "assistant" && isTyping && content && content.trim().length > 0;
@@ -131,11 +131,13 @@ export default function MessageBubble({
   function renderContent() {
     if (showTyping) {
       return (
-        <div className="cipher-typing">
-          <span className="cipher-thinking-label">Cipher is thinking</span>
-          <span className="dot"></span>
-          <span className="dot"></span>
-          <span className="dot"></span>
+        <div className="cipher-thinking">
+          <span>Cipher is thinking</span>
+          <div className="cipher-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </div>
       );
     }
