@@ -1093,16 +1093,8 @@ body{
 /* ===============================
    CIPHER THINKING ANIMATION
 ================================ */
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #9d7bff;
-  display: inline-block;
-  animation: cipherDot 1.2s infinite ease-in-out;
-}
 
-.cipher-typing {
+.cipher-thinking {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1110,27 +1102,31 @@ body{
   opacity: 0.8;
 }
 
-.cipher-thinking-label {
-  margin-right: 6px;
-  color: #9d7bff;
+.cipher-dots {
+  display: inline-flex;
+  gap: 4px;
 }
 
-.cipher-typing .dot:nth-of-type(1) {
-  animation-delay: 0s;
+.cipher-dots span {
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+  animation: cipherBounce 1.2s infinite ease-in-out;
 }
 
-.cipher-typing .dot:nth-of-type(2) {
+.cipher-dots span:nth-child(2) {
   animation-delay: 0.2s;
 }
 
-.cipher-typing .dot:nth-of-type(3) {
+.cipher-dots span:nth-child(3) {
   animation-delay: 0.4s;
 }
 
-@keyframes cipherDot {
+@keyframes cipherBounce {
   0%, 80%, 100% {
-    transform: scale(0.5);
-    opacity: 0.3;
+    transform: scale(0.6);
+    opacity: 0.4;
   }
   40% {
     transform: scale(1);
