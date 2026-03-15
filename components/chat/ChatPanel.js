@@ -478,13 +478,15 @@ if (data?.remainingTokens !== undefined) {
 
       <div className="cipher-main">
         <div className="cipher-chat">
-          <MessageList
+          
+    <MessageList
   messages={messages}
   bottomRef={bottomRef}
   onSelectMessage={handleSelectMessage}
   selectedIndex={selectedIndex}
   showMemory={showMemory}
   tier={tier}
+  typing={typing}
   onQuickAction={(prompt, content) => {
     sendMessage({
       quickAction: prompt,
