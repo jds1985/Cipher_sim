@@ -16,8 +16,9 @@ export default function MessageList({
         const selectable = m.role !== "user";
 
         const isLast = i === messages.length - 1;
+
         const isTypingBubble = Boolean(
-          typing && isLast && m.role === "assistant"
+          typing && isLast && m.role === "assistant" && !m.content
         );
 
         return (
