@@ -1,38 +1,52 @@
-import { useEffect, useState } from "react";
+import "../styles/globals.css";
+import "../styles/cipher-theme.css";
+import "../styles/boot.css";
 
-export default function BootScreen({ onComplete }) {
-  const [line, setLine] = useState("");
+import Head from "next/head";
+import { useState, useEffect } from "react";
+
+import BootScreen from "../components/BootScreen";
+import EntryScreen from "../components/EntryScreen";
+
+export default function MyApp({ Component, pageProps }) {
+
+  const [booted, setBooted] = useState(false);
+  const [entered, setEntered] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const steps = [
-      "Initializing Cipher Core...",
-      "Loading memory nodes...",
-      "Connecting models...",
-      "Cipher OS ready"
-    ];
+    const hasEntered = localStorage.getItem("cipher_entered");
+    if (hasEntered) setEntered(true);
 
-    let i = 0;
-
-    const interval = setInterval(() => {
-      setLine(steps[i]);
-      i++;
-
-      if (i === steps.length) {
-        clearInterval(interval);
-        setTimeout(onComplete, 1200);
-      }
-    }, 900);
-
-    return () => clearInterval(interval);
+    setReady(true);
   }, []);
 
-  return (
-    <div className="boot-container">
-      <img src="/icons/cipher-512.png" className="boot-logo" />
+  if (!ready) return null;
 
-      <div className="boot-text">
-        {line}
-      </div>
-    </div>
+  return (
+    <>
+      <Head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#05060a" />
+        <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=()" />
+      </Head>
+
+      {!booted && (
+        <BootScreen onComplete={() => setBooted(true)} />
+      )}
+
+      {booted && !entered && (
+        <EntryScreen
+          onEnter={() => {
+            localStorage.setItem("cipher_entered", "true");
+            setEntered(true);
+          }}
+        />
+      )}
+
+      {booted && entered && (
+        <Component {...pageProps} />
+      )}
+    </>
   );
 }
