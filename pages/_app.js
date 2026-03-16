@@ -4,17 +4,21 @@ import "../styles/boot.css";
 
 import Head from "next/head";
 import { useState, useEffect } from "react";
+
 import BootScreen from "../components/BootScreen";
+import EntryScreen from "../components/EntryScreen";
 
 export default function MyApp({ Component, pageProps }) {
+
   const [booted, setBooted] = useState(false);
+  const [entered, setEntered] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setBooted(true);
-    }, 2000);
+    const hasEntered = localStorage.getItem("cipher_entered");
 
-    return () => clearTimeout(timer);
+    if (!hasEntered) {
+      setEntered(false);
+    }
   }, []);
 
   return (
@@ -25,11 +29,22 @@ export default function MyApp({ Component, pageProps }) {
         <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=()" />
       </Head>
 
-      {/* Your normal app */}
-      <Component {...pageProps} />
+      {!booted && (
+        <BootScreen onComplete={() => setBooted(true)} />
+      )}
 
-      {/* Boot overlay */}
-      {!booted && <BootScreen />}
+      {booted && !entered && (
+        <EntryScreen
+          onEnter={() => {
+            localStorage.setItem("cipher_entered", "true");
+            setEntered(true);
+          }}
+        />
+      )}
+
+      {booted && entered && (
+        <Component {...pageProps} />
+      )}
     </>
   );
 }
