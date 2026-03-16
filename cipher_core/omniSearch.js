@@ -11,7 +11,7 @@ import { getDb } from "../firebaseAdmin";
  * Returns ranked hits with timestamps.
  */
 
-export async function omniSearch(query = "", userId = "jim_default", limit = 25) {
+export async function omniSearch(query = "", userId = "guest", limit = 25) {
   if (!query || typeof query !== "string") {
     return {
       query,
