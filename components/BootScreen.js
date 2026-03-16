@@ -1,52 +1,44 @@
-import "../styles/globals.css";
-import "../styles/cipher-theme.css";
-import "../styles/boot.css";
+import { useEffect, useState } from "react";
 
-import Head from "next/head";
-import { useState, useEffect } from "react";
+const bootMessages = [
+  "Initializing Cipher Core...",
+  "Loading memory nodes...",
+  "Connecting models...",
+  "Cipher OS Ready"
+];
 
-import BootScreen from "../components/BootScreen";
-import EntryScreen from "../components/EntryScreen";
-
-export default function MyApp({ Component, pageProps }) {
-
-  const [booted, setBooted] = useState(false);
-  const [entered, setEntered] = useState(false);
-  const [ready, setReady] = useState(false);
+export default function BootScreen({ onComplete }) {
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
-    const hasEntered = localStorage.getItem("cipher_entered");
-    if (hasEntered) setEntered(true);
-
-    setReady(true);
-  }, []);
-
-  if (!ready) return null;
+    if (step < bootMessages.length - 1) {
+      const timer = setTimeout(() => {
+        setStep(step + 1);
+      }, 900);
+      return () => clearTimeout(timer);
+    } else {
+      const finish = setTimeout(() => {
+        onComplete();
+      }, 1200);
+      return () => clearTimeout(finish);
+    }
+  }, [step, onComplete]);
 
   return (
-    <>
-      <Head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#05060a" />
-        <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=()" />
-      </Head>
+    <div className="boot-screen">
+      <div className="boot-container">
+        <div className="boot-logo">
+          <img src="/icons/cipher-512.png" alt="Cipher OS" />
+        </div>
 
-      {!booted && (
-        <BootScreen onComplete={() => setBooted(true)} />
-      )}
-
-      {booted && !entered && (
-        <EntryScreen
-          onEnter={() => {
-            localStorage.setItem("cipher_entered", "true");
-            setEntered(true);
-          }}
-        />
-      )}
-
-      {booted && entered && (
-        <Component {...pageProps} />
-      )}
-    </>
+        <div className="boot-text">
+          {bootMessages.slice(0, step + 1).map((msg, i) => (
+            <div key={i} className="boot-line">
+              {msg}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
