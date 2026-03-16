@@ -20,7 +20,7 @@ import { extractMemoryFromTurn } from "../../cipher_os/memory/memoryExtractor.js
 import { buildMemoryInfluence } from "../../cipher_os/runtime/memoryInfluence.js";
 import { prioritizeContext } from "../../cipher_os/runtime/contextPrioritizer.js";
 
-// 🆕TOKEN BANK
+// 🆕 TOKEN BANK
 import { canSpend, spendTokens, getRemaining } from "../../cipher_os/billing/tokenBank.js";
 
 function sseWrite(res, obj) {
@@ -106,30 +106,30 @@ export default async function handler(req, res) {
     const roles = clampRolesByTier(requestedRoles, tier);
 
     // ─────────────────────────────
-// USER IDENTITY
-// ─────────────────────────────
+    // USER IDENTITY
+    // ─────────────────────────────
+    const userId = req.body?.userId || req.headers["x-user-id"] || null;
+    const isGuest = !userId;
 
-const userId = req.body?.userId || req.headers["x-user-id"] || "guest";
-const isGuest = userId === "guest";
-
-const userName = req.body?.userName || null;
+    const userName = req.body?.userName || null;
 
     // ─────────────────────────────
-    // 🆕 TOKEN CHECK
+    // TOKEN CHECK
     // ─────────────────────────────
-
+    const tokenUserId = userId || "guest";
     const estimatedCost = Math.ceil(message.length * 1.5);
-console.log("TOKEN CHECK:", {
-  userId,
-  tier,
-  estimatedCost,
-  remainingBefore: getRemaining(userId, tier),
-});
-    
-    if (!canSpend(userId, estimatedCost, tier)) {
+
+    console.log("TOKEN CHECK:", {
+      userId: tokenUserId,
+      tier,
+      estimatedCost,
+      remainingBefore: getRemaining(tokenUserId, tier),
+    });
+
+    if (!canSpend(tokenUserId, estimatedCost, tier)) {
       return res.status(402).json({
         error: "Token limit reached",
-        remaining: getRemaining(userId, tier),
+        remaining: getRemaining(tokenUserId, tier),
       });
     }
 
@@ -140,52 +140,37 @@ console.log("TOKEN CHECK:", {
     // ─────────────────────────────
     // LOAD MEMORY
     // ─────────────────────────────
+    let memoryData = { history: [] };
+    let memoryNodes = [];
+    let summaryDoc = null;
 
     if (!isGuest) {
-  await saveMemory(userId, { type: "interaction", role: "user", content: message });
-  await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
+      memoryData = await loadMemory(userId);
+      memoryNodes = await loadMemoryNodes(userId, 120);
+      summaryDoc = await loadSummary(userId);
+    }
 
-  const extracted = extractMemoryFromTurn(message, finalReply);
+    const longTermHistory = Array.isArray(memoryData?.history) ? memoryData.history : [];
 
-  await writebackFromTurn({
-    userId,
-    userText: message,
-    assistantText: finalReply,
-    extracted,
-  });
+    const prioritized = prioritizeContext({
+      history: longTermHistory,
+      memoryNodes,
+      summary: summaryDoc?.text || "",
+      userMessage: message,
+    });
 
-  await runMemoryDecay(userId);
-
-  const turns = (summaryDoc?.turns || 0) + 1;
-  await saveSummary(userId, summaryDoc?.text || "", turns);
-}
-
-    if (!isGuest) {
-  await saveMemory(userId, { type: "interaction", role: "user", content: message });
-  await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
-
-  const extracted = extractMemoryFromTurn(message, finalReply);
-
-  await writebackFromTurn({
-    userId,
-    userText: message,
-    assistantText: finalReply,
-    extracted,
-  });
-
-  await runMemoryDecay(userId);
-
-  const turns = (summaryDoc?.turns || 0) + 1;
-  await saveSummary(userId, summaryDoc?.text || "", turns);
-}
+    const prioritizedNodes = Array.isArray(prioritized?.nodes)
+      ? prioritized.nodes
+      : Array.isArray(memoryNodes)
+      ? memoryNodes
+      : [];
 
     // ─────────────────────────────
     // BUILD OS CONTEXT
     // ─────────────────────────────
-
     const osContext = buildOSContext({
       requestId: Date.now().toString(),
-      userId,
+      userId: userId || "guest",
       userName,
       userMessage: message,
       uiHistory: [],
@@ -225,7 +210,6 @@ console.log("TOKEN CHECK:", {
     // ─────────────────────────────
     // STREAM MODE
     // ─────────────────────────────
-
     if (wantStream) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -246,23 +230,49 @@ console.log("TOKEN CHECK:", {
         },
       });
 
-      // 🆕 charge tokens after success
-      spendTokens(userId, estimatedCost, tier);
+      const finalReply = out?.reply || streamedText || "";
 
-console.log("TOKENS AFTER SPEND:", {
-  userId,
-  remainingAfter: getRemaining(userId, tier),
-});
+      if (!finalReply) {
+        sseWrite(res, { type: "error", error: "Model produced no reply" });
+        res.end();
+        return;
+      }
+
+      if (!isGuest) {
+        await saveMemory(userId, { type: "interaction", role: "user", content: message });
+        await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
+
+        const extracted = extractMemoryFromTurn(message, finalReply);
+
+        await writebackFromTurn({
+          userId,
+          userText: message,
+          assistantText: finalReply,
+          extracted,
+        });
+
+        await runMemoryDecay(userId);
+
+        const turns = (summaryDoc?.turns || 0) + 1;
+        await saveSummary(userId, summaryDoc?.text || "", turns);
+      }
+
+      spendTokens(tokenUserId, estimatedCost, tier);
+
+      console.log("TOKENS AFTER SPEND:", {
+        userId: tokenUserId,
+        remainingAfter: getRemaining(tokenUserId, tier),
+      });
 
       sseWrite(res, {
-  type: "done",
-  reply: out?.reply || streamedText || "",
-  model: out?.modelUsed?.model || null,
-  provider: out?.modelUsed?.provider || null,
-  roleStack: null,
-  memoryInfluence: exposeMemory(prioritizedNodes),
-  remainingTokens: getRemaining(userId, tier)
-});
+        type: "done",
+        reply: finalReply,
+        model: out?.modelUsed?.model || null,
+        provider: out?.modelUsed?.provider || null,
+        roleStack: null,
+        memoryInfluence: exposeMemory(prioritizedNodes),
+        remainingTokens: getRemaining(tokenUserId, tier),
+      });
 
       res.end();
       return;
@@ -271,63 +281,62 @@ console.log("TOKENS AFTER SPEND:", {
     // ─────────────────────────────
     // NORMAL MODE
     // ─────────────────────────────
-
     const out = await runOrchestrator({
       osContext,
       executivePacket,
-      roles: roles,
+      roles,
       trace,
     });
 
     const reply =
       typeof out === "string" ? out : out?.reply || out?.text || null;
-let finalReply = reply;
 
-finalReply = await refineReply({
-  message,
-  draftReply: reply,
-  osContext,
-  executivePacket,
-});
-    
     if (!reply) {
       return res.status(500).json({ error: "Model produced no reply" });
     }
 
+    const finalReply = await refineReply({
+      message,
+      draftReply: reply,
+      osContext,
+      executivePacket,
+    });
+
     const model =
       out?.modelUsed?.model || out?.model || out?.engine || null;
 
-    await saveMemory(userId, { type: "interaction", role: "user", content: message });
-await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
+    if (!isGuest) {
+      await saveMemory(userId, { type: "interaction", role: "user", content: message });
+      await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
 
-    // 🆕 charge tokens after success
-    spendTokens(userId, estimatedCost, tier);
+      const extracted = extractMemoryFromTurn(message, finalReply);
+
+      await writebackFromTurn({
+        userId,
+        userText: message,
+        assistantText: finalReply,
+        extracted,
+      });
+
+      await runMemoryDecay(userId);
+
+      const turns = (summaryDoc?.turns || 0) + 1;
+      await saveSummary(userId, summaryDoc?.text || "", turns);
+    }
+
+    spendTokens(tokenUserId, estimatedCost, tier);
 
     console.log("TOKENS AFTER SPEND:", {
-  userId,
-  remainingAfter: getRemaining(userId, tier),
-});
-    
-    const extracted = extractMemoryFromTurn(message, finalReply);
-
-    await writebackFromTurn({
-      userId,
-      userText: message,
-      assistantText: finalReply,
-      extracted,
+      userId: tokenUserId,
+      remainingAfter: getRemaining(tokenUserId, tier),
     });
-
-    await runMemoryDecay(userId);
-
-    const turns = (summaryDoc?.turns || 0) + 1;
-    await saveSummary(userId, summaryDoc?.text || "", turns);
 
     return res.status(200).json({
       reply: finalReply,
       model,
       roleStack: out?.roleStack || null,
       memoryInfluence: exposeMemory(prioritizedNodes),
-      remainingTokens: getRemaining(userId, tier),
+      remainingTokens: getRemaining(tokenUserId, tier),
     });
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
