@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Cipher OS</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#050510;
+color:white;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+height:100vh;
+text-align:center;
+}
+
+h1{
+font-size:56px;
+color:#9d7bff;
+letter-spacing:4px;
+}
+
+.countdown{
+display:flex;
+gap:20px;
+margin:30px;
+}
+
+.box{
+background:#121222;
+padding:20px;
+border-radius:10px;
+min-width:80px;
+}
+
+.num{
+font-size:32px;
+}
+
+input{
+padding:12px;
+border-radius:6px;
+border:none;
+width:250px;
+}
+
+button{
+padding:12px 18px;
+margin-left:10px;
+border:none;
+border-radius:6px;
+background:#9d7bff;
+color:white;
+cursor:pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>CIPHER OS</h1>
+
+<p>The Cognitive Operating System</p>
+
+<div class="countdown">
+
+<div class="box">
+<div class="num" id="days">0</div>
+Days
+</div>
+
+<div class="box">
+<div class="num" id="hours">0</div>
+Hours
+</div>
+
+<div class="box">
+<div class="num" id="minutes">0</div>
+Minutes
+</div>
+
+<div class="box">
+<div class="num" id="seconds">0</div>
+Seconds
+</div>
+
+</div>
+
+<input id="email" placeholder="Enter email">
+
+<button onclick="join()">Join Waitlist</button>
+
+<p><span id="count">0</span> early users joined</p>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"
+import {
+getFirestore,
+collection,
+addDoc,
+getDocs
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+
+const firebaseConfig = {
+apiKey: "AIzaSyDiToKj76nxjfXWhLiXgDS6VE8K86OFfiQ",
+projectId: "digisoul1111"
+}
+
+const app = initializeApp(firebaseConfig)
+const db = getFirestore(app)
+
+async function loadCount(){
+
+const snap = await getDocs(collection(db,"cipher_waitlist"))
+
+document.getElementById("count").innerText = snap.size
+
+}
+
+loadCount()
+
+window.join = async function(){
+
+const email = document.getElementById("email").value
+
+if(!email) return
+
+await addDoc(collection(db,"cipher_waitlist"),{
+email,
+time:Date.now()
+})
+
+document.getElementById("email").value=""
+
+loadCount()
+
+}
+
+</script>
+
+<script>
+
+const launchDate = new Date("March 20 2026 00:00:00").getTime()
+
+setInterval(()=>{
+
+const now = new Date().getTime()
+
+const diff = launchDate-now
+
+document.getElementById("days").innerText =
+Math.floor(diff/(1000*60*60*24))
+
+document.getElementById("hours").innerText =
+Math.floor((diff%(1000*60*60*24))/(1000*60*60))
+
+document.getElementById("minutes").innerText =
+Math.floor((diff%(1000*60*60))/(1000*60))
+
+document.getElementById("seconds").innerText =
+Math.floor((diff%(1000*60))/1000)
+
+},1000)
+
+</script>
+
+</body>
+</html>
