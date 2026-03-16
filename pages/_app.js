@@ -11,15 +11,19 @@ import EntryScreen from "../components/EntryScreen";
 export default function MyApp({ Component, pageProps }) {
 
   const [booted, setBooted] = useState(false);
-  const [entered, setEntered] = useState(true);
+  const [entered, setEntered] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const hasEntered = localStorage.getItem("cipher_entered");
-
-    if (!hasEntered) {
-      setEntered(false);
+    if (typeof window !== "undefined") {
+      const hasEntered = localStorage.getItem("cipher_entered");
+      if (hasEntered) setEntered(true);
     }
+
+    setReady(true);
   }, []);
+
+  if (!ready) return null;
 
   return (
     <>
@@ -36,7 +40,9 @@ export default function MyApp({ Component, pageProps }) {
       {booted && !entered && (
         <EntryScreen
           onEnter={() => {
-            localStorage.setItem("cipher_entered", "true");
+            if (typeof window !== "undefined") {
+              localStorage.setItem("cipher_entered", "true");
+            }
             setEntered(true);
           }}
         />
