@@ -10,8 +10,8 @@ export default function Document() {
         <link rel="manifest" href="/manifest.json" />
 
         {/* App Icons */}
-        <link rel="icon" href="/icon-512.png" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="icon" href="/icons/cipher_icon_512.png" />
+        <link rel="apple-touch-icon" href="/icons/cipher_icon_192.png" />
 
         {/* Theme */}
         <meta name="theme-color" content="#000000" />
