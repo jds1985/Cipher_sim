@@ -3,7 +3,7 @@
 
 import { db } from "../firebaseAdmin";
 
-export async function loadMemoryPack(userId = "jim_default") {
+export async function loadMemoryPack(userId = "guest") {
   try {
     const snap = await db
       .collection("cipher_memory_pack")
