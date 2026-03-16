@@ -1,0 +1,37 @@
+.boot-container {
+  position: fixed;
+  inset: 0;
+  background: #0a0a12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.boot-logo {
+  width: 140px;
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.boot-active {
+  animation: powerUp 1.5s ease forwards;
+}
+
+@keyframes powerUp {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+    filter: brightness(0.5);
+  }
+
+  50% {
+    opacity: 1;
+    filter: brightness(1.6);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
