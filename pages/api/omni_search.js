@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { query, userId = "jim_default" } = req.body;
+    const { query, userId = "guest" } = req.body;
 
     if (!query || typeof query !== "string") {
       return res.status(400).json({ error: "Missing or invalid query" });
