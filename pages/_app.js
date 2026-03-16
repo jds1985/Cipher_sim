@@ -3,15 +3,19 @@ import "../styles/cipher-theme.css";
 import "../styles/boot.css";
 
 import Head from "next/head";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import BootScreen from "../components/BootScreen";
 
 export default function MyApp({ Component, pageProps }) {
   const [booted, setBooted] = useState(false);
 
-  if (!booted) {
-    return <BootScreen onComplete={() => setBooted(true)} />;
-  }
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setBooted(true);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <>
@@ -21,7 +25,11 @@ export default function MyApp({ Component, pageProps }) {
         <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=()" />
       </Head>
 
+      {/* Your normal app */}
       <Component {...pageProps} />
+
+      {/* Boot overlay */}
+      {!booted && <BootScreen />}
     </>
   );
 }
