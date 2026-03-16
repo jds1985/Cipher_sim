@@ -4,7 +4,7 @@ import { loadMemoryNodes } from "../../cipher_os/memory/memoryGraph.js";
 
 export default async function handler(req, res) {
   try {
-    const userId = String(req.query.user || "jim");
+    const userId = String(req.query.user || "guest");
 
     const nodes = await loadMemoryNodes(userId);
 
