@@ -3,7 +3,7 @@
 
 import { db } from "../firebaseAdmin";
 
-export async function loadDeviceContext(userId = "jim_default") {
+export async function loadDeviceContext(userId = "guest") {
   try {
     const snap = await db
       .collection("cipher_device_context")
