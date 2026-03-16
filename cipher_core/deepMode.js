@@ -13,7 +13,7 @@ const client = new OpenAI({
 
 export async function runDeepMode(userMessage, options = {}) {
   try {
-    const { deviceContext = null, userId = "jim_default" } = options || {};
+    const { deviceContext = null, userId = "guest" } = options || {};
 
     // 1) Load recent memory context
     const memoryContext = await loadMemory(userId);
