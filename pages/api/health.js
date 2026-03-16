@@ -5,7 +5,7 @@ import { loadSummary } from "../../cipher_os/memory/memoryGraph.js";
 
 export default async function handler(req, res) {
   try {
-    const userId = "jim";
+    const userId = "guest";
 
     const summary = await loadSummary(userId);
 
