@@ -19,9 +19,9 @@ export default function BootScreen({ onComplete }) {
 
       if (i === steps.length) {
         clearInterval(interval);
-        setTimeout(onComplete, 700);
+        setTimeout(onComplete, 1200);
       }
-    }, 500);
+    }, 900);
 
     return () => clearInterval(interval);
   }, []);
