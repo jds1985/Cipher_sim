@@ -109,10 +109,8 @@ export default async function handler(req, res) {
 // USER IDENTITY
 // ─────────────────────────────
 
-const userId =
-  req.body?.userId ||
-  req.headers["x-user-id"] ||
-  `guest_${req.headers["x-forwarded-for"] || "anon"}`;
+const userId = req.body?.userId || req.headers["x-user-id"] || "guest";
+const isGuest = userId === "guest";
 
 const userName = req.body?.userName || null;
 
@@ -143,23 +141,43 @@ console.log("TOKEN CHECK:", {
     // LOAD MEMORY
     // ─────────────────────────────
 
-    const memoryData = await loadMemory(userId);
-    const longTermHistory = memoryData?.history || [];
+    if (!isGuest) {
+  await saveMemory(userId, { type: "interaction", role: "user", content: message });
+  await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
 
-    const nodes = await loadMemoryNodes(userId, 120);
-    const summaryDoc = await loadSummary(userId);
+  const extracted = extractMemoryFromTurn(message, finalReply);
 
-    let prioritizedNodes = prioritizeContext(
-      nodes
-        .sort((a, b) => (b.importance || 0) - (a.importance || 0))
-        .slice(0, 40),
-      15
-    );
+  await writebackFromTurn({
+    userId,
+    userText: message,
+    assistantText: finalReply,
+    extracted,
+  });
 
-    const historyQuery = /history|imported|past conversations|memory vault|previous chats/i.test(message);
-    if (historyQuery) {
-      prioritizedNodes = nodes || [];
-    }
+  await runMemoryDecay(userId);
+
+  const turns = (summaryDoc?.turns || 0) + 1;
+  await saveSummary(userId, summaryDoc?.text || "", turns);
+}
+
+    if (!isGuest) {
+  await saveMemory(userId, { type: "interaction", role: "user", content: message });
+  await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
+
+  const extracted = extractMemoryFromTurn(message, finalReply);
+
+  await writebackFromTurn({
+    userId,
+    userText: message,
+    assistantText: finalReply,
+    extracted,
+  });
+
+  await runMemoryDecay(userId);
+
+  const turns = (summaryDoc?.turns || 0) + 1;
+  await saveSummary(userId, summaryDoc?.text || "", turns);
+}
 
     // ─────────────────────────────
     // BUILD OS CONTEXT
