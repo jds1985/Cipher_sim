@@ -16,6 +16,17 @@ export default function MyApp({ Component, pageProps }) {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+
+      // 🔐 LOCK SYSTEM
+      const hasAccess = localStorage.getItem("cipher_dev_access") === "granted";
+      const isLaunchPage = window.location.pathname === "/launch.html";
+
+      if (!hasAccess && !isLaunchPage) {
+        window.location.href = "/launch.html";
+        return;
+      }
+
+      // existing logic
       const hasEntered = localStorage.getItem("cipher_entered");
       if (hasEntered) setEntered(true);
     }
