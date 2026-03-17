@@ -13,6 +13,37 @@ import {
   devGrantCipherCoin,
 } from "../../components/chat/CipherCoin";
 
+<button
+  onClick={async () => {
+    try {
+      const token = await auth.currentUser.getIdToken();
+
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ plan: "pro" }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("No URL returned");
+        console.log(data);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error — check console");
+    }
+  }}
+>
+  TEST PRO CHECKOUT
+</button>
+
 export default function Store() {
   const [coinBalance, setCoinBalance] = useState(0);
   const [ledger, setLedger] = useState([]);
