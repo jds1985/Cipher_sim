@@ -176,7 +176,13 @@ loadCount()
 </script>
 
 <script>
+const params = new URLSearchParams(window.location.search);
 
+if(params.get("dev") === "cipher"){
+  localStorage.setItem("cipher_dev_access", "granted");
+  window.location.href = "/";
+}
+  
 /* ✅ COUNTDOWN */
 const launchDate = new Date("2026-03-23T13:00:00").getTime()
 
