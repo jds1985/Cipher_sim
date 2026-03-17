@@ -66,6 +66,19 @@ color:white;
 cursor:pointer;
 }
 
+/* ✅ CAROUSEL CARD STYLE */
+#carousel{
+margin-top:15px;
+max-width:320px;
+padding:14px;
+border-radius:10px;
+background:rgba(20,20,40,0.7);
+border:1px solid rgba(255,255,255,0.08);
+font-size:14px;
+color:rgba(255,255,255,0.9);
+transition:opacity 0.3s ease;
+}
+
 </style>
 
 </head>
@@ -75,6 +88,11 @@ cursor:pointer;
 <h1>CIPHER OS</h1>
 
 <p>The Cognitive Operating System</p>
+
+<!-- ✅ CAROUSEL -->
+<div id="carousel">
+Cipher OS is a cognitive AI system
+</div>
 
 <div class="countdown">
 
@@ -155,7 +173,7 @@ loadCount()
 
 <script>
 
-/* ✅ FIXED DATE FORMAT (THIS WAS BREAKING COUNTDOWN) */
+/* ✅ COUNTDOWN */
 const launchDate = new Date("2026-03-23T13:00:00").getTime()
 
 setInterval(()=>{
@@ -178,6 +196,30 @@ document.getElementById("seconds").innerText =
 Math.floor((diff%(1000*60))/1000)
 
 },1000)
+
+/* ✅ CAROUSEL LOGIC */
+const messages = [
+"Cipher OS is a cognitive AI system",
+"Choose the AI model you want to use",
+"Combines multiple models into one system",
+"Built with memory and real-time reasoning",
+"Designed to think with you, not for you"
+]
+
+let index = 0
+const el = document.getElementById("carousel")
+
+setInterval(()=>{
+index = (index + 1) % messages.length
+
+el.style.opacity = 0
+
+setTimeout(()=>{
+el.innerText = messages[index]
+el.style.opacity = 1
+},300)
+
+},3000)
 
 </script>
 
