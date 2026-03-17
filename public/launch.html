@@ -225,6 +225,21 @@ el.style.opacity = 1
 
 },3000)
 
+/* ✅ SHARE FUNCTION */
+function shareApp(){
+
+if(navigator.share){
+navigator.share({
+title:"Cipher OS",
+text:"Check out Cipher OS — a new cognitive AI system",
+url:window.location.href
+})
+}else{
+alert("Sharing not supported on this device")
+}
+
+}
+
 </script>
 
 </body>
