@@ -12,7 +12,6 @@
 body{
 margin:0;
 font-family:Arial;
-background:#050510;
 color:white;
 display:flex;
 flex-direction:column;
@@ -20,6 +19,11 @@ justify-content:center;
 align-items:center;
 height:100vh;
 text-align:center;
+
+/* ✅ BACKGROUND IMAGE + OVERLAY */
+background:
+linear-gradient(rgba(5,5,16,0.75), rgba(5,5,16,0.85)),
+url("/images/cipher-hero-desktop.webp") center center / cover no-repeat fixed;
 }
 
 h1{
@@ -151,13 +155,15 @@ loadCount()
 
 <script>
 
-const launchDate = new Date("March 23 2026 13:00:00").getTime()
+/* ✅ FIXED DATE FORMAT (THIS WAS BREAKING COUNTDOWN) */
+const launchDate = new Date("2026-03-23T13:00:00").getTime()
 
 setInterval(()=>{
 
 const now = new Date().getTime()
-
 const diff = launchDate-now
+
+if(diff <= 0) return
 
 document.getElementById("days").innerText =
 Math.floor(diff/(1000*60*60*24))
