@@ -54,3 +54,41 @@ export default function HeaderMenu({ onOpenDrawer, onNewChat }) {
     </>
   );
 }
+
+
+
+<button
+  onClick={async () => {
+    try {
+      if (!auth.currentUser) {
+        alert("You must be logged in");
+        return;
+      }
+
+      const token = await auth.currentUser.getIdToken();
+
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ plan: "pro" }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.log(data);
+        alert("No checkout URL returned");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Something broke — check console");
+    }
+  }}
+>
+  🔥 TEST CHECKOUT
+</button>
