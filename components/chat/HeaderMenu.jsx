@@ -26,38 +26,7 @@ export default function HeaderMenu({ onOpenDrawer, onNewChat }) {
         </div>
       </div>
 
-      {/* FLOATING RIGHT — CONTROLS */}
-      <div className="cipher-float-right">
-        {onNewChat && (
-          <button className="cipher-float-btn" onClick={onNewChat}>
-            New
-          </button>
-        )}
-
-        {user ? (
-          <div
-            onClick={onOpenDrawer}
-            className="cipher-profile-float"
-            title={user.email}
-          >
-            {user.email?.charAt(0).toUpperCase()}
-          </div>
-        ) : (
-          <button
-            className="cipher-float-btn primary"
-            onClick={onOpenDrawer}
-          >
-            Menu
-          </button>
-        )}
-      </div>
-    </>
-  );
-}
-
-
-
-<button
+      <button
   onClick={async () => {
     try {
       if (!auth.currentUser) {
@@ -92,3 +61,35 @@ export default function HeaderMenu({ onOpenDrawer, onNewChat }) {
 >
   🔥 TEST CHECKOUT
 </button>
+
+      {/* FLOATING RIGHT — CONTROLS */}
+      <div className="cipher-float-right">
+        {onNewChat && (
+          <button className="cipher-float-btn" onClick={onNewChat}>
+            New
+          </button>
+        )}
+
+        {user ? (
+          <div
+            onClick={onOpenDrawer}
+            className="cipher-profile-float"
+            title={user.email}
+          >
+            {user.email?.charAt(0).toUpperCase()}
+          </div>
+        ) : (
+          <button
+            className="cipher-float-btn primary"
+            onClick={onOpenDrawer}
+          >
+            Menu
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+
+
