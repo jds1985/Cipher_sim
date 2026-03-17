@@ -72,7 +72,8 @@ margin-top:15px;
 max-width:320px;
 padding:14px;
 border-radius:10px;
-background:rgba(20,20,40,0.7);
+background:rgba(20,20,40,0.5);
+backdrop-filter: blur(8px);
 border:1px solid rgba(255,255,255,0.08);
 font-size:14px;
 color:rgba(255,255,255,0.9);
@@ -121,7 +122,10 @@ Seconds
 <input id="email" placeholder="Enter email">
 
 <button onclick="join()">Join Waitlist</button>
-
+<button onclick="shareApp()" style="margin-top:10px; background:#1a1a2e;">
+Share Cipher
+</button>
+  
 <p><span id="count">0</span> early users joined</p>
 
 <script type="module">
