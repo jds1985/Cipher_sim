@@ -1,4 +1,27 @@
+import { useEffect } from "react";
+
 export default function Success() {
+
+  useEffect(() => {
+    const sessionId = new URLSearchParams(window.location.search).get("session_id");
+
+    if (!sessionId) return;
+
+    fetch("/api/verify-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionId }),
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        localStorage.setItem("isPro", "true");
+      }
+    });
+  }, []);
+
   return (
     <div style={{
       height: "100vh",
