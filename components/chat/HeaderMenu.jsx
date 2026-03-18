@@ -51,7 +51,7 @@ export default function HeaderMenu({ onOpenDrawer, onNewChat }) {
         window.location.href = data.url;
       } else {
         console.log(data);
-        alert("No checkout URL returned");
+        alert("ERROR: " + JSON.stringify(data));
       }
     } catch (err) {
       console.error(err);
