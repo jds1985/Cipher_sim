@@ -6,13 +6,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 //  INIT FIREBASE ADMIN (only once)
 if (!global._firebaseAdmin) {
+  const serviceAccount = JSON.parse(
+    Buffer.from(process.env.FIREBASE_ADMIN_BASE64, "base64").toString("utf-8")
+  ); // ✅ FIXED ENV NAME
+
   const app = initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    }),
+    credential: cert(serviceAccount),
   });
+
   global._firebaseAdmin = app;
 }
 
@@ -26,33 +27,24 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing sessionId" });
     }
 
-    // 🔍 VERIFY WITH STRIPE
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-    console.log("🔥 SESSION:", session);
 
     if (session.payment_status !== "paid") {
       return res.status(400).json({ success: false });
     }
 
-    // 🧠 DETERMINE PLAN
     const tier = "pro";
 
-    // 🔥 GET EMAIL (robust fallback)
     const email =
       session.customer_details?.email ||
       session.customer_email ||
       null;
-
-    console.log("🔥 EMAIL:", email);
 
     if (email) {
       const snapshot = await db
         .collection("cipher_users")
         .where("email", "==", email)
         .get();
-
-      console.log("🔥 FOUND DOCS:", snapshot.size);
 
       if (!snapshot.empty) {
         const docRef = snapshot.docs[0].ref;
