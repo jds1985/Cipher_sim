@@ -4,7 +4,7 @@ import { getFirestore } from "firebase-admin/firestore";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// 🔥 INIT FIREBASE ADMIN (only once)
+//  INIT FIREBASE ADMIN (only once)
 if (!global._firebaseAdmin) {
   const app = initializeApp({
     credential: cert({
@@ -34,11 +34,11 @@ export default async function handler(req, res) {
     }
 
     // 🧠 DETERMINE PLAN
-    const plan = "pro"; // (we'll upgrade this later for builder tier)
+    const tier = "pro"; // (we'll upgrade this later for builder tier)
 
     // 💾 SAVE TO FIREBASE
     if (userId) {
-      await db.collection("users").doc(userId).set(
+      await db.collection("cipher_users").doc(userId).set(
         {
           plan,
           updatedAt: new Date(),
