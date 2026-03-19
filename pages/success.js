@@ -14,8 +14,12 @@ export default function Success() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ sessionId }),
-    })
+      import { auth } from "../lib/firebaseClient";
+
+body: JSON.stringify({
+  sessionId,
+  userId: auth.currentUser?.uid,
+}),
     .then(res => res.json())
     .then(data => {
       if (data.success) {
