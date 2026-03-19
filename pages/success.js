@@ -6,27 +6,32 @@ export default function Success() {
   const [isPro, setIsPro] = useState(null);
 
   useEffect(() => {
-    const sessionId = new URLSearchParams(window.location.search).get("session_id");
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (!user) return;
 
-    if (!sessionId) return;
+      const sessionId = new URLSearchParams(window.location.search).get("session_id");
+      if (!sessionId) return;
 
-    fetch("/api/verify-session", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        sessionId,
-        userId: auth.currentUser?.uid,
+      fetch("/api/verify-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId,
+          userId: user.uid, // ✅ FIXED: guaranteed user
+        })
       })
-    }) // ✅ THIS WAS MISSING
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          localStorage.setItem("isPro", "true");
-          setIsPro("true");
-        }
-      });
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            localStorage.setItem("isPro", "true");
+            setIsPro("true");
+          }
+        });
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
