@@ -63,7 +63,7 @@ export default function DrawerMenu({
     }
   }
 
-  const isPro = !!user;
+  const isPro = liveTier === "pro" || liveTier === "builder";
   const modelCycle = ["openai", "gemini", "anthropic"];
 
   function cycleRole(roleKey) {
