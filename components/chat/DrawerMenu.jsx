@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { auth } from "../../lib/firebaseClient";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { db } from "../../lib/firebaseClient";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 export default function DrawerMenu({
   open,
@@ -22,12 +24,33 @@ export default function DrawerMenu({
   };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setRoles((prev) => ({ ...prev }));
-    });
-    return () => unsub();
-  }, [setRoles]);
+  const unsub = onAuthStateChanged(auth, async (u) => {
+    setUser(u);
+    setRoles((prev) => ({ ...prev }));
+
+    if (u?.email) {
+      try {
+        const q = query(
+          collection(db, "cipher_users"),
+          where("email", "==", u.email)
+        );
+
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+          setLiveTier(snapshot.docs[0].data().tier || "free");
+        } else {
+          setLiveTier("free");
+        }
+      } catch (err) {
+        console.error("Tier fetch error:", err);
+        setLiveTier("free");
+      }
+    }
+  });
+
+  return () => unsub();
+}, [setRoles]);
 
   if (!open) return null;
 
