@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function Success() {
+
+  const [isPro, setIsPro] = useState(null);
 
   useEffect(() => {
     const sessionId = new URLSearchParams(window.location.search).get("session_id");
@@ -18,8 +20,16 @@ export default function Success() {
     .then(data => {
       if (data.success) {
         localStorage.setItem("isPro", "true");
+        setIsPro("true");
       }
     });
+  }, []);
+
+  useEffect(() => {
+    // Load existing state safely
+    if (typeof window !== "undefined") {
+      setIsPro(localStorage.getItem("isPro"));
+    }
   }, []);
 
   return (
@@ -35,7 +45,7 @@ export default function Success() {
     }}>
       <h1>🚀 Welcome to Cipher Pro</h1>
       <p>Your subscription is active.</p>
-      <p>Pro Status: {localStorage.getItem("isPro")}</p>
+      <p>Pro Status: {isPro}</p>
   
       <button
         onClick={() => (window.location.href = "/")}
