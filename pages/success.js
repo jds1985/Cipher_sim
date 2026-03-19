@@ -35,7 +35,8 @@ export default function Success() {
     }}>
       <h1>🚀 Welcome to Cipher Pro</h1>
       <p>Your subscription is active.</p>
-
+      <p>Pro Status: {localStorage.getItem("isPro")}</p>
+  
       <button
         onClick={() => (window.location.href = "/")}
         style={{
