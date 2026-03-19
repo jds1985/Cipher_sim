@@ -454,7 +454,7 @@ export default function DrawerMenu({
             cursor: "pointer",
             backdropFilter: "blur(14px)",
             color: "white",
-          }}
+          }
         >
           Close
         </button>
