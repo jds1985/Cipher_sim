@@ -20,7 +20,7 @@ const db = getFirestore();
 
 export default async function handler(req, res) {
   try {
-    const { sessionId, userId } = req.body;
+    const { sessionId } = req.body;
 
     if (!sessionId) {
       return res.status(400).json({ error: "Missing sessionId" });
@@ -34,20 +34,31 @@ export default async function handler(req, res) {
     }
 
     // 🧠 DETERMINE PLAN
-    const tier = "pro"; // (we'll upgrade this later for builder tier)
+    const tier = "pro";
 
-    // 💾 SAVE TO FIREBASE
-    if (userId) {
-      await db.collection("cipher_users").doc(userId).set(
-        {
-          plan,
-          updatedAt: new Date(),
-        },
-        { merge: true }
-      );
+    // 💾 FIND USER BY EMAIL + UPDATE
+    const email = session.customer_details?.email;
+
+    if (email) {
+      const snapshot = await db
+        .collection("cipher_users")
+        .where("email", "==", email)
+        .get();
+
+      if (!snapshot.empty) {
+        const docRef = snapshot.docs[0].ref;
+
+        await docRef.set(
+          {
+            tier,
+            updatedAt: new Date(),
+          },
+          { merge: true }
+        );
+      }
     }
 
-    return res.status(200).json({ success: true, plan });
+    return res.status(200).json({ success: true, tier });
 
   } catch (err) {
     console.error("VERIFY ERROR:", err);
