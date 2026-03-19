@@ -29,6 +29,8 @@ export default async function handler(req, res) {
     // 🔍 VERIFY WITH STRIPE
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
+    console.log("🔥 SESSION:", session);
+
     if (session.payment_status !== "paid") {
       return res.status(400).json({ success: false });
     }
@@ -36,14 +38,21 @@ export default async function handler(req, res) {
     // 🧠 DETERMINE PLAN
     const tier = "pro";
 
-    // 💾 FIND USER BY EMAIL + UPDATE
-    const email = session.customer_details?.email;
+    // 🔥 GET EMAIL (robust fallback)
+    const email =
+      session.customer_details?.email ||
+      session.customer_email ||
+      null;
+
+    console.log("🔥 EMAIL:", email);
 
     if (email) {
       const snapshot = await db
         .collection("cipher_users")
         .where("email", "==", email)
         .get();
+
+      console.log("🔥 FOUND DOCS:", snapshot.size);
 
       if (!snapshot.empty) {
         const docRef = snapshot.docs[0].ref;
