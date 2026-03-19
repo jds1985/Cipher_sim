@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { auth } from "../../lib/firebaseClient";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { db } from "../../lib/firebaseClient";
-import { collection, query, where, getDocs } from "firebase/firestore";
 
 export default function DrawerMenu({
   open,
@@ -29,25 +28,17 @@ export default function DrawerMenu({
     setRoles((prev) => ({ ...prev }));
 
     if (u?.email) {
-      try {
-        const q = query(
-          collection(db, "cipher_users"),
-          where("email", "==", u.email)
-        );
+  try {
+    const res = await fetch(`/api/get-tier?email=${u.email}`);
+    const data = await res.json();
 
-        const snapshot = await getDocs(q);
-
-        if (!snapshot.empty) {
-          setLiveTier(snapshot.docs[0].data().tier || "free");
-        } else {
-          setLiveTier("free");
-        }
-      } catch (err) {
-        console.error("Tier fetch error:", err);
-        setLiveTier("free");
-      }
-    }
-  });
+    setLiveTier(data.tier || "free");
+  } catch (err) {
+    console.error("Tier fetch error:", err);
+    setLiveTier("free");
+  }
+}
+    
 
   return () => unsub();
 }, [setRoles]);
