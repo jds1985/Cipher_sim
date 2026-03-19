@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-
+import { auth } from "../lib/firebaseClient";
 export default function Success() {
 
   const [isPro, setIsPro] = useState(null);
@@ -14,7 +14,7 @@ export default function Success() {
       headers: {
         "Content-Type": "application/json",
       },
-      import { auth } from "../lib/firebaseClient";
+      
 
 body: JSON.stringify({
   sessionId,
