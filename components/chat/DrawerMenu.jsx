@@ -200,7 +200,16 @@ export default function DrawerMenu({
       >
         <div style={{ marginBottom: 30, textAlign: "center" }}>
           <h3 style={{ margin: 0 }}>Cipher OS</h3>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
+  <button style={{ padding: "4px 10px", borderRadius: 999, background: "#222", color: "white", fontSize: 11 }}>
+    Builder
+  </button>
 
+  <button style={{ padding: "4px 10px", borderRadius: 999, background: "#222", color: "white", fontSize: 11 }}>
+    Pro
+  </button>
+</div>
+          
           <img
             src={tierGlyphs[tier] || tierGlyphs.free}
             alt="tier"
