@@ -19,7 +19,7 @@ export default function Success() {
 body: JSON.stringify({
   sessionId,
   userId: auth.currentUser?.uid,
-}),
+})
     .then(res => res.json())
     .then(data => {
       if (data.success) {
