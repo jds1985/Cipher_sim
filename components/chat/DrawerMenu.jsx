@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { auth } from "../../lib/firebaseClient";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { db } from "../../lib/firebaseClient";
 
 export default function DrawerMenu({
   open,
@@ -15,6 +14,7 @@ export default function DrawerMenu({
   tokenLimit = 1
 }) {
   const [user, setUser] = useState(null);
+  const [liveTier, setLiveTier] = useState(tier);
 
   const tierGlyphs = {
     free: "/images/glyph_tier1.png",
@@ -23,25 +23,24 @@ export default function DrawerMenu({
   };
 
   useEffect(() => {
-  const unsub = onAuthStateChanged(auth, async (u) => {
-    setUser(u);
-    setRoles((prev) => ({ ...prev }));
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      setRoles((prev) => ({ ...prev }));
 
-    if (u?.email) {
-  try {
-    const res = await fetch(`/api/get-tier?email=${u.email}`);
-    const data = await res.json();
+      if (u?.email) {
+        try {
+          const res = await fetch(`/api/get-tier?email=${u.email}`);
+          const data = await res.json();
+          setLiveTier(data.tier || "free");
+        } catch (err) {
+          console.error("Tier fetch error:", err);
+          setLiveTier("free");
+        }
+      }
+    });
 
-    setLiveTier(data.tier || "free");
-  } catch (err) {
-    console.error("Tier fetch error:", err);
-    setLiveTier("free");
-  }
-}
-    
-
-  return () => unsub();
-}, [setRoles]);
+    return () => unsub();
+  }, [setRoles]);
 
   if (!open) return null;
 
@@ -191,18 +190,35 @@ export default function DrawerMenu({
       >
         <div style={{ marginBottom: 30, textAlign: "center" }}>
           <h3 style={{ margin: 0 }}>Cipher OS</h3>
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
-  <button style={{ padding: "4px 10px", borderRadius: 999, background: "#222", color: "white", fontSize: 11 }}>
-    Builder
-  </button>
 
-  <button style={{ padding: "4px 10px", borderRadius: 999, background: "#222", color: "white", fontSize: 11 }}>
-    Pro
-  </button>
-</div>
-          
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
+            <button
+              style={{
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "#222",
+                color: "white",
+                fontSize: 11
+              }}
+            >
+              Builder
+            </button>
+
+            <button
+              style={{
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "#222",
+                color: "white",
+                fontSize: 11
+              }}
+            >
+              Pro
+            </button>
+          </div>
+
           <img
-            src={tierGlyphs[tier] || tierGlyphs.free}
+            src={tierGlyphs[liveTier] || tierGlyphs.free}
             alt="tier"
             style={{
               width: 42,
@@ -214,7 +230,7 @@ export default function DrawerMenu({
           />
 
           <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>
-            {tier.toUpperCase()} TIER
+            {liveTier.toUpperCase()} TIER
           </div>
         </div>
 
@@ -459,6 +475,6 @@ export default function DrawerMenu({
           Close
         </button>
       </div>
-   </>
+    </>
   );
 }
