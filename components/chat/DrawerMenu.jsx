@@ -53,6 +53,28 @@ export default function DrawerMenu({
     }
   }
 
+  async function startCheckout(plan) {
+  try {
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ plan }),
+    });
+
+    const data = await res.json();
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert("Checkout failed");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Error starting checkout");
+  }
+}
   const isPro = liveTier === "pro" || liveTier === "builder";
   const modelCycle = ["openai", "gemini", "anthropic"];
 
@@ -192,30 +214,32 @@ export default function DrawerMenu({
           <h3 style={{ margin: 0 }}>Cipher OS</h3>
 
           <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
-            <button
-              style={{
-                padding: "4px 10px",
-                borderRadius: 999,
-                background: "#222",
-                color: "white",
-                fontSize: 11
-              }}
-            >
-              Builder
-            </button>
+  <button
+    onClick={() => startCheckout("builder")}
+    style={{
+      padding: "4px 10px",
+      borderRadius: 999,
+      background: "#222",
+      color: "white",
+      fontSize: 11
+    }}
+  >
+    Builder
+  </button>
 
-            <button
-              style={{
-                padding: "4px 10px",
-                borderRadius: 999,
-                background: "#222",
-                color: "white",
-                fontSize: 11
-              }}
-            >
-              Pro
-            </button>
-          </div>
+  <button
+    onClick={() => startCheckout("pro")}
+    style={{
+      padding: "4px 10px",
+      borderRadius: 999,
+      background: "#222",
+      color: "white",
+      fontSize: 11
+    }}
+  >
+    Pro
+  </button>
+</div>
 
           <img
             src={tierGlyphs[liveTier] || tierGlyphs.free}
