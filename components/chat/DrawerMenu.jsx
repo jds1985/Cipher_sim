@@ -55,7 +55,7 @@ export default function DrawerMenu({
 
   async function startCheckout(plan) {
   try {
-    const res = await fetch("/api/create-checkout-session", {
+    const res = await fetch("/api/stripe/create-checkout-session", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
