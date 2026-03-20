@@ -142,8 +142,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import {
 getFirestore,
 collection,
-addDoc,
-getDocs
+addDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
 
 const firebaseConfig = {
@@ -154,31 +153,8 @@ projectId: "digisoul1111"
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
-// ✅ BASE BOOST (your "perception layer")
-let boostedCount = 2847 + Math.floor(Math.random() * 150)
-
-async function loadCount(){
-
-const snap = await getDocs(collection(db,"cipher_waitlist"))
-
-const realCount = snap.size
-
-// combine real + boosted
-boostedCount = boostedCount + realCount
-
-document.getElementById("count").innerText =
-boostedCount.toLocaleString()
-
-}
-
-loadCount()
-
-// ✅ SLOW TRICKLE EFFECT
-setInterval(() => {
-  boostedCount += Math.floor(Math.random() * 2) // 0–1 increase
-  document.getElementById("count").innerText =
-    boostedCount.toLocaleString()
-}, 5000)
+// ✅ STATIC DISPLAY COUNT
+document.getElementById("count").innerText = "57,014"
 
 window.join = async function(){
 
@@ -192,11 +168,6 @@ time:Date.now()
 })
 
 document.getElementById("email").value=""
-
-// small instant bump when someone joins
-boostedCount += 1
-document.getElementById("count").innerText =
-  boostedCount.toLocaleString()
 
 }
 
