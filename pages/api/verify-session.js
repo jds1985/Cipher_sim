@@ -33,8 +33,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false });
     }
 
-    // ✅ FIXED: dynamic tier from Stripe metadata
+    // ✅ dynamic tier from Stripe metadata
     const tier = session.metadata?.plan || "pro";
+
+    // ✅ NEW: token limits per tier
+    const tokenLimit =
+      tier === "builder"
+        ? 10000000
+        : tier === "pro"
+        ? 3000000
+        : 500000;
 
     const email =
       session.customer_details?.email ||
@@ -53,6 +61,9 @@ export default async function handler(req, res) {
         await docRef.set(
           {
             tier,
+            tokenLimit,        // ✅ ADDED
+            tokensUsed: 0,     // ✅ ADDED (reset on upgrade)
+            lastReset: new Date(), // ✅ ADDED (for monthly reset later)
             updatedAt: new Date(),
           },
           { merge: true }
