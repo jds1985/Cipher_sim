@@ -61,12 +61,11 @@ export default function Success() {
       textAlign: "center"
     }}>
       <h1>
-        🚀 {plan === "builder" ? "Welcome to Cipher Builder" : "Welcome to Cipher Pro"}
+         {plan === "builder" ? "Welcome to Cipher Builder" : "Welcome to Cipher Pro"}
       </h1>
       <p>Your subscription is active.</p>
-      <p>Pro Status: {isPro}</p>
-  
-      <button
+      
+       <button
         onClick={() => (window.location.href = "/")}
         style={{
           marginTop: 20,
