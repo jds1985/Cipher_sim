@@ -25,11 +25,14 @@ export default async function handler(req, res) {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: priceId, // ✅ FIXED (use correct price)
+          price: priceId,
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      metadata: {
+        plan: req.body.plan, // ✅ ADDED
+      },
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?plan=${req.body.plan}&session_id={CHECKOUT_SESSION_ID}`, // ✅ UPDATED
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
     });
 
