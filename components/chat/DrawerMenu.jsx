@@ -19,6 +19,14 @@ export default function DrawerMenu({
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+    
+      if (!u) {
+  setLiveTier("free");
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("tier");
+  }
+  return;
+}
       setRoles((prev) => ({ ...prev }));
 
       if (u?.email) {
