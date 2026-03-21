@@ -28,7 +28,23 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const data = doc.data();
+    let data = doc.data();
+
+    // ✅ MONTHLY RESET LOGIC (ADDED)
+    const now = new Date();
+    const lastReset = data.lastReset?.toDate?.() || new Date(0);
+
+    if (
+      now.getMonth() !== lastReset.getMonth() ||
+      now.getFullYear() !== lastReset.getFullYear()
+    ) {
+      await ref.update({
+        tokensUsed: 0,
+        lastReset: new Date(),
+      });
+
+      data.tokensUsed = 0; // keep local state in sync
+    }
 
     const newTotal = (data.tokensUsed || 0) + tokens;
 
