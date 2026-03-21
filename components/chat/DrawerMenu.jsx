@@ -15,8 +15,10 @@ export default function DrawerMenu({
 }) {
   const [user, setUser] = useState(null);
   const [liveTier, setLiveTier] = useState(tier);
-
-  useEffect(() => {
+const [tokensUsed, setTokensUsed] = useState(0);
+const [tokenLimitState, setTokenLimitState] = useState(1);
+useEffect
+  seEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
     
@@ -31,12 +33,14 @@ export default function DrawerMenu({
 
       if (u?.email) {
         try {
-          const res = await fetch(`/api/get-tier?email=${u.email}`);
-          const data = await res.json();
-          setLiveTier(data.tier || "free");
-        } catch (err) {
-          console.error("Tier fetch error:", err);
-          setLiveTier("free");
+         const res = await fetch(`/api/get-tier?email=${u.email}`);
+         const data = await res.json();
+
+setLiveTier(data.tier || "free");
+
+// ✅ ADD THESE 2 LINES
+setTokensUsed(data.tokensUsed || 0);
+setTokenLimitState(data.tokenLimit || 1);
         }
       }
     });
@@ -177,11 +181,10 @@ export default function DrawerMenu({
     roles.polisher,
   ]).size > 1;
 
-  const tokenPercent = Math.min(
-    100,
-    Math.round((remainingTokens / Math.max(tokenLimit, 1)) * 100)
-  );
-
+ const tokenPercent = Math.min(
+  100,
+  Math.round((tokensUsed / Math.max(tokenLimitState, 1)) * 100)
+);
   return (
     <>
       <div
@@ -286,7 +289,7 @@ export default function DrawerMenu({
           </div>
 
           <div style={{ fontSize: 12, opacity: 0.7 }}>
-            {remainingTokens.toLocaleString()} / {tokenLimit.toLocaleString()}
+            {(tokenLimitState - tokensUsed).toLocaleString()} remaining
           </div>
         </div>
 
