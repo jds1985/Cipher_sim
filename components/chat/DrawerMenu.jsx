@@ -15,32 +15,36 @@ export default function DrawerMenu({
 }) {
   const [user, setUser] = useState(null);
   const [liveTier, setLiveTier] = useState(tier);
-const [tokensUsed, setTokensUsed] = useState(0);
-const [tokenLimitState, setTokenLimitState] = useState(1);
-useEffect
-  seEffect(() => {
+  const [tokensUsed, setTokensUsed] = useState(0);
+  const [tokenLimitState, setTokenLimitState] = useState(1);
+
+  useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-    
+
       if (!u) {
-  setLiveTier("free");
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("tier");
-  }
-  return;
-}
+        setLiveTier("free");
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("tier");
+        }
+        return;
+      }
+
       setRoles((prev) => ({ ...prev }));
 
       if (u?.email) {
         try {
-         const res = await fetch(`/api/get-tier?email=${u.email}`);
-         const data = await res.json();
+          const res = await fetch(`/api/get-tier?email=${u.email}`);
+          const data = await res.json();
 
-setLiveTier(data.tier || "free");
-
-// ✅ ADD THESE 2 LINES
-setTokensUsed(data.tokensUsed || 0);
-setTokenLimitState(data.tokenLimit || 1);
+          setLiveTier(data.tier || "free");
+          setTokensUsed(data.tokensUsed || 0);
+          setTokenLimitState(data.tokenLimit || 1);
+        } catch (err) {
+          console.error("Tier fetch error:", err);
+          setLiveTier("free");
+          setTokensUsed(0);
+          setTokenLimitState(1);
         }
       }
     });
@@ -181,10 +185,11 @@ setTokenLimitState(data.tokenLimit || 1);
     roles.polisher,
   ]).size > 1;
 
- const tokenPercent = Math.min(
-  100,
-  Math.round((tokensUsed / Math.max(tokenLimitState, 1)) * 100)
-);
+  const tokenPercent = Math.min(
+    100,
+    Math.round((tokensUsed / Math.max(tokenLimitState, 1)) * 100)
+  );
+
   return (
     <>
       <div
