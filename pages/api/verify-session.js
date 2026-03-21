@@ -33,7 +33,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false });
     }
 
-    const tier = "pro";
+    // ✅ FIXED: dynamic tier from Stripe metadata
+    const tier = session.metadata?.plan || "pro";
 
     const email =
       session.customer_details?.email ||
