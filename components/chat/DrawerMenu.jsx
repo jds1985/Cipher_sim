@@ -16,12 +16,6 @@ export default function DrawerMenu({
   const [user, setUser] = useState(null);
   const [liveTier, setLiveTier] = useState(tier);
 
-  const tierGlyphs = {
-    free: "/images/glyph_tier1.png",
-    pro: "/images/glyph_tier2.png",
-    builder: "/images/glyph_tier3.png",
-  };
-
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -218,19 +212,6 @@ export default function DrawerMenu({
 
           <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
             <button
-              onClick={() => startCheckout("builder")}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 999,
-                background: "#222",
-                color: "white",
-                fontSize: 11
-              }}
-            >
-              Builder
-            </button>
-
-            <button
               onClick={() => startCheckout("pro")}
               style={{
                 padding: "4px 10px",
@@ -242,19 +223,20 @@ export default function DrawerMenu({
             >
               Pro
             </button>
-          </div>
 
-          <img
-            src={tierGlyphs[liveTier] || tierGlyphs.free}
-            alt="tier"
-            style={{
-              width: 42,
-              height: 42,
-              marginTop: 12,
-              objectFit: "contain",
-              filter: "drop-shadow(0 0 8px rgba(0,255,200,0.35))"
-            }}
-          />
+            <button
+              onClick={() => startCheckout("builder")}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "#222",
+                color: "white",
+                fontSize: 11
+              }}
+            >
+              Builder
+            </button>
+          </div>
 
           <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>
             {liveTier.toUpperCase()} TIER
