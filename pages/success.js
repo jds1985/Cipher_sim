@@ -4,6 +4,12 @@ import { auth } from "../lib/firebaseClient";
 export default function Success() {
 
   const [isPro, setIsPro] = useState(null);
+  const [plan, setPlan] = useState("pro"); // ✅ ADDED
+
+  useEffect(() => {
+    const urlPlan = new URLSearchParams(window.location.search).get("plan");
+    if (urlPlan) setPlan(urlPlan); // ✅ ADDED
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -52,7 +58,9 @@ export default function Success() {
       color: "white",
       textAlign: "center"
     }}>
-      <h1>🚀 Welcome to Cipher Pro</h1>
+      <h1>
+        🚀 {plan === "builder" ? "Welcome to Cipher Builder" : "Welcome to Cipher Pro"}
+      </h1>
       <p>Your subscription is active.</p>
       <p>Pro Status: {isPro}</p>
   
