@@ -7,8 +7,10 @@ export default function Success() {
   const [plan, setPlan] = useState("pro"); // ✅ ADDED
 
   useEffect(() => {
-    const urlPlan = new URLSearchParams(window.location.search).get("plan");
-    if (urlPlan) setPlan(urlPlan); // ✅ ADDED
+    if (typeof window !== "undefined") { // ✅ FIXED
+      const urlPlan = new URLSearchParams(window.location.search).get("plan");
+      if (urlPlan) setPlan(urlPlan); // ✅ ADDED
+    }
   }, []);
 
   useEffect(() => {
