@@ -12,27 +12,25 @@ export default async function handler(req, res) {
 
     let priceId;
 
-if (req.body.plan === "pro") {
-  priceId = process.env.STRIPE_PRO_PRICE_ID;
-} else if (req.body.plan === "builder") {
-  priceId = process.env.STRIPE_BUILDER_PRICE_ID;
-} else {
-  return res.status(400).json({ error: "Invalid plan" });
-}
-
-price: priceId,
+    if (req.body.plan === "pro") {
+      priceId = process.env.STRIPE_PRO_PRICE_ID;
+    } else if (req.body.plan === "builder") {
+      priceId = process.env.STRIPE_BUILDER_PRICE_ID;
+    } else {
+      return res.status(400).json({ error: "Invalid plan" });
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [
         {
-          price: process.env.STRIPE_PRICE_ID,
+          price: priceId, // ✅ FIXED (use correct price)
           quantity: 1,
         },
       ],
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
     });
 
     console.log("✅ Session created:", session.url);
