@@ -16,11 +16,6 @@ export default function DrawerMenu({
   const [user, setUser] = useState(null);
   const [liveTier, setLiveTier] = useState(tier);
 
-  const tierGlyphs = {
-    free: "/images/glyph_tier1.png",
-    pro: "/images/glyph_tier2.png",
-    builder: "/images/glyph_tier3.png",
-  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
