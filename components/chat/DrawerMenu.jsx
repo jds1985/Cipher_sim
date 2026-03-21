@@ -16,6 +16,11 @@ export default function DrawerMenu({
   const [user, setUser] = useState(null);
   const [liveTier, setLiveTier] = useState(tier);
 
+  const tierGlyphs = {
+    free: "/images/glyph_tier1.png",
+    pro: "/images/glyph_tier2.png",
+    builder: "/images/glyph_tier3.png",
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -49,27 +54,30 @@ export default function DrawerMenu({
   }
 
   async function startCheckout(plan) {
-  try {
-    const res = await fetch("/api/stripe/create-checkout-session", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ plan }),
-    });
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ plan }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      alert("Checkout failed");
+      if (data.url) {
+        if (typeof window !== "undefined") {
+          window.location.href = data.url;
+        }
+      } else {
+        alert("Checkout failed");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error starting checkout");
     }
-  } catch (err) {
-    console.error(err);
-    alert("Error starting checkout");
   }
-}
+
   const isPro = liveTier === "pro" || liveTier === "builder";
   const modelCycle = ["openai", "gemini", "anthropic"];
 
@@ -209,32 +217,32 @@ export default function DrawerMenu({
           <h3 style={{ margin: 0 }}>Cipher OS</h3>
 
           <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
-  <button
-    onClick={() => startCheckout("builder")}
-    style={{
-      padding: "4px 10px",
-      borderRadius: 999,
-      background: "#222",
-      color: "white",
-      fontSize: 11
-    }}
-  >
-    Builder
-  </button>
+            <button
+              onClick={() => startCheckout("builder")}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "#222",
+                color: "white",
+                fontSize: 11
+              }}
+            >
+              Builder
+            </button>
 
-  <button
-    onClick={() => startCheckout("pro")}
-    style={{
-      padding: "4px 10px",
-      borderRadius: 999,
-      background: "#222",
-      color: "white",
-      fontSize: 11
-    }}
-  >
-    Pro
-  </button>
-</div>
+            <button
+              onClick={() => startCheckout("pro")}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "#222",
+                color: "white",
+                fontSize: 11
+              }}
+            >
+              Pro
+            </button>
+          </div>
 
           <img
             src={tierGlyphs[liveTier] || tierGlyphs.free}
@@ -460,7 +468,9 @@ export default function DrawerMenu({
 
         <button
           onClick={() => {
-            window.location.href = "/import";
+            if (typeof window !== "undefined") {
+              window.location.href = "/import";
+            }
           }}
           style={{
             width: "100%",
