@@ -10,9 +10,17 @@ export default async function handler(req, res) {
       throw new Error("Missing STRIPE_SECRET_KEY");
     }
 
-    if (!process.env.STRIPE_PRICE_ID) {
-      throw new Error("Missing STRIPE_PRICE_ID");
-    }
+    let priceId;
+
+if (req.body.plan === "pro") {
+  priceId = process.env.STRIPE_PRO_PRICE_ID;
+} else if (req.body.plan === "builder") {
+  priceId = process.env.STRIPE_BUILDER_PRICE_ID;
+} else {
+  return res.status(400).json({ error: "Invalid plan" });
+}
+
+price: priceId,
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
