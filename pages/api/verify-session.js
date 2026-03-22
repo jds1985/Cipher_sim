@@ -36,18 +36,11 @@ export default async function handler(req, res) {
     // ✅ dynamic tier from Stripe metadata
     const tier = session.metadata?.plan || "pro";
 
+    // ✅ CORRECT token limits (single source of truth)
     let tokenLimit = 1000000; // free
 
-if (tier === "pro") tokenLimit = 5000000;
-if (tier === "builder") tokenLimit = 20000000;
-    
-    // ✅ NEW: token limits per tier
-    const tokenLimit =
-      tier === "builder"
-        ? 10000000
-        : tier === "pro"
-        ? 3000000
-        : 500000;
+    if (tier === "pro") tokenLimit = 5000000;
+    if (tier === "builder") tokenLimit = 20000000;
 
     const email =
       session.customer_details?.email ||
