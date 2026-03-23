@@ -278,9 +278,18 @@ export default function DrawerMenu({
     justifyContent: "space-between",
   }}
 >
-             
-              Pro
-            </button>
+    <button
+  onClick={() => startCheckout("pro")}
+  style={{
+    padding: "4px 10px",
+    borderRadius: 999,
+    background: "#222",
+    color: "white",
+    fontSize: 11
+  }}
+>
+  Pro
+</button>
 
             <button
               onClick={() => startCheckout("builder")}
