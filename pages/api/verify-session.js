@@ -58,6 +58,7 @@ export default async function handler(req, res) {
 
         await docRef.set(
           {
+            email,
             tier,
             tokenLimit,        // ✅ ADDED
             tokensUsed: 0,     // ✅ ADDED (reset on upgrade)
