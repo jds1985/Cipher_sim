@@ -326,6 +326,7 @@ export default function DrawerMenu({
           style={{
             marginBottom: 30,
             padding: 16,
+            position: "relative",
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.10)",
             borderRadius: 18,
@@ -335,16 +336,29 @@ export default function DrawerMenu({
         >
           {user ? (
             <>
-              <div
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: "50%",
-                  background: "linear-gradient(135deg,#5a46ff,#00ffc8)",
-                  marginBottom: 12,
-                }}
-              />
-              <div style={{ fontSize: 14, opacity: 0.8 }}>
+              
+           <div
+   style={{
+    position: "absolute",
+    top: 16,
+    left: 16,
+    width: 42,
+    height: 42,
+    borderRadius: "50%",
+    background: "linear-gradient(135deg,#5a46ff,#00ffd5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    fontSize: 16,
+    color: "white",
+  }}
+>
+  {user?.email?.charAt(0).toUpperCase()}
+</div>
+
+                
+               <div style={{ fontSize: 14, opacity: 0.8 }}>
                 Signed in as
               </div>
               <div style={{ fontWeight: 600, wordBreak: "break-word" }}>
