@@ -247,19 +247,38 @@ export default function DrawerMenu({
         }}
       >
         <div style={{ marginBottom: 30, textAlign: "center" }}>
-          <h3 style={{ margin: 0 }}>Cipher OS</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+  {user && (
+    <div
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: "50%",
+        background: "linear-gradient(135deg,#5a46ff,#00ffd5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 700,
+        fontSize: 14,
+        color: "white",
+      }}
+    >
+      {user.email?.charAt(0).toUpperCase()}
+    </div>
+  )}
 
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
-            <button
-              onClick={() => startCheckout("pro")}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 999,
-                background: "#222",
-                color: "white",
-                fontSize: 11
-              }}
-            >
+  <h3 style={{ margin: 0 }}>Cipher OS</h3>
+</div>
+
+          <div
+  style={{
+    marginBottom: 30,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  }}
+>
+             
               Pro
             </button>
 
@@ -337,25 +356,7 @@ export default function DrawerMenu({
           {user ? (
             <>
               
-           <div
-   style={{
-    position: "absolute",
-    top: 16,
-    left: 16,
-    width: 42,
-    height: 42,
-    borderRadius: "50%",
-    background: "linear-gradient(135deg,#5a46ff,#00ffd5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: 700,
-    fontSize: 16,
-    color: "white",
-  }}
->
-  {user?.email?.charAt(0).toUpperCase()}
-</div>
+           
 
                 
                <div style={{ fontSize: 14, opacity: 0.8 }}>
