@@ -337,8 +337,7 @@ export default function DrawerMenu({
            <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6, textAlign: "center" }}>
             {liveTier.toUpperCase()} TIER
           </div>
-        </div>
-
+      
         {/* TOKEN METER */}
         <div
           style={{
