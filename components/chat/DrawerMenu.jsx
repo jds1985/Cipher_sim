@@ -246,16 +246,15 @@ export default function DrawerMenu({
           overflowY: "auto",
         }}
       >
-        <div style={{ marginBottom: 30, textAlign: "center" }}>
-          <div
-            style={{
-              position: "relative",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              minHeight: 36,
-            }}
-          >
+        <div
+  style={{
+    marginTop: 10,
+    marginBottom: 20,
+    display: "flex",
+    justifyContent: "center",
+    gap: 12,
+  }}
+>
             {user && (
               <div
                 style={{
