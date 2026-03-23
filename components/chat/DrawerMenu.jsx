@@ -24,6 +24,8 @@ export default function DrawerMenu({
 
       if (!u) {
         setLiveTier("free");
+        setTokensUsed(0);
+        setTokenLimitState(1000000);
         if (typeof window !== "undefined") {
           localStorage.removeItem("tier");
         }
@@ -34,23 +36,44 @@ export default function DrawerMenu({
 
       if (u?.email) {
         try {
-          const res = await fetch(`/api/get-tier?email=${u.email}`);
+          const res = await fetch(`/api/get-tier?email=${u.email}&t=${Date.now()}`);
           const data = await res.json();
 
           setLiveTier(data.tier || "free");
           setTokensUsed(data.tokensUsed || 0);
-          setTokenLimitState(data.tokenLimit || 1);
+          setTokenLimitState(data.tokenLimit || 1000000);
         } catch (err) {
           console.error("Tier fetch error:", err);
           setLiveTier("free");
           setTokensUsed(0);
-          setTokenLimitState(1);
+          setTokenLimitState(1000000);
         }
       }
     });
 
     return () => unsub();
   }, [setRoles]);
+
+  useEffect(() => {
+    async function refreshTierData() {
+      if (!open || !auth.currentUser?.email) return;
+
+      try {
+        const res = await fetch(
+          `/api/get-tier?email=${auth.currentUser.email}&t=${Date.now()}`
+        );
+        const data = await res.json();
+
+        setLiveTier(data.tier || "free");
+        setTokensUsed(data.tokensUsed || 0);
+        setTokenLimitState(data.tokenLimit || 1000000);
+      } catch (err) {
+        console.error("Drawer refresh tier error:", err);
+      }
+    }
+
+    refreshTierData();
+  }, [open]);
 
   if (!open) return null;
 
