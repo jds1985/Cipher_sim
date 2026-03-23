@@ -250,13 +250,12 @@ export default function DrawerMenu({
   
             <div style={{ marginBottom: 30 }}>
   <div
-    style={{
-      position: "relative",
-      display: "flex",
-      alignItems: "center",
-      minHeight: 40,
-    }}
-  >
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  }}
+>
     {user && (
       <div
         style={{
@@ -277,15 +276,12 @@ export default function DrawerMenu({
     )}
 
     <h3
-      style={{
-        margin: 0,
-        position: "absolute",
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: "100%",
-        textAlign: "center",
-      }}
-    >
+  style={{
+    margin: 0,
+    flex: 1,
+    textAlign: "center",
+  }}
+>
       Cipher OS
     </h3>
   </div>
