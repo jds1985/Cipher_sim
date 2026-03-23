@@ -154,7 +154,7 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
 // ✅ STATIC DISPLAY COUNT
-document.getElementById("count").innerText = "27,511"
+document.getElementById("count").innerText = "29,131"
 
 window.join = async function(){
 
@@ -182,7 +182,7 @@ if(params.get("dev") === "cipher"){
 }
   
 /* ✅ COUNTDOWN */
-const launchDate = new Date("2026-03-23T18:00:00").getTime()
+const launchDate = new Date("2026-03-23T24:00:00").getTime()
 
 setInterval(()=>{
 
