@@ -309,20 +309,27 @@ export default function DrawerMenu({
               }}
             >
               Pro
-            </button>
+    </button>
 
-            <button
-              onClick={() => startCheckout("builder")}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 999,
-                background: "#222",
-                color: "white",
-                fontSize: 11
-              }}
-            >
-              Builder
-            </button>
+    <button
+      onClick={() => startCheckout("builder")}
+      style={{
+        padding: "6px 14px",
+        borderRadius: 999,
+        background: "#222",
+        color: "white",
+        fontSize: 11,
+        border: "1px solid rgba(255,255,255,0.15)",
+      }}
+    >
+      Builder
+    </button>
+  </div>
+
+  <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6, textAlign: "center" }}>
+    {liveTier.toUpperCase()} TIER
+  </div>
+</div>
           </div>
 
           <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>
