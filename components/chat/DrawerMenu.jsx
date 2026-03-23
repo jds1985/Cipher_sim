@@ -214,7 +214,7 @@ export default function DrawerMenu({
   );
 
   return (
-    <>
+    <div>
       <div
         style={{
           position: "fixed",
@@ -565,6 +565,6 @@ export default function DrawerMenu({
           Close
         </button>
       </div>
-    </>
+    </div>
   );
 }
