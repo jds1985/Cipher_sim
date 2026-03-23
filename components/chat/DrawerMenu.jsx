@@ -573,6 +573,5 @@ export default function DrawerMenu({
           Close
         </button>
       </div>
-    </div>
   );
 }
