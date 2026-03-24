@@ -246,94 +246,91 @@ export default function DrawerMenu({
           overflowY: "auto",
         }}
       >
-        
-  
-            <div style={{ marginBottom: 30 }}>
-  <div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  }}
->
-    {user && (
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: "50%",
-          background: "linear-gradient(135deg,#5a46ff,#00ffd5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontWeight: 700,
-          fontSize: 14,
-          color: "white",
-        }}
-      >
-        {user.email?.charAt(0).toUpperCase()}
-      </div>
-    )}
+        <div style={{ marginBottom: 30 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "36px 1fr 36px",
+              alignItems: "center",
+              columnGap: 12,
+              marginBottom: 12,
+            }}
+          >
+            {user ? (
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg,#5a46ff,#00ffd5)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  color: "white",
+                }}
+              >
+                {user.email?.charAt(0).toUpperCase()}
+              </div>
+            ) : (
+              <div style={{ width: 36, height: 36 }} />
+            )}
 
-    <h3
-  style={{
-    margin: 0,
-    flex: 1,
-    textAlign: "center",
-  }}
->
-      Cipher OS
-    </h3>
-  </div>
+            <h3
+              style={{
+                margin: 0,
+                textAlign: "center",
+              }}
+            >
+              Cipher OS
+            </h3>
 
-  <div
-    style={{
-      marginTop: 12,
-      display: "flex",
-      justifyContent: "center",
-      gap: 12,
-    }}
-  >
-    <button
-      onClick={() => startCheckout("pro")}
-      style={{
-        padding: "6px 14px",
-        borderRadius: 999,
-        background: "#222",
-        color: "white",
-        fontSize: 11,
-        border: "1px solid rgba(255,255,255,0.15)",
-      }}
-    >
-      Pro
-    </button>
-
-    <button
-      onClick={() => startCheckout("builder")}
-      style={{
-        padding: "6px 14px",
-        borderRadius: 999,
-        background: "#222",
-        color: "white",
-        fontSize: 11,
-        border: "1px solid rgba(255,255,255,0.15)",
-      }}
-    >
-      Builder
-    </button>
-  </div>
-
-  <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6, textAlign: "center" }}>
-    {liveTier.toUpperCase()} TIER
-  </div>
-</div>
-
+            <div style={{ width: 36, height: 36 }} />
           </div>
 
-           <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6, textAlign: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 12,
+              marginBottom: 10,
+            }}
+          >
+            <button
+              onClick={() => startCheckout("pro")}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 999,
+                background: "#222",
+                color: "white",
+                fontSize: 11,
+                border: "1px solid rgba(255,255,255,0.15)",
+              }}
+            >
+              Pro
+            </button>
+
+            <button
+              onClick={() => startCheckout("builder")}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 999,
+                background: "#222",
+                color: "white",
+                fontSize: 11,
+                border: "1px solid rgba(255,255,255,0.15)",
+              }}
+            >
+              Builder
+            </button>
+          </div>
+
+          <div style={{ fontSize: 12, opacity: 0.6, textAlign: "center" }}>
             {liveTier.toUpperCase()} TIER
           </div>
-      
+        </div>
+
         {/* TOKEN METER */}
         <div
           style={{
@@ -569,5 +566,6 @@ export default function DrawerMenu({
           Close
         </button>
       </div>
+    </div>
   );
 }
