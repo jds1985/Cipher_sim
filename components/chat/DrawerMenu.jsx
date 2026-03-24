@@ -60,8 +60,6 @@ export default function DrawerMenu({
         const data = await res.json();
 
         setLiveTier(data.tier || "free");
-        setTokensUsed(data.tokensUsed || 0);
-        setTokenLimitState(data.tokenLimit || 1000000);
       } catch (err) {
         console.error("Drawer refresh tier error:", err);
       }
@@ -203,10 +201,12 @@ export default function DrawerMenu({
     roles.polisher,
   ]).size > 1;
 
-  const tokenPercent = Math.min(
-    100,
-    Math.round((tokensUsed / Math.max(tokenLimitState, 1)) * 100)
-  );
+  const used = tokenLimit - remainingTokens;
+
+const tokenPercent = Math.min(
+  100,
+  Math.round((used / Math.max(tokenLimit, 1)) * 100)
+);
 
   return (
     <div>
@@ -361,7 +361,7 @@ export default function DrawerMenu({
           </div>
 
           <div style={{ fontSize: 12, opacity: 0.7 }}>
-            {(tokenLimitState - tokensUsed).toLocaleString()} remaining
+            remainingTokens.toLocaleString()
           </div>
         </div>
 
