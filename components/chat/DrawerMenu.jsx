@@ -15,8 +15,7 @@ export default function DrawerMenu({
 }) {
   const [user, setUser] = useState(null);
   const [liveTier, setLiveTier] = useState(tier);
-  const [tokensUsed, setTokensUsed] = useState(0);
-  const [tokenLimitState, setTokenLimitState] = useState(1);
+  
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -24,8 +23,7 @@ export default function DrawerMenu({
 
       if (!u) {
         setLiveTier("free");
-        setTokensUsed(0);
-        setTokenLimitState(1000000);
+        
         if (typeof window !== "undefined") {
           localStorage.removeItem("tier");
         }
@@ -40,13 +38,10 @@ export default function DrawerMenu({
           const data = await res.json();
 
           setLiveTier(data.tier || "free");
-          setTokensUsed(data.tokensUsed || 0);
-          setTokenLimitState(data.tokenLimit || 1000000);
+          
         } catch (err) {
           console.error("Tier fetch error:", err);
           setLiveTier("free");
-          setTokensUsed(0);
-          setTokenLimitState(1000000);
         }
       }
     });
