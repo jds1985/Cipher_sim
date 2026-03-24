@@ -39,8 +39,8 @@ export default function DrawerMenu({
           const data = await res.json();
 
           setLiveTier(data.tier || "free");
-      setTokensUsed(data.tokensUsed || 0);
-      setTokenLimitState(data.tokenLimit || 1000000);
+          setTokensUsed(data.tokensUsed || 0);
+          setTokenLimitState(data.tokenLimit || 1000000);
           
         } catch (err) {
           console.error("Tier fetch error:", err);
@@ -63,6 +63,9 @@ export default function DrawerMenu({
         const data = await res.json();
 
         setLiveTier(data.tier || "free");
+      setLiveTier(data.tier || "free");
+      setTokensUsed(data.tokensUsed || 0);
+      setTokenLimitState(data.tokenLimit || 1000000);
       } catch (err) {
         console.error("Drawer refresh tier error:", err);
       }
