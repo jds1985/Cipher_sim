@@ -361,7 +361,7 @@ const tokenPercent = Math.min(
           </div>
 
           <div style={{ fontSize: 12, opacity: 0.7 }}>
-            remainingTokens.toLocaleString()
+            {remainingTokens.toLocaleString()}
           </div>
         </div>
 
