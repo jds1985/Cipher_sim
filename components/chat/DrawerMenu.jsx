@@ -67,7 +67,24 @@ export default function DrawerMenu({
 
     refreshTierData();
   }, [open]);
+  useEffect(() => {
+  if (!auth.currentUser?.email) return;
 
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch(
+        `/api/get-tier?email=${auth.currentUser.email}&t=${Date.now()}`
+      );
+      const data = await res.json();
+
+      setLiveTier(data.tier || "free");
+    } catch (err) {
+      console.error("Live tier polling error:", err);
+    }
+  }, 3000); // every 3 sec
+
+  return () => clearInterval(interval);
+}, []);
   if (!open) return null;
 
   async function handleLogout() {
