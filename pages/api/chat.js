@@ -226,7 +226,18 @@ try {
     const topNode = searchData.results[0];
 
     // VERY SIMPLE MATCH FILTER (safe for now)
-    if (topNode?.keywords?.some((k) => message.toLowerCase().includes(k))) {
+    const msg = message.toLowerCase();
+
+const matched = topNode?.keywords?.some((k) => {
+  const keyword = k.toLowerCase();
+
+  return (
+    msg.includes(keyword) ||
+    keyword.split(" ").some(word => msg.includes(word))
+  );
+});
+
+if (matched) {
 
       const execRes = await fetch(
         `${process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app"}/api/ciphernet/execute`,
@@ -236,7 +247,10 @@ try {
           body: JSON.stringify({
             nodeId: topNode.id,
             userId: userId || "guest",
-            input: { message }
+            input: {
+            price: 250000,
+            monthlyRent: 2200,
+             monthlyExpenses: 700,
           }),
         }
       );
