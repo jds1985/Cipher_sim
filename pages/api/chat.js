@@ -216,55 +216,50 @@ let nodeResult = null;
 try {
   const query = encodeURIComponent(message.slice(0, 100));
 
-  const searchRes = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app"}/api/ciphernet/search?q=${query}`
-  );
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
 
+  console.log("🔍 Searching:", `${baseUrl}/api/ciphernet/search?q=${query}`);
+
+  const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}`);
   const searchData = await searchRes.json();
 
-  if (searchData?.results?.length > 0) {
-    const topNode = searchData.results[0];
+  console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
 
-    // VERY SIMPLE MATCH FILTER (safe for now)
-    const msg = message.toLowerCase();
+  const topNode = searchData?.results?.[0];
 
-const matched = topNode?.keywords?.some((k) => {
-  const keyword = k.toLowerCase();
+  if (topNode) {
+    console.log("✅ FOUND NODE:", topNode);
 
-  return (
-    msg.includes(keyword) ||
-    keyword.split(" ").some(word => msg.includes(word))
-  );
-});
-
-if (topNode) {
-
-      const execRes = await fetch(
-  `${process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app"}/api/ciphernet/execute`,
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      nodeId: topNode.id,
-      userId: userId || "guest",
-      input: {
-        price: 250000,
-        monthlyRent: 2200,
-        monthlyExpenses: 700,
+    const execRes = await fetch(`${baseUrl}/api/ciphernet/execute`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    }),
-  }
-);
+      body: JSON.stringify({
+        nodeId: topNode.id,
+        userId: userId || "guest",
+        input: {
+          price: 250000,
+          monthlyRent: 2200,
+          monthlyExpenses: 700,
+        },
+      }),
+    });
 
-      const execData = await execRes.json();
+    const execData = await execRes.json();
 
-      if (execData?.ok) {
-        nodeResult = execData.result?.output || execData.result;
-      }
+    console.log("⚙️ EXEC RESULT:", JSON.stringify(execData, null, 2));
+
+    if (execData?.ok) {
+      nodeResult = execData.result?.output || execData.result;
+      console.log("🔥 NODE RESULT SET:", nodeResult);
     }
+  } else {
+    console.log("❌ NO NODE FOUND");
   }
+
 } catch (e) {
-  console.log("CipherNet discovery failed:", e.message);
+  console.log("❌ CipherNet discovery failed:", e.message);
 }
     
     // ─────────────────────────────
