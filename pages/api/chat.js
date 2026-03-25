@@ -251,7 +251,7 @@ if (matched) {
             price: 250000,
             monthlyRent: 2200,
              monthlyExpenses: 700,
-          }),
+          },
         }
       );
 
