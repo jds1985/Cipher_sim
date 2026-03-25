@@ -208,6 +208,51 @@ export default async function handler(req, res) {
     }
 
     // ─────────────────────────────
+// 🧠 CIPHERNET AUTO DISCOVERY
+// ─────────────────────────────
+
+let nodeResult = null;
+
+try {
+  const query = encodeURIComponent(message.slice(0, 100));
+
+  const searchRes = await fetch(
+    `${process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app"}/api/ciphernet/search?q=${query}`
+  );
+
+  const searchData = await searchRes.json();
+
+  if (searchData?.results?.length > 0) {
+    const topNode = searchData.results[0];
+
+    // VERY SIMPLE MATCH FILTER (safe for now)
+    if (topNode?.keywords?.some((k) => message.toLowerCase().includes(k))) {
+
+      const execRes = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app"}/api/ciphernet/execute`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nodeId: topNode.id,
+            userId: userId || "guest",
+            input: { message }
+          }),
+        }
+      );
+
+      const execData = await execRes.json();
+
+      if (execData?.ok) {
+        nodeResult = execData.result?.output || execData.result;
+      }
+    }
+  }
+} catch (e) {
+  console.log("CipherNet discovery failed:", e.message);
+}
+    
+    // ─────────────────────────────
     // STREAM MODE
     // ─────────────────────────────
     if (wantStream) {
@@ -295,13 +340,18 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Model produced no reply" });
     }
 
-    const finalReply = await refineReply({
-      message,
-      draftReply: reply,
-      osContext,
-      executivePacket,
-    });
+    let finalReply;
 
+if (nodeResult) {
+  finalReply = `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
+} else {
+  finalReply = await refineReply({
+    message,
+    draftReply: reply,
+    osContext,
+    executivePacket,
+  });
+}
     const model =
       out?.modelUsed?.model || out?.model || out?.engine || null;
 
