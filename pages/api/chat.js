@@ -237,7 +237,7 @@ const matched = topNode?.keywords?.some((k) => {
   );
 });
 
-if (matched) {
+if (topNode) {
 
       const execRes = await fetch(
   `${process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app"}/api/ciphernet/execute`,
