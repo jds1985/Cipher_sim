@@ -240,20 +240,21 @@ const matched = topNode?.keywords?.some((k) => {
 if (matched) {
 
       const execRes = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app"}/api/ciphernet/execute`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            nodeId: topNode.id,
-            userId: userId || "guest",
-            input: {
-            price: 250000,
-            monthlyRent: 2200,
-             monthlyExpenses: 700,
-          },
-        }
-      );
+  `${process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app"}/api/ciphernet/execute`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      nodeId: topNode.id,
+      userId: userId || "guest",
+      input: {
+        price: 250000,
+        monthlyRent: 2200,
+        monthlyExpenses: 700,
+      },
+    }),
+  }
+);
 
       const execData = await execRes.json();
 
