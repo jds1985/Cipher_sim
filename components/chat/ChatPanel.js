@@ -396,7 +396,7 @@ if (data?.remainingTokens !== undefined) {
     next[next.length - 1].content = finalOutput;
     let finalOutput = "";
 
-if (data?.nodeResult) {
+  if (data && data.nodeResult)
   const d = data.nodeResult;
 
   finalOutput = `
