@@ -392,12 +392,13 @@ if (nodeResult) {
     });
 
     return res.status(200).json({
-      reply: finalReply,
-      model,
-      roleStack: out?.roleStack || null,
-      memoryInfluence: exposeMemory(prioritizedNodes),
-      remainingTokens: getRemaining(tokenUserId, tier),
-    });
+  reply: finalText,
+  model,
+  memoryInfluence,
+
+  // 🔥 ADD THIS
+  nodeResult: execResult?.result?.output || null
+});
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
     return res.status(500).json({ error: err.message || "Chat failed" });
