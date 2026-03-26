@@ -363,49 +363,91 @@ await new Promise((resolve) => setTimeout(resolve, 250));
     }
 
     if (!useStream) {
-      const data = await res.json();
+  const data = await res.json();
 
-      // 🔋 update token meter from backend
-if (data?.remainingTokens !== undefined) {
-  setRemainingTokens(data.remainingTokens);
-}
-      setMessages((m) => {
-  const next = [...m];
-
-  let finalOutput = "";
-
-  // 🚀 NEW: structured node output
-  i
-   let finalOutput = "";
-
-if (data && data.nodeResult) {
-  const d = data.nodeResult;
-
-  finalOutput = `
-💰 ROI: ${d.roi}%
-📈 Revenue: $${d.revenue}
-👥 Users: ${d.users}
-  `;
-} else {
-  finalOutput = data.reply || "";
-}
-
-if (isQuickAction && targetIndex !== null) {
-  next[targetIndex].content = finalOutput;
-  next[targetIndex].transforming = false;
-} else {
-  next.push({
-    role: "assistant",
-    content: finalOutput
-  });
-}
-
-next[next.length - 1].content = finalOutput;
-    next[next.length - 1].memoryInfluence = data.memoryInfluence || [];
+  // 🔋 update token meter from backend
+  if (data?.remainingTokens !== undefined) {
+    setRemainingTokens(data.remainingTokens);
   }
 
-  return next;
-});
+  setMessages((m) => {
+    const next = [...m];
+
+    let finalOutput = "";
+
+    if (data && data.nodeResult) {
+      const d = data.nodeResult;
+
+      finalOutput = `
+💰 ROI: ${d.roi}%
+📈 Monthly Cash Flow: $${d.monthlyCashFlow}
+🏦 Annual Cash Flow: $${d.annualCashFlow}
+💸 Expenses: $${d.monthlyExpenses}
+⚠️ Risk: ${d.risk}
+      `;
+    } else {
+      finalOutput = data.reply || "";
+    }
+
+    if (isQuickAction && targetIndex !== null) {
+      next[targetIndex].content = finalOutput;
+      next[targetIndex].transforming = false;
+    } else {
+      next[next.length - 1].content = finalOutput;
+      next[next.length - 1].modelUsed = data.model || null;
+      next[next.length - 1].memoryInfluence = data.memoryInfluence || [];
+    }
+
+    return next;
+  });
+
+} else {
+  let streamed = "";
+
+  await readSSEStream(res, (evt) => {
+    if (evt?.type === "delta") {
+      streamed += evt.text || "";
+
+      setMessages((m) => {
+        const next = [...m];
+
+        if (isQuickAction && targetIndex !== null) {
+          next[targetIndex].content = streamed;
+        } else {
+          next[next.length - 1].content = streamed;
+        }
+
+        return next;
+      });
+    }
+
+    if (evt?.type === "done") {
+
+      // 🔋 update tokens after streamed reply
+      if (evt?.remainingTokens !== undefined) {
+        setRemainingTokens(evt.remainingTokens);
+      }
+
+      setMessages((m) => {
+        const next = [...m];
+
+        if (isQuickAction && targetIndex !== null) {
+          next[targetIndex].content =
+            evt.reply || next[targetIndex].content;
+          next[targetIndex].transforming = false;
+        } else {
+          next[next.length - 1].content =
+            evt.reply || next[next.length - 1].content;
+          next[next.length - 1].modelUsed = evt.model || null;
+          next[next.length - 1].memoryInfluence =
+            evt.memoryInfluence || [];
+        }
+
+        return next;
+      });
+    }
+  });
+}
       
 
     } else {
