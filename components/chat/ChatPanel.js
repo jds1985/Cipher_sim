@@ -372,7 +372,6 @@ await new Promise((resolve) => setTimeout(resolve, 250));
   setMessages((m) =>
     handleResponse(m, data, { isQuickAction, targetIndex })
   );
-}
 } else {
   let streamed = "";
 
