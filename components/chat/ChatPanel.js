@@ -365,7 +365,6 @@ await new Promise((resolve) => setTimeout(resolve, 250));
     if (!useStream) {
   const data = await res.json();
 
-  // 🔋 update token meter from backend
   if (data?.remainingTokens !== undefined) {
     setRemainingTokens(data.remainingTokens);
   }
@@ -400,7 +399,6 @@ await new Promise((resolve) => setTimeout(resolve, 250));
 
     return next;
   });
-
 } else {
   let streamed = "";
 
@@ -422,8 +420,6 @@ await new Promise((resolve) => setTimeout(resolve, 250));
     }
 
     if (evt?.type === "done") {
-
-      // 🔋 update tokens after streamed reply
       if (evt?.remainingTokens !== undefined) {
         setRemainingTokens(evt.remainingTokens);
       }
@@ -448,7 +444,6 @@ await new Promise((resolve) => setTimeout(resolve, 250));
     }
   });
 }
-      
 
     } else {
       let streamed = "";
