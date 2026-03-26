@@ -419,8 +419,6 @@ await new Promise((resolve) => setTimeout(resolve, 250));
   });
 }
 
-    } else {
-      let streamed = "";
 
       await readSSEStream(res, (evt) => {
         if (evt?.type === "delta") {
