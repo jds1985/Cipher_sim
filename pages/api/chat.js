@@ -363,39 +363,48 @@ if (nodeResult) {
   });
 }
     const model =
-      out?.modelUsed?.model || out?.model || out?.engine || null;
+  out?.modelUsed?.model || out?.model || out?.engine || null;
 
-    if (!isGuest) {
-      await saveMemory(userId, { type: "interaction", role: "user", content: message });
-      await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
+if (!isGuest) {
+  await saveMemory(userId, {
+    type: "interaction",
+    role: "user",
+    content: message,
+  });
 
-      const extracted = extractMemoryFromTurn(message, finalReply);
+  await saveMemory(userId, {
+    type: "interaction",
+    role: "assistant",
+    content: finalReply,
+  });
 
-      await writebackFromTurn({
-        userId,
-        userText: message,
-        assistantText: finalReply,
-        extracted,
-      });
+  const extracted = extractMemoryFromTurn(message, finalReply);
 
-      await runMemoryDecay(userId);
+  await writebackFromTurn({
+    userId,
+    userText: message,
+    assistantText: finalReply,
+    extracted,
+  });
 
-      const turns = (summaryDoc?.turns || 0) + 1;
-      await saveSummary(userId, summaryDoc?.text || "", turns);
-    }
+  await runMemoryDecay(userId);
 
-    spendTokens(tokenUserId, estimatedCost, tier);
+  const turns = (summaryDoc?.turns || 0) + 1;
+  await saveSummary(userId, summaryDoc?.text || "", turns);
+}
 
-    console.log("TOKENS AFTER SPEND:", {
-      userId: tokenUserId,
-      remainingAfter: getRemaining(tokenUserId, tier),
-    });
+spendTokens(tokenUserId, estimatedCost, tier);
 
-    return res.status(200).json({
+console.log("TOKENS AFTER SPEND:", {
+  userId: tokenUserId,
+  remainingAfter: getRemaining(tokenUserId, tier),
+});
+
+return res.status(200).json({
   reply: finalReply,
   model,
   roleStack: out?.roleStack || null,
   memoryInfluence: exposeMemory(prioritizedNodes),
   remainingTokens: getRemaining(tokenUserId, tier),
-  nodeResult: nodeResult || null
+  nodeResult: nodeResult || null,
 });
