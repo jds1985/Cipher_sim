@@ -397,6 +397,5 @@ if (nodeResult) {
   roleStack: out?.roleStack || null,
   memoryInfluence: exposeMemory(prioritizedNodes),
   remainingTokens: getRemaining(tokenUserId, tier),
-
   nodeResult: nodeResult || null
 });
