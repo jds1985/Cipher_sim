@@ -376,38 +376,28 @@ if (data?.remainingTokens !== undefined) {
 
   // 🚀 NEW: structured node output
   i
-   if (data && data.nodeResult) {
+   let finalOutput = "";
+
+if (data && data.nodeResult) {
   const d = data.nodeResult;
 
   finalOutput = `
 💰 ROI: ${d.roi}%
-📈 Monthly Cash Flow: $${d.monthlyCashFlow}
-🏦 Annual Cash Flow: $${d.annualCashFlow}
-💸 Expenses: $${d.monthlyExpenses}
-⚠️ Risk: ${d.risk}
+📈 Revenue: $${d.revenue}
+👥 Users: ${d.users}
   `;
 } else {
   finalOutput = data.reply || "";
-}     
-    iff (isQuickAction && targetIndex !== null) {
-    next[targetIndex].content = finalOutput;
-    next[targetIndex].transforming = false;
-  } else {
-    next[next.length - 1].content = finalOutput;
-    let finalOutput = "";
+}
 
-  if (data && data.nodeResult)
-  const d = data.nodeResult;
-
-  finalOutput = `
-💰 ROI: ${d.roi}%
-📈 Monthly Cash Flow: $${d.monthlyCashFlow}
-🏦 Annual Cash Flow: $${d.annualCashFlow}
-💸 Expenses: $${d.monthlyExpenses}
-⚠️ Risk: ${d.risk}
-  `;
+if (isQuickAction && targetIndex !== null) {
+  next[targetIndex].content = finalOutput;
+  next[targetIndex].transforming = false;
 } else {
-  finalOutput = data.reply || "";
+  next.push({
+    role: "assistant",
+    content: finalOutput
+  });
 }
 
 next[next.length - 1].content = finalOutput;
