@@ -40,6 +40,51 @@ function exposeMemory(nodes = []) {
     preview: (n?.content || n?.text || "").slice(0, 120),
   }));
 }
+function extractNumbers(message) {
+  const nums = message.match(/\d+/g)?.map(Number) || [];
+
+  return {
+    price: nums[0] || null,
+    monthlyRent: nums[1] || null,
+    monthlyExpenses: nums[2] || null,
+  };
+}
+async function agentDecision({ message, nodeOutputs, osContext, executivePacket }) {
+  const toolSummary = nodeOutputs
+    .map((n) => `${n.name}: ${JSON.stringify(n.result)}`)
+    .join("\n");
+
+  const agentPrompt = `
+You are an intelligent decision-making system.
+
+User question:
+${message}
+
+Tool results:
+${toolSummary}
+
+Your job:
+- Interpret the results
+- Combine them intelligently
+- Give a clear recommendation
+- Be decisive (not vague)
+
+Return only the final answer.
+`;
+
+  const packet = {
+    ...executivePacket,
+    systemPrompt: (executivePacket.systemPrompt || "") + "\n\n" + agentPrompt,
+  };
+
+  const out = await runOrchestrator({
+    osContext,
+    executivePacket: packet,
+    roles: null,
+  });
+
+  return out?.reply;
+}
 
 function clampRolesByTier(roles, tier) {
   const safe =
@@ -255,6 +300,7 @@ export default async function handler(req, res) {
     // 🧠 CIPHERNET AUTO DISCOVERY
     // ─────────────────────────────
     let nodeResult = null;
+let nodeOutputs = [];
 
     try {
       const query = encodeURIComponent(message.slice(0, 100));
@@ -268,9 +314,36 @@ export default async function handler(req, res) {
 
       console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
 
-      const topNode = searchData?.results?.[0];
+      const topNodes = (searchData?.results || []).slice(0, 3);
+let nodeOutputs = [];
 
-      if (topNode) {
+for (const node of topNodes) {
+  try {
+    const execRes = await fetch(`${baseUrl}/api/ciphernet/execute`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        nodeId: node.id,
+        userId: userId || "guest",
+        input: extractNumbers(message),
+      }),
+    });
+
+    const execData = await execRes.json();
+
+    if (execData?.ok) {
+      nodeOutputs.push({
+        name: node.name,
+        type: node.type,
+        result: execData.result?.output || execData.result,
+      });
+    }
+  } catch (e) {
+    console.log("Node failed:", node.id);
+  }
+}
         console.log("✅ FOUND NODE:", topNode);
 
         const execRes = await fetch(`${baseUrl}/api/ciphernet/execute`, {
@@ -458,16 +531,23 @@ export default async function handler(req, res) {
 
     let finalReply;
 
-    if (nodeResult) {
-      finalReply = formatNodeReply(nodeResult);
-    } else {
-      finalReply = await refineReply({
-        message,
-        draftReply: reply,
-        osContext,
-        executivePacket,
-      });
-    }
+    if (nodeOutputs && nodeOutputs.length > 0) {
+  finalReply = await agentDecision({
+    message,
+    nodeOutputs,
+    osContext,
+    executivePacket,
+  });
+} else if (nodeResult) {
+  finalReply = formatNodeReply(nodeResult);
+} else {
+  finalReply = await refineReply({
+    message,
+    draftReply: reply,
+    osContext,
+    executivePacket,
+  });
+}
 
     const model =
       out?.modelUsed?.model || out?.model || out?.engine || null;
