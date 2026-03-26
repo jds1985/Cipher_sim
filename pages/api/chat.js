@@ -21,7 +21,11 @@ import { buildMemoryInfluence } from "../../cipher_os/runtime/memoryInfluence.js
 import { prioritizeContext } from "../../cipher_os/runtime/contextPrioritizer.js";
 
 // 🆕 TOKEN BANK
-import { canSpend, spendTokens, getRemaining } from "../../cipher_os/billing/tokenBank.js";
+import {
+  canSpend,
+  spendTokens,
+  getRemaining,
+} from "../../cipher_os/billing/tokenBank.js";
 
 function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
@@ -38,11 +42,16 @@ function exposeMemory(nodes = []) {
 }
 
 function clampRolesByTier(roles, tier) {
-  const safe = roles && roles.architect && roles.refiner && roles.polisher ? roles : null;
+  const safe =
+    roles && roles.architect && roles.refiner && roles.polisher ? roles : null;
   if (!safe) return null;
 
   if (tier === "free") {
-    return { architect: "openai", refiner: "openai", polisher: "openai" };
+    return {
+      architect: "openai",
+      refiner: "openai",
+      polisher: "openai",
+    };
   }
 
   if (tier === "pro") {
@@ -92,6 +101,40 @@ Return ONLY the final response.
   return improved?.reply || draftReply;
 }
 
+function formatNodeReply(nodeResult) {
+  if (!nodeResult || typeof nodeResult !== "object") {
+    return `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
+  }
+
+  const parts = [];
+
+  if (nodeResult.roi !== undefined) {
+    parts.push(`💰 ROI: ${nodeResult.roi}%`);
+  }
+
+  if (nodeResult.monthlyCashFlow !== undefined) {
+    parts.push(`📈 Monthly Cash Flow: $${nodeResult.monthlyCashFlow}`);
+  }
+
+  if (nodeResult.annualCashFlow !== undefined) {
+    parts.push(`🏦 Annual Cash Flow: $${nodeResult.annualCashFlow}`);
+  }
+
+  if (nodeResult.monthlyExpenses !== undefined) {
+    parts.push(`💸 Expenses: $${nodeResult.monthlyExpenses}`);
+  }
+
+  if (nodeResult.risk !== undefined) {
+    parts.push(`⚠️ Risk: ${nodeResult.risk}`);
+  }
+
+  if (parts.length > 0) {
+    return parts.join("\n");
+  }
+
+  return `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -110,7 +153,6 @@ export default async function handler(req, res) {
     // ─────────────────────────────
     const userId = req.body?.userId || req.headers["x-user-id"] || null;
     const isGuest = !userId;
-
     const userName = req.body?.userName || null;
 
     // ─────────────────────────────
@@ -150,7 +192,9 @@ export default async function handler(req, res) {
       summaryDoc = await loadSummary(userId);
     }
 
-    const longTermHistory = Array.isArray(memoryData?.history) ? memoryData.history : [];
+    const longTermHistory = Array.isArray(memoryData?.history)
+      ? memoryData.history
+      : [];
 
     const prioritized = prioritizeContext({
       history: longTermHistory,
@@ -208,60 +252,58 @@ export default async function handler(req, res) {
     }
 
     // ─────────────────────────────
-// 🧠 CIPHERNET AUTO DISCOVERY
-// ─────────────────────────────
+    // 🧠 CIPHERNET AUTO DISCOVERY
+    // ─────────────────────────────
+    let nodeResult = null;
 
-let nodeResult = null;
+    try {
+      const query = encodeURIComponent(message.slice(0, 100));
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
 
-try {
-  const query = encodeURIComponent(message.slice(0, 100));
+      console.log("🔍 Searching:", `${baseUrl}/api/ciphernet/search?q=${query}`);
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
+      const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}`);
+      const searchData = await searchRes.json();
 
-  console.log("🔍 Searching:", `${baseUrl}/api/ciphernet/search?q=${query}`);
+      console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
 
-  const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}`);
-  const searchData = await searchRes.json();
+      const topNode = searchData?.results?.[0];
 
-  console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
+      if (topNode) {
+        console.log("✅ FOUND NODE:", topNode);
 
-  const topNode = searchData?.results?.[0];
+        const execRes = await fetch(`${baseUrl}/api/ciphernet/execute`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nodeId: topNode.id,
+            userId: userId || "guest",
+            input: {
+              price: 250000,
+              monthlyRent: 2200,
+              monthlyExpenses: 700,
+            },
+          }),
+        });
 
-  if (topNode) {
-    console.log("✅ FOUND NODE:", topNode);
+        const execData = await execRes.json();
 
-    const execRes = await fetch(`${baseUrl}/api/ciphernet/execute`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        nodeId: topNode.id,
-        userId: userId || "guest",
-        input: {
-          price: 250000,
-          monthlyRent: 2200,
-          monthlyExpenses: 700,
-        },
-      }),
-    });
+        console.log("⚙️ EXEC RESULT:", JSON.stringify(execData, null, 2));
 
-    const execData = await execRes.json();
-
-    console.log("⚙️ EXEC RESULT:", JSON.stringify(execData, null, 2));
-
-    if (execData?.ok) {
-      nodeResult = execData.result?.output || execData.result;
-      console.log("🔥 NODE RESULT SET:", nodeResult);
+        if (execData?.ok) {
+          nodeResult = execData.result?.output || execData.result;
+          console.log("🔥 NODE RESULT SET:", nodeResult);
+        }
+      } else {
+        console.log("❌ NO NODE FOUND");
+      }
+    } catch (e) {
+      console.log("❌ CipherNet discovery failed:", e.message);
     }
-  } else {
-    console.log("❌ NO NODE FOUND");
-  }
 
-} catch (e) {
-  console.log("❌ CipherNet discovery failed:", e.message);
-}
-    
     // ─────────────────────────────
     // STREAM MODE
     // ─────────────────────────────
@@ -270,6 +312,60 @@ try {
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("Connection", "keep-alive");
       res.flushHeaders?.();
+
+      // If CipherNet found a result, return that immediately even in stream mode
+      if (nodeResult) {
+        const finalReply = formatNodeReply(nodeResult);
+
+        if (!isGuest) {
+          await saveMemory(userId, {
+            type: "interaction",
+            role: "user",
+            content: message,
+          });
+
+          await saveMemory(userId, {
+            type: "interaction",
+            role: "assistant",
+            content: finalReply,
+          });
+
+          const extracted = extractMemoryFromTurn(message, finalReply);
+
+          await writebackFromTurn({
+            userId,
+            userText: message,
+            assistantText: finalReply,
+            extracted,
+          });
+
+          await runMemoryDecay(userId);
+
+          const turns = (summaryDoc?.turns || 0) + 1;
+          await saveSummary(userId, summaryDoc?.text || "", turns);
+        }
+
+        spendTokens(tokenUserId, estimatedCost, tier);
+
+        console.log("TOKENS AFTER SPEND:", {
+          userId: tokenUserId,
+          remainingAfter: getRemaining(tokenUserId, tier),
+        });
+
+        sseWrite(res, {
+          type: "done",
+          reply: finalReply,
+          model: "ciphernet",
+          provider: "internal",
+          roleStack: null,
+          memoryInfluence: exposeMemory(prioritizedNodes),
+          remainingTokens: getRemaining(tokenUserId, tier),
+          nodeResult,
+        });
+
+        res.end();
+        return;
+      }
 
       let streamedText = "";
 
@@ -294,8 +390,17 @@ try {
       }
 
       if (!isGuest) {
-        await saveMemory(userId, { type: "interaction", role: "user", content: message });
-        await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
+        await saveMemory(userId, {
+          type: "interaction",
+          role: "user",
+          content: message,
+        });
+
+        await saveMemory(userId, {
+          type: "interaction",
+          role: "assistant",
+          content: finalReply,
+        });
 
         const extracted = extractMemoryFromTurn(message, finalReply);
 
@@ -327,6 +432,7 @@ try {
         roleStack: null,
         memoryInfluence: exposeMemory(prioritizedNodes),
         remainingTokens: getRemaining(tokenUserId, tier),
+        nodeResult: null,
       });
 
       res.end();
@@ -346,65 +452,71 @@ try {
     const reply =
       typeof out === "string" ? out : out?.reply || out?.text || null;
 
-    if (!reply) {
+    if (!reply && !nodeResult) {
       return res.status(500).json({ error: "Model produced no reply" });
     }
 
     let finalReply;
 
-if (nodeResult) {
-  finalReply = `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
-} else {
-  finalReply = await refineReply({
-    message,
-    draftReply: reply,
-    osContext,
-    executivePacket,
-  });
-}
+    if (nodeResult) {
+      finalReply = formatNodeReply(nodeResult);
+    } else {
+      finalReply = await refineReply({
+        message,
+        draftReply: reply,
+        osContext,
+        executivePacket,
+      });
+    }
+
     const model =
-  out?.modelUsed?.model || out?.model || out?.engine || null;
+      out?.modelUsed?.model || out?.model || out?.engine || null;
 
-if (!isGuest) {
-  await saveMemory(userId, {
-    type: "interaction",
-    role: "user",
-    content: message,
-  });
+    if (!isGuest) {
+      await saveMemory(userId, {
+        type: "interaction",
+        role: "user",
+        content: message,
+      });
 
-  await saveMemory(userId, {
-    type: "interaction",
-    role: "assistant",
-    content: finalReply,
-  });
+      await saveMemory(userId, {
+        type: "interaction",
+        role: "assistant",
+        content: finalReply,
+      });
 
-  const extracted = extractMemoryFromTurn(message, finalReply);
+      const extracted = extractMemoryFromTurn(message, finalReply);
 
-  await writebackFromTurn({
-    userId,
-    userText: message,
-    assistantText: finalReply,
-    extracted,
-  });
+      await writebackFromTurn({
+        userId,
+        userText: message,
+        assistantText: finalReply,
+        extracted,
+      });
 
-  await runMemoryDecay(userId);
+      await runMemoryDecay(userId);
 
-  const turns = (summaryDoc?.turns || 0) + 1;
-  await saveSummary(userId, summaryDoc?.text || "", turns);
+      const turns = (summaryDoc?.turns || 0) + 1;
+      await saveSummary(userId, summaryDoc?.text || "", turns);
+    }
+
+    spendTokens(tokenUserId, estimatedCost, tier);
+
+    console.log("TOKENS AFTER SPEND:", {
+      userId: tokenUserId,
+      remainingAfter: getRemaining(tokenUserId, tier),
+    });
+
+    return res.status(200).json({
+      reply: finalReply,
+      model,
+      roleStack: out?.roleStack || null,
+      memoryInfluence: exposeMemory(prioritizedNodes),
+      remainingTokens: getRemaining(tokenUserId, tier),
+      nodeResult: nodeResult || null,
+    });
+  } catch (err) {
+    console.error("❌ /api/chat fatal error:", err);
+    return res.status(500).json({ error: err.message || "Chat failed" });
+  }
 }
-
-spendTokens(tokenUserId, estimatedCost, tier);
-
-console.log("TOKENS AFTER SPEND:", {
-  userId: tokenUserId,
-  remainingAfter: getRemaining(tokenUserId, tier),
-});
-
-return res.status(200).json({
-  reply: finalReply,
-  model,
-  roleStack: out?.roleStack || null,
-  memoryInfluence: exposeMemory(prioritizedNodes),
-  remainingTokens: getRemaining(tokenUserId, tier),
-  nodeResult: nodeResult || null
-});
