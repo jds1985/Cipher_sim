@@ -406,5 +406,5 @@ return res.status(200).json({
   roleStack: out?.roleStack || null,
   memoryInfluence: exposeMemory(prioritizedNodes),
   remainingTokens: getRemaining(tokenUserId, tier),
-  nodeResult: nodeResult || null,
+  nodeResult: nodeResult || null
 });
