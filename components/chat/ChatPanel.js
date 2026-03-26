@@ -375,21 +375,21 @@ if (data?.remainingTokens !== undefined) {
   let finalOutput = "";
 
   // 🚀 NEW: structured node output
-  if (data?.nodeResult) {
-    const d = data.nodeResult;
+  i
+   if (data && data.nodeResult) {
+  const d = data.nodeResult;
 
-    finalOutput = `
+  finalOutput = `
 💰 ROI: ${d.roi}%
 📈 Monthly Cash Flow: $${d.monthlyCashFlow}
 🏦 Annual Cash Flow: $${d.annualCashFlow}
 💸 Expenses: $${d.monthlyExpenses}
 ⚠️ Risk: ${d.risk}
-    `;
-  } else {
-    finalOutput = data.reply || "";
-  }
-
-  if (isQuickAction && targetIndex !== null) {
+  `;
+} else {
+  finalOutput = data.reply || "";
+}     
+    iff (isQuickAction && targetIndex !== null) {
     next[targetIndex].content = finalOutput;
     next[targetIndex].transforming = false;
   } else {
