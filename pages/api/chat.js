@@ -370,9 +370,7 @@ for (const node of topNodes) {
           nodeResult = execData.result?.output || execData.result;
           console.log("🔥 NODE RESULT SET:", nodeResult);
         }
-      } else {
-        console.log("❌ NO NODE FOUND");
-      }
+      
     } catch (e) {
       console.log("❌ CipherNet discovery failed:", e.message);
     }
