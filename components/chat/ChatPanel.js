@@ -4,7 +4,7 @@ import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import QuickActions from "./QuickActions";
-
+import { handleResponse } from "../../cipher_os/runtime/responseHandler";
 import { auth, db } from "../../lib/firebaseClient";
 import {
   createUserWithEmailAndPassword,
