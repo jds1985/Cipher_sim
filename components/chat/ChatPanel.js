@@ -375,51 +375,7 @@ await new Promise((resolve) => setTimeout(resolve, 250));
 } else {
   let streamed = "";
 
-  await readSSEStream(res, (evt) => {
-    if (evt?.type === "delta") {
-      streamed += evt.text || "";
-
-      setMessages((m) => {
-        const next = [...m];
-
-        if (isQuickAction && targetIndex !== null) {
-          next[targetIndex].content = streamed;
-        } else {
-          next[next.length - 1].content = streamed;
-        }
-
-        return next;
-      });
-    }
-
-    if (evt?.type === "done") {
-      if (evt?.remainingTokens !== undefined) {
-        setRemainingTokens(evt.remainingTokens);
-      }
-
-      setMessages((m) => {
-        const next = [...m];
-
-        if (isQuickAction && targetIndex !== null) {
-          next[targetIndex].content =
-            evt.reply || next[targetIndex].content;
-          next[targetIndex].transforming = false;
-        } else {
-          next[next.length - 1].content =
-            evt.reply || next[next.length - 1].content;
-          next[next.length - 1].modelUsed = evt.model || null;
-          next[next.length - 1].memoryInfluence =
-            evt.memoryInfluence || [];
-        }
-
-        return next;
-      });
-    }
-  });
-}
-
-
-      await readSSEStream(res, (evt) => {
+       await readSSEStream(res, (evt) => {
         if (evt?.type === "delta") {
           streamed += evt.text || "";
 
