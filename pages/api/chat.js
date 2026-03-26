@@ -398,6 +398,5 @@ if (nodeResult) {
   memoryInfluence: exposeMemory(prioritizedNodes),
   remainingTokens: getRemaining(tokenUserId, tier),
 
-  // 🔥 THIS IS THE IMPORTANT ONE
   nodeResult: nodeResult || null
 });
