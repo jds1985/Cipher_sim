@@ -316,35 +316,7 @@ export default async function handler(req, res) {
 
       console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
 
-      const topNodes = (searchData?.results || []).slice(0, 3);
-
-      for (const node of topNodes) {
-        try {
-          const execRes = await fetch(`${baseUrl}/api/ciphernet/execute`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              nodeId: node.id,
-              userId: userId || "guest",
-              input: extractNumbers(message),
-            }),
-          });
-
-          const execData = await execRes.json();
-
-          if (execData?.ok) {
-            nodeOutputs.push({
-              name: node.name,
-              type: node.type,
-              result: execData.result?.output || execData.result,
-            });
-          }
-        } catch (e) {
-          console.log("Node failed:", node.id);
-        }
-      }
+      
 
       console.log("🧠 NODE OUTPUTS:", JSON.stringify(nodeOutputs, null, 2));
 
@@ -354,6 +326,55 @@ export default async function handler(req, res) {
     } catch (e) {
       console.log("❌ CipherNet discovery failed:", e.message);
     }
+
+    // 🔥 MULTI-NODE EXECUTION (Phase 3.5)
+
+const MAX_NODES = 3;
+
+const selectedNodes = (searchData.results || []).slice(0, MAX_NODES);
+
+console.log("🧠 SELECTED NODES:", selectedNodes.map(n => n.name));
+
+// execute all nodes in parallel
+const execResults = await Promise.all(
+  selectedNodes.map(async (node) => {
+    try {
+      const execRes = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/api/ciphernet/execute`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nodeId: node.id,
+            input: userMessage,
+            userId,
+          }),
+        }
+      );
+
+      const execData = await execRes.json();
+
+      if (!execRes.ok) {
+        console.log("❌ EXEC FAILED:", node.name, execData);
+        return null;
+      }
+
+      return {
+        name: node.name,
+        type: node.type,
+        result: execData.result,
+      };
+    } catch (err) {
+      console.log("❌ EXEC ERROR:", node.name, err.message);
+      return null;
+    }
+  })
+);
+
+// filter out failed nodes
+const nodeOutputs = execResults.filter(Boolean);
+
+console.log("🧠 NODE OUTPUTS:", nodeOutputs);
 
     // ─────────────────────────────
     // STREAM MODE
