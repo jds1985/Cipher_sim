@@ -372,7 +372,7 @@ const execResults = await Promise.all(
 );
 
 // filter out failed nodes
-const nodeOutputs = execResults.filter(Boolean);
+nodeOutputs = execResults.filter(Boolean);
 
 console.log("🧠 NODE OUTPUTS:", nodeOutputs);
 
