@@ -571,3 +571,4 @@ for (const node of topNodes) {
     return res.status(500).json({ error: err.message || "Chat failed" });
   }
 }
+}
