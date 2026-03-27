@@ -530,12 +530,13 @@ console.log("🧠 NODE OUTPUTS:", nodeOutputs);
     let finalReply;
 
     if (nodeOutputs && nodeOutputs.length > 0) {
-      finalReply = await agentDecision({
-        message,
-        nodeOutputs,
-        osContext,
-        executivePacket,
-      });
+  finalReply = await agentDecision({
+    message,
+    nodeOutputs,
+    osContext,
+    executivePacket,
+  });
+}
     } else if (nodeResult) {
       finalReply = formatNodeReply(nodeResult);
     } else {
