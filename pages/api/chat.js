@@ -568,7 +568,8 @@ for (const node of topNodes) {
     });
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
-    return res.status(500).json({ error: err.message || "Chat failed" });
+    return res.status(500).json({
+      error: err.message || "Chat failed",
+    });
   }
-}
 }
