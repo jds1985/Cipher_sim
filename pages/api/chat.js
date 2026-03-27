@@ -315,7 +315,7 @@ let nodeOutputs = [];
       console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
 
       const topNodes = (searchData?.results || []).slice(0, 3);
-let nodeOutputs = [];
+
 
 for (const node of topNodes) {
   try {
@@ -344,7 +344,9 @@ for (const node of topNodes) {
     console.log("Node failed:", node.id);
   }
 }
-        console.log("✅ FOUND NODE:", topNode);
+  console.log("🧠 NODE OUTPUTS:", JSON.stringify(nodeOutputs, null, 2));
+      
+      console.log("✅ FOUND NODE:", topNode);
 
         const execRes = await fetch(`${baseUrl}/api/ciphernet/execute`, {
           method: "POST",
