@@ -299,21 +299,19 @@ export default async function handler(req, res) {
     }
 
     // ─────────────────────────────
-    // 🧠 CIPHERNET AUTO DISCOVERY
+    //  CIPHERNET AUTO DISCOVERY
     // ─────────────────────────────
     let nodeResult = null;
-    let nodeOutputs = [];
+let nodeOutputs = [];
+let searchData = null; // 👈 ADD THIS LINE
 
-    try {
-      const query = encodeURIComponent(message.slice(0, 100));
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
+try {
+  const query = encodeURIComponent(message.slice(0, 100));
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
 
-      console.log("🔍 Searching:", `${baseUrl}/api/ciphernet/search?q=${query}`);
-
-      const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}`);
-      const searchData = await searchRes.json();
-
+  const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}`);
+  searchData = await searchRes.json(); // 👈 REMOVE const
       console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
 
       
