@@ -343,10 +343,11 @@ const execResults = await Promise.all(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            nodeId: node.id,
-            input: userMessage,
-            userId,
-          }),
+         nodeId: node.id,
+         userId: userId || "guest",
+         input: extractNumbers(message),
+        userMessage: message, // 👈 ADD THIS
+       }),
         }
       );
 
