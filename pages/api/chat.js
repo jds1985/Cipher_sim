@@ -573,3 +573,5 @@ for (const node of topNodes) {
     });
   }
 }
+}
+
