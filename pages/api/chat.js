@@ -346,36 +346,7 @@ for (const node of topNodes) {
 }
   console.log("🧠 NODE OUTPUTS:", JSON.stringify(nodeOutputs, null, 2));
       
-      console.log("✅ FOUND NODE:", topNode);
-
-        const execRes = await fetch(`${baseUrl}/api/ciphernet/execute`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            nodeId: topNode.id,
-            userId: userId || "guest",
-            input: {
-              price: 250000,
-              monthlyRent: 2200,
-              monthlyExpenses: 700,
-            },
-          }),
-        });
-
-        const execData = await execRes.json();
-
-        console.log("⚙️ EXEC RESULT:", JSON.stringify(execData, null, 2));
-
-        if (execData?.ok) {
-          nodeResult = execData.result?.output || execData.result;
-          console.log("🔥 NODE RESULT SET:", nodeResult);
-        }
       
-    } catch (e) {
-      console.log("❌ CipherNet discovery failed:", e.message);
-    }
 
     // ─────────────────────────────
     // STREAM MODE
