@@ -361,7 +361,7 @@ const execResults = await Promise.all(
       return {
         name: node.name,
         type: node.type,
-        result: execData.result,
+        result: execData.result?.output ?? execData.result,
       };
     } catch (err) {
       console.log("❌ EXEC ERROR:", node.name, err.message);
