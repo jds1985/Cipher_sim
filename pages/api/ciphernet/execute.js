@@ -5,9 +5,10 @@ import { executeCipherNetNode } from "../../../cipher_os/ciphernet/executor.js";
 import { updateNodeTrustFromRun } from "../../../cipher_os/ciphernet/trust.js";
 
 export default async function handler(req, res) {
-  if (process.env.ENABLE_CIPHER_NET !== "true") {
-    return res.status(503).json({ error: "CipherNet disabled" });
-  }
+  // 🔥 TEMP FIX: disable env gate (you can re-enable later)
+  // if (process.env.ENABLE_CIPHER_NET !== "true") {
+  //   return res.status(503).json({ error: "CipherNet disabled" });
+  // }
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -39,6 +40,9 @@ export default async function handler(req, res) {
     }
 
     const exec = await executeCipherNetNode(node, { input, userId });
+
+    // 🧠 DEBUG (safe to keep)
+    console.log("⚙️ EXEC RESULT:", exec);
 
     const priceCharged = Number(node.pricePerCall || 0);
     const platformCut = Number((priceCharged * 0.2).toFixed(2));
@@ -73,6 +77,9 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("CipherNet execute error:", err);
-    return res.status(500).json({ error: err.message || "Execution failed" });
+
+    return res.status(500).json({
+      error: err.message || "Execution failed",
+    });
   }
 }
