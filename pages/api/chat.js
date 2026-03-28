@@ -542,23 +542,19 @@ if (nodeOutputs.length > 0) {
     }
 
     let finalReply;
-    console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
-   
-    if (nodeResult) {
-  finalReply = formatNodeReply(nodeResult);
-}
-  
 
-    } else if (nodeResult) {
-      finalReply = formatNodeReply(nodeResult);
-    } else {
-      finalReply = await refineReply({
-        message,
-        draftReply: reply,
-        osContext,
-        executivePacket,
-      });
-    }
+console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
+
+if (nodeResult) {
+  finalReply = formatNodeReply(nodeResult);
+} else {
+  finalReply = await refineReply({
+    message,
+    draftReply: reply,
+    osContext,
+    executivePacket,
+  });
+}
 
     const model =
       out?.modelUsed?.model || out?.model || out?.engine || null;
