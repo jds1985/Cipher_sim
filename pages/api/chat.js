@@ -372,10 +372,22 @@ const execResults = await Promise.all(
 
 // filter out failed nodes
 nodeOutputs = execResults.filter(Boolean);
+
+//  MERGE ALL NODE RESULTS
+ mergedNodeResult let = null;
+
 if (nodeOutputs.length > 0) {
-  nodeResult = nodeOutputs[0].result;
-}
-console.log("🧠 NODE OUTPUTS:", nodeOutputs);
+  mergedNodeResult = {};
+
+  for (const node of nodeOutputs) {
+    Object.assign(mergedNodeResult, node.result);
+  }
+
+   nodeResult = mergedNodeResult;
+  }
+
+   console.log("🧠 NODE OUTPUTS:", nodeOutputs);
+   console.log("🧠 MERGED RESULT:", nodeResult);
 
     // ─────────────────────────────
     // STREAM MODE
