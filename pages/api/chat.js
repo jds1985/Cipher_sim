@@ -533,11 +533,9 @@ console.log("🧠 NODE OUTPUTS:", nodeOutputs);
     console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
    
     if (nodeOutputs && nodeOutputs.length > 0) {
-  finalReply = await agentDecision({
-    message,
-    nodeOutputs,
-    osContext,
-    executivePacket,
+  finalReply = nodeOutputs
+  .map(n => `🔹 ${n.name}\n${formatNodeReply(n.result)}`)
+  .join("\n\n");
   });
 
     } else if (nodeResult) {
