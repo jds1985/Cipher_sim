@@ -544,10 +544,9 @@ if (nodeOutputs.length > 0) {
     let finalReply;
     console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
    
-    if (nodeOutputs && nodeOutputs.length > 0) {
-  finalReply = nodeOutputs
-  .map(n => `🔹 ${n.name}\n${formatNodeReply(n.result)}`)
-  .join("\n\n");
+    if (nodeResult) {
+  finalReply = formatNodeReply(nodeResult);
+}
   
 
     } else if (nodeResult) {
