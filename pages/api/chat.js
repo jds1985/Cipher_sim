@@ -536,7 +536,7 @@ console.log("🧠 NODE OUTPUTS:", nodeOutputs);
   finalReply = nodeOutputs
   .map(n => `🔹 ${n.name}\n${formatNodeReply(n.result)}`)
   .join("\n\n");
-  });
+  
 
     } else if (nodeResult) {
       finalReply = formatNodeReply(nodeResult);
