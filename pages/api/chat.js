@@ -372,7 +372,9 @@ const execResults = await Promise.all(
 
 // filter out failed nodes
 nodeOutputs = execResults.filter(Boolean);
-
+if (nodeOutputs.length > 0) {
+  nodeResult = nodeOutputs[0].result;
+}
 console.log("🧠 NODE OUTPUTS:", nodeOutputs);
 
     // ─────────────────────────────
@@ -528,7 +530,8 @@ console.log("🧠 NODE OUTPUTS:", nodeOutputs);
     }
 
     let finalReply;
-
+    console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
+   
     if (nodeOutputs && nodeOutputs.length > 0) {
   finalReply = await agentDecision({
     message,
