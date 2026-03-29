@@ -217,40 +217,23 @@ async function synthesizeFinalAnswer({
     parts.push(`⚠️ Risk: ${mergedNodeResult.risk}`);
   }
 
-  // 🧠 DECISION LAYER
-  let verdict = "";
-  let reasoning = [];
+  //  DECISION LAYER
+  const decision = await agentDecision({
+  message: userMessage,
+  nodeOutputs,
+  osContext: null,
+  executivePacket: {
+    systemPrompt: "You are a real estate investment analyst.",
+  },
+});
 
-  if (mergedNodeResult.monthlyCashFlow > 0) {
-    reasoning.push("positive cash flow");
-  }
-
-  if (mergedNodeResult.roi > 15) {
-    reasoning.push("strong ROI");
-  }
-
-  if (mergedNodeResult.risk === "low") {
-    reasoning.push("low risk profile");
-  }
-
-  if (reasoning.length >= 2) {
-    verdict = "✅ This looks like a strong investment.";
-  } else if (mergedNodeResult.monthlyCashFlow < 0) {
-    verdict = "❌ This deal may lose money monthly.";
-  } else {
-    verdict = "⚠️ This deal needs deeper review.";
-  }
-
-  return `
+return `
 📊 Investment Analysis
 
 ${parts.join("\n")}
 
-🧠 Verdict:
-${verdict}
-
-📌 Reasoning:
-- ${reasoning.join("\n- ")}
+🧠 Analysis:
+${decision}
 `;
 }
 
