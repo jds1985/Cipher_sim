@@ -57,7 +57,7 @@ async function agentDecision({ message, nodeOutputs, osContext, executivePacket 
     .join("\n");
 
   const agentPrompt = `
-You are an intelligent decision-making system.
+You are a senior real estate investment analyst.
 
 User question:
 ${message}
@@ -66,12 +66,18 @@ Tool results:
 ${toolSummary}
 
 Your job:
-- Interpret the results
-- Combine them intelligently
-- Give a clear recommendation
-- Be decisive (not vague)
+- Interpret all tool outputs together (not separately)
+- Identify strengths and weaknesses of the deal
+- Call out unrealistic assumptions if any
+- Assess risk clearly (low, medium, high and why)
+- Give a decisive recommendation (buy, caution, avoid)
 
-Return only the final answer.
+Style:
+- Be concise but insightful
+- Sound like a professional investor, not a chatbot
+- No fluff, no generic advice
+
+Return only the final analysis.
 `;
 
   const packet = {
