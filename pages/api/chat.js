@@ -472,7 +472,11 @@ if (nodeOutputs.length > 0) {
 
       // If CipherNet found a result, return that immediately even in stream mode
       if (nodeResult) {
-        const finalReply = formatNodeReply(nodeResult);
+        const finalReply = await synthesizeFinalAnswer({
+      userMessage: message,
+      nodeOutputs,
+     mergedNodeResult: nodeResult,
+   });
 
         if (!isGuest) {
           await saveMemory(userId, {
