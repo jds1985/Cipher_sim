@@ -152,7 +152,44 @@ function formatNodeReply(nodeResult) {
   if (!nodeResult || typeof nodeResult !== "object") {
     return `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
   }
+  async function synthesizeFinalAnswer({
+  userMessage,
+  nodeOutputs,
+  mergedNodeResult,
+}) {
+  const parts = [];
 
+  if (mergedNodeResult.roi !== undefined) {
+    parts.push(`💰 ROI: ${mergedNodeResult.roi}%`);
+  }
+
+  if (mergedNodeResult.monthlyCashFlow !== undefined) {
+    parts.push(`📈 Monthly Cash Flow: $${mergedNodeResult.monthlyCashFlow}`);
+  }
+
+  if (mergedNodeResult.annualCashFlow !== undefined) {
+    parts.push(`🏦 Annual Cash Flow: $${mergedNodeResult.annualCashFlow}`);
+  }
+
+  if (mergedNodeResult.monthlyPayment !== undefined) {
+    parts.push(`🏦 Monthly Payment: $${mergedNodeResult.monthlyPayment}`);
+  }
+
+  if (mergedNodeResult.estimatedCashNeeded !== undefined) {
+    parts.push(`💵 Cash Needed: $${mergedNodeResult.estimatedCashNeeded}`);
+  }
+
+  if (mergedNodeResult.expenseRatio !== undefined) {
+    parts.push(`📊 Expense Ratio: ${mergedNodeResult.expenseRatio}`);
+  }
+
+  if (mergedNodeResult.risk !== undefined) {
+    parts.push(`⚠️ Risk: ${mergedNodeResult.risk}`);
+  }
+
+  return `📊 Investment Analysis:\n\n${parts.join("\n")}`;
+}
+  
   const parts = [];
 
   if (nodeResult.roi !== undefined) {
@@ -545,8 +582,12 @@ if (nodeOutputs.length > 0) {
 
 console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
 
-if (nodeResult) {
-  finalReply = formatNodeReply(nodeResult);
+if (nodeOutputs.length > 0 && nodeResult) {
+  finalReply = await synthesizeFinalAnswer({
+    userMessage: message,
+    nodeOutputs,
+    mergedNodeResult: nodeResult,
+  });
 } else {
   finalReply = await refineReply({
     message,
@@ -555,7 +596,6 @@ if (nodeResult) {
     executivePacket,
   });
 }
-
     const model =
       out?.modelUsed?.model || out?.model || out?.engine || null;
 
