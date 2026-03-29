@@ -152,7 +152,37 @@ function formatNodeReply(nodeResult) {
   if (!nodeResult || typeof nodeResult !== "object") {
     return `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
   }
-  async function synthesizeFinalAnswer({
+    
+  const parts = [];
+
+  if (nodeResult.roi !== undefined) {
+    parts.push(`💰 ROI: ${nodeResult.roi}%`);
+  }
+
+  if (nodeResult.monthlyCashFlow !== undefined) {
+    parts.push(`📈 Monthly Cash Flow: $${nodeResult.monthlyCashFlow}`);
+  }
+
+  if (nodeResult.annualCashFlow !== undefined) {
+    parts.push(`🏦 Annual Cash Flow: $${nodeResult.annualCashFlow}`);
+  }
+
+  if (nodeResult.monthlyExpenses !== undefined) {
+    parts.push(`💸 Expenses: $${nodeResult.monthlyExpenses}`);
+  }
+
+  if (nodeResult.risk !== undefined) {
+    parts.push(`⚠️ Risk: ${nodeResult.risk}`);
+  }
+
+  if (parts.length > 0) {
+    return parts.join("\n");
+  }
+
+  return `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
+}
+
+async function synthesizeFinalAnswer({
   userMessage,
   nodeOutputs,
   mergedNodeResult,
@@ -187,36 +217,41 @@ function formatNodeReply(nodeResult) {
     parts.push(`⚠️ Risk: ${mergedNodeResult.risk}`);
   }
 
-  return `📊 Investment Analysis:\n\n${parts.join("\n")}`;
-}
-  
-  const parts = [];
+  // 🧠 DECISION LAYER
+  let verdict = "";
+  let reasoning = [];
 
-  if (nodeResult.roi !== undefined) {
-    parts.push(`💰 ROI: ${nodeResult.roi}%`);
+  if (mergedNodeResult.monthlyCashFlow > 0) {
+    reasoning.push("positive cash flow");
   }
 
-  if (nodeResult.monthlyCashFlow !== undefined) {
-    parts.push(`📈 Monthly Cash Flow: $${nodeResult.monthlyCashFlow}`);
+  if (mergedNodeResult.roi > 15) {
+    reasoning.push("strong ROI");
   }
 
-  if (nodeResult.annualCashFlow !== undefined) {
-    parts.push(`🏦 Annual Cash Flow: $${nodeResult.annualCashFlow}`);
+  if (mergedNodeResult.risk === "low") {
+    reasoning.push("low risk profile");
   }
 
-  if (nodeResult.monthlyExpenses !== undefined) {
-    parts.push(`💸 Expenses: $${nodeResult.monthlyExpenses}`);
+  if (reasoning.length >= 2) {
+    verdict = "✅ This looks like a strong investment.";
+  } else if (mergedNodeResult.monthlyCashFlow < 0) {
+    verdict = "❌ This deal may lose money monthly.";
+  } else {
+    verdict = "⚠️ This deal needs deeper review.";
   }
 
-  if (nodeResult.risk !== undefined) {
-    parts.push(`⚠️ Risk: ${nodeResult.risk}`);
-  }
+  return `
+📊 Investment Analysis
 
-  if (parts.length > 0) {
-    return parts.join("\n");
-  }
+${parts.join("\n")}
 
-  return `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
+🧠 Verdict:
+${verdict}
+
+📌 Reasoning:
+- ${reasoning.join("\n- ")}
+`;
 }
 
 export default async function handler(req, res) {
