@@ -221,10 +221,8 @@ async function synthesizeFinalAnswer({
   const decision = await agentDecision({
   message: userMessage,
   nodeOutputs,
-  osContext: null,
-  executivePacket: {
-    systemPrompt: "You are a real estate investment analyst.",
-  },
+  osContext,
+  executivePacket,
 });
 
 return `
