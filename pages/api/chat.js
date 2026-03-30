@@ -363,8 +363,8 @@ export default async function handler(req, res) {
     //  CIPHERNET AUTO DISCOVERY
     // ─────────────────────────────
     let nodeResult = null;
-let nodeOutputs = [];
-let searchData = null; // 👈 ADD THIS LINE
+    let nodeOutputs = [];
+    let searchData = null; // 👈 ADD THIS LINE
 
 try {
   const query = encodeURIComponent(message.slice(0, 100));
@@ -390,7 +390,8 @@ try {
 
 const MAX_NODES = 3;
 
-const selectedNodes = (searchData.results || []).slice(0, MAX_NODES);
+const selectedNodes = (searchData.results || [])
+  .filter(n => n.name === "Real Estate Simple V2");
 
 console.log("🧠 SELECTED NODES:", selectedNodes.map(n => n.name));
 
@@ -439,10 +440,16 @@ nodeOutputs = execResults.filter(Boolean);
 
 if (nodeOutputs.length > 0) {
   mergedNodeResult = {};
-
   for (const node of nodeOutputs) {
-    Object.assign(mergedNodeResult, node.result);
+    for (const node of nodeOutputs) {
+  for (const key in node.result) {
+    if (node.result[key] !== 0 && node.result[key] !== null) {
+      mergedNodeResult[key] = node.result[key];
+    }
   }
+}
+    
+  
 
    nodeResult = mergedNodeResult;
   }
