@@ -3,7 +3,9 @@ export const INTERNAL_NODES = {
     console.log("📥 NODE INPUT:", input);
     console.log("🔥 V2 NODE ACTIVE 🔥");
 
-    let { price, monthlyRent, monthlyExpenses } = input || {};
+    const raw = input?.input || input || {};
+
+    let { price, monthlyRent, monthlyExpenses } = raw;
 
     price = Number(price || 0);
     monthlyRent = Number(monthlyRent || 0);
