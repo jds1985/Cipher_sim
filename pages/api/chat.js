@@ -436,7 +436,7 @@ const execResults = await Promise.all(
 nodeOutputs = execResults.filter(Boolean);
 
 //  MERGE ALL NODE RESULTS
- let mergedNodeResult = null;
+let mergedNodeResult = null;
 
 if (nodeOutputs.length > 0) {
   mergedNodeResult = {};
