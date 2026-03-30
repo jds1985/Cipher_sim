@@ -1,5 +1,38 @@
 export const INTERNAL_NODES = {
-  real_estate_simple_v2: async ({ input }) => {
+  real_estate_simple_v2: async (input) => {
+  let { price, monthlyRent, monthlyExpenses } = input;
+
+  // 🧠 Normalize price (250 → 250000)
+  if (price && price < 1000) {
+    price = price * 1000;
+  }
+
+  const monthlyCashFlow = monthlyRent - monthlyExpenses;
+  const annualCashFlow = monthlyCashFlow * 12;
+
+  const roi = price
+    ? Number(((annualCashFlow / price) * 100).toFixed(2))
+    : 0;
+
+  const expenseRatio = monthlyRent
+    ? Math.round((monthlyExpenses / monthlyRent) * 100)
+    : 0;
+
+  let risk = "low";
+  if (expenseRatio > 60) risk = "high";
+  else if (expenseRatio > 40) risk = "medium";
+
+  return {
+    price,
+    monthlyRent,
+    monthlyExpenses,
+    monthlyCashFlow,
+    annualCashFlow,
+    roi,
+    expenseRatio,
+    risk,
+  };
+}
     console.log("📥 NODE INPUT:", input);
     console.log("🔥 V2 NODE ACTIVE 🔥");
     const price = Number(input?.price || 0);
