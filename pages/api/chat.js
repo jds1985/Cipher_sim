@@ -687,5 +687,6 @@ finalReply = await synthesizeFinalAnswer({
     return res.status(500).json({
       error: err.message || "Chat failed",
     });
-  }
+   }
+ }
 }
