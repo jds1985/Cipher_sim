@@ -691,3 +691,4 @@ finalReply = await synthesizeFinalAnswer({
     error: err.message || "Chat failed",
   });
 }
+}
