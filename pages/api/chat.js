@@ -682,11 +682,9 @@ finalReply = await synthesizeFinalAnswer({
       remainingTokens: getRemaining(tokenUserId, tier),
       nodeResult: nodeResult || null,
     });
-  } catch (err) {
-    console.error("❌ /api/chat fatal error:", err);
-    return res.status(500).json({
-      error: err.message || "Chat failed",
-    });
-   }
- }
-
+} catch (err) {
+  console.error("❌ /api/chat fatal error:", err);
+  return res.status(500).json({
+    error: err.message || "Chat failed",
+  });
+}
