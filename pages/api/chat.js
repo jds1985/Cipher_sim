@@ -364,18 +364,16 @@ export default async function handler(req, res) {
     // ─────────────────────────────
     let nodeResult = null;
     let nodeOutputs = [];
-    let searchData = null; // 👈 ADD THIS LINE
+    let searchData = null; 
 
-try {
-  const query = encodeURIComponent(message.slice(0, 100));
-  const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
+    try {
+      const query = encodeURIComponent(message.slice(0, 100));
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
 
-  const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}`);
-  searchData = await searchRes.json(); // 👈 REMOVE const
+      const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}`);
+      searchData = await searchRes.json(); 
       console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
-
-      
 
       console.log("🧠 NODE OUTPUTS:", JSON.stringify(nodeOutputs, null, 2));
 
@@ -387,78 +385,75 @@ try {
     }
 
     // 🔥 MULTI-NODE EXECUTION (Phase 3.5)
+    // We only proceed if searchData was successfully fetched
+    if (searchData && searchData.results) {
+      const MAX_NODES = 3;
 
-const MAX_NODES = 3;
+      const selectedNodes = (searchData.results || [])
+        .filter(n => n.name === "Real Estate Simple V2");
 
-const selectedNodes = (searchData.results || [])
-  .filter(n => n.name === "Real Estate Simple V2");
+      console.log("🧠 SELECTED NODES:", selectedNodes.map(n => n.name));
 
-console.log("🧠 SELECTED NODES:", selectedNodes.map(n => n.name));
+      // execute all nodes in parallel
+      const execResults = await Promise.all(
+        selectedNodes.map(async (node) => {
+          try {
+            const execRes = await fetch(
+              `${process.env.NEXT_PUBLIC_BASE_URL}/api/ciphernet/execute`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  nodeId: node.id,
+                  userId: userId || "guest",
+                  input: extractNumbers(message),
+                  userMessage: message, 
+                }),
+              }
+            );
 
-// execute all nodes in parallel
-const execResults = await Promise.all(
-  selectedNodes.map(async (node) => {
-    try {
-      const execRes = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/api/ciphernet/execute`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-         nodeId: node.id,
-         userId: userId || "guest",
-         input: extractNumbers(message),
-        userMessage: message, // 👈 ADD THIS
-       }),
-        }
+            const execData = await execRes.json();
+
+            if (!execRes.ok) {
+              console.log("❌ EXEC FAILED:", node.name, execData);
+              return null;
+            }
+
+            return {
+              name: node.name,
+              type: node.type,
+              result: execData.result?.output ?? execData.result,
+            };
+          } catch (err) {
+            console.log("❌ EXEC ERROR:", node.name, err.message);
+            return null;
+          }
+        })
       );
 
-      const execData = await execRes.json();
+      // filter out failed nodes
+      nodeOutputs = execResults.filter(Boolean);
 
-      if (!execRes.ok) {
-        console.log("❌ EXEC FAILED:", node.name, execData);
-        return null;
-      }
+      //  MERGE ALL NODE RESULTS
+      let mergedNodeResult = null;
 
-      return {
-        name: node.name,
-        type: node.type,
-        result: execData.result?.output ?? execData.result,
-      };
-    } catch (err) {
-      console.log("❌ EXEC ERROR:", node.name, err.message);
-      return null;
-    }
-  })
-);
+      if (nodeOutputs.length > 0) {
+        mergedNodeResult = {};
 
-// filter out failed nodes
-nodeOutputs = execResults.filter(Boolean);
+        for (const node of nodeOutputs) {
+          for (const key in node.result) {
+            if (node.result[key] !== 0 && node.result[key] !== null) {
+              mergedNodeResult[key] = node.result[key];
+            }
+          }
+        }
 
-//  MERGE ALL NODE RESULTS
-let mergedNodeResult = null;
-
-if (nodeOutputs.length > 0) {
-  mergedNodeResult = {};
-
-  for (const node of nodeOutputs) {
-    for (const key in node.result) {
-      if (node.result[key] !== 0 && node.result[key] !== null) {
-        mergedNodeResult[key] = node.result[key];
+        nodeResult = mergedNodeResult;
       }
     }
-  }
 
-  nodeResult = mergedNodeResult;
-}
-    
-  
-
-   nodeResult = mergedNodeResult;
-  }
-
-   console.log("🧠 NODE OUTPUTS:", nodeOutputs);
-   console.log("🧠 MERGED RESULT:", nodeResult);
+    console.log("🧠 NODE OUTPUTS:", nodeOutputs);
+    console.log("🧠 MERGED RESULT:", nodeResult);
 
     // ─────────────────────────────
     // STREAM MODE
@@ -472,12 +467,12 @@ if (nodeOutputs.length > 0) {
       // If CipherNet found a result, return that immediately even in stream mode
       if (nodeResult) {
         const finalReply = await synthesizeFinalAnswer({
-      userMessage: message,
-      nodeOutputs,
-      mergedNodeResult: nodeResult,
-     osContext,
-     executivePacket,
-  });
+          userMessage: message,
+          nodeOutputs,
+          mergedNodeResult: nodeResult,
+          osContext,
+          executivePacket,
+        });
 
         if (!isGuest) {
           await saveMemory(userId, {
@@ -620,25 +615,24 @@ if (nodeOutputs.length > 0) {
 
     let finalReply;
 
-console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
+    console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
 
-if (nodeOutputs.length > 0 && nodeResult) {
-  
-finalReply = await synthesizeFinalAnswer({
-  userMessage: message,
-  nodeOutputs,
-  mergedNodeResult: nodeResult,
-  osContext,
-  executivePacket,
-});
-} else {
-  finalReply = await refineReply({
-    message,
-    draftReply: reply,
-    osContext,
-    executivePacket,
-  });
-}
+    if (nodeOutputs.length > 0 && nodeResult) {
+      finalReply = await synthesizeFinalAnswer({
+        userMessage: message,
+        nodeOutputs,
+        mergedNodeResult: nodeResult,
+        osContext,
+        executivePacket,
+      });
+    } else {
+      finalReply = await refineReply({
+        message,
+        draftReply: reply,
+        osContext,
+        executivePacket,
+      });
+    }
     const model =
       out?.modelUsed?.model || out?.model || out?.engine || null;
 
@@ -685,10 +679,11 @@ finalReply = await synthesizeFinalAnswer({
       remainingTokens: getRemaining(tokenUserId, tier),
       nodeResult: nodeResult || null,
     });
-} catch (err) {
-  console.error("❌ /api/chat fatal error:", err);
-  return res.status(500).json({
-    error: err.message || "Chat failed",
-  });
-}
+
+  } catch (err) {
+    console.error("❌ /api/chat fatal error:", err);
+    return res.status(500).json({
+      error: err.message || "Chat failed",
+    });
+  }
 }
