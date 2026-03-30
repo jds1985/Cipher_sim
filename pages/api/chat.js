@@ -192,6 +192,8 @@ async function synthesizeFinalAnswer({
   userMessage,
   nodeOutputs,
   mergedNodeResult,
+  osContext,
+  executivePacket,
 }) {
   const parts = [];
 
@@ -462,8 +464,10 @@ if (nodeOutputs.length > 0) {
         const finalReply = await synthesizeFinalAnswer({
       userMessage: message,
       nodeOutputs,
-     mergedNodeResult: nodeResult,
-   });
+      mergedNodeResult: nodeResult,
+     osContext,
+     executivePacket,
+  });
 
         if (!isGuest) {
           await saveMemory(userId, {
@@ -609,11 +613,14 @@ if (nodeOutputs.length > 0) {
 console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
 
 if (nodeOutputs.length > 0 && nodeResult) {
-  finalReply = await synthesizeFinalAnswer({
-    userMessage: message,
-    nodeOutputs,
-    mergedNodeResult: nodeResult,
-  });
+  
+finalReply = await synthesizeFinalAnswer({
+  userMessage: message,
+  nodeOutputs,
+  mergedNodeResult: nodeResult,
+  osContext,
+  executivePacket,
+});
 } else {
   finalReply = await refineReply({
     message,
