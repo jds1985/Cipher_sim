@@ -9,7 +9,7 @@ export const INTERNAL_NODES = {
     monthlyRent = Number(monthlyRent || 0);
     monthlyExpenses = Number(monthlyExpenses || 0);
 
-    // 🧠 Normalize price (250 → 250000)
+    // Normalize price (250 → 250000)
     if (price && price < 1000) {
       price = price * 1000;
     }
