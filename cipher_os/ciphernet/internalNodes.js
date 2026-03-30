@@ -1,7 +1,7 @@
 export const INTERNAL_NODES = {
   real_estate_simple_v2: async ({ input }) => {
     console.log("📥 NODE INPUT:", input);
-
+    console.log("🔥 V2 NODE ACTIVE 🔥");
     const price = Number(input?.price || 0);
     const rent = Number(input?.monthlyRent || 0);
     const expenses = Number(input?.monthlyExpenses || 0);
