@@ -440,13 +440,16 @@ nodeOutputs = execResults.filter(Boolean);
 
 if (nodeOutputs.length > 0) {
   mergedNodeResult = {};
+
   for (const node of nodeOutputs) {
-    for (const node of nodeOutputs) {
-  for (const key in node.result) {
-    if (node.result[key] !== 0 && node.result[key] !== null) {
-      mergedNodeResult[key] = node.result[key];
+    for (const key in node.result) {
+      if (node.result[key] !== 0 && node.result[key] !== null) {
+        mergedNodeResult[key] = node.result[key];
+      }
     }
   }
+
+  nodeResult = mergedNodeResult;
 }
     
   
