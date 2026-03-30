@@ -1,7 +1,7 @@
-// cipher_os/ciphernet/internalNodes.js
-
 export const INTERNAL_NODES = {
-  real_estate_simple_v1: async ({ input }) => {
+  real_estate_simple_v2: async ({ input }) => {
+    console.log("📥 NODE INPUT:", input);
+
     const price = Number(input?.price || 0);
     const rent = Number(input?.monthlyRent || 0);
     const expenses = Number(input?.monthlyExpenses || 0);
@@ -12,20 +12,37 @@ export const INTERNAL_NODES = {
 
     const monthlyCashFlow = rent - expenses;
     const annualCashFlow = monthlyCashFlow * 12;
-    const roi = price > 0 ? (annualCashFlow / price) * 100 : 0;
 
+    // ✅ FIXED ROI
+    const roi = price > 0
+      ? Number(((annualCashFlow / price) * 100).toFixed(2))
+      : 0;
+
+    // ✅ NEW: expense ratio
+    const expenseRatio = rent > 0
+      ? Number(((expenses / rent) * 100).toFixed(1))
+      : 0;
+
+    // ✅ BASIC assumption (all cash deal)
+    const monthlyPayment = 0;
+    const estimatedCashNeeded = price;
+
+    // ✅ better risk logic
     let risk = "high";
-    if (roi >= 12) risk = "low";
-    else if (roi >= 7) risk = "medium";
+    if (roi >= 10 && expenseRatio < 50) risk = "low";
+    else if (roi >= 5) risk = "medium";
 
     return {
       output: {
         price,
         monthlyRent: rent,
         monthlyExpenses: expenses,
-        monthlyCashFlow: Number(monthlyCashFlow.toFixed(2)),
-        annualCashFlow: Number(annualCashFlow.toFixed(2)),
-        roi: Number(roi.toFixed(2)),
+        monthlyCashFlow,
+        annualCashFlow,
+        roi,
+        expenseRatio,
+        monthlyPayment,
+        estimatedCashNeeded,
         risk,
       },
     };
