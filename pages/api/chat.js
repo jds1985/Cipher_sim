@@ -419,11 +419,22 @@ export default async function handler(req, res) {
               return null;
             }
 
-            return {
-              name: node.name,
-              type: node.type,
-              result: execData.result?.output ?? execData.result,
-            };
+            const result = execData.result?.output ?? execData.result;
+
+          let score = 0;
+
+       // basic scoring rules
+      if (result?.roi) score += 1;
+     if (result?.monthlyCashFlow) score += 1;
+       if (result?.risk) score += 1;
+      if (result?.expenseRatio) score += 1;
+
+     return {
+       name: node.name,
+      type: node.type,
+     result,
+      trustScore: score,
+  };
           } catch (err) {
             console.log("❌ EXEC ERROR:", node.name, err.message);
             return null;
