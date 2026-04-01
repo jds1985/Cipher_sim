@@ -8,18 +8,14 @@ function scoreNode(node, q) {
 
   let score = 0;
 
-  if (String(node.name || "").toLowerCase().includes(query)) score += 5;
-  if (String(node.domain || "").toLowerCase().includes(query)) score += 4;
-  if (String(node.description || "").toLowerCase().includes(query)) score += 3;
+  if (String(node.content || "").toLowerCase().includes(query)) score += 5;
 
-  const keywords = Array.isArray(node.keywords) ? node.keywords : [];
-  for (const kw of keywords) {
-    if (String(kw).toLowerCase().includes(query)) score += 2;
+  const tags = Array.isArray(node.tags) ? node.tags : [];
+  for (const tag of tags) {
+    if (String(tag).toLowerCase().includes(query)) score += 3;
   }
 
-  if (node.verified) score += 1;
-  score += Math.min(Number(node.avgScore || 0), 1);
-  score += Math.min(Number(node.totalRuns || 0) / 100, 1);
+  score += Math.min(Number(node.importance || 0), 1);
 
   return score;
 }
@@ -35,16 +31,23 @@ export default async function handler(req, res) {
 
   try {
     const q = String(req.query?.q || "").trim();
+    const userId = req.query?.userId;
+
+    if (!userId) {
+      return res.status(400).json({ error: "Missing userId" });
+    }
 
     const db = getDb();
     if (!db) {
       return res.status(500).json({ error: "Database unavailable" });
     }
 
+    // 🔥 FIX: pull from YOUR seeded nodes
     const snap = await db
-      .collection("ciphernet_nodes")
-      .where("active", "==", true)
-      .limit(50)
+      .collection("memory_nodes")
+      .doc(userId)
+      .collection("nodes")
+      .limit(100)
       .get();
 
     let results = snap.docs.map((doc) => ({
@@ -59,13 +62,7 @@ export default async function handler(req, res) {
         .sort((a, b) => b._score - a._score);
     } else {
       results = results.sort((a, b) => {
-        if (Boolean(b.verified) !== Boolean(a.verified)) {
-          return Number(b.verified) - Number(a.verified);
-        }
-        if (Number(b.avgScore || 0) !== Number(a.avgScore || 0)) {
-          return Number(b.avgScore || 0) - Number(a.avgScore || 0);
-        }
-        return Number(b.totalRuns || 0) - Number(a.totalRuns || 0);
+        return Number(b.importance || 0) - Number(a.importance || 0);
       });
     }
 
