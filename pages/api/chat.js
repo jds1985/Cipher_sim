@@ -445,23 +445,19 @@ export default async function handler(req, res) {
       // filter out failed nodes
       nodeOutputs = execResults.filter(Boolean);
 
-      //  MERGE ALL NODE RESULTS
-      let mergedNodeResult = null;
+      // 🔥 PICK BEST NODE (Trust System Phase 4)
+   if mergedNodeResult = null;
 
-      if (nodeOutputs.length > 0) {
-        mergedNodeResult = {};
+ if(nodeOutputs.length > 0) {
+  const bestNode = nodeOutputs.reduce((best, current) => {
+    const score = current.trustScore || 0;
+    const bestScore = best?.trustScore || 0;
+    return score > bestScore ? current : best;
+  }, null);
 
-        for (const node of nodeOutputs) {
-          for (const key in node.result) {
-            if (node.result[key] !== 0 && node.result[key] !== null) {
-              mergedNodeResult[key] = node.result[key];
-            }
-          }
-        }
-
-        nodeResult = mergedNodeResult;
-      }
-    }
+  mergedNodeResult = bestNode?.result || null;
+  nodeResult = mergedNodeResult;
+}
 
     console.log("🧠 NODE OUTPUTS:", nodeOutputs);
     console.log("🧠 MERGED RESULT:", nodeResult);
