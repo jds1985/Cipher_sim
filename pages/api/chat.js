@@ -1,4 +1,4 @@
-Export const runtime = "nodejs";
+export const runtime = "nodejs";
 // pages/api/chat.js
 // Cipher OS — stable core + streaming + memory visibility + tier-safe role handling
 
