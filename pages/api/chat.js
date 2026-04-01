@@ -1,4 +1,4 @@
-export const runtime = "nodejs";
+Export const runtime = "nodejs";
 // pages/api/chat.js
 // Cipher OS — stable core + streaming + memory visibility + tier-safe role handling
 
@@ -389,8 +389,8 @@ export default async function handler(req, res) {
     if (searchData && searchData.results) {
       const MAX_NODES = 3;
 
-     const selectedNodes = (searchData.results || [])
-  .slice(0, MAX_NODES);
+      const selectedNodes = (searchData.results || [])
+        .slice(0, MAX_NODES);
 
       console.log("🧠 SELECTED NODES:", selectedNodes.map(n => n.name));
 
@@ -421,20 +421,20 @@ export default async function handler(req, res) {
 
             const result = execData.result?.output ?? execData.result;
 
-          let score = 0;
+            let score = 0;
 
-       // basic scoring rules
-      if (result?.roi) score += 1;
-     if (result?.monthlyCashFlow) score += 1;
-       if (result?.risk) score += 1;
-      if (result?.expenseRatio) score += 1;
+            // basic scoring rules
+            if (result?.roi) score += 1;
+            if (result?.monthlyCashFlow) score += 1;
+            if (result?.risk) score += 1;
+            if (result?.expenseRatio) score += 1;
 
-     return {
-       name: node.name,
-      type: node.type,
-     result,
-      trustScore: score,
-  };
+            return {
+              name: node.name,
+              type: node.type,
+              result,
+              trustScore: score,
+            };
           } catch (err) {
             console.log("❌ EXEC ERROR:", node.name, err.message);
             return null;
@@ -446,18 +446,19 @@ export default async function handler(req, res) {
       nodeOutputs = execResults.filter(Boolean);
 
       // 🔥 PICK BEST NODE (Trust System Phase 4)
-   let mergedNodeResult = null;
+      let mergedNodeResult = null;
 
- if(nodeOutputs.length > 0) {
-  const bestNode = nodeOutputs.reduce((best, current) => {
-    const score = current.trustScore || 0;
-    const bestScore = best?.trustScore || 0;
-    return score > bestScore ? current : best;
-  }, null);
+      if(nodeOutputs.length > 0) {
+        const bestNode = nodeOutputs.reduce((best, current) => {
+          const score = current.trustScore || 0;
+          const bestScore = best?.trustScore || 0;
+          return score > bestScore ? current : best;
+        }, null);
 
-  mergedNodeResult = bestNode?.result || null;
-  nodeResult = mergedNodeResult;
-}
+        mergedNodeResult = bestNode?.result || null;
+        nodeResult = mergedNodeResult;
+      }
+    } // <--- SYNTAX ERROR FIXED HERE (Closing the searchData block)
 
     console.log("🧠 NODE OUTPUTS:", nodeOutputs);
     console.log("🧠 MERGED RESULT:", nodeResult);
