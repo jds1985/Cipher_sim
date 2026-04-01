@@ -446,7 +446,7 @@ export default async function handler(req, res) {
       nodeOutputs = execResults.filter(Boolean);
 
       // 🔥 PICK BEST NODE (Trust System Phase 4)
-   if mergedNodeResult = null;
+   let mergedNodeResult = null;
 
  if(nodeOutputs.length > 0) {
   const bestNode = nodeOutputs.reduce((best, current) => {
