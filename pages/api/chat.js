@@ -390,7 +390,8 @@ export default async function handler(req, res) {
       const MAX_NODES = 3;
 
       const selectedNodes = (searchData.results || [])
-        .slice(0, MAX_NODES);
+        .filter(n => n.type !== "real_estate")
+       .slice(0, MAX_NODES);
 
       console.log("🧠 SELECTED NODES:", selectedNodes.map(n => n.name));
 
