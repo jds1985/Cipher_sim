@@ -371,7 +371,9 @@ export default async function handler(req, res) {
       const baseUrl =
         process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
 
-      const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}`);
+      const searchRes = await fetch(
+  `${baseUrl}/api/ciphernet/search?q=${query}&userId=${userId}`
+);
       searchData = await searchRes.json(); 
       console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
 
