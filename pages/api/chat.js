@@ -398,22 +398,16 @@ export default async function handler(req, res) {
       console.log("🧠 SELECTED NODES:", selectedNodes.map(n => n.name));
 
       // execute all nodes in parallel
-      const execResults = await Promise.all(
-        selectedNodes.map(async (node) => {
-          try {
-            const execRes = await fetch(
-              `${process.env.NEXT_PUBLIC_BASE_URL}/api/ciphernet/execute`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  nodeId: node.id,
-                  userId: userId || "guest",
-                  input: extractNumbers(message),
-                  userMessage: message, 
-                }),
-              }
-            );
+      const execResults = selectedNodes.map((node) => {
+      return {
+       name: node.content || node.name || "node",
+      type: node.type,
+      result: {
+      text: node.content,
+    },
+    trustScore: 1,
+  };
+});
 
             const execData = await execRes.json();
 
