@@ -406,45 +406,18 @@ export default async function handler(req, res) {
 
       // execute all nodes in parallel
       const execResults = selectedNodes.map((node) => {
-      return {
-       name: node.content || node.name || "node",
-      type: node.type,
-      result: {
+  return {
+    name: node.content || node.name || "node",
+    type: node.type,
+    result: {
       text: node.content,
     },
     trustScore: 1,
   };
 });
 
-            const execData = await execRes.json();
-
-            if (!execRes.ok) {
-              console.log("❌ EXEC FAILED:", node.name, execData);
-              return null;
-            }
-
-            const result = execData.result?.output ?? execData.result;
-
-            let score = 0;
-
-            // basic scoring rules
-            if (result?.roi) score += 1;
-            if (result?.monthlyCashFlow) score += 1;
-            if (result?.risk) score += 1;
-            if (result?.expenseRatio) score += 1;
-
-            return {
-              name: node.name,
-              type: node.type,
-              result,
-              trustScore: score,
-            };
-          } catch (err) {
-            console.log("❌ EXEC ERROR:", node.name, err.message);
-            return null;
-          }
-        })
-      );
+nodeOutputs = execResults;
+      
 
       // filter out failed nodes
       nodeOutputs = execResults.filter(Boolean);
