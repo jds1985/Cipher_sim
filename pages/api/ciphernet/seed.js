@@ -1,6 +1,4 @@
 import admin from "firebase-admin";
-
-// 🔥 USE YOUR EXISTING ENV (same as your other APIs)
 const serviceAccount = JSON.parse(
   Buffer.from(process.env.FIREBASE_ADMIN_BASE64, "base64").toString("utf-8")
 );
@@ -15,7 +13,11 @@ const db = admin.firestore();
 
 export default async function handler(req, res) {
   try {
-    const userId = req.body?.userId;
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+const userId = body?.userId;
+
+console.log("BODY:", req.body);
+console.log("USER ID:", userId);
 
     if (!userId) {
       return res.status(400).json({ error: "Missing userId" });
