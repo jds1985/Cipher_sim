@@ -462,7 +462,7 @@ export default async function handler(req, res) {
         mergedNodeResult = bestNode?.result || null;
         nodeResult = mergedNodeResult;
       }
-    } // <--- SYNTAX ERROR FIXED HERE (Closing the searchData block)
+    } 
 
     console.log("🧠 NODE OUTPUTS:", nodeOutputs);
     console.log("🧠 MERGED RESULT:", nodeResult);
