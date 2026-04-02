@@ -195,6 +195,13 @@ async function synthesizeFinalAnswer({
   osContext,
   executivePacket,
 }) {
+
+   if (nodeOutputs && nodeOutputs.length > 0) {
+    return `
+   Knowledge:
+${nodeOutputs.map(n => "- " + (n.result?.text || n.name)).join("\n")}
+`;
+  }
   const parts = [];
 
   if (mergedNodeResult.roi !== undefined) {
