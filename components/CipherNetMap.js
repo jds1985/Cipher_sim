@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import ForceGraph3D from 'react-force-graph-3d';
+// ❌ temporarily disabled (causing build failure)
+// import ForceGraph3D from 'react-force-graph-3d';
 import * as THREE from 'three';
 
 // 🔥 Firebase
@@ -50,7 +51,7 @@ export default function CipherNetMap() {
         setFullData(full);
         setData(full);
 
-        // 🎯 ORBITAL POSITIONING
+        // 🎯 ORBITAL POSITIONING (kept, just no graph yet)
         setTimeout(() => {
           nodes.forEach((node) => {
             if (node.id === 'core') {
@@ -72,7 +73,7 @@ export default function CipherNetMap() {
             node.y = (Math.random() - 0.5) * 80;
           });
 
-          fgRef.current?.zoomToFit(400);
+          fgRef.current?.zoomToFit?.(400);
         }, 500);
       } catch (e) {
         console.error('Firestore load error:', e);
@@ -106,7 +107,7 @@ export default function CipherNetMap() {
     setSelectedNode(node);
 
     if (fgRef.current) {
-      fgRef.current.cameraPosition(
+      fgRef.current.cameraPosition?.(
         { x: node.x * 1.5, y: node.y * 1.5, z: node.z * 1.5 },
         node,
         800
@@ -119,44 +120,17 @@ export default function CipherNetMap() {
   };
 
   return (
-    <div className="w-full h-screen bg-black relative">
-      <ForceGraph3D
-        ref={fgRef}
-        graphData={data}
-        nodeLabel="name"
-        nodeColor={getNodeColor}
-        nodeVal={(node) => node.trust * 8 + 2}
-        backgroundColor="#000011"
-        linkWidth={1.5}
-        linkColor={() => '#4444ff'}
-        enableNodeDrag
-        onNodeClick={handleNodeClick}
-        showNavInfo={false}
-        nodeThreeObject={(node) => {
-          const material = new THREE.SpriteMaterial({
-            color: getNodeColor(node),
-            opacity: node.locked ? 0.3 : 0.9,
-            transparent: true,
-          });
+    <div className="w-full h-screen bg-black relative flex items-center justify-center text-white">
+      CipherNet coming online...
 
-          const sprite = new THREE.Sprite(material);
-          sprite.scale.set(
-            node.group === 'core' ? 14 : 8,
-            node.group === 'core' ? 14 : 8,
-            1
-          );
-          return sprite;
-        }}
-      />
-
-      {/* 🌌 RINGS */}
+      {/* 🌌 RINGS (kept for visual continuity) */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 border border-green-500/10 rounded-full scale-[0.3]" />
         <div className="absolute inset-0 border border-yellow-500/10 rounded-full scale-[0.5]" />
         <div className="absolute inset-0 border border-red-500/10 rounded-full scale-[0.7]" />
       </div>
 
-      {/* 🧠 NODE PANEL */}
+      {/* 🧠 NODE PANEL (still functional if used later) */}
       {selectedNode && (
         <div className="absolute top-4 right-4 bg-gray-900/80 p-4 rounded-lg text-white border border-blue-500 w-64">
           <h3 className="text-lg font-bold">{selectedNode.name}</h3>
