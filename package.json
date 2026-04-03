@@ -16,7 +16,7 @@
     "firebase": "^10.7.0",
     "firebase-admin": "^11.10.1",
     "stripe": "^18.1.1",
-    "react-force-graph-3d": "^1.70.0",
+    "react-force-graph-3d": "1.66.3",
     "three": "^0.155.0"
   }
 }
