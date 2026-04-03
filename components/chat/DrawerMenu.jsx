@@ -18,7 +18,8 @@ export default function DrawerMenu({
   const [liveTier, setLiveTier] = useState(tier);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [tokenLimitState, setTokenLimitState] = useState(1000000);
-
+  const router = useRouter();
+  
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -519,18 +520,25 @@ const tokenPercent = Math.min(
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: 14,
-                background: "rgba(90,70,255,0.15)",
-                border: "1px solid rgba(90,70,255,0.35)",
-                fontSize: 13,
-                letterSpacing: ".4px"
-              }}
-            >
-              CipherNet <span style={{ opacity: 0.6 }}>• Coming Soon</span>
-            </div>
+            <button
+  onClick={() => {
+    router.push("/ciphernet");
+    onClose(); // optional: closes drawer after click
+  }}
+  style={{
+    padding: "10px 14px",
+    borderRadius: 14,
+    background: "rgba(90,70,255,0.25)",
+    border: "1px solid rgba(90,70,255,0.55)",
+    fontSize: 13,
+    letterSpacing: ".4px",
+    cursor: "pointer",
+    color: "white",
+    textAlign: "left"
+  }}
+>
+     🌌 CipherNet
+     </button>
 
             <div
               style={{
