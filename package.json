@@ -9,12 +9,14 @@
   },
   "dependencies": {
     "@google/generative-ai": "0.21.0",
+    "@vercel/blob": "0.23.3",
     "openai": "4.28.4",
     "next": "14.2.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "firebase": "10.7.0",
     "firebase-admin": "11.10.1",
+    "octokit": "2.0.19",
     "stripe": "18.1.1",
     "three": "0.155.0"
   }
