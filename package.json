@@ -15,7 +15,6 @@
     "react-dom": "18.2.0",
     "firebase": "^10.7.0",
     "firebase-admin": "^11.10.1",
-    "octokit": "^2.0.19",
     "stripe": "^18.1.1",
     "react-force-graph-3d": "^1.70.0",
     "three": "^0.155.0"
