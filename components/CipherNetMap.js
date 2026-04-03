@@ -1,9 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-// ❌ temporarily disabled (causing build failure)
-// import ForceGraph3D from 'react-force-graph-3d';
+import dynamic from 'next/dynamic';
 import * as THREE from 'three';
+
+// ✅ SAFE dynamic import (prevents SSR crash)
+const ForceGraph3D = dynamic(
+  () => import('react-force-graph-3d'),
+  { ssr: false }
+);
 
 // 🔥 Firebase
 import { db } from '../lib/firebaseClient';
@@ -51,7 +56,7 @@ export default function CipherNetMap() {
         setFullData(full);
         setData(full);
 
-        // 🎯 ORBITAL POSITIONING (kept, just no graph yet)
+        // 🎯 ORBITAL POSITIONING
         setTimeout(() => {
           nodes.forEach((node) => {
             if (node.id === 'core') {
@@ -120,17 +125,45 @@ export default function CipherNetMap() {
   };
 
   return (
-    <div className="w-full h-screen bg-black relative flex items-center justify-center text-white">
-      CipherNet coming online...
+    <div className="w-full h-screen bg-black relative">
+      {/* 🌌 YOUR GALAXY IS BACK */}
+      <ForceGraph3D
+        ref={fgRef}
+        graphData={data}
+        nodeLabel="name"
+        nodeColor={getNodeColor}
+        nodeVal={(node) => node.trust * 8 + 2}
+        backgroundColor="#000011"
+        linkWidth={1.5}
+        linkColor={() => '#4444ff'}
+        enableNodeDrag
+        onNodeClick={handleNodeClick}
+        showNavInfo={false}
+        nodeThreeObject={(node) => {
+          const material = new THREE.SpriteMaterial({
+            color: getNodeColor(node),
+            opacity: node.locked ? 0.3 : 0.9,
+            transparent: true,
+          });
 
-      {/* 🌌 RINGS (kept for visual continuity) */}
+          const sprite = new THREE.Sprite(material);
+          sprite.scale.set(
+            node.group === 'core' ? 14 : 8,
+            node.group === 'core' ? 14 : 8,
+            1
+          );
+          return sprite;
+        }}
+      />
+
+      {/* 🌌 RINGS */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 border border-green-500/10 rounded-full scale-[0.3]" />
         <div className="absolute inset-0 border border-yellow-500/10 rounded-full scale-[0.5]" />
         <div className="absolute inset-0 border border-red-500/10 rounded-full scale-[0.7]" />
       </div>
 
-      {/* 🧠 NODE PANEL (still functional if used later) */}
+      {/* 🧠 NODE PANEL */}
       {selectedNode && (
         <div className="absolute top-4 right-4 bg-gray-900/80 p-4 rounded-lg text-white border border-blue-500 w-64">
           <h3 className="text-lg font-bold">{selectedNode.name}</h3>
