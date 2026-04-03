@@ -14,6 +14,7 @@
     "next": "14.2.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "react-force-graph-3d": "1.71.4"
     "firebase": "10.7.0",
     "firebase-admin": "11.10.1",
     "octokit": "2.0.19",
