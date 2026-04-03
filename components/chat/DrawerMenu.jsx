@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { auth } from "../../lib/firebaseClient";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useRouter } from "next/router";
 
 export default function DrawerMenu({
   open,
