@@ -98,29 +98,43 @@ export default function CipherNetMap() {
  // }, []);
 
   // 🔥 TEST MODE (TEMP)
-  
   useEffect(() => {
-  const nodes = [
-    {
-      id: 'core',
-      name: 'Core',
-      trust: 1,
-      group: 'core'
-    },
-    {
-      id: 'test',
-      name: 'TEST NODE',
-      trust: 0.8,
-      group: 'med'
-    }
-  ];
+  const nodes = [];
+  const links = [];
 
-  const links = [
-    {
+  // 🔥 core
+  nodes.push({
+    id: 'core',
+    name: 'Core',
+    trust: 1,
+    group: 'core'
+  });
+
+  // 🔥 generate 20 nodes
+  for (let i = 0; i < 20; i++) {
+    const id = `node-${i}`;
+
+    nodes.push({
+      id,
+      name: `Node ${i}`,
+      trust: Math.random(),
+      group: 'med'
+    });
+
+    // 🔗 connect to core
+    links.push({
       source: 'core',
-      target: 'test'
+      target: id
+    });
+
+    // 🔗 random cross-links (this makes it feel REAL)
+    if (i > 2) {
+      links.push({
+        source: id,
+        target: `node-${Math.floor(Math.random() * i)}`
+      });
     }
-  ];
+  }
 
   setFullData({ nodes, links });
   setData({ nodes, links });
@@ -129,6 +143,7 @@ export default function CipherNetMap() {
     fgRef.current?.zoomToFit?.(400);
   }, 500);
 }, []);
+  
 
   // 🔥 ADDED: SIZE HANDLER
   useEffect(() => {
