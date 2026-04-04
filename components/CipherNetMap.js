@@ -23,78 +23,103 @@ export default function CipherNetMap() {
   const [risk, setRisk] = useState(0);
 
   //  ADD FROM FIRESTORE
+ //  useEffect(() => {
+ // async function loadNodes() {
+ //   try {
+ //     const colRef = collection(
+ //       db,
+     //   'memory_nodes',
+    //    'demo', // 🔥 IMPORTANT: match what you created
+     //   'nodes'
+   //   );
+
+    //  const snap = await getDocs(colRef); // ✅ THIS WAS MISSING
+
+   //   const nodes = [];
+   //   const links = [];
+
+   //   snap.forEach((doc) => {
+    //    const d = doc.data();
+
+    //    nodes.push({
+       //   id: doc.id,
+      //    name: d.title || 'Node',
+     //     trust: d.importance || 0.5,
+      //    group: d.type || 'med',
+      //    locked: false,
+   //     });
+   //   });
+
+   //   // ✅ ADD CORE NODE
+   //   nodes.push({
+   //     id: 'core',
+    //    name: 'Cipher Core',
+    //    trust: 1,
+   //     group: 'core'
+   //   });
+
+  //    const full = { nodes, links };
+   //   setFullData(full);
+    //  setData(full);
+
+   //   setTimeout(() => {
+   //     nodes.forEach((node) => {
+      //    if (node.id === 'core') {
+        //    node.x = 0;
+        //    node.y = 0;
+        //    node.z = 0;
+        //    return;
+       //   }
+
+       //   let radius = 120;
+       //   if (node.trust > 0.8) radius = 120;
+      //    else if (node.trust > 0.5) radius = 240;
+      //    else radius = 360;
+
+       //   const angle = Math.random() * Math.PI * 2;
+
+      //    node.x = Math.cos(angle) * radius;
+      //    node.z = Math.sin(angle) * radius;
+     //     node.y = (Math.random() - 0.5) * 80;
+    //    });
+
+   //     fgRef.current?.zoomToFit?.(400);
+   //   }, 500);
+
+ //   } catch (e) {
+  //    console.error('Firestore load error:', e);
+   //   }
+  //   }
+
+  //     loadNodes();
+ //   }, []);
+  
    useEffect(() => {
-  async function loadNodes() {
-    try {
-      const colRef = collection(
-        db,
-        'memory_nodes',
-        'demo', // 🔥 IMPORTANT: match what you created
-        'nodes'
-      );
-
-      const snap = await getDocs(colRef); // ✅ THIS WAS MISSING
-
-      const nodes = [];
-      const links = [];
-
-      snap.forEach((doc) => {
-        const d = doc.data();
-
-        nodes.push({
-          id: doc.id,
-          name: d.title || 'Node',
-          trust: d.importance || 0.5,
-          group: d.type || 'med',
-          locked: false,
-        });
-      });
-
-      // ✅ ADD CORE NODE
-      nodes.push({
-        id: 'core',
-        name: 'Cipher Core',
-        trust: 1,
-        group: 'core'
-      });
-
-      const full = { nodes, links };
-      setFullData(full);
-      setData(full);
-
-      setTimeout(() => {
-        nodes.forEach((node) => {
-          if (node.id === 'core') {
-            node.x = 0;
-            node.y = 0;
-            node.z = 0;
-            return;
-          }
-
-          let radius = 120;
-          if (node.trust > 0.8) radius = 120;
-          else if (node.trust > 0.5) radius = 240;
-          else radius = 360;
-
-          const angle = Math.random() * Math.PI * 2;
-
-          node.x = Math.cos(angle) * radius;
-          node.z = Math.sin(angle) * radius;
-          node.y = (Math.random() - 0.5) * 80;
-        });
-
-        fgRef.current?.zoomToFit?.(400);
-      }, 500);
-
-    } catch (e) {
-      console.error('Firestore load error:', e);
+  const nodes = [
+    {
+      id: 'core',
+      name: 'Core',
+      trust: 1,
+      group: 'core',
+      x: 0,
+      y: 0,
+      z: 0
+    },
+    {
+      id: 'test',
+      name: 'TEST NODE',
+      trust: 0.8,
+      group: 'med',
+      x: 100,
+      y: 0,
+      z: 0
     }
-  }
+  ];
 
-  loadNodes();
+  setFullData({ nodes, links: [] });
+  setData({ nodes, links: [] });
 }, []);
   
-
   // 🎛 RISK FILTER
   useEffect(() => {
     const filteredNodes = fullData.nodes.filter((n) => n.trust >= risk);
