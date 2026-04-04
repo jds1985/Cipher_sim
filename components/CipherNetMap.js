@@ -106,8 +106,11 @@ export default function CipherNetMap() {
       trust: 1,
       group: 'core',
       d3AlphaDecay={0.02}
-d3VelocityDecay={0.3}
-cooldownTicks={300}
+      d3VelocityDecay0.3}.    cooldownTicks={300}
+   d3Force="charge"
+d3ForceConfig={{
+  strength: -120
+}}
     },
     {
       id: 'test',
