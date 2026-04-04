@@ -187,39 +187,50 @@ export default function CipherNetMap() {
       </div>
 
       <ForceGraph3D
-        ref={fgRef}
+  ref={fgRef}
+  width={size.width}
+  height={size.height}
+  graphData={data}
+  nodeLabel="name"
+  nodeColor={getNodeColor}
+  nodeVal={(node) => node.trust * 8 + 2}
+  backgroundColor="#000011"
+  linkWidth={1.5}
+  linkColor={() => '#4444ff'}
+  enableNodeDrag
+  onNodeClick={handleNodeClick}
+  showNavInfo={false}
 
-        // 🔥 FIXED WIDTH/HEIGHT
-        width={size.width}
-        height={size.height}
+  // 🔥 KEY FIXES
+  cooldownTicks={0} // stops endless movement
+  d3AlphaDecay={0.08} // faster stabilization
+  d3VelocityDecay={0.9} // slows movement
 
-        graphData={data}
-        nodeLabel="name"
-        nodeColor={getNodeColor}
-        nodeVal={(node) => node.trust * 8 + 2}
-        backgroundColor="#000011"
-        linkWidth={1.5}
-        linkColor={() => '#4444ff'}
-        enableNodeDrag
-        onNodeClick={handleNodeClick}
-        showNavInfo={false}
-        cooldownTicks={100}
+  // 🔥 CENTER FORCE
+  d3Force="center"
+  d3ForceConfig={{
+    strength: 1
+  }}
 
-        // 🔥 FIXED RENDERING (NO SPRITES)
-        nodeThreeObject={(node) => {
-          const geometry = new THREE.SphereGeometry(
-            node.group === 'core' ? 10 : 6,
-            16,
-            16
-          );
+  // 🔥 FORCE NODES TO STAY NEAR CENTER
+  onEngineStop={() => {
+    fgRef.current?.zoomToFit?.(400);
+  }}
 
-          const material = new THREE.MeshBasicMaterial({
-            color: getNodeColor(node),
-          });
+  nodeThreeObject={(node) => {
+    const geometry = new THREE.SphereGeometry(
+      node.group === 'core' ? 10 : 6,
+      16,
+      16
+    );
 
-          return new THREE.Mesh(geometry, material);
-        }}
-      />
+    const material = new THREE.MeshBasicMaterial({
+      color: getNodeColor(node),
+    });
+
+    return new THREE.Mesh(geometry, material);
+  }}
+/>
 
       {/* 🌌 RINGS */}
       <div className="absolute inset-0 pointer-events-none">
