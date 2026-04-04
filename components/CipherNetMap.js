@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import * as THREE from 'three';
 
-// ✅ SAFE dynamic import (prevents SSR crash)
+//  SAFE dynamic import (prevents SSR crash)
 const ForceGraph3D = dynamic(
   () => import('react-force-graph-3d'),
   { ssr: false }
 );
 
-// 🔥 Firebase
+// Firebase
 import { db } from '../lib/firebaseClient';
 import { collection, getDocs } from 'firebase/firestore';
 
@@ -22,7 +22,7 @@ export default function CipherNetMap() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [risk, setRisk] = useState(0);
 
-  // 🔥 FETCH FROM FIRESTORE
+  //  ADD FROM FIRESTORE
   useEffect(() => {
     async function loadNodes() {
       try {
@@ -49,14 +49,14 @@ export default function CipherNetMap() {
           }
         });
 
-        // 🌌 ADD CORE NODE
+        //  ADD CORE NODE
         nodes.push({ id: 'core', name: 'Cipher Core', trust: 1, group: 'core' });
 
         const full = { nodes, links };
         setFullData(full);
         setData(full);
 
-        // 🎯 ORBITAL POSITIONING
+        // ORBITAL POSITIONING
         setTimeout(() => {
           nodes.forEach((node) => {
             if (node.id === 'core') {
@@ -127,24 +127,24 @@ export default function CipherNetMap() {
   return (
     <div className="w-full h-screen bg-black relative">
       {/* 🌌 YOUR GALAXY IS BACK */}
-      <ForceGraph3D
-        ref={fgRef}
-        graphData={data}
-        nodeLabel="name"
-        nodeColor={getNodeColor}
-        nodeVal={(node) => node.trust * 8 + 2}
-        backgroundColor="#000011"
-        linkWidth={1.5}
+        <ForceGraph3D
+      ref={fgRef}
+  width={typeof window !== 'undefined' ? window.innerWidth : 300}
+  height={typeof window !== 'undefined' ? window.innerHeight : 300}
+  graphData={data}
+  nodeLabel="name"
+  nodeColor={getNodeColor}
+  nodeVal={(node) => node.trust * 8 + 2}
+  backgroundColor="#000011"
+     linkWidth={1.5}
         linkColor={() => '#4444ff'}
         enableNodeDrag
-        onNodeClick={handleNodeClick}
-        showNavInfo={false}
-        nodeThreeObject={(node) => {
+         onNodeClick={handleNodeClick}
+         showNavInfo={false}      nodeThreeObject={(node) => {
           const material = new THREE.SpriteMaterial({
             color: getNodeColor(node),
             opacity: node.locked ? 0.3 : 0.9,
-            transparent: true,
-          });
+            trfalse          });
 
           const sprite = new THREE.Sprite(material);
           sprite.scale.set(
