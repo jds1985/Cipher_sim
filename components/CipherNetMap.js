@@ -22,104 +22,127 @@ export default function CipherNetMap() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [risk, setRisk] = useState(0);
 
+  // 🔥 ADDED: SIZE FIX
+  const [size, setSize] = useState({ width: 300, height: 300 });
+
   //  ADD FROM FIRESTORE
  //  useEffect(() => {
  // async function loadNodes() {
  //   try {
  //     const colRef = collection(
  //       db,
-     //   'memory_nodes',
-    //    'demo', // 🔥 IMPORTANT: match what you created
-     //   'nodes'
-   //   );
+ //   'memory_nodes',
+ //    'demo', // 🔥 IMPORTANT: match what you created
+ //   'nodes'
+ //   );
 
-    //  const snap = await getDocs(colRef); // ✅ THIS WAS MISSING
+ //  const snap = await getDocs(colRef); // ✅ THIS WAS MISSING
 
-   //   const nodes = [];
-   //   const links = [];
+ //   const nodes = [];
+ //   const links = [];
 
-   //   snap.forEach((doc) => {
-    //    const d = doc.data();
+ //   snap.forEach((doc) => {
+ //    const d = doc.data();
 
-    //    nodes.push({
-       //   id: doc.id,
-      //    name: d.title || 'Node',
-     //     trust: d.importance || 0.5,
-      //    group: d.type || 'med',
-      //    locked: false,
-   //     });
-   //   });
+ //    nodes.push({
+ //      id: doc.id,
+ //      name: d.title || 'Node',
+ //      trust: d.importance || 0.5,
+ //      group: d.type || 'med',
+ //      locked: false,
+ //    });
+ //   });
 
-   //   // ✅ ADD CORE NODE
-   //   nodes.push({
-   //     id: 'core',
-    //    name: 'Cipher Core',
-    //    trust: 1,
-   //     group: 'core'
-   //   });
+ //   // ✅ ADD CORE NODE
+ //   nodes.push({
+ //     id: 'core',
+ //    name: 'Cipher Core',
+ //    trust: 1,
+ //     group: 'core'
+ //   });
 
-  //    const full = { nodes, links };
-   //   setFullData(full);
-    //  setData(full);
+ //    const full = { nodes, links };
+ //   setFullData(full);
+ //    setData(full);
 
-   //   setTimeout(() => {
-   //     nodes.forEach((node) => {
-      //    if (node.id === 'core') {
-        //    node.x = 0;
-        //    node.y = 0;
-        //    node.z = 0;
-        //    return;
-       //   }
+ //   setTimeout(() => {
+ //     nodes.forEach((node) => {
+ //       if (node.id === 'core') {
+ //         node.x = 0;
+ //         node.y = 0;
+ //         node.z = 0;
+ //         return;
+ //       }
 
-       //   let radius = 120;
-       //   if (node.trust > 0.8) radius = 120;
-      //    else if (node.trust > 0.5) radius = 240;
-      //    else radius = 360;
+ //       let radius = 120;
+ //       if (node.trust > 0.8) radius = 120;
+ //       else if (node.trust > 0.5) radius = 240;
+ //       else radius = 360;
 
-       //   const angle = Math.random() * Math.PI * 2;
+ //       const angle = Math.random() * Math.PI * 2;
 
-      //    node.x = Math.cos(angle) * radius;
-      //    node.z = Math.sin(angle) * radius;
-     //     node.y = (Math.random() - 0.5) * 80;
-    //    });
+ //       node.x = Math.cos(angle) * radius;
+ //       node.z = Math.sin(angle) * radius;
+ //       node.y = (Math.random() - 0.5) * 80;
+ //     });
 
-   //     fgRef.current?.zoomToFit?.(400);
-   //   }, 500);
+ //     fgRef.current?.zoomToFit?.(400);
+ //   }, 500);
 
  //   } catch (e) {
-  //    console.error('Firestore load error:', e);
-   //   }
-  //   }
+ //     console.error('Firestore load error:', e);
+ //   }
+ // }
 
-  //     loadNodes();
- //   }, []);
-  
-   useEffect(() => {
-  const nodes = [
-    {
-      id: 'core',
-      name: 'Core',
-      trust: 1,
-      group: 'core',
-      x: 0,
-      y: 0,
-      z: 0
-    },
-    {
-      id: 'test',
-      name: 'TEST NODE',
-      trust: 0.8,
-      group: 'med',
-      x: 100,
-      y: 0,
-      z: 0
+ //   loadNodes();
+ // }, []);
+
+  // 🔥 TEST MODE (TEMP)
+  useEffect(() => {
+    const nodes = [
+      {
+        id: 'core',
+        name: 'Core',
+        trust: 1,
+        group: 'core',
+        x: 0,
+        y: 0,
+        z: 0
+      },
+      {
+        id: 'test',
+        name: 'TEST NODE',
+        trust: 0.8,
+        group: 'med',
+        x: 100,
+        y: 0,
+        z: 0
+      }
+    ];
+
+    setFullData({ nodes, links: [] });
+    setData({ nodes, links: [] });
+
+    setTimeout(() => {
+      fgRef.current?.zoomToFit?.(400);
+    }, 500);
+  }, []);
+
+  // 🔥 ADDED: SIZE HANDLER
+  useEffect(() => {
+    function updateSize() {
+      setSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
     }
-  ];
 
-  setFullData({ nodes, links: [] });
-  setData({ nodes, links: [] });
-}, []);
-  
+    updateSize();
+    window.addEventListener('resize', updateSize);
+
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
   // 🎛 RISK FILTER
   useEffect(() => {
     const filteredNodes = fullData.nodes.filter((n) => n.trust >= risk);
@@ -159,35 +182,42 @@ export default function CipherNetMap() {
   return (
     <div className="w-full h-screen bg-black relative">
       {/* 🌌 YOUR GALAXY IS BACK */}
-        <div style={{ position: 'absolute', color: 'white', zIndex: 10 }}>
-  Nodes: {data.nodes.length}
-</div>
-    <ForceGraph3D
-      ref={fgRef}
-  width={typeof window !== 'undefined' ? window.innerWidth : 300}
-  height={typeof window !== 'undefined' ? window.innerHeight : 300}
-  graphData={data}
-  nodeLabel="name"
-  nodeColor={getNodeColor}
-  nodeVal={(node) => node.trust * 8 + 2}
-  backgroundColor="#000011"
-     linkWidth={1.5}
+      <div style={{ position: 'absolute', color: 'white', zIndex: 10 }}>
+        Nodes: {data.nodes.length}
+      </div>
+
+      <ForceGraph3D
+        ref={fgRef}
+
+        // 🔥 FIXED WIDTH/HEIGHT
+        width={size.width}
+        height={size.height}
+
+        graphData={data}
+        nodeLabel="name"
+        nodeColor={getNodeColor}
+        nodeVal={(node) => node.trust * 8 + 2}
+        backgroundColor="#000011"
+        linkWidth={1.5}
         linkColor={() => '#4444ff'}
         enableNodeDrag
-         onNodeClick={handleNodeClick}
-         showNavInfo={false}      nodeThreeObject={(node) => {
-          const material = new THREE.SpriteMaterial({
-            color: getNodeColor(node),
-            opacity: node.locked ? 0.3 : 0.9,
-            transparent: true       });
+        onNodeClick={handleNodeClick}
+        showNavInfo={false}
+        cooldownTicks={100}
 
-          const sprite = new THREE.Sprite(material);
-          sprite.scale.set(
-            node.group === 'core' ? 14 : 8,
-            node.group === 'core' ? 14 : 8,
-            1
+        // 🔥 FIXED RENDERING (NO SPRITES)
+        nodeThreeObject={(node) => {
+          const geometry = new THREE.SphereGeometry(
+            node.group === 'core' ? 10 : 6,
+            16,
+            16
           );
-          return sprite;
+
+          const material = new THREE.MeshBasicMaterial({
+            color: getNodeColor(node),
+          });
+
+          return new THREE.Mesh(geometry, material);
         }}
       />
 
