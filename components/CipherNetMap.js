@@ -99,35 +99,39 @@ export default function CipherNetMap() {
 
   // 🔥 TEST MODE (TEMP)
   useEffect(() => {
-    const nodes = [
-  {
-   
-  id: 'core',
-  name: 'Core',
-  trust: 1,
-  group: 'core',
-  fx: 0,
-  fy: 0,
-  fz: 0 // 🔥 locks it to center permanently
-},
-      {
-        id: 'test',
-        name: 'TEST NODE',
-        trust: 0.8,
-        group: 'med',
-        x: 100,
-        y: 0,
-        z: 0
-      }
-    ];
+  const nodes = [
+    {
+      id: 'core',
+      name: 'Core',
+      trust: 1,
+      group: 'core',
+      fx: 0,
+      fy: 0,
+      fz: 0
+    },
+    {
+      id: 'test',
+      name: 'TEST NODE',
+      trust: 0.8,
+      group: 'med'
+    }
+  ];
 
-    setFullData({ nodes, links: [] });
-    setData({ nodes, links: [] });
+  const links = [
+    {
+      source: 'core',
+      target: 'test'
+    }
+  ];
 
-    setTimeout(() => {
-      fgRef.current?.zoomToFit?.(400);
-    }, 500);
-  }, []);
+  setFullData({ nodes, links });
+  setData({ nodes, links });
+
+  setTimeout(() => {
+    fgRef.current?.zoomToFit?.(400);
+  }, 500);
+}, []);
+  
 
   // 🔥 ADDED: SIZE HANDLER
   useEffect(() => {
