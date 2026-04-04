@@ -127,7 +127,10 @@ export default function CipherNetMap() {
   return (
     <div className="w-full h-screen bg-black relative">
       {/* 🌌 YOUR GALAXY IS BACK */}
-        <ForceGraph3D
+        <div style={{ position: 'absolute', color: 'white', zIndex: 10 }}>
+  Nodes: {data.nodes.length}
+</div>
+    <ForceGraph3D
       ref={fgRef}
   width={typeof window !== 'undefined' ? window.innerWidth : 300}
   height={typeof window !== 'undefined' ? window.innerHeight : 300}
