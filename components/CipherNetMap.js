@@ -26,7 +26,7 @@ export default function CipherNetMap() {
   useEffect(() => {
     async function loadNodes() {
       try {
-        const snap = await getDocs(collection(db, 'nodes'));
+        collection(db, 'memory_nodes', 'VKIdfn4SwyMzEIP...', 'nodes')
 
         const nodes = [];
         const links = [];
