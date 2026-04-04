@@ -105,9 +105,9 @@ export default function CipherNetMap() {
       name: 'Core',
       trust: 1,
       group: 'core',
-      fx: 0,
-      fy: 0,
-      fz: 0
+      d3AlphaDecay={0.02}
+d3VelocityDecay={0.3}
+cooldownTicks={300}
     },
     {
       id: 'test',
