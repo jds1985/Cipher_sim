@@ -26,124 +26,141 @@ export default function CipherNetMap() {
   const [size, setSize] = useState({ width: 300, height: 300 });
 
   //  ADD FROM FIRESTORE
- //  useEffect(() => {
- // async function loadNodes() {
- //   try {
- //     const colRef = collection(
- //       db,
- //   'memory_nodes',
- //    'demo', // 🔥 IMPORTANT: match what you created
- //   'nodes'
- //   );
-
- //  const snap = await getDocs(colRef); // ✅ THIS WAS MISSING
-
- //   const nodes = [];
- //   const links = [];
-
- //   snap.forEach((doc) => {
- //    const d = doc.data();
-
- //    nodes.push({
- //      id: doc.id,
- //      name: d.title || 'Node',
- //      trust: d.importance || 0.5,
- //      group: d.type || 'med',
- //      locked: false,
- //    });
- //   });
-
- //   // ✅ ADD CORE NODE
- //   nodes.push({
- //     id: 'core',
- //    name: 'Cipher Core',
- //    trust: 1,
- //     group: 'core'
- //   });
-
- //    const full = { nodes, links };
- //   setFullData(full);
- //    setData(full);
-
- //   setTimeout(() => {
- //     nodes.forEach((node) => {
- //       if (node.id === 'core') {
- //         node.x = 0;
- //         node.y = 0;
- //         node.z = 0;
- //         return;
- //       }
-
- //       let radius = 120;
- //       if (node.trust > 0.8) radius = 120;
- //       else if (node.trust > 0.5) radius = 240;
- //       else radius = 360;
-
- //       const angle = Math.random() * Math.PI * 2;
-
- //       node.x = Math.cos(angle) * radius;
- //       node.z = Math.sin(angle) * radius;
- //       node.y = (Math.random() - 0.5) * 80;
- //     });
-
- //     fgRef.current?.zoomToFit?.(400);
- //   }, 500);
-
- //   } catch (e) {
- //     console.error('Firestore load error:', e);
- //   }
- // }
-
- //   loadNodes();
- // }, []);
+  //  useEffect(() => {
+  // async function loadNodes() {
+  //   try {
+  //     const colRef = collection(
+  //       db,
+  //       'memory_nodes',
+  //       'demo', // 🔥 IMPORTANT: match what you created
+  //       'nodes'
+  //     );
+  //
+  //     const snap = await getDocs(colRef); // ✅ THIS WAS MISSING
+  //
+  //     const nodes = [];
+  //     const links = [];
+  //
+  //     snap.forEach((doc) => {
+  //       const d = doc.data();
+  //
+  //       nodes.push({
+  //         id: doc.id,
+  //         name: d.title || 'Node',
+  //         trust: d.importance || 0.5,
+  //         group: d.type || 'med',
+  //         locked: false,
+  //       });
+  //     });
+  //
+  //     // ✅ ADD CORE NODE
+  //     nodes.push({
+  //       id: 'core',
+  //       name: 'Cipher Core',
+  //       trust: 1,
+  //       group: 'core'
+  //     });
+  //
+  //     const full = { nodes, links };
+  //     setFullData(full);
+  //     setData(full);
+  //
+  //     setTimeout(() => {
+  //       nodes.forEach((node) => {
+  //         if (node.id === 'core') {
+  //           node.x = 0;
+  //           node.y = 0;
+  //           node.z = 0;
+  //           return;
+  //         }
+  //
+  //         let radius = 120;
+  //         if (node.trust > 0.8) radius = 120;
+  //         else if (node.trust > 0.5) radius = 240;
+  //         else radius = 360;
+  //
+  //         const angle = Math.random() * Math.PI * 2;
+  //
+  //         node.x = Math.cos(angle) * radius;
+  //         node.z = Math.sin(angle) * radius;
+  //         node.y = (Math.random() - 0.5) * 80;
+  //       });
+  //
+  //       fgRef.current?.zoomToFit?.(400);
+  //     }, 500);
+  //
+  //   } catch (e) {
+  //     console.error('Firestore load error:', e);
+  //   }
+  // }
+  //
+  //   loadNodes();
+  // }, []);
 
   // 🔥 TEST MODE (TEMP)
   useEffect(() => {
-  const nodes = [];
-  const links = [];
+    const nodes = [];
+    const links = [];
+    const types = ['memory', 'tool', 'agent'];
 
-  // 🔥 core
-  nodes.push({
-    id: 'core',
-    name: 'Core',
-    trust: 1,
-    group: 'core'
-  });
-
-  // 🔥 generate 20 nodes
-  for (let i = 0; i < 20; i++) {
-    const id = `node-${i}`;
-
+    // 🔥 core
     nodes.push({
-      id,
-      name: `Node ${i}`,
-      trust: Math.random(),
-      group: 'med'
+      id: 'core',
+      name: 'Core',
+      trust: 1,
+      group: 'core',
+      locked: false
     });
 
-    // 🔗 connect to core
-    links.push({
-      source: 'core',
-      target: id
-    });
+    // 🔥 generate 20 nodes
+    for (let i = 0; i < 20; i++) {
+      const id = `node-${i}`;
+      const type = types[Math.floor(Math.random() * types.length)];
 
-    // 🔗 random cross-links (this makes it feel REAL)
-    if (i > 2) {
-      links.push({
-        source: id,
-        target: `node-${Math.floor(Math.random() * i)}`
+      nodes.push({
+        id,
+        name:
+          type === 'memory'
+            ? `Memory ${i}`
+            : type === 'tool'
+            ? `Tool ${i}`
+            : `Agent ${i}`,
+        trust: Math.random(),
+        group: type,
+        locked: false
       });
+
+      // 🔗 connect to core
+      links.push({
+        source: 'core',
+        target: id
+      });
+
+      // 🔗 random cross-links
+      if (i > 2) {
+        links.push({
+          source: id,
+          target: `node-${Math.floor(Math.random() * i)}`
+        });
+      }
     }
-  }
 
-  setFullData({ nodes, links });
-  setData({ nodes, links });
+    // 🔥 lock the core in place
+    nodes.forEach((n) => {
+      if (n.id === 'core') {
+        n.fx = 0;
+        n.fy = 0;
+        n.fz = 0;
+      }
+    });
 
-  setTimeout(() => {
-    fgRef.current?.zoomToFit?.(400);
-  }, 500);
-}, []);
-  
+    setFullData({ nodes, links });
+    setData({ nodes, links });
+
+    setTimeout(() => {
+      fgRef.current?.zoomToFit?.(400);
+    }, 500);
+  }, []);
 
   // 🔥 ADDED: SIZE HANDLER
   useEffect(() => {
@@ -175,9 +192,10 @@ export default function CipherNetMap() {
 
   const getNodeColor = (node) => {
     if (node.group === 'core') return '#ffffff';
-    if (node.trust > 0.8) return '#00ff88';
-    if (node.trust > 0.5) return '#ffcc00';
-    return '#ff3366';
+    if (node.group === 'memory') return '#00ff88'; // green
+    if (node.group === 'tool') return '#ffcc00';   // yellow
+    if (node.group === 'agent') return '#ff3366';  // red
+    return '#888';
   };
 
   const handleNodeClick = (node) => {
@@ -185,7 +203,11 @@ export default function CipherNetMap() {
 
     if (fgRef.current) {
       fgRef.current.cameraPosition?.(
-        { x: node.x * 1.5, y: node.y * 1.5, z: node.z * 1.5 },
+        {
+          x: (node.x || 0) * 1.5,
+          y: (node.y || 0) * 1.5,
+          z: (node.z || 0) * 1.5
+        },
         node,
         800
       );
@@ -204,46 +226,49 @@ export default function CipherNetMap() {
       </div>
 
       <ForceGraph3D
-  ref={fgRef}
-  width={size.width}
-  height={size.height}
-  graphData={data}
-  nodeLabel="name"
-  nodeColor={getNodeColor}
-  nodeVal={(node) => node.trust * 8 + 2}
-  backgroundColor="#000011"
-  linkWidth={1.5}
-  linkColor={() => '#4444ff'}
-  enableNodeDrag
-  onNodeClick={handleNodeClick}
-  showNavInfo={false}
+        ref={fgRef}
+        width={size.width}
+        height={size.height}
+        graphData={data}
+        nodeLabel="name"
+        nodeColor={getNodeColor}
+        nodeVal={(node) => node.trust * 8 + 2}
+        nodeRelSize={6}
+        nodeOpacity={0.95}
+        backgroundColor="#000011"
+        linkWidth={1.5}
+        linkColor={() => '#4444ff'}
+        linkOpacity={0.3}
+        enableNodeDrag
+        onNodeClick={handleNodeClick}
+        showNavInfo={false}
 
-  // ✅ REAL PHYSICS
-  cooldownTicks={300}
-  d3AlphaDecay={0.02}
-  d3VelocityDecay={0.3}
+        // ✅ REAL PHYSICS
+        cooldownTicks={300}
+        d3AlphaDecay={0.02}
+        d3VelocityDecay={0.3}
 
-  d3Force="charge"
-  d3ForceConfig={{ strength: -120 }}
+        d3Force="charge"
+        d3ForceConfig={{ strength: -120 }}
 
-  onEngineStop={() => {
-    fgRef.current?.zoomToFit?.(400);
-  }}
+        onEngineStop={() => {
+          fgRef.current?.zoomToFit?.(400);
+        }}
 
-  nodeThreeObject={(node) => {
-    const geometry = new THREE.SphereGeometry(
-      node.group === 'core' ? 10 : 6,
-      16,
-      16
-    );
+        nodeThreeObject={(node) => {
+          const geometry = new THREE.SphereGeometry(
+            node.group === 'core' ? 10 : 6,
+            16,
+            16
+          );
 
-    const material = new THREE.MeshBasicMaterial({
-      color: getNodeColor(node),
-    });
+          const material = new THREE.MeshBasicMaterial({
+            color: getNodeColor(node),
+          });
 
-    return new THREE.Mesh(geometry, material);
-  }}
-/>
+          return new THREE.Mesh(geometry, material);
+        }}
+      />
 
       {/* 🌌 RINGS */}
       <div className="absolute inset-0 pointer-events-none">
@@ -257,6 +282,7 @@ export default function CipherNetMap() {
         <div className="absolute top-4 right-4 bg-gray-900/80 p-4 rounded-lg text-white border border-blue-500 w-64">
           <h3 className="text-lg font-bold">{selectedNode.name}</h3>
           <p>Trust: {(selectedNode.trust * 100).toFixed(0)}%</p>
+          <p className="mt-1 capitalize">Type: {selectedNode.group}</p>
 
           {selectedNode.locked ? (
             <button className="mt-3 w-full px-4 py-2 bg-purple-600 rounded">
