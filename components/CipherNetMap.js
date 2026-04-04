@@ -100,15 +100,16 @@ export default function CipherNetMap() {
   // 🔥 TEST MODE (TEMP)
   useEffect(() => {
     const nodes = [
-      {
-        id: 'core',
-        name: 'Core',
-        trust: 1,
-        group: 'core',
-        x: 0,
-        y: 0,
-        z: 0
-      },
+  {
+   
+  id: 'core',
+  name: 'Core',
+  trust: 1,
+  group: 'core',
+  fx: 0,
+  fy: 0,
+  fz: 0 // 🔥 locks it to center permanently
+},
       {
         id: 'test',
         name: 'TEST NODE',
