@@ -4,165 +4,244 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import * as THREE from 'three';
 
-//  SAFE dynamic import (prevents SSR crash)
+// ============================================================================
+// SAFE DYNAMIC IMPORT
+// Prevents SSR crash with react-force-graph-3d
+// ============================================================================
 const ForceGraph3D = dynamic(
   () => import('react-force-graph-3d'),
   { ssr: false }
 );
 
-// Firebase
+// ============================================================================
+// FIREBASE
+// ============================================================================
 import { db } from '../lib/firebaseClient';
 import { collection, getDocs } from 'firebase/firestore';
 
+// ============================================================================
+// COMPONENT
+// ============================================================================
 export default function CipherNetMap() {
   const fgRef = useRef(null);
 
+  // ==========================================================================
+  // STATE
+  // ==========================================================================
   const [fullData, setFullData] = useState({ nodes: [], links: [] });
   const [data, setData] = useState({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState(null);
   const [risk, setRisk] = useState(0);
 
-  // 🔥 ADDED: SIZE FIX
-  const [size, setSize] = useState({ width: 300, height: 300 });
+  // ==========================================================================
+  // SIZE FIX FOR MOBILE / PORTRAIT
+  // ==========================================================================
+  const [size, setSize] = useState({
+    width: 300,
+    height: 300
+  });
 
-  //  ADD FROM FIRESTORE
-  //  useEffect(() => {
-  // async function loadNodes() {
-  //   try {
-  //     const colRef = collection(
-  //       db,
-  //       'memory_nodes',
-  //       'demo', // 🔥 IMPORTANT: match what you created
-  //       'nodes'
-  //     );
+  // ==========================================================================
+  // LIVE FIRESTORE DATA MODE
+  // This is the real loader now
+  // ==========================================================================
+  useEffect(() => {
+    async function loadNodes() {
+      try {
+        const colRef = collection(
+          db,
+          'memory_nodes',
+          'VkIdfn4SwyMzEIPLY',
+          'nodes'
+        );
+
+        const snap = await getDocs(colRef);
+
+        const nodes = [];
+        const links = [];
+
+        snap.forEach((doc) => {
+          const d = doc.data();
+
+          nodes.push({
+            id: doc.id,
+            name: d.title || 'Node',
+            trust: typeof d.importance === 'number' ? d.importance : 0.5,
+            group: d.type || 'memory',
+            locked: false
+          });
+
+          links.push({
+            source: 'core',
+            target: doc.id
+          });
+        });
+
+        nodes.push({
+          id: 'core',
+          name: 'Cipher Core',
+          trust: 1,
+          group: 'core',
+          locked: false,
+          fx: 0,
+          fy: 0,
+          fz: 0
+        });
+
+        const full = { nodes, links };
+        setFullData(full);
+        setData(full);
+
+        setTimeout(() => {
+          fgRef.current?.zoomToFit?.(400);
+        }, 500);
+      } catch (e) {
+        console.error('Firestore load error:', e);
+      }
+    }
+
+    loadNodes();
+  }, []);
+
+  // ==========================================================================
+  // TEST MODE (DISABLED, KEPT IN FILE ON PURPOSE)
+  // ==========================================================================
+  // useEffect(() => {
+  //   const nodes = [];
+  //   const links = [];
+  //   const types = ['memory', 'tool', 'agent'];
   //
-  //     const snap = await getDocs(colRef); // ✅ THIS WAS MISSING
+  //   // core
+  //   nodes.push({
+  //     id: 'core',
+  //     name: 'Core',
+  //     trust: 1,
+  //     group: 'core',
+  //     locked: false
+  //   });
   //
-  //     const nodes = [];
-  //     const links = [];
+  //   // generate 20 nodes
+  //   for (let i = 0; i < 20; i++) {
+  //     const id = `node-${i}`;
+  //     const type = types[Math.floor(Math.random() * types.length)];
   //
-  //     snap.forEach((doc) => {
-  //       const d = doc.data();
+  //     nodes.push({
+  //       id,
+  //       name:
+  //         type === 'memory'
+  //           ? `Memory ${i}`
+  //           : type === 'tool'
+  //           ? `Tool ${i}`
+  //           : `Agent ${i}`,
+  //       trust: Math.random(),
+  //       group: type,
+  //       locked: false
+  //     });
+  //
+  //     links.push({
+  //       source: 'core',
+  //       target: id
+  //     });
+  //
+  //     if (i > 2) {
+  //       links.push({
+  //         source: id,
+  //         target: `node-${Math.floor(Math.random() * i)}`
+  //       });
+  //     }
+  //   }
+  //
+  //   nodes.forEach((n) => {
+  //     if (n.id === 'core') {
+  //       n.fx = 0;
+  //       n.fy = 0;
+  //       n.fz = 0;
+  //     }
+  //   });
+  //
+  //   setFullData({ nodes, links });
+  //   setData({ nodes, links });
+  //
+  //   setTimeout(() => {
+  //     fgRef.current?.zoomToFit?.(400);
+  //   }, 500);
+  // }, []);
+
+  // ==========================================================================
+  // LEGACY FIRESTORE LOADER (DISABLED, KEPT FOR REFERENCE)
+  // ==========================================================================
+  // useEffect(() => {
+  //   async function loadNodes() {
+  //     try {
+  //       const colRef = collection(
+  //         db,
+  //         'memory_nodes',
+  //         'demo',
+  //         'nodes'
+  //       );
+  //
+  //       const snap = await getDocs(colRef);
+  //
+  //       const nodes = [];
+  //       const links = [];
+  //
+  //       snap.forEach((doc) => {
+  //         const d = doc.data();
+  //
+  //         nodes.push({
+  //           id: doc.id,
+  //           name: d.title || 'Node',
+  //           trust: d.importance || 0.5,
+  //           group: d.type || 'memory',
+  //           locked: false
+  //         });
+  //       });
   //
   //       nodes.push({
-  //         id: doc.id,
-  //         name: d.title || 'Node',
-  //         trust: d.importance || 0.5,
-  //         group: d.type || 'med',
-  //         locked: false,
-  //       });
-  //     });
-  //
-  //     // ✅ ADD CORE NODE
-  //     nodes.push({
-  //       id: 'core',
-  //       name: 'Cipher Core',
-  //       trust: 1,
-  //       group: 'core'
-  //     });
-  //
-  //     const full = { nodes, links };
-  //     setFullData(full);
-  //     setData(full);
-  //
-  //     setTimeout(() => {
-  //       nodes.forEach((node) => {
-  //         if (node.id === 'core') {
-  //           node.x = 0;
-  //           node.y = 0;
-  //           node.z = 0;
-  //           return;
-  //         }
-  //
-  //         let radius = 120;
-  //         if (node.trust > 0.8) radius = 120;
-  //         else if (node.trust > 0.5) radius = 240;
-  //         else radius = 360;
-  //
-  //         const angle = Math.random() * Math.PI * 2;
-  //
-  //         node.x = Math.cos(angle) * radius;
-  //         node.z = Math.sin(angle) * radius;
-  //         node.y = (Math.random() - 0.5) * 80;
+  //         id: 'core',
+  //         name: 'Cipher Core',
+  //         trust: 1,
+  //         group: 'core'
   //       });
   //
-  //       fgRef.current?.zoomToFit?.(400);
-  //     }, 500);
+  //       const full = { nodes, links };
+  //       setFullData(full);
+  //       setData(full);
   //
-  //   } catch (e) {
-  //     console.error('Firestore load error:', e);
+  //       setTimeout(() => {
+  //         nodes.forEach((node) => {
+  //           if (node.id === 'core') {
+  //             node.x = 0;
+  //             node.y = 0;
+  //             node.z = 0;
+  //             return;
+  //           }
+  //
+  //           let radius = 120;
+  //           if (node.trust > 0.8) radius = 120;
+  //           else if (node.trust > 0.5) radius = 240;
+  //           else radius = 360;
+  //
+  //           const angle = Math.random() * Math.PI * 2;
+  //
+  //           node.x = Math.cos(angle) * radius;
+  //           node.z = Math.sin(angle) * radius;
+  //           node.y = (Math.random() - 0.5) * 80;
+  //         });
+  //
+  //         fgRef.current?.zoomToFit?.(400);
+  //       }, 500);
+  //     } catch (e) {
+  //       console.error('Firestore load error:', e);
+  //     }
   //   }
-  // }
   //
   //   loadNodes();
   // }, []);
 
-  // 🔥 TEST MODE (TEMP)
-  useEffect(() => {
-    const nodes = [];
-    const links = [];
-    const types = ['memory', 'tool', 'agent'];
-
-    // 🔥 core
-    nodes.push({
-      id: 'core',
-      name: 'Core',
-      trust: 1,
-      group: 'core',
-      locked: false
-    });
-
-    // 🔥 generate 20 nodes
-    for (let i = 0; i < 20; i++) {
-      const id = `node-${i}`;
-      const type = types[Math.floor(Math.random() * types.length)];
-
-      nodes.push({
-        id,
-        name:
-          type === 'memory'
-            ? `Memory ${i}`
-            : type === 'tool'
-            ? `Tool ${i}`
-            : `Agent ${i}`,
-        trust: Math.random(),
-        group: type,
-        locked: false
-      });
-
-      // 🔗 connect to core
-      links.push({
-        source: 'core',
-        target: id
-      });
-
-      // 🔗 random cross-links
-      if (i > 2) {
-        links.push({
-          source: id,
-          target: `node-${Math.floor(Math.random() * i)}`
-        });
-      }
-    }
-
-    // 🔥 lock the core in place
-    nodes.forEach((n) => {
-      if (n.id === 'core') {
-        n.fx = 0;
-        n.fy = 0;
-        n.fz = 0;
-      }
-    });
-
-    setFullData({ nodes, links });
-    setData({ nodes, links });
-
-    setTimeout(() => {
-      fgRef.current?.zoomToFit?.(400);
-    }, 500);
-  }, []);
-
-  // 🔥 ADDED: SIZE HANDLER
+  // ==========================================================================
+  // SIZE HANDLER
+  // ==========================================================================
   useEffect(() => {
     function updateSize() {
       setSize({
@@ -172,12 +251,15 @@ export default function CipherNetMap() {
     }
 
     updateSize();
+
     window.addEventListener('resize', updateSize);
 
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // 🎛 RISK FILTER
+  // ==========================================================================
+  // RISK FILTER
+  // ==========================================================================
   useEffect(() => {
     const filteredNodes = fullData.nodes.filter((n) => n.trust >= risk);
 
@@ -187,17 +269,26 @@ export default function CipherNetMap() {
         filteredNodes.find((n) => n.id === l.target)
     );
 
-    setData({ nodes: filteredNodes, links: filteredLinks });
+    setData({
+      nodes: filteredNodes,
+      links: filteredLinks
+    });
   }, [risk, fullData]);
 
+  // ==========================================================================
+  // NODE COLOR SYSTEM
+  // ==========================================================================
   const getNodeColor = (node) => {
     if (node.group === 'core') return '#ffffff';
-    if (node.group === 'memory') return '#00ff88'; // green
-    if (node.group === 'tool') return '#ffcc00';   // yellow
-    if (node.group === 'agent') return '#ff3366';  // red
-    return '#888';
+    if (node.group === 'memory') return '#00ff88';
+    if (node.group === 'tool') return '#ffcc00';
+    if (node.group === 'agent') return '#ff3366';
+    return '#888888';
   };
 
+  // ==========================================================================
+  // NODE CLICK HANDLER
+  // ==========================================================================
   const handleNodeClick = (node) => {
     setSelectedNode(node);
 
@@ -218,13 +309,27 @@ export default function CipherNetMap() {
     }
   };
 
+  // ==========================================================================
+  // RENDER
+  // ==========================================================================
   return (
     <div className="w-full h-screen bg-black relative">
-      {/* 🌌 YOUR GALAXY IS BACK */}
-      <div style={{ position: 'absolute', color: 'white', zIndex: 10 }}>
+      {/* ===================================================================== */}
+      {/* DEBUG COUNT */}
+      {/* ===================================================================== */}
+      <div
+        style={{
+          position: 'absolute',
+          color: 'white',
+          zIndex: 10
+        }}
+      >
         Nodes: {data.nodes.length}
       </div>
 
+      {/* ===================================================================== */}
+      {/* GRAPH */}
+      {/* ===================================================================== */}
       <ForceGraph3D
         ref={fgRef}
         width={size.width}
@@ -243,7 +348,9 @@ export default function CipherNetMap() {
         onNodeClick={handleNodeClick}
         showNavInfo={false}
 
-        // ✅ REAL PHYSICS
+        // ====================================================================
+        // PHYSICS
+        // ====================================================================
         cooldownTicks={300}
         d3AlphaDecay={0.02}
         d3VelocityDecay={0.3}
@@ -255,6 +362,9 @@ export default function CipherNetMap() {
           fgRef.current?.zoomToFit?.(400);
         }}
 
+        // ====================================================================
+        // NODE RENDERER
+        // ====================================================================
         nodeThreeObject={(node) => {
           const geometry = new THREE.SphereGeometry(
             node.group === 'core' ? 10 : 6,
@@ -263,25 +373,31 @@ export default function CipherNetMap() {
           );
 
           const material = new THREE.MeshBasicMaterial({
-            color: getNodeColor(node),
+            color: getNodeColor(node)
           });
 
           return new THREE.Mesh(geometry, material);
         }}
       />
 
-      {/* 🌌 RINGS */}
+      {/* ===================================================================== */}
+      {/* ORBIT RINGS */}
+      {/* ===================================================================== */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 border border-green-500/10 rounded-full scale-[0.3]" />
         <div className="absolute inset-0 border border-yellow-500/10 rounded-full scale-[0.5]" />
         <div className="absolute inset-0 border border-red-500/10 rounded-full scale-[0.7]" />
       </div>
 
-      {/* 🧠 NODE PANEL */}
+      {/* ===================================================================== */}
+      {/* NODE PANEL */}
+      {/* ===================================================================== */}
       {selectedNode && (
         <div className="absolute top-4 right-4 bg-gray-900/80 p-4 rounded-lg text-white border border-blue-500 w-64">
           <h3 className="text-lg font-bold">{selectedNode.name}</h3>
+
           <p>Trust: {(selectedNode.trust * 100).toFixed(0)}%</p>
+
           <p className="mt-1 capitalize">Type: {selectedNode.group}</p>
 
           {selectedNode.locked ? (
@@ -299,9 +415,12 @@ export default function CipherNetMap() {
         </div>
       )}
 
-      {/* 🎛 RISK SLIDER */}
+      {/* ===================================================================== */}
+      {/* RISK SLIDER */}
+      {/* ===================================================================== */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900/70 p-3 rounded-full flex items-center gap-4">
         <span className="text-white">Risk</span>
+
         <input
           type="range"
           min="0"
@@ -312,6 +431,45 @@ export default function CipherNetMap() {
           className="w-48"
         />
       </div>
+
+      {/* ===================================================================== */}
+      {/* FUTURE NOTES (KEPT IN FILE ON PURPOSE) */}
+      {/* ===================================================================== */}
+      {/* 
+        Planned next upgrades:
+
+        1. Live Firestore subscription instead of one-time getDocs
+        2. Search box that highlights matching nodes
+        3. Type filters: memory / tool / agent
+        4. Activity pulse on hot links
+        5. Node badges for trust / uptime / pricing
+        6. Auto-create nodes from chat usage
+        7. Agent click launches real routes
+        8. Tool click invokes real tools
+        9. Memory click injects context into chat
+        10. Cluster expansion / collapse behavior
+      */}
+
+      {/* 
+        UI direction:
+        - Core remains center
+        - Nodes represent active capabilities
+        - Colors reflect type
+        - Trust can later become outer glow / halo
+        - Card pop-up remains first interaction layer
+      */}
+
+      {/* 
+        Data assumptions:
+        - title: string
+        - importance: number
+        - type: memory | tool | agent
+      */}
+
+      {/* 
+        Current Firestore path:
+        memory_nodes / VkIdfn4SwyMzEIPLY / nodes / {doc}
+      */}
     </div>
   );
 }
