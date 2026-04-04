@@ -98,19 +98,14 @@ export default function CipherNetMap() {
  // }, []);
 
   // 🔥 TEST MODE (TEMP)
+  
   useEffect(() => {
   const nodes = [
     {
       id: 'core',
       name: 'Core',
       trust: 1,
-      group: 'core',
-      d3AlphaDecay={0.02}
-      d3VelocityDecay0.3}.    cooldownTicks={300}
-   d3Force="charge"
-d3ForceConfig={{
-  strength: -120
-}}
+      group: 'core'
     },
     {
       id: 'test',
@@ -134,7 +129,6 @@ d3ForceConfig={{
     fgRef.current?.zoomToFit?.(400);
   }, 500);
 }, []);
-  
 
   // 🔥 ADDED: SIZE HANDLER
   useEffect(() => {
@@ -209,18 +203,14 @@ d3ForceConfig={{
   onNodeClick={handleNodeClick}
   showNavInfo={false}
 
-  // 🔥 KEY FIXES
-  cooldownTicks={0} // stops endless movement
-  d3AlphaDecay={0.08} // faster stabilization
-  d3VelocityDecay={0.9} // slows movement
+  // ✅ REAL PHYSICS
+  cooldownTicks={300}
+  d3AlphaDecay={0.02}
+  d3VelocityDecay={0.3}
 
-  // 🔥 CENTER FORCE
-  d3Force="center"
-  d3ForceConfig={{
-    strength: 1
-  }}
+  d3Force="charge"
+  d3ForceConfig={{ strength: -120 }}
 
-  // 🔥 FORCE NODES TO STAY NEAR CENTER
   onEngineStop={() => {
     fgRef.current?.zoomToFit?.(400);
   }}
