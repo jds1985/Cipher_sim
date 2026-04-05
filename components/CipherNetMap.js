@@ -45,38 +45,36 @@ export default function CipherNetMap() {
   // LIVE FIRESTORE DATA MODE
   // This is the real loader now
   // ==========================================================================
-  useEffect(() => {
-    async function loadNodes() {
-      try {
-        const colRef = collection(
-          db,
-          'memory_nodes',
-          'VkIdfn4SwyMzEIPLY',
-          'nodes'
-        );
+  
+       snap.forEach((doc) => {
+  const d = doc.data();
 
-        const snap = await getDocs(colRef);
+  nodes.push({
+    id: doc.id,
 
-        const nodes = [];
-        const links = [];
+    // ✅ FIX NAME
+    name: d.title || d.content || 'Node',
 
-        snap.forEach((doc) => {
-          const d = doc.data();
+    // ✅ TRUST
+    trust: typeof d.importance === 'number' ? d.importance : 0.5,
 
-          nodes.push({
-            id: doc.id,
-            name: d.title || 'Node',
-            trust: typeof d.importance === 'number' ? d.importance : 0.5,
-            group: d.type || 'memory',
-            locked: false
-          });
+    // ✅ FIX TYPE MAPPING
+    group: d.type === 'knowledge' ? 'memory' : d.type || 'memory',
 
-          links.push({
-            source: 'core',
-            target: doc.id
-          });
-        });
+    locked: false,
 
+    // ✅ FIX POSITION (THIS IS WHY SCREEN IS BLANK)
+    x: Math.random() * 200 - 100,
+    y: Math.random() * 200 - 100,
+    z: Math.random() * 200 - 100
+  });
+
+  links.push({
+    source: 'core',
+    target: doc.id
+  });
+});
+  
         nodes.push({
           id: 'core',
           name: 'Cipher Core',
