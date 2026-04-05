@@ -34,6 +34,12 @@ export default function CipherNetMap() {
   const [risk, setRisk] = useState(0);
 
   // ==========================================================================
+  // DEBUG / STATUS STATE
+  // ==========================================================================
+  const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState('');
+
+  // ==========================================================================
   // SIZE FIX FOR MOBILE / PORTRAIT
   // ==========================================================================
   const [size, setSize] = useState({
@@ -42,37 +48,46 @@ export default function CipherNetMap() {
   });
 
   // ==========================================================================
+  // DEBUG COUNT FOR RENDER
+  // ==========================================================================
+  const debugCount = fullData.nodes.length;
+
+  // ==========================================================================
   // LIVE FIRESTORE DATA MODE
-  // This is the real loader now
+  // IMPORTANT:
+  // If your real user id is longer than this, replace ONLY the string below.
+  // Use the exact full document id from Firebase:
+  // memory_nodes / YOUR_USER_ID / nodes / {doc}
   // ==========================================================================
   useEffect(() => {
     async function loadNodes() {
       try {
-        const colRef = collection(db, 'memory_nodes', 'demo', 'nodes');
+        setLoading(true);
+        setErrorText('');
+
+        const USER_ID = 'VkIdfn4SwyMzEIPLY';
+
+        const colRef = collection(
+          db,
+          'memory_nodes',
+          USER_ID,
+          'nodes'
+        );
+
         const snap = await getDocs(colRef);
-        const debugCount = fullData.nodes.length;
 
         const nodes = [];
         const links = [];
 
         snap.forEach((doc) => {
-          const d = doc.data();
+          const d = doc.data() || {};
 
           nodes.push({
             id: doc.id,
-
-            // ✅ FIX NAME
             name: d.title || d.content || 'Node',
-
-            // ✅ TRUST
             trust: typeof d.importance === 'number' ? d.importance : 0.5,
-
-            // ✅ FIX TYPE MAPPING
-            group: d.type === 'knowledge' ? 'memory' : d.type || 'memory',
-
+            group: d.type === 'knowledge' ? 'memory' : (d.type || 'memory'),
             locked: false,
-
-            // ✅ FIX POSITION (THIS IS WHY SCREEN IS BLANK)
             x: Math.random() * 200 - 100,
             y: Math.random() * 200 - 100,
             z: Math.random() * 200 - 100
@@ -84,6 +99,30 @@ export default function CipherNetMap() {
           });
         });
 
+        // --------------------------------------------------------------------
+        // FALLBACK NODE IF FIRESTORE COMES BACK EMPTY
+        // --------------------------------------------------------------------
+        if (nodes.length === 0) {
+          nodes.push({
+            id: 'fallback',
+            name: 'Fallback Node',
+            trust: 0.5,
+            group: 'memory',
+            locked: false,
+            x: 80,
+            y: 0,
+            z: 0
+          });
+
+          links.push({
+            source: 'core',
+            target: 'fallback'
+          });
+        }
+
+        // --------------------------------------------------------------------
+        // CORE NODE
+        // --------------------------------------------------------------------
         nodes.push({
           id: 'core',
           name: 'Cipher Core',
@@ -104,6 +143,9 @@ export default function CipherNetMap() {
         }, 500);
       } catch (e) {
         console.error('Firestore load error:', e);
+        setErrorText(e?.message || 'Firestore load failed');
+      } finally {
+        setLoading(false);
       }
     }
 
@@ -118,7 +160,6 @@ export default function CipherNetMap() {
   //   const links = [];
   //   const types = ['memory', 'tool', 'agent'];
   //
-  //   // core
   //   nodes.push({
   //     id: 'core',
   //     name: 'Core',
@@ -127,7 +168,6 @@ export default function CipherNetMap() {
   //     locked: false
   //   });
   //
-  //   // generate 20 nodes
   //   for (let i = 0; i < 20; i++) {
   //     const id = `node-${i}`;
   //     const type = types[Math.floor(Math.random() * types.length)];
@@ -258,7 +298,6 @@ export default function CipherNetMap() {
     }
 
     updateSize();
-
     window.addEventListener('resize', updateSize);
 
     return () => window.removeEventListener('resize', updateSize);
@@ -270,11 +309,15 @@ export default function CipherNetMap() {
   useEffect(() => {
     const filteredNodes = fullData.nodes.filter((n) => n.trust >= risk);
 
-    const filteredLinks = fullData.links.filter(
-      (l) =>
-        filteredNodes.find((n) => n.id === (typeof l.source === 'object' ? l.source.id : l.source)) &&
-        filteredNodes.find((n) => n.id === (typeof l.target === 'object' ? l.target.id : l.target))
-    );
+    const filteredLinks = fullData.links.filter((l) => {
+      const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+      const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+
+      return (
+        filteredNodes.find((n) => n.id === sourceId) &&
+        filteredNodes.find((n) => n.id === targetId)
+      );
+    });
 
     setData({
       nodes: filteredNodes,
@@ -322,64 +365,106 @@ export default function CipherNetMap() {
   return (
     <div className="w-full h-screen bg-black relative">
       {/* ===================================================================== */}
-      {/* DEBUG COUNT */}
+      {/* DEBUG / STATUS */}
       {/* ===================================================================== */}
-      
-  <div style={{ position: 'absolute', color: 'white', zIndex: 10 }}>
-  Nodes: {data.nodes.length} | Full: {debugCount}
-  </div>
+      <div
+        style={{
+          position: 'absolute',
+          color: 'white',
+          zIndex: 20,
+          left: 8,
+          top: 8,
+          fontSize: 14
+        }}
+      >
+        Nodes: {data.nodes.length} | Full: {debugCount}
+      </div>
+
+      {loading && (
+        <div
+          style={{
+            position: 'absolute',
+            color: '#9ca3af',
+            zIndex: 20,
+            left: 8,
+            top: 30,
+            fontSize: 13
+          }}
+        >
+          Loading CipherNet...
+        </div>
+      )}
+
+      {errorText && (
+        <div
+          style={{
+            position: 'absolute',
+            color: '#ff7777',
+            zIndex: 20,
+            left: 8,
+            top: 52,
+            fontSize: 13,
+            maxWidth: 320
+          }}
+        >
+          Error: {errorText}
+        </div>
+      )}
+
       {/* ===================================================================== */}
       {/* GRAPH */}
       {/* ===================================================================== */}
-      <ForceGraph3D
-        ref={fgRef}
-        width={size.width}
-        height={size.height}
-        graphData={data}
-        nodeLabel="name"
-        nodeColor={getNodeColor}
-        nodeVal={(node) => node.trust * 8 + 2}
-        nodeRelSize={6}
-        nodeOpacity={0.95}
-        backgroundColor="#000011"
-        linkWidth={1.5}
-        linkColor={() => '#4444ff'}
-        linkOpacity={0.3}
-        enableNodeDrag
-        onNodeClick={handleNodeClick}
-        showNavInfo={false}
+      {data.nodes.length > 0 && (
+        <ForceGraph3D
+          ref={fgRef}
+          width={size.width}
+          height={size.height}
+          graphData={data}
+          nodeLabel="name"
+          nodeColor={getNodeColor}
+          nodeVal={(node) => node.trust * 8 + 2}
+          nodeRelSize={6}
+          nodeOpacity={0.95}
+          backgroundColor="#000011"
+          linkWidth={1.5}
+          linkColor={() => '#4444ff'}
+          linkOpacity={0.3}
+          enableNodeDrag
+          onNodeClick={handleNodeClick}
+          showNavInfo={false}
 
-        // ====================================================================
-        // PHYSICS
-        // ====================================================================
-        cooldownTicks={300}
-        d3AlphaDecay={0.02}
-        d3VelocityDecay={0.3}
+          // ==================================================================
+          // PHYSICS
+          // ==================================================================
+          cooldownTicks={300}
+          d3AlphaDecay={0.02}
+          d3VelocityDecay={0.3}
 
-        d3Force="charge"
-        d3ForceConfig={{ strength: -120 }}
+          d3Force="charge"
+          d3ForceConfig={{ strength: -120 }}
 
-        onEngineStop={() => {
-          fgRef.current?.zoomToFit?.(400);
-        }}
+          onEngineStop={() => {
+            fgRef.current?.zoomToFit?.(400);
+          }}
 
-        // ====================================================================
-        // NODE RENDERER
-        // ====================================================================
-        nodeThreeObject={(node) => {
-          const geometry = new THREE.SphereGeometry(
-            node.group === 'core' ? 10 : 6,
-            16,
-            16
-          );
+          // ==================================================================
+          // NODE RENDERER
+          // ==================================================================
+          nodeThreeObject={(node) => {
+            const geometry = new THREE.SphereGeometry(
+              node.group === 'core' ? 10 : 6,
+              16,
+              16
+            );
 
-          const material = new THREE.MeshBasicMaterial({
-            color: getNodeColor(node)
-          });
+            const material = new THREE.MeshBasicMaterial({
+              color: getNodeColor(node)
+            });
 
-          return new THREE.Mesh(geometry, material);
-        }}
-      />
+            return new THREE.Mesh(geometry, material);
+          }}
+        />
+      )}
 
       {/* ===================================================================== */}
       {/* ORBIT RINGS */}
@@ -394,7 +479,7 @@ export default function CipherNetMap() {
       {/* NODE PANEL */}
       {/* ===================================================================== */}
       {selectedNode && (
-        <div className="absolute top-4 right-4 bg-gray-900/80 p-4 rounded-lg text-white border border-blue-500 w-64">
+        <div className="absolute top-4 right-4 bg-gray-900/80 p-4 rounded-lg text-white border border-blue-500 w-64 z-30">
           <h3 className="text-lg font-bold">{selectedNode.name}</h3>
 
           <p>Trust: {(selectedNode.trust * 100).toFixed(0)}%</p>
@@ -419,7 +504,7 @@ export default function CipherNetMap() {
       {/* ===================================================================== */}
       {/* RISK SLIDER */}
       {/* ===================================================================== */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900/70 p-3 rounded-full flex items-center gap-4">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900/70 p-3 rounded-full flex items-center gap-4 z-30">
         <span className="text-white">Risk</span>
 
         <input
@@ -436,7 +521,8 @@ export default function CipherNetMap() {
       {/* ===================================================================== */}
       {/* FUTURE NOTES (KEPT IN FILE ON PURPOSE) */}
       {/* ===================================================================== */}
-      {/* Planned next upgrades:
+      {/* 
+        Planned next upgrades:
 
         1. Live Firestore subscription instead of one-time getDocs
         2. Search box that highlights matching nodes
@@ -450,7 +536,8 @@ export default function CipherNetMap() {
         10. Cluster expansion / collapse behavior
       */}
 
-      {/* UI direction:
+      {/* 
+        UI direction:
         - Core remains center
         - Nodes represent active capabilities
         - Colors reflect type
@@ -458,13 +545,15 @@ export default function CipherNetMap() {
         - Card pop-up remains first interaction layer
       */}
 
-      {/* Data assumptions:
-        - title: string
+      {/* 
+        Data assumptions:
+        - title or content: string
         - importance: number
-        - type: memory | tool | agent
+        - type: memory | tool | agent | knowledge
       */}
 
-      {/* Current Firestore path:
+      {/* 
+        Current Firestore path:
         memory_nodes / VkIdfn4SwyMzEIPLY / nodes / {doc}
       */}
     </div>
