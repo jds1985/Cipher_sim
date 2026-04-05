@@ -324,16 +324,10 @@ export default function CipherNetMap() {
       {/* ===================================================================== */}
       {/* DEBUG COUNT */}
       {/* ===================================================================== */}
-      <div
-        style={{
-          position: 'absolute',
-          color: 'white',
-          zIndex: 10
-        }}
-      >
-        Nodes: {data.nodes.length}
-      </div>
-
+      
+  <div style={{ position: 'absolute', color: 'white', zIndex: 10 }}>
+  Nodes: {data.nodes.length} | Full: {debugCount}
+  </div>
       {/* ===================================================================== */}
       {/* GRAPH */}
       {/* ===================================================================== */}
