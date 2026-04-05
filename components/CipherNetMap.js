@@ -85,7 +85,10 @@ export default function CipherNetMap() {
           nodes.push({
             id: doc.id,
             name: d.title || d.content || 'Node',
-            trust: typeof d.importance === 'number' ? d.importance : 0.5,
+            trust:
+  typeof d.importance === 'number'
+    ? d.importance
+    : Math.random(),
             group: d.type === 'knowledge' ? 'memory' : (d.type || 'memory'),
             locked: false,
             x: Math.random() * 200 - 100,
