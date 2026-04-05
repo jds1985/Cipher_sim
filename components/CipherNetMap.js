@@ -45,36 +45,44 @@ export default function CipherNetMap() {
   // LIVE FIRESTORE DATA MODE
   // This is the real loader now
   // ==========================================================================
-  
-       snap.forEach((doc) => {
-  const d = doc.data();
+  useEffect(() => {
+    async function loadNodes() {
+      try {
+        const colRef = collection(db, 'memory_nodes', 'demo', 'nodes');
+        const snap = await getDocs(colRef);
 
-  nodes.push({
-    id: doc.id,
+        const nodes = [];
+        const links = [];
 
-    // ✅ FIX NAME
-    name: d.title || d.content || 'Node',
+        snap.forEach((doc) => {
+          const d = doc.data();
 
-    // ✅ TRUST
-    trust: typeof d.importance === 'number' ? d.importance : 0.5,
+          nodes.push({
+            id: doc.id,
 
-    // ✅ FIX TYPE MAPPING
-    group: d.type === 'knowledge' ? 'memory' : d.type || 'memory',
+            // ✅ FIX NAME
+            name: d.title || d.content || 'Node',
 
-    locked: false,
+            // ✅ TRUST
+            trust: typeof d.importance === 'number' ? d.importance : 0.5,
 
-    // ✅ FIX POSITION (THIS IS WHY SCREEN IS BLANK)
-    x: Math.random() * 200 - 100,
-    y: Math.random() * 200 - 100,
-    z: Math.random() * 200 - 100
-  });
+            // ✅ FIX TYPE MAPPING
+            group: d.type === 'knowledge' ? 'memory' : d.type || 'memory',
 
-  links.push({
-    source: 'core',
-    target: doc.id
-  });
-});
-  
+            locked: false,
+
+            // ✅ FIX POSITION (THIS IS WHY SCREEN IS BLANK)
+            x: Math.random() * 200 - 100,
+            y: Math.random() * 200 - 100,
+            z: Math.random() * 200 - 100
+          });
+
+          links.push({
+            source: 'core',
+            target: doc.id
+          });
+        });
+
         nodes.push({
           id: 'core',
           name: 'Cipher Core',
@@ -263,8 +271,8 @@ export default function CipherNetMap() {
 
     const filteredLinks = fullData.links.filter(
       (l) =>
-        filteredNodes.find((n) => n.id === l.source) &&
-        filteredNodes.find((n) => n.id === l.target)
+        filteredNodes.find((n) => n.id === (typeof l.source === 'object' ? l.source.id : l.source)) &&
+        filteredNodes.find((n) => n.id === (typeof l.target === 'object' ? l.target.id : l.target))
     );
 
     setData({
@@ -433,8 +441,7 @@ export default function CipherNetMap() {
       {/* ===================================================================== */}
       {/* FUTURE NOTES (KEPT IN FILE ON PURPOSE) */}
       {/* ===================================================================== */}
-      {/* 
-        Planned next upgrades:
+      {/* Planned next upgrades:
 
         1. Live Firestore subscription instead of one-time getDocs
         2. Search box that highlights matching nodes
@@ -448,8 +455,7 @@ export default function CipherNetMap() {
         10. Cluster expansion / collapse behavior
       */}
 
-      {/* 
-        UI direction:
+      {/* UI direction:
         - Core remains center
         - Nodes represent active capabilities
         - Colors reflect type
@@ -457,15 +463,13 @@ export default function CipherNetMap() {
         - Card pop-up remains first interaction layer
       */}
 
-      {/* 
-        Data assumptions:
+      {/* Data assumptions:
         - title: string
         - importance: number
         - type: memory | tool | agent
       */}
 
-      {/* 
-        Current Firestore path:
+      {/* Current Firestore path:
         memory_nodes / VkIdfn4SwyMzEIPLY / nodes / {doc}
       */}
     </div>
