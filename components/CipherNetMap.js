@@ -50,7 +50,8 @@ export default function CipherNetMap() {
       try {
         const colRef = collection(db, 'memory_nodes', 'demo', 'nodes');
         const snap = await getDocs(colRef);
-
+        console.log("🔥 SNAP DOC COUNT:", snap.size);
+  
         const nodes = [];
         const links = [];
 
