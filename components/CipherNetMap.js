@@ -47,6 +47,16 @@ export default function CipherNetMap() {
     height: 300
   });
 
+   useEffect(() => {
+  const interval = setInterval(() => {
+    if (fgRef.current) {
+      fgRef.current.scene().rotation.y += 0.0005;
+    }
+  }, 16);
+
+  return () => clearInterval(interval);
+}, []);
+
   // ==========================================================================
   // DEBUG COUNT FOR RENDER
   // ==========================================================================
@@ -96,6 +106,18 @@ export default function CipherNetMap() {
             target: doc.id
           });
         });
+
+        // RANDOM NODE-TO-NODE CONNECTIONS (BREAK THE CLUSTER)
+if (Math.random() > 0.7) {
+  const randomDoc = snap.docs[Math.floor(Math.random() * snap.docs.length)];
+
+  if (randomDoc && randomDoc.id !== doc.id) {
+    links.push({
+      source: doc.id,
+      target: randomDoc.id
+    });
+  }
+}
 
         // --------------------------------------------------------------------
         // FALLBACK NODE IF FIRESTORE COMES BACK EMPTY
@@ -224,7 +246,9 @@ export default function CipherNetMap() {
       navigator.vibrate(50);
     }
   };
-
+ const bgTexture = new THREE.TextureLoader().load(
+  'https://threejs.org/examples/textures/space.jpg'
+);
   // ==========================================================================
   // RENDER
   // ==========================================================================
@@ -291,7 +315,7 @@ export default function CipherNetMap() {
           nodeVal={(node) => Math.pow(node.trust, 2) * 20 + 2}
           nodeRelSize={6}
           nodeOpacity={0.95}
-          backgroundColor="#000011"
+          backgroundColor={null}
           linkWidth={1.5}
           linkColor={() => '#4444ff'}
           linkOpacity={0.3}
@@ -310,8 +334,29 @@ export default function CipherNetMap() {
           d3ForceConfig={{ strength: -300 }}
 
           onEngineStop={() => {
-            fgRef.current?.zoomToFit?.(400);
-          }}
+  if (fgRef.current) {
+    const scene = fgRef.current.scene();
+
+    // 🌌 SPACE BACKGROUND
+    scene.background = bgTexture;
+
+    // 🪞 FLOOR
+    const floorGeo = new THREE.PlaneGeometry(2000, 2000);
+    const floorMat = new THREE.MeshBasicMaterial({
+      color: 0x111111,
+      transparent: true,
+      opacity: 0.3
+    });
+
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -150;
+
+    scene.add(floor);
+
+    fgRef.current.zoomToFit?.(400);
+  }
+}}
 
           // ==================================================================
           // NODE RENDERER
