@@ -321,23 +321,27 @@ export default function CipherNetMap() {
           d3Force="charge"
           d3ForceConfig={{ strength: -300 }}
 
-          onEngineStop={() => {
-  if (!fgRef.current) return;
+           onEngineStop={() => {
+  ...
+}}
+nodeThreeObject={(node) => {
+  const group = new THREE.Group();
 
-  const scene = fgRef.current.scene();
-
-  // 🚫 prevent duplicate stacking
-  if (scene.__bgApplied) return;
-  scene.__bgApplied = true;
-
-  // 🌌 SAFE texture load AFTER scene exists
-  const loader = new THREE.TextureLoader();
-  loader.load(
-    'https://threejs.org/examples/textures/space.jpg',
-    (texture) => {
-      scene.background = texture;
-    }
+  const geometry = new THREE.SphereGeometry(
+    node.group === 'core' ? 8 : 4,
+    12,
+    12
   );
+
+  const material = new THREE.MeshBasicMaterial({
+    color: getNodeColor(node)
+  });
+
+  const sphere = new THREE.Mesh(geometry, material);
+  group.add(sphere);
+
+  return group;
+}}
 
   // 🪞 FLOOR
   const floorGeo = new THREE.PlaneGeometry(2000, 2000);
