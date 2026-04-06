@@ -47,15 +47,15 @@ export default function CipherNetMap() {
     height: 300
   });
 
-   useEffect(() => {
-  const interval = setInterval(() => {
-    if (fgRef.current) {
-      fgRef.current.scene().rotation.y += 0.0005;
-    }
-  }, 16);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (fgRef.current) {
+        fgRef.current.scene().rotation.y += 0.0005;
+      }
+    }, 16);
 
-  return () => clearInterval(interval);
-}, []);
+    return () => clearInterval(interval);
+  }, []);
 
   // ==========================================================================
   // DEBUG COUNT FOR RENDER
@@ -85,29 +85,34 @@ export default function CipherNetMap() {
         const links = [];
 
         snap.forEach((doc) => {
-      const d = doc.data() || {};
+          const d = doc.data() || {};
 
-     nodes.push({ ... });
+          nodes.push({
+            id: doc.id,
+            name: d.name || d.title || 'Untitled Node',
+            trust: d.trust ?? 0.5,
+            group: d.group || 'memory',
+            locked: d.locked || false,
+            ...d
+          });
 
-    links.push({
-    source: 'core',
-    target: doc.id
-  });
+          links.push({
+            source: 'core',
+            target: doc.id
+          });
 
-  
-  if (Math.random() > 0.7) {
-    const randomDoc = snap.docs[Math.floor(Math.random() * snap.docs.length)];
+          if (Math.random() > 0.7) {
+            const randomDoc = snap.docs[Math.floor(Math.random() * snap.docs.length)];
 
-    if (randomDoc && randomDoc.id !== doc.id) {
-      links.push({
-        source: doc.id,
-        target: randomDoc.id
-      });
-    }
-  }
-});
+            if (randomDoc && randomDoc.id !== doc.id) {
+              links.push({
+                source: doc.id,
+                target: randomDoc.id
+              });
+            }
+          }
+        });
 
-      
         // --------------------------------------------------------------------
         // FALLBACK NODE IF FIRESTORE COMES BACK EMPTY
         // --------------------------------------------------------------------
@@ -161,7 +166,6 @@ export default function CipherNetMap() {
     loadNodes();
   }, []);
 
-  
   // ==========================================================================
   // SIZE HANDLER
   // ==========================================================================
@@ -205,13 +209,13 @@ export default function CipherNetMap() {
   // NODE COLOR SYSTEM
   // ==========================================================================
   const getNodeColor = (node) => {
-  if (node.group === 'core') return '#ffffff';
+    if (node.group === 'core') return '#ffffff';
 
-  if (node.trust > 0.8) return '#00ffcc';   // strong
-  if (node.trust > 0.6) return '#00ff88';   // good
-  if (node.trust > 0.4) return '#ffaa00';   // medium
-  return '#ff3366';                         // risky
-};
+    if (node.trust > 0.8) return '#00ffcc';   // strong
+    if (node.trust > 0.6) return '#00ff88';   // good
+    if (node.trust > 0.4) return '#ffaa00';   // medium
+    return '#ff3366';                         // risky
+  };
 
   // ==========================================================================
   // NODE CLICK HANDLER
@@ -235,7 +239,6 @@ export default function CipherNetMap() {
       navigator.vibrate(50);
     }
   };
- 
 
   // ==========================================================================
   // RENDER
@@ -321,67 +324,51 @@ export default function CipherNetMap() {
           d3Force="charge"
           d3ForceConfig={{ strength: -300 }}
 
-           onEngineStop={() => {
-  ...
-}}
-nodeThreeObject={(node) => {
-  const group = new THREE.Group();
+          onEngineStop={() => {
+            if (fgRef.current) {
+              const scene = fgRef.current.scene();
+              if (scene && !scene.getObjectByName('cipher-floor')) {
+                // 🪞 FLOOR
+                const floorGeo = new THREE.PlaneGeometry(2000, 2000);
+                const floorMat = new THREE.MeshBasicMaterial({
+                  color: 0x111111,
+                  transparent: true,
+                  opacity: 0.3
+                });
 
-  const geometry = new THREE.SphereGeometry(
-    node.group === 'core' ? 8 : 4,
-    12,
-    12
-  );
+                const floor = new THREE.Mesh(floorGeo, floorMat);
+                floor.name = 'cipher-floor';
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.y = -150;
 
-  const material = new THREE.MeshBasicMaterial({
-    color: getNodeColor(node)
-  });
-
-  const sphere = new THREE.Mesh(geometry, material);
-  group.add(sphere);
-
-  return group;
-}}
-
-  // 🪞 FLOOR
-  const floorGeo = new THREE.PlaneGeometry(2000, 2000);
-  const floorMat = new THREE.MeshBasicMaterial({
-    color: 0x111111,
-    transparent: true,
-    opacity: 0.3
-  });
-
-  const floor = new THREE.Mesh(floorGeo, floorMat);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -150;
-
-  scene.add(floor);
-
-  fgRef.current.zoomToFit?.(400);
-}}
+                scene.add(floor);
+              }
+              fgRef.current.zoomToFit?.(400);
+            }
+          }}
           // ==================================================================
           // NODE RENDERER
           // ==================================================================
-        //  nodeThreeObject={(node) => {
-        nodeThreeObject={(node) => {
-  const group = new THREE.Group();
+          nodeThreeObject={(node) => {
+            const group = new THREE.Group();
 
-  const geometry = new THREE.SphereGeometry(
-    node.group === 'core' ? 8 : 4,
-    12,
-    12
-  );
+            const geometry = new THREE.SphereGeometry(
+              node.group === 'core' ? 8 : 4,
+              12,
+              12
+            );
 
-  const material = new THREE.MeshBasicMaterial({
-    color: getNodeColor(node)
-  });
+            const material = new THREE.MeshBasicMaterial({
+              color: getNodeColor(node)
+            });
 
-  const sphere = new THREE.Mesh(geometry, material);
-  group.add(sphere);
+            const sphere = new THREE.Mesh(geometry, material);
+            group.add(sphere);
 
-  return group;
-}}
-/>
+            return group;
+          }}
+        />
+      )}
 
       {/* ===================================================================== */}
       {/* NODE PANEL */}
@@ -429,8 +416,7 @@ nodeThreeObject={(node) => {
       {/* ===================================================================== */}
       {/* FUTURE NOTES (KEPT IN FILE ON PURPOSE) */}
       {/* ===================================================================== */}
-      {/* 
-        Planned next upgrades:
+      {/* Planned next upgrades:
 
         1. Live Firestore subscription instead of one-time getDocs
         2. Search box that highlights matching nodes
@@ -444,8 +430,7 @@ nodeThreeObject={(node) => {
         10. Cluster expansion / collapse behavior
       */}
 
-      {/* 
-        UI direction:
+      {/* UI direction:
         - Core remains center
         - Nodes represent active capabilities
         - Colors reflect type
@@ -453,15 +438,13 @@ nodeThreeObject={(node) => {
         - Card pop-up remains first interaction layer
       */}
 
-      {/* 
-        Data assumptions:
+      {/* Data assumptions:
         - title or content: string
         - importance: number
         - type: memory | tool | agent | knowledge
       */}
 
-      {/* 
-        Current Firestore path:
+      {/* Current Firestore path:
         memory_nodes / VkIdfn4SwyMzEIPLY / nodes / {doc}
       */}
     </div>
