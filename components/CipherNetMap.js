@@ -17,7 +17,7 @@ const ForceGraph3D = dynamic(
 // FIREBASE
 // ============================================================================
 import { db } from '../lib/firebaseClient';
-import { collection, getDocs } from 'firebase/firestore';
+import { collectionGroup, getDocs } from 'firebase/firestore';
 
 // ============================================================================
 // COMPONENT
