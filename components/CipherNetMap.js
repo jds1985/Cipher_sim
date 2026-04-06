@@ -420,7 +420,7 @@ export default function CipherNetMap() {
           graphData={data}
           nodeLabel="name"
           nodeColor={getNodeColor}
-          nodeVal={(node) => node.trust * 8 + 2}
+          nodeVal={(node) => Math.pow(node.trust, 2) * 20 + 2}
           nodeRelSize={6}
           nodeOpacity={0.95}
           backgroundColor="#000011"
