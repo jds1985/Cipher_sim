@@ -67,12 +67,7 @@ export default function CipherNetMap() {
 
         const USER_ID = 'VkIdfn4SwyMzEIPLY';
 
-        const colRef = collection(
-          db,
-          'memory_nodes',
-          USER_ID,
-          'nodes'
-        );
+        const colRef = collectionGroup(db, 'nodes');
 
         const snap = await getDocs(colRef);
 
