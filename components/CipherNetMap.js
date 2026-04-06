@@ -85,40 +85,29 @@ export default function CipherNetMap() {
         const links = [];
 
         snap.forEach((doc) => {
-          const d = doc.data() || {};
+      const d = doc.data() || {};
 
-          nodes.push({
-            id: doc.id,
-            name: d.title || d.content || 'Node',
-            trust:
-  typeof d.importance === 'number'
-    ? d.importance
-    : Math.random(),
-            group: d.type === 'knowledge' ? 'memory' : (d.type || 'memory'),
-            locked: false,
-            x: Math.random() * 200 - 100,
-            y: Math.random() * 200 - 100,
-            z: Math.random() * 200 - 100
-          });
+     nodes.push({ ... });
 
-          links.push({
-            source: 'core',
-            target: doc.id
-          });
-        });
-
-        // RANDOM NODE-TO-NODE CONNECTIONS (BREAK THE CLUSTER)
-if (Math.random() > 0.7) {
-  const randomDoc = snap.docs[Math.floor(Math.random() * snap.docs.length)];
-
-  if (randomDoc && randomDoc.id !== doc.id) {
     links.push({
-      source: doc.id,
-      target: randomDoc.id
-    });
-  }
-}
+    source: 'core',
+    target: doc.id
+  });
 
+  
+  if (Math.random() > 0.7) {
+    const randomDoc = snap.docs[Math.floor(Math.random() * snap.docs.length)];
+
+    if (randomDoc && randomDoc.id !== doc.id) {
+      links.push({
+        source: doc.id,
+        target: randomDoc.id
+      });
+    }
+  }
+});
+
+      
         // --------------------------------------------------------------------
         // FALLBACK NODE IF FIRESTORE COMES BACK EMPTY
         // --------------------------------------------------------------------
@@ -314,7 +303,7 @@ if (Math.random() > 0.7) {
           nodeVal={(node) => Math.pow(node.trust, 2) * 20 + 2}
           nodeRelSize={6}
           nodeOpacity={0.95}
-          backgroundColor={null}
+          backgroundColor="#000011"
           linkWidth={1.5}
           linkColor={() => '#4444ff'}
           linkOpacity={0.3}
