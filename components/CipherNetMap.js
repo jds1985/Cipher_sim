@@ -327,12 +327,13 @@ export default function CipherNetMap() {
   // NODE COLOR SYSTEM
   // ==========================================================================
   const getNodeColor = (node) => {
-    if (node.group === 'core') return '#ffffff';
-    if (node.group === 'memory') return '#00ff88';
-    if (node.group === 'tool') return '#ffcc00';
-    if (node.group === 'agent') return '#ff3366';
-    return '#888888';
-  };
+  if (node.group === 'core') return '#ffffff';
+
+  if (node.trust > 0.8) return '#00ffcc';   // strong
+  if (node.trust > 0.6) return '#00ff88';   // good
+  if (node.trust > 0.4) return '#ffaa00';   // medium
+  return '#ff3366';                         // risky
+};
 
   // ==========================================================================
   // NODE CLICK HANDLER
@@ -439,7 +440,7 @@ export default function CipherNetMap() {
           d3VelocityDecay={0.3}
 
           d3Force="charge"
-          d3ForceConfig={{ strength: -120 }}
+          d3ForceConfig={{ strength: -300 }}
 
           onEngineStop={() => {
             fgRef.current?.zoomToFit?.(400);
