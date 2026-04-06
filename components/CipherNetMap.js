@@ -370,29 +370,24 @@ if (Math.random() > 0.7) {
           // NODE RENDERER
           // ==================================================================
         //  nodeThreeObject={(node) => {
-        //    const geometry = new THREE.SphereGeometry(
-         //     node.group === 'core' ? 10 : 6,
-        //      16,
-         //     16
-         //   );
+        nodeThreeObject={(node) => {
+  const group = new THREE.Group();
 
-         //   const material = new THREE.MeshBasicMaterial({
-          //    color: getNodeColor(node)
-         //   });
+  const geometry = new THREE.SphereGeometry(
+    node.group === 'core' ? 8 : 4,
+    12,
+    12
+  );
 
-          //  return new THREE.Mesh(geometry, material);
-       //   }}
-       // />
-    //  )}
+  const material = new THREE.MeshBasicMaterial({
+    color: getNodeColor(node)
+  });
 
-      {/* ===================================================================== */}
-      {/* ORBIT RINGS */}
-      {/* ===================================================================== */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 border border-green-500/10 rounded-full scale-[0.3]" />
-        <div className="absolute inset-0 border border-yellow-500/10 rounded-full scale-[0.5]" />
-        <div className="absolute inset-0 border border-red-500/10 rounded-full scale-[0.7]" />
-      </div>
+  const sphere = new THREE.Mesh(geometry, material);
+  group.add(sphere);
+
+  return group;
+}}
 
       {/* ===================================================================== */}
       {/* NODE PANEL */}
