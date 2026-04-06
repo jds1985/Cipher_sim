@@ -246,9 +246,8 @@ if (Math.random() > 0.7) {
       navigator.vibrate(50);
     }
   };
- const bgTexture = new THREE.TextureLoader().load(
-  'https://threejs.org/examples/textures/space.jpg'
-);
+ 
+
   // ==========================================================================
   // RENDER
   // ==========================================================================
@@ -334,30 +333,39 @@ if (Math.random() > 0.7) {
           d3ForceConfig={{ strength: -300 }}
 
           onEngineStop={() => {
-  if (fgRef.current) {
-    const scene = fgRef.current.scene();
+  if (!fgRef.current) return;
 
-    // 🌌 SPACE BACKGROUND
-    scene.background = bgTexture;
+  const scene = fgRef.current.scene();
 
-    // 🪞 FLOOR
-    const floorGeo = new THREE.PlaneGeometry(2000, 2000);
-    const floorMat = new THREE.MeshBasicMaterial({
-      color: 0x111111,
-      transparent: true,
-      opacity: 0.3
-    });
+  // 🚫 prevent duplicate stacking
+  if (scene.__bgApplied) return;
+  scene.__bgApplied = true;
 
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -150;
+  // 🌌 SAFE texture load AFTER scene exists
+  const loader = new THREE.TextureLoader();
+  loader.load(
+    'https://threejs.org/examples/textures/space.jpg',
+    (texture) => {
+      scene.background = texture;
+    }
+  );
 
-    scene.add(floor);
+  // 🪞 FLOOR
+  const floorGeo = new THREE.PlaneGeometry(2000, 2000);
+  const floorMat = new THREE.MeshBasicMaterial({
+    color: 0x111111,
+    transparent: true,
+    opacity: 0.3
+  });
 
-    fgRef.current.zoomToFit?.(400);
-  }
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -150;
+
+  scene.add(floor);
+
+  fgRef.current.zoomToFit?.(400);
 }}
-
           // ==================================================================
           // NODE RENDERER
           // ==================================================================
