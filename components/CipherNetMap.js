@@ -369,21 +369,21 @@ if (Math.random() > 0.7) {
           // ==================================================================
           // NODE RENDERER
           // ==================================================================
-          nodeThreeObject={(node) => {
-            const geometry = new THREE.SphereGeometry(
-              node.group === 'core' ? 10 : 6,
-              16,
-              16
-            );
+        //  nodeThreeObject={(node) => {
+        //    const geometry = new THREE.SphereGeometry(
+         //     node.group === 'core' ? 10 : 6,
+        //      16,
+         //     16
+         //   );
 
-            const material = new THREE.MeshBasicMaterial({
-              color: getNodeColor(node)
-            });
+         //   const material = new THREE.MeshBasicMaterial({
+          //    color: getNodeColor(node)
+         //   });
 
-            return new THREE.Mesh(geometry, material);
-          }}
-        />
-      )}
+          //  return new THREE.Mesh(geometry, material);
+       //   }}
+       // />
+    //  )}
 
       {/* ===================================================================== */}
       {/* ORBIT RINGS */}
