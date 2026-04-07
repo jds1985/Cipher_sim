@@ -1,185 +1,277 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
-import * as THREE from 'three';
-
-// ============================================================================
-// SAFE DYNAMIC IMPORT
-// Prevents SSR crash with react-force-graph-3d
-// ============================================================================
-const ForceGraph3D = dynamic(
-  () => import('react-force-graph-3d'),
-  { ssr: false }
-);
-
-// ============================================================================
-// FIREBASE
-// ============================================================================
+import { useEffect, useMemo, useState } from 'react';
+import { Search, Bot, Wrench, Brain, Star, Shield, Zap, X } from 'lucide-react';
 import { db } from '../lib/firebaseClient';
 import { collectionGroup, getDocs } from 'firebase/firestore';
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
+const TABS = [
+  { key: 'agent', label: 'Agents', icon: Bot },
+  { key: 'tool', label: 'Tools', icon: Wrench },
+  { key: 'knowledge', label: 'Knowledge', icon: Brain }
+];
+
+function normalizeNode(doc) {
+  const d = doc.data() || {};
+
+  const rawType = String(d.type || d.group || 'knowledge').toLowerCase();
+
+  let type = 'knowledge';
+  if (rawType.includes('agent')) type = 'agent';
+  else if (rawType.includes('tool')) type = 'tool';
+  else if (rawType.includes('knowledge') || rawType.includes('memory')) type = 'knowledge';
+
+  const trust =
+    typeof d.importance === 'number'
+      ? d.importance
+      : typeof d.trust === 'number'
+      ? d.trust
+      : Math.random();
+
+  const title =
+    d.name ||
+    d.title ||
+    (typeof d.content === 'string' ? d.content.slice(0, 40) : '') ||
+    'Untitled Node';
+
+  const description =
+    d.description ||
+    d.summary ||
+    d.content ||
+    'No description yet.';
+
+  const price =
+    typeof d.price === 'number'
+      ? d.price
+      : d.paid === true
+      ? 2
+      : 0;
+
+  return {
+    id: doc.id,
+    title,
+    description,
+    type,
+    trust,
+    price,
+    locked: Boolean(d.locked),
+    tags: Array.isArray(d.tags) ? d.tags : [],
+    raw: d
+  };
+}
+
+function getTypeStyles(type) {
+  if (type === 'agent') {
+    return {
+      accent: '#a855f7',
+      glow: '0 0 24px rgba(168, 85, 247, 0.35)',
+      border: 'rgba(168, 85, 247, 0.45)',
+      bg: 'linear-gradient(180deg, rgba(168,85,247,0.14), rgba(18,18,30,0.92))'
+    };
+  }
+
+  if (type === 'tool') {
+    return {
+      accent: '#38bdf8',
+      glow: '0 0 24px rgba(56, 189, 248, 0.35)',
+      border: 'rgba(56, 189, 248, 0.45)',
+      bg: 'linear-gradient(180deg, rgba(56,189,248,0.14), rgba(18,18,30,0.92))'
+    };
+  }
+
+  return {
+    accent: '#facc15',
+    glow: '0 0 24px rgba(250, 204, 21, 0.30)',
+    border: 'rgba(250, 204, 21, 0.45)',
+    bg: 'linear-gradient(180deg, rgba(250,204,21,0.12), rgba(18,18,30,0.92))'
+  };
+}
+
+function ShapeBadge({ type }) {
+  const styles = getTypeStyles(type);
+
+  if (type === 'agent') {
+    return (
+      <div
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: '999px',
+          background: styles.accent,
+          boxShadow: styles.glow,
+          flexShrink: 0
+        }}
+      />
+    );
+  }
+
+  if (type === 'tool') {
+    return (
+      <div
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 6,
+          background: styles.accent,
+          boxShadow: styles.glow,
+          flexShrink: 0
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: 0,
+        height: 0,
+        borderLeft: '11px solid transparent',
+        borderRight: '11px solid transparent',
+        borderBottom: `20px solid ${styles.accent}`,
+        filter: 'drop-shadow(0 0 10px rgba(250, 204, 21, 0.35))',
+        flexShrink: 0
+      }}
+    />
+  );
+}
+
+function TrustBar({ trust, accent }) {
+  const pct = Math.max(0, Math.min(100, Math.round(trust * 100)));
+
+  return (
+    <div style={{ width: '100%' }}>
+      <div
+        style={{
+          height: 7,
+          width: '100%',
+          borderRadius: 999,
+          background: 'rgba(255,255,255,0.08)',
+          overflow: 'hidden'
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${pct}%`,
+            borderRadius: 999,
+            background: accent,
+            boxShadow: `0 0 14px ${accent}`
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function NodeCard({ node, onClick }) {
+  const styles = getTypeStyles(node.type);
+
+  return (
+    <button
+      onClick={() => onClick(node)}
+      style={{
+        textAlign: 'left',
+        width: '100%',
+        borderRadius: 22,
+        border: `1px solid ${styles.border}`,
+        background: styles.bg,
+        padding: 14,
+        color: 'white',
+        boxShadow: styles.glow,
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <ShapeBadge type={node.type} />
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              marginBottom: 6,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {node.title}
+          </div>
+
+          <div
+            style={{
+              fontSize: 12,
+              color: 'rgba(255,255,255,0.68)',
+              lineHeight: 1.35,
+              minHeight: 32,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden'
+            }}
+          >
+            {node.description}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          alignItems: 'center',
+          marginTop: 12,
+          marginBottom: 10,
+          fontSize: 12,
+          color: 'rgba(255,255,255,0.88)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Star size={13} />
+          <span>{Math.round(node.trust * 100)}%</span>
+        </div>
+
+        <div style={{ opacity: 0.7 }}>•</div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Zap size={13} />
+          <span>{node.price > 0 ? `$${node.price}` : 'Free'}</span>
+        </div>
+      </div>
+
+      <TrustBar trust={node.trust} accent={styles.accent} />
+    </button>
+  );
+}
+
 export default function CipherNetMap() {
-  const fgRef = useRef(null);
-
-  // ==========================================================================
-  // STATE
-  // ==========================================================================
-  const [fullData, setFullData] = useState({ nodes: [], links: [] });
-  const [data, setData] = useState({ nodes: [], links: [] });
+  const [nodes, setNodes] = useState([]);
+  const [activeTab, setActiveTab] = useState('agent');
+  const [query, setQuery] = useState('');
   const [selectedNode, setSelectedNode] = useState(null);
-  const [risk, setRisk] = useState(0);
-
-  // ==========================================================================
-  // DEBUG / STATUS STATE
-  // ==========================================================================
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState('');
 
-  // ==========================================================================
-  // SIZE FIX FOR MOBILE / PORTRAIT
-  // ==========================================================================
-  const [size, setSize] = useState({
-    width: 300,
-    height: 300
-  });
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (fgRef.current) {
-        fgRef.current.scene().rotation.y += 0.0005;
-      }
-    }, 16);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // ==========================================================================
-  // DEBUG COUNT FOR RENDER
-  // ==========================================================================
-  const debugCount = fullData.nodes.length;
-
-  // ==========================================================================
-  // LIVE FIRESTORE DATA MODE
-  // IMPORTANT:
-  // If your real user id is longer than this, replace ONLY the string below.
-  // Use the exact full document id from Firebase:
-  // memory_nodes / YOUR_USER_ID / nodes / {doc}
-  // ==========================================================================
   useEffect(() => {
     async function loadNodes() {
       try {
         setLoading(true);
         setErrorText('');
 
-        const USER_ID = 'VkIdfn4SwyMzEIPLY';
+        const snap = await getDocs(collectionGroup(db, 'nodes'));
+        const normalized = snap.docs.map(normalizeNode);
 
-        const colRef = collectionGroup(db, 'nodes');
-
-        const snap = await getDocs(colRef);
-
-        const nodes = [];
-        const links = [];
-
-        snap.forEach((doc) => {
-          const d = doc.data() || {};
-
-          const trust = d.trust ?? 0.5;
-
-// 🧠 LAYERED RADIUS (this is the magic)
-let radius;
-
-if (trust > 0.8) radius = 120;
-else if (trust > 0.5) radius = 240;
-else radius = 360;
-
-const angle = Math.random() * Math.PI * 2;
-
-nodes.push({
-  id: doc.id,
-  name: d.name || d.title || 'Untitled Node',
-  trust,
-  group: d.group || 'memory',
-  locked: d.locked || false,
-
-  x: Math.cos(angle) * radius,
-  z: Math.sin(angle) * radius,
-  y: (Math.random() - 0.5) * 80,
-
-  fx: Math.cos(angle) * radius,
-  fy: (Math.random() - 0.5) * 80,
-  fz: Math.sin(angle) * radius,
-  
-  ...d
-});
-
-   if (Math.random() > 0.3) {
-    links.push({
-    source: 'core',
-    target: doc.id
-  });
-}
-
-          if (Math.random() > 0.7) {
-            const randomDoc = snap.docs[Math.floor(Math.random() * snap.docs.length)];
-
-            if (randomDoc && randomDoc.id !== doc.id) {
-              links.push({
-                source: doc.id,
-                target: randomDoc.id
-              });
-            }
-          }
+        normalized.sort((a, b) => {
+          if (b.trust !== a.trust) return b.trust - a.trust;
+          return a.title.localeCompare(b.title);
         });
 
-        // --------------------------------------------------------------------
-        // FALLBACK NODE IF FIRESTORE COMES BACK EMPTY
-        // --------------------------------------------------------------------
-        if (nodes.length === 0) {
-          nodes.push({
-            id: 'fallback',
-            name: 'Fallback Node',
-            trust: 0.5,
-            group: 'memory',
-            locked: false,
-            x: 80,
-            y: 0,
-            z: 0
-          });
-
-          links.push({
-            source: 'core',
-            target: 'fallback'
-          });
-        }
-
-        // --------------------------------------------------------------------
-        // CORE NODE
-        // --------------------------------------------------------------------
-        nodes.push({
-          id: 'core',
-          name: 'Cipher Core',
-          trust: 1,
-          group: 'core',
-          locked: false,
-          fx: 0,
-          fy: 0,
-          fz: 0
-        });
-
-        const full = { nodes, links };
-        setFullData(full);
-        setData(full);
-
-        setTimeout(() => {
-          fgRef.current?.zoomToFit?.(400);
-        }, 500);
+        setNodes(normalized);
       } catch (e) {
-        console.error('Firestore load error:', e);
-        setErrorText(e?.message || 'Firestore load failed');
+        console.error('CipherNet load error:', e);
+        setErrorText(e?.message || 'Failed to load CipherNet');
       } finally {
         setLoading(false);
       }
@@ -188,287 +280,410 @@ nodes.push({
     loadNodes();
   }, []);
 
-  // ==========================================================================
-  // SIZE HANDLER
-  // ==========================================================================
-  useEffect(() => {
-    function updateSize() {
-      setSize({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-    }
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
 
-    updateSize();
-    window.addEventListener('resize', updateSize);
-
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
-
-  // ==========================================================================
-  // RISK FILTER
-  // ==========================================================================
-  useEffect(() => {
-    const filteredNodes = fullData.nodes.filter((n) => n.trust >= risk);
-
-    const filteredLinks = fullData.links.filter((l) => {
-      const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-      const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+    return nodes.filter((node) => {
+      if (node.type !== activeTab) return false;
+      if (!q) return true;
 
       return (
-        filteredNodes.find((n) => n.id === sourceId) &&
-        filteredNodes.find((n) => n.id === targetId)
+        node.title.toLowerCase().includes(q) ||
+        node.description.toLowerCase().includes(q) ||
+        node.tags.some((tag) => String(tag).toLowerCase().includes(q))
       );
     });
+  }, [nodes, activeTab, query]);
 
-    setData({
-      nodes: filteredNodes,
-      links: filteredLinks
-    });
-  }, [risk, fullData]);
+  const counts = useMemo(() => {
+    return {
+      agent: nodes.filter((n) => n.type === 'agent').length,
+      tool: nodes.filter((n) => n.type === 'tool').length,
+      knowledge: nodes.filter((n) => n.type === 'knowledge').length
+    };
+  }, [nodes]);
 
-  // ==========================================================================
-  // NODE COLOR SYSTEM
-  // ==========================================================================
-  const getNodeColor = (node) => {
-    if (node.group === 'core') return '#ffffff';
+  const activeStyles = getTypeStyles(activeTab);
 
-    if (node.trust > 0.8) return '#00ffcc';   // strong
-    if (node.trust > 0.6) return '#00ff88';   // good
-    if (node.trust > 0.4) return '#ffaa00';   // medium
-    return '#ff3366';                         // risky
-  };
-
-  // ==========================================================================
-  // NODE CLICK HANDLER
-  // ==========================================================================
-  const handleNodeClick = (node) => {
-    setSelectedNode(node);
-
-    if (fgRef.current) {
-      fgRef.current.cameraPosition?.(
-        {
-          x: (node.x || 0) * 1.5,
-          y: (node.y || 0) * 1.5,
-          z: (node.z || 0) * 1.5
-        },
-        node,
-        800
-      );
-    }
-
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(50);
-    }
-  };
-
-  // ==========================================================================
-  // RENDER
-  // ==========================================================================
   return (
-    <div className="w-full h-screen bg-black relative">
-      {/* ===================================================================== */}
-      {/* DEBUG / STATUS */}
-      {/* ===================================================================== */}
+    <div
+      style={{
+        minHeight: '100vh',
+        background:
+          'radial-gradient(circle at top, rgba(40,80,180,0.22), rgba(1,4,18,1) 45%), linear-gradient(180deg, #020617 0%, #02030f 100%)',
+        color: 'white',
+        position: 'relative',
+        overflow: 'hidden'
+      }}
+    >
       <div
         style={{
           position: 'absolute',
-          color: 'white',
-          zIndex: 20,
-          left: 8,
-          top: 8,
-          fontSize: 14
+          inset: 0,
+          pointerEvents: 'none',
+          background:
+            'radial-gradient(circle at 20% 20%, rgba(0,255,255,0.08), transparent 20%), radial-gradient(circle at 80% 30%, rgba(168,85,247,0.08), transparent 18%), radial-gradient(circle at 50% 80%, rgba(250,204,21,0.06), transparent 22%)'
+        }}
+      />
+
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          padding: '16px 14px 10px',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          background: 'linear-gradient(180deg, rgba(2,6,23,0.88), rgba(2,6,23,0.45))'
         }}
       >
-        Nodes: {data.nodes.length} | Full: {debugCount}
-      </div>
-
-      {loading && (
         <div
           style={{
-            position: 'absolute',
-            color: '#9ca3af',
-            zIndex: 20,
-            left: 8,
-            top: 30,
-            fontSize: 13
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 12
           }}
         >
-          Loading CipherNet...
-        </div>
-      )}
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 14,
+              border: '1px solid rgba(0,255,255,0.35)',
+              display: 'grid',
+              placeItems: 'center',
+              background: 'rgba(6, 10, 25, 0.82)',
+              boxShadow: '0 0 24px rgba(0,255,255,0.18)'
+            }}
+          >
+            <img
+              src="/icons/cipher-192.png"
+              alt="CipherNet"
+              style={{ width: 28, height: 28, objectFit: 'contain' }}
+            />
+          </div>
 
-      {errorText && (
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.3 }}>
+              CipherNet
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.62)' }}>
+              Agents, tools, and living knowledge
+            </div>
+          </div>
+        </div>
+
         <div
           style={{
-            position: 'absolute',
-            color: '#ff7777',
-            zIndex: 20,
-            left: 8,
-            top: 52,
-            fontSize: 13,
-            maxWidth: 320
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '12px 14px',
+            borderRadius: 999,
+            border: `1px solid ${activeStyles.border}`,
+            background: 'rgba(7, 10, 24, 0.88)',
+            boxShadow: activeStyles.glow
           }}
         >
-          Error: {errorText}
-        </div>
-      )}
-
-      {/* ===================================================================== */}
-      {/* GRAPH */}
-      {/* ===================================================================== */}
-      {data.nodes.length > 0 && (
-        <ForceGraph3D
-          ref={fgRef}
-          width={size.width}
-          height={size.height}
-          graphData={data}
-          nodeLabel="name"
-          nodeColor={getNodeColor}
-          nodeVal={(node) => Math.pow(node.trust, 2) * 20 + 2}
-          nodeRelSize={6}
-          nodeOpacity={0.95}
-          backgroundColor="#000011"
-          linkWidth={1.5}
-          linkColor={() => '#4444ff'}
-          linkOpacity={0.3}
-          enableNodeDrag
-          onNodeClick={handleNodeClick}
-          showNavInfo={false}
-
-          // ==================================================================
-          // PHYSICS
-          // ==================================================================
-          cooldownTicks={300}
-          d3AlphaDecay={0.02}
-          d3VelocityDecay={0.3}
-
-          d3Force="charge"
-          d3ForceConfig={{ strength: -300 }}
-
-          onEngineStop={() => {
-            if (fgRef.current) {
-              const scene = fgRef.current.scene();
-              if (scene && !scene.getObjectByName('cipher-floor')) {
-                // 🪞 FLOOR
-                const floorGeo = new THREE.PlaneGeometry(2000, 2000);
-                const floorMat = new THREE.MeshBasicMaterial({
-                  color: 0x111111,
-                  transparent: true,
-                  opacity: 0.3
-                });
-
-                const floor = new THREE.Mesh(floorGeo, floorMat);
-                floor.name = 'cipher-floor';
-                floor.rotation.x = -Math.PI / 2;
-                floor.position.y = -150;
-
-                scene.add(floor);
-              }
-              fgRef.current.zoomToFit?.(400);
-            }
-          }}
-          // ==================================================================
-          // NODE RENDERER
-          // ==================================================================
-          nodeThreeObject={(node) => {
-            const group = new THREE.Group();
-
-            const geometry = new THREE.SphereGeometry(
-              node.group === 'core' ? 8 : 4,
-              12,
-              12
-            );
-
-            const material = new THREE.MeshBasicMaterial({
-              color: getNodeColor(node)
-            });
-
-            const sphere = new THREE.Mesh(geometry, material);
-            group.add(sphere);
-
-            return group;
-          }}
-        />
-      )}
-
-      {/* ===================================================================== */}
-      {/* NODE PANEL */}
-      {/* ===================================================================== */}
-      {selectedNode && (
-        <div className="absolute top-4 right-4 bg-gray-900/80 p-4 rounded-lg text-white border border-blue-500 w-64 z-30">
-          <h3 className="text-lg font-bold">{selectedNode.name}</h3>
-
-          <p>Trust: {(selectedNode.trust * 100).toFixed(0)}%</p>
-
-          <p className="mt-1 capitalize">Type: {selectedNode.group}</p>
-
-          {selectedNode.locked ? (
-            <button className="mt-3 w-full px-4 py-2 bg-purple-600 rounded">
-              Unlock Node
-            </button>
-          ) : (
+          <Search size={18} color={activeStyles.accent} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Search ${TABS.find((t) => t.key === activeTab)?.label.toLowerCase()}...`}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: 'white',
+              fontSize: 15
+            }}
+          />
+          {query ? (
             <button
-              onClick={() => alert(`Routing to ${selectedNode.name}`)}
-              className="mt-3 w-full px-4 py-2 bg-blue-600 rounded"
+              onClick={() => setQuery('')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'rgba(255,255,255,0.72)',
+                display: 'grid',
+                placeItems: 'center'
+              }}
             >
-              Deploy
+              <X size={18} />
             </button>
-          )}
+          ) : null}
         </div>
-      )}
-
-      {/* ===================================================================== */}
-      {/* RISK SLIDER */}
-      {/* ===================================================================== */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900/70 p-3 rounded-full flex items-center gap-4 z-30">
-        <span className="text-white">Risk</span>
-
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.1"
-          value={risk}
-          onChange={(e) => setRisk(parseFloat(e.target.value))}
-          className="w-48"
-        />
       </div>
 
-      {/* ===================================================================== */}
-      {/* FUTURE NOTES (KEPT IN FILE ON PURPOSE) */}
-      {/* ===================================================================== */}
-      {/* Planned next upgrades:
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          overflowX: 'auto',
+          padding: '6px 14px 10px',
+          position: 'sticky',
+          top: 94,
+          zIndex: 25,
+          background: 'linear-gradient(180deg, rgba(2,6,23,0.72), rgba(2,6,23,0.18))',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)'
+        }}
+      >
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          const styles = getTypeStyles(tab.key);
 
-        1. Live Firestore subscription instead of one-time getDocs
-        2. Search box that highlights matching nodes
-        3. Type filters: memory / tool / agent
-        4. Activity pulse on hot links
-        5. Node badges for trust / uptime / pricing
-        6. Auto-create nodes from chat usage
-        7. Agent click launches real routes
-        8. Tool click invokes real tools
-        9. Memory click injects context into chat
-        10. Cluster expansion / collapse behavior
-      */}
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                minWidth: 128,
+                borderRadius: 999,
+                padding: '12px 16px',
+                border: `1px solid ${isActive ? styles.border : 'rgba(255,255,255,0.08)'}`,
+                background: isActive ? styles.bg : 'rgba(8,10,20,0.72)',
+                color: 'white',
+                boxShadow: isActive ? styles.glow : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon size={16} color={styles.accent} />
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{tab.label}</span>
+              </div>
+              <span style={{ fontSize: 12, opacity: 0.72 }}>{counts[tab.key]}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* UI direction:
-        - Core remains center
-        - Nodes represent active capabilities
-        - Colors reflect type
-        - Trust can later become outer glow / halo
-        - Card pop-up remains first interaction layer
-      */}
+      <div style={{ padding: '10px 14px 120px' }}>
+        {loading ? (
+          <div
+            style={{
+              padding: 24,
+              borderRadius: 24,
+              background: 'rgba(10,14,28,0.78)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.7)'
+            }}
+          >
+            Loading CipherNet...
+          </div>
+        ) : errorText ? (
+          <div
+            style={{
+              padding: 24,
+              borderRadius: 24,
+              background: 'rgba(40, 8, 12, 0.72)',
+              border: '1px solid rgba(255, 90, 90, 0.35)',
+              color: '#ff8c8c'
+            }}
+          >
+            {errorText}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div
+            style={{
+              padding: 24,
+              borderRadius: 24,
+              background: 'rgba(10,14,28,0.78)',
+              border: `1px solid ${activeStyles.border}`,
+              color: 'rgba(255,255,255,0.74)'
+            }}
+          >
+            Nothing matched that search in {TABS.find((t) => t.key === activeTab)?.label.toLowerCase()}.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 12
+            }}
+          >
+            {filtered.map((node) => (
+              <NodeCard key={node.id} node={node} onClick={setSelectedNode} />
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* Data assumptions:
-        - title or content: string
-        - importance: number
-        - type: memory | tool | agent | knowledge
-      */}
+      {selectedNode ? (
+        <div
+          onClick={() => setSelectedNode(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.58)',
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'flex-end'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              borderTopLeftRadius: 26,
+              borderTopRightRadius: 26,
+              background: 'linear-gradient(180deg, rgba(12,16,34,0.98), rgba(6,8,18,0.98))',
+              borderTop: `1px solid ${getTypeStyles(selectedNode.type).border}`,
+              boxShadow: getTypeStyles(selectedNode.type).glow,
+              padding: 18
+            }}
+          >
+            <div
+              style={{
+                width: 44,
+                height: 5,
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.18)',
+                margin: '0 auto 16px'
+              }}
+            />
 
-      {/* Current Firestore path:
-        memory_nodes / VkIdfn4SwyMzEIPLY / nodes / {doc}
-      */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <ShapeBadge type={selectedNode.type} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.15 }}>
+                  {selectedNode.title}
+                </div>
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontSize: 13,
+                    color: 'rgba(255,255,255,0.62)',
+                    textTransform: 'capitalize'
+                  }}
+                >
+                  {selectedNode.type}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: 10,
+                marginBottom: 16
+              }}
+            >
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 18,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}
+              >
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.58)', marginBottom: 4 }}>
+                  Price
+                </div>
+                <div style={{ fontWeight: 800 }}>{selectedNode.price > 0 ? `$${selectedNode.price}` : 'Free'}</div>
+              </div>
+
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 18,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}
+              >
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.58)', marginBottom: 4 }}>
+                  Trust
+                </div>
+                <div style={{ fontWeight: 800 }}>{Math.round(selectedNode.trust * 100)}%</div>
+              </div>
+
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 18,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}
+              >
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.58)', marginBottom: 4 }}>
+                  Status
+                </div>
+                <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Shield size={14} />
+                  {selectedNode.locked ? 'Locked' : 'Ready'}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: 14,
+                borderRadius: 20,
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                marginBottom: 16,
+                color: 'rgba(255,255,255,0.86)',
+                lineHeight: 1.45
+              }}
+            >
+              {selectedNode.description}
+            </div>
+
+            {selectedNode.tags.length ? (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  overflowX: 'auto',
+                  marginBottom: 16
+                }}
+              >
+                {selectedNode.tags.map((tag, i) => (
+                  <div
+                    key={`${tag}-${i}`}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 999,
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      whiteSpace: 'nowrap',
+                      fontSize: 12,
+                      color: 'rgba(255,255,255,0.78)'
+                    }}
+                  >
+                    {String(tag)}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <button
+              onClick={() => alert(`Routing to ${selectedNode.title}`)}
+              style={{
+                width: '100%',
+                border: 'none',
+                borderRadius: 18,
+                padding: '16px 18px',
+                fontWeight: 800,
+                fontSize: 16,
+                color: '#020617',
+                background: getTypeStyles(selectedNode.type).accent,
+                boxShadow: getTypeStyles(selectedNode.type).glow
+              }}
+            >
+              Use Now
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
