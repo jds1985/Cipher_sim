@@ -87,14 +87,31 @@ export default function CipherNetMap() {
         snap.forEach((doc) => {
           const d = doc.data() || {};
 
-          nodes.push({
-            id: doc.id,
-            name: d.name || d.title || 'Untitled Node',
-            trust: d.trust ?? 0.5,
-            group: d.group || 'memory',
-            locked: d.locked || false,
-            ...d
-          });
+          const trust = d.trust ?? 0.5;
+
+// 🧠 LAYERED RADIUS (this is the magic)
+let radius;
+
+if (trust > 0.8) radius = 120;
+else if (trust > 0.5) radius = 240;
+else radius = 360;
+
+const angle = Math.random() * Math.PI * 2;
+
+nodes.push({
+  id: doc.id,
+  name: d.name || d.title || 'Untitled Node',
+  trust,
+  group: d.group || 'memory',
+  locked: d.locked || false,
+
+  // 🚀 THIS IS WHAT YOU WERE MISSING
+  x: Math.cos(angle) * radius,
+  z: Math.sin(angle) * radius,
+  y: (Math.random() - 0.5) * 80,
+
+  ...d
+});
 
           links.push({
             source: 'core',
