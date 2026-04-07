@@ -16,6 +16,7 @@
     "react-dom": "18.2.0",
     "firebase": "10.7.0",
     "firebase-admin": "11.10.1",
+   "lucide-react": "^0.378.0"
     "octokit": "2.0.19",
     "stripe": "18.1.1",
     "three": "0.155.0",
