@@ -105,18 +105,23 @@ nodes.push({
   group: d.group || 'memory',
   locked: d.locked || false,
 
-  // 🚀 THIS IS WHAT YOU WERE MISSING
   x: Math.cos(angle) * radius,
   z: Math.sin(angle) * radius,
   y: (Math.random() - 0.5) * 80,
 
+  fx: Math.cos(angle) * radius,
+  fy: (Math.random() - 0.5) * 80,
+  fz: Math.sin(angle) * radius,
+  
   ...d
 });
 
-          links.push({
-            source: 'core',
-            target: doc.id
-          });
+   if (Math.random() > 0.3) {
+    links.push({
+    source: 'core',
+    target: doc.id
+  });
+}
 
           if (Math.random() > 0.7) {
             const randomDoc = snap.docs[Math.floor(Math.random() * snap.docs.length)];
