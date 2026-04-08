@@ -24,7 +24,7 @@ else if (rawType.includes('tool')) type = 'tool';
 else if (rawType.includes('stream') || rawType.includes('live')) type = 'stream';
 else if (rawType.includes('knowledge') || rawType.includes('memory')) type = 'knowledge';
 
-  if trust =
+  
     typeof d.importance === 'number'
       ? d.importance
       : typeof d.trust === 'number'
