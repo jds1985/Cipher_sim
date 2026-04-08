@@ -169,6 +169,15 @@ function NodeCard({ node, onClick }) {
   return (
     <button
       onClick={() => onClick(node)}
+      onMouseDown={(e) => {
+        e.currentTarget.style.transform = 'scale(0.97)';
+      }}
+      onMouseUp={(e) => {
+        e.currentTarget.style.transform = 'scale(1)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'scale(1)';
+      }}
       style={{
         textAlign: 'left',
         width: '100%',
@@ -179,7 +188,9 @@ function NodeCard({ node, onClick }) {
         color: 'white',
         boxShadow: styles.glow,
         backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)'
+        WebkitBackdropFilter: 'blur(12px)',
+        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+        cursor: 'pointer'
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -237,7 +248,14 @@ function NodeCard({ node, onClick }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Zap size={13} />
-          <span>{node.price > 0 ? `$${node.price}` : 'Free'}</span>
+          <span
+            style={{
+              color: node.price > 0 ? '#22c55e' : '#38bdf8',
+              fontWeight: 700
+            }}
+          >
+            {node.price > 0 ? `$${node.price}` : 'Free'}
+          </span>
         </div>
       </div>
 
@@ -588,7 +606,14 @@ export default function CipherNetMap() {
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.58)', marginBottom: 4 }}>
                   Price
                 </div>
-                <div style={{ fontWeight: 800 }}>{selectedNode.price > 0 ? `$${selectedNode.price}` : 'Free'}</div>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    color: selectedNode.price > 0 ? '#22c55e' : '#38bdf8'
+                  }}
+                >
+                  {selectedNode.price > 0 ? `$${selectedNode.price}` : 'Free'}
+                </div>
               </div>
 
               <div
@@ -666,7 +691,9 @@ export default function CipherNetMap() {
             ) : null}
 
             <button
-              onClick={() => alert(`Routing to ${selectedNode.title}`)}
+              onClick={() => {
+                window.location.href = `/node/${selectedNode.id}`;
+              }}
               style={{
                 width: '100%',
                 border: 'none',
