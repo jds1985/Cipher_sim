@@ -8,7 +8,8 @@ import { collectionGroup, getDocs } from 'firebase/firestore';
 const TABS = [
   { key: 'agent', label: 'Agents', icon: Bot },
   { key: 'tool', label: 'Tools', icon: Wrench },
-  { key: 'knowledge', label: 'Knowledge', icon: Brain }
+  { key: 'knowledge', label: 'Knowledge', icon: Brain },
+  { key: 'stream', label: 'Live', icon: Zap }
 ];
 
 function normalizeNode(doc) {
