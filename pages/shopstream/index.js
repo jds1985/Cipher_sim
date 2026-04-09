@@ -1,8 +1,8 @@
 import { useState } from "react";
-
+import { useRouter } from "next/router";
 export default function ShopStream() {
   const [tab, setTab] = useState("shop");
-
+  const router = useRouter();
   return (
     <div style={styles.container}>
 
@@ -70,10 +70,13 @@ export default function ShopStream() {
             <h2>$99/month</h2>
             <p>No commissions. No hidden fees.</p>
           </div>
-
-          <button style={styles.cta}>
-            Start Selling
-          </button>
+ <button
+  style={styles.cta}
+  onClick={() => router.push("/shopstream/signup")}
+>
+  Start Selling
+</button>
+          
         </div>
       )}
 
