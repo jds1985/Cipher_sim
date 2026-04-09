@@ -16,15 +16,15 @@ function normalizeNode(doc) {
   const d = doc.data() || {};
 
   const rawType = String(d.type || d.group || 'knowledge').toLowerCase();
- 
- let type = 'knowledge';
 
-if (rawType.includes('agent')) type = 'agent';
-else if (rawType.includes('tool')) type = 'tool';
-else if (rawType.includes('stream') || rawType.includes('live')) type = 'stream';
-else if (rawType.includes('knowledge') || rawType.includes('memory')) type = 'knowledge';
+  let type = 'knowledge';
 
-  
+  if (rawType.includes('agent')) type = 'agent';
+  else if (rawType.includes('tool')) type = 'tool';
+  else if (rawType.includes('stream') || rawType.includes('live')) type = 'stream';
+  else if (rawType.includes('knowledge') || rawType.includes('memory')) type = 'knowledge';
+
+  const trust =
     typeof d.importance === 'number'
       ? d.importance
       : typeof d.trust === 'number'
