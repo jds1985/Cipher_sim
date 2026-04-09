@@ -1,6 +1,7 @@
 import { useState } from "react";
-
+import { useRouter } from "next/router";
 export default function ShopSignup() {
+  const router = useRouter();
   const [form, setForm] = useState({
     shopName: "",
     ownerName: "",
@@ -29,9 +30,13 @@ export default function ShopSignup() {
   };
 
   return (
-    <div style={styles.container}>
+  <div style={styles.container}>
 
-      <h1 style={styles.title}>Start Selling on ShopStream</h1>
+    <div style={styles.back} onClick={() => router.back()}>
+      ← Back
+    </div>
+
+    <h1 style={styles.title}>Start Selling on ShopStream</h1>
 
       <form onSubmit={handleSubmit} style={styles.form}>
 
