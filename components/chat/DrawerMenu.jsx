@@ -540,20 +540,25 @@ const tokenPercent = Math.min(
      🌌 CipherNet
      </button>
 
-            <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: 14,
-                background: "rgba(0,255,200,0.12)",
-                border: "1px solid rgba(0,255,200,0.35)",
-                fontSize: 13,
-                letterSpacing: ".4px"
-              }}
-            >
-              ShopStream <span style={{ opacity: 0.6 }}>• Coming Soon</span>
-            </div>
-          </div>
-        </div>
+            <button
+    onClick={() => {
+    router.push("/shopstream");
+    onClose();
+  }}
+  style={{
+    padding: "10px 14px",
+    borderRadius: 14,
+    background: "rgba(0,255,200,0.18)",
+    border: "1px solid rgba(0,255,200,0.55)",
+    fontSize: 13,
+    letterSpacing: ".4px",
+    cursor: "pointer",
+    color: "white",
+    textAlign: "left"
+  }}
+>
+  🛍️ ShopStream
+</button>
 
         <button
           onClick={() => {
