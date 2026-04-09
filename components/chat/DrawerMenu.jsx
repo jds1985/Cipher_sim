@@ -560,6 +560,7 @@ const tokenPercent = Math.min(
   🛍️ ShopStream
 </button>
 </div>
+</div>   
         <button
           onClick={() => {
             if (typeof window !== "undefined") {
