@@ -24,6 +24,11 @@ export default function ShopSignup() {
 
     console.log("Shop Signup Data:", form);
 
+    // 🔥 ONLY CHANGE — SAVE BEFORE STRIPE
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pendingShop", JSON.stringify(form));
+    }
+
     try {
       const res = await fetch("/api/shopstream-checkout", {
         method: "POST",
