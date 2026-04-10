@@ -1,8 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+
 export default function ShopStream() {
   const [tab, setTab] = useState("shop");
+  const [shops, setShops] = useState([]); // ✅ added
   const router = useRouter();
+
+  // ✅ load shop after success
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const shop = localStorage.getItem("liveShop");
+    if (shop) {
+      setShops([JSON.parse(shop)]);
+    }
+  }, []);
+
   return (
     <div style={styles.container}>
 
@@ -23,9 +36,25 @@ export default function ShopStream() {
         </button>
       </div>
 
-      {/* 🛍 SHOP TAB (your scroll feed) */}
+      {/* 🛍 SHOP TAB */}
       {tab === "shop" && (
         <div style={styles.feedWrapper}>
+
+          {/* ✅ DYNAMIC SHOP */}
+          {shops.map((shop, i) => (
+            <div key={i} style={styles.card}>
+              <div style={styles.videoPlaceholder}></div>
+
+              <div style={styles.overlay}>
+                <h2>{shop.shopName} 🔴 LIVE</h2>
+                <p>{shop.product}</p>
+                <p>{shop.location}</p>
+                <h3>${shop.price}</h3>
+              </div>
+            </div>
+          ))}
+
+          {/* EXISTING DEMO CARDS */}
           <div style={styles.card}>
             <div style={styles.videoPlaceholder}></div>
 
@@ -70,13 +99,14 @@ export default function ShopStream() {
             <h2>$99/month</h2>
             <p>No commissions. No hidden fees.</p>
           </div>
- <button
-  style={styles.cta}
-  onClick={() => router.push("/shopstream/signup")}
->
-  Start Selling
-</button>
-          
+
+          <button
+            style={styles.cta}
+            onClick={() => router.push("/shopstream/signup")}
+          >
+            Start Selling
+          </button>
+
         </div>
       )}
 
@@ -119,7 +149,6 @@ const styles = {
     cursor: "pointer",
   },
 
-  /* 🛍 FEED */
   feedWrapper: {
     height: "calc(100vh - 60px)",
     overflowY: "scroll",
@@ -143,7 +172,6 @@ const styles = {
     left: "20px",
   },
 
-  /* 🏪 SELL */
   sellWrapper: {
     padding: "30px",
     textAlign: "center",
