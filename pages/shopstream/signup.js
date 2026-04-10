@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
+
 export default function ShopSignup() {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -17,26 +18,41 @@ export default function ShopSignup() {
     });
   };
 
-  const handleSubmit = (e) => {
+  // ✅ UPDATED: now connects to Stripe
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     console.log("Shop Signup Data:", form);
 
-    alert("🔥 You're almost live! Next step: payment + going live");
+    try {
+      const res = await fetch("/api/shopstream-checkout", {
+        method: "POST",
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url; // 🔥 redirect to Stripe
+      } else {
+        alert("No checkout URL returned");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Stripe failed");
+    }
 
     // later:
     // send to Firebase
-    // redirect to Stripe
   };
 
   return (
-  <div style={styles.container}>
+    <div style={styles.container}>
 
-    <div style={styles.back} onClick={() => router.back()}>
-      ← Back
-    </div>
+      <div style={styles.back} onClick={() => router.back()}>
+        ← Back
+      </div>
 
-    <h1 style={styles.title}>Start Selling on ShopStream</h1>
+      <h1 style={styles.title}>Start Selling on ShopStream</h1>
 
       <form onSubmit={handleSubmit} style={styles.form}>
 
