@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         },
       ],
 
-      success_url: `${req.headers.origin}/shopstream?success=true`,
+      success_url: `${req.headers.origin}/shopstream/success`, // ✅ updated
       cancel_url: `${req.headers.origin}/shopstream/signup`,
     });
 
