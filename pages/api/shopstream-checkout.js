@@ -14,16 +14,7 @@ export default async function handler(req, res) {
 
       line_items: [
         {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: "ShopStream Seller Plan",
-            },
-            unit_amount: 9900,
-            recurring: {
-              interval: "month",
-            },
-          },
+          price: process.env.STRIPE_SHOPSTREAM_PRICE_ID, // 🔥 using your env var
           quantity: 1,
         },
       ],
