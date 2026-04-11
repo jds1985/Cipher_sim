@@ -9,6 +9,7 @@ export default function ShopSignup() {
     location: "",
     product: "",
     price: "",
+    liveUrl: "", // 🔥 ADDED
   });
 
   const handleChange = (e) => {
@@ -104,6 +105,15 @@ export default function ShopSignup() {
           onChange={handleChange}
           style={styles.input}
           required
+        />
+
+        {/* 🔥 NEW FIELD — LIVE VIDEO */}
+        <input
+          name="liveUrl"
+          placeholder="Paste your live stream link (YouTube recommended)"
+          value={form.liveUrl}
+          onChange={handleChange}
+          style={styles.input}
         />
 
         <button type="submit" style={styles.button}>
