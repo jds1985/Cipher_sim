@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, Bot, Wrench, Brain, Star, Shield, Zap, X } from 'lucide-react';
 import { db } from '../lib/firebaseClient';
 import { collectionGroup, getDocs } from 'firebase/firestore';
-
+import NodeRunner from '../components/NodeRunner';
 const TABS = [
   { key: 'agent', label: 'Agents', icon: Bot },
   { key: 'tool', label: 'Tools', icon: Wrench },
@@ -693,24 +693,7 @@ export default function CipherNetMap() {
               </div>
             ) : null}
 
-            <button
-              onClick={() => {
-                window.location.href = `/node/${selectedNode.id}`;
-              }}
-              style={{
-                width: '100%',
-                border: 'none',
-                borderRadius: 18,
-                padding: '16px 18px',
-                fontWeight: 800,
-                fontSize: 16,
-                color: '#020617',
-                background: getTypeStyles(selectedNode.type).accent,
-                boxShadow: getTypeStyles(selectedNode.type).glow
-              }}
-            >
-              Use Now
-            </button>
+            <NodeRunner node={selectedNode.raw} />
           </div>
         </div>
       ) : null}
