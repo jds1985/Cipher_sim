@@ -5,11 +5,13 @@ import { Search, Bot, Wrench, Brain, Star, Shield, Zap, X } from 'lucide-react';
 import { db } from '../lib/firebaseClient';
 import { collectionGroup, getDocs } from 'firebase/firestore';
 import NodeRunner from '../components/NodeRunner';
+import { loadMemoryNodes } from '../cipher_os/memory/memoryGraph';
+
 const TABS = [
   { key: 'agent', label: 'Agents', icon: Bot },
   { key: 'tool', label: 'Tools', icon: Wrench },
   { key: 'knowledge', label: 'Knowledge', icon: Brain },
-  { key: 'stream', label: 'Live', icon: Zap }
+  { key: 'memory', label: 'Memories', icon: Brain }
 ];
 
 function normalizeNode(doc) {
@@ -21,7 +23,7 @@ function normalizeNode(doc) {
 
   if (rawType.includes('agent')) type = 'agent';
   else if (rawType.includes('tool')) type = 'tool';
-  else if (rawType.includes('stream') || rawType.includes('live')) type = 'stream';
+  else if (rawType.includes('memory')) type = 'memory';
   else if (rawType.includes('knowledge') || rawType.includes('memory')) type = 'knowledge';
 
   const trust =
@@ -281,8 +283,27 @@ export default function CipherNetMap() {
         setLoading(true);
         setErrorText('');
 
-        const snap = await getDocs(collectionGroup(db, 'nodes'));
-        const normalized = snap.docs.map(normalizeNode);
+        let normalized = [];
+
+if (activeTab === 'memory') {
+  const userId = "demo"; // 🔥 replace with real user later
+  const memNodes = await loadMemoryNodes(userId, 200);
+
+  normalized = memNodes.map((n) => ({
+    id: n.id,
+    title: n.content?.slice(0, 40) || 'Memory',
+    description: n.content,
+    type: 'memory',
+    trust: typeof n.importance === 'number' ? n.importance : 0.5,
+    price: 0,
+    locked: Boolean(n.locked),
+    tags: n.tags || [],
+    raw: n
+  }));
+} else {
+  const snap = await getDocs(collectionGroup(db, 'nodes'));
+  normalized = snap.docs.map(normalizeNode);
+}
 
         normalized.sort((a, b) => {
           if (b.trust !== a.trust) return b.trust - a.trust;
@@ -317,12 +338,13 @@ export default function CipherNetMap() {
   }, [nodes, activeTab, query]);
 
   const counts = useMemo(() => {
-    return {
-      agent: nodes.filter((n) => n.type === 'agent').length,
-      tool: nodes.filter((n) => n.type === 'tool').length,
-      knowledge: nodes.filter((n) => n.type === 'knowledge').length
-    };
-  }, [nodes]);
+  return {
+    agent: nodes.filter((n) => n.type === 'agent').length,
+    tool: nodes.filter((n) => n.type === 'tool').length,
+    knowledge: nodes.filter((n) => n.type === 'knowledge').length,
+    memory: nodes.filter((n) => n.type === 'memory').length
+  };
+}, [nodes]);
 
   const activeStyles = getTypeStyles(activeTab);
 
