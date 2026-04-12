@@ -142,10 +142,13 @@ async function reinforceExisting(userId, existingNode) {
   const nextImportance = bumpImportance(existingNode.importance);
 
   await bumpMemoryNode(userId, existingNode.id, {
-    reinforcementCount: (existingNode.reinforcementCount || 0) + 1,
-    lastReinforcedAt: Date.now(),
-    importance: nextImportance,
-  });
+  reinforcementCount: (existingNode.reinforcementCount || 0) + 1,
+  lastReinforcedAt: Date.now(),
+  importance: nextImportance,
+
+  // ADD THIS LINE
+  usageCount: (existingNode.usageCount || 0) + 1,
+});
 
   console.log("🧠 reinforced:", existingNode.id, "→", nextImportance);
 }
