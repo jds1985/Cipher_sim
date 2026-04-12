@@ -320,7 +320,7 @@ if (activeTab === 'memory') {
     }
 
     loadNodes();
-  }, []);
+  }, [activeTab]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
