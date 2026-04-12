@@ -1,5 +1,7 @@
 // cipher_os/runtime/contextPrioritizer.js
-// Phase upgrade → REAL gravity system
+// Phase upgrade → REAL gravity system + usage reinforcement
+
+import { bumpMemoryNode } from "../memory/memoryGraph.js";
 
 export function prioritizeContext(nodes = [], limit = 15) {
   if (!Array.isArray(nodes)) return [];
@@ -12,6 +14,9 @@ export function prioritizeContext(nodes = [], limit = 15) {
 
     // 💪 REINFORCEMENT
     score += (Number(n.reinforcementCount) || 0) * 2;
+
+    // 🔁 USAGE (NEW SIGNAL)
+    score += (Number(n.usageCount) || 0) * 3;
 
     // 🛡 LOCK = GOD MODE
     if (n.locked) score += 1000;
@@ -28,5 +33,22 @@ export function prioritizeContext(nodes = [], limit = 15) {
 
   scored.sort((a, b) => b._score - a._score);
 
-  return scored.slice(0, limit);
+  const selected = scored.slice(0, limit);
+
+  // 🔥 REINFORCE ON USAGE (THE MISSING LOOP)
+  for (const n of selected) {
+    try {
+      // skip locked identity spam (safety)
+      if (n.locked && n.lockType === "identity") continue;
+
+      bumpMemoryNode(n.userId || n.uid || "unknown", n.id, {
+        usageCount: (n.usageCount || 0) + 1,
+        lastAccessed: Date.now(),
+      });
+    } catch (err) {
+      console.warn("⚠️ usage reinforcement failed:", err);
+    }
+  }
+
+  return selected;
 }
