@@ -1,42 +1,57 @@
-// cipher_os/memory/memoryDecay.js
-// Memory decay system with LOCK protection (v2)
-// Fixes:
-// - uses updateMemoryNode (now exported)
-// - decays strength/weight AND reinforcementCount
-// - locked nodes never decay
+// cipher_os/runtime/contextPrioritizer.js
+// Phase upgrade → REAL gravity system + usage reinforcement (SAFE)
 
-import { loadMemoryNodes, updateMemoryNode } from "./memoryGraph.js";
+import { bumpMemoryNode } from "../memory/memoryGraph.js";
 
-export async function runMemoryDecay(userId) {
-  const nodes = await loadMemoryNodes(userId, 500);
+export function prioritizeContext(nodes = [], limit = 15) {
+  if (!Array.isArray(nodes)) return [];
 
-  let decayed = 0;
-  let skipped = 0;
+  const scored = nodes.map((n) => {
+    let score = 0;
 
-  for (const node of nodes) {
-    if (node.locked) {
-      skipped++;
-      continue;
+    // 🧠 IMPORTANCE
+    score += (Number(n.importance) || 0) * 5;
+
+    // 💪 REINFORCEMENT
+    score += (Number(n.reinforcementCount) || 0) * 2;
+
+    // 🔁 USAGE (NEW SIGNAL)
+    score += (Number(n.usageCount) || 0) * 3;
+
+    // 🛡 LOCK = GOD MODE
+    if (n.locked) score += 1000;
+
+    // ⏱ RECENCY BOOST
+    if (n.lastAccessed) {
+      const age = Date.now() - n.lastAccessed;
+      const freshness = Math.max(0, 100000000 - age) / 100000000;
+      score += freshness * 5;
     }
 
-    const strength = Number(node.strength ?? node.weight ?? 0);
-    const reinf = Number(node.reinforcementCount ?? 0);
+    return { ...n, _score: score };
+  });
 
-    // nothing to decay
-    if (strength <= 0 && reinf <= 0) continue;
+  scored.sort((a, b) => b._score - a._score);
 
-    const nextStrength = Math.max(0, strength - 1);
-    const nextReinf = Math.max(0, reinf - 1);
+  const selected = scored.slice(0, limit);
 
-    await updateMemoryNode(userId, node.id, {
-      strength: nextStrength,
-      weight: nextStrength,
-      reinforcementCount: nextReinf,
-    });
+  // 🔥 REINFORCE ON USAGE (SAFE VERSION)
+  for (const n of selected) {
+    try {
+      // skip locked identity spam
+      if (n.locked && n.lockType === "identity") continue;
 
-    decayed++;
+      // 🚨 HARD SAFETY CHECK
+      if (!n.id || !n.userId) continue;
+
+      bumpMemoryNode(n.userId, n.id, {
+        usageCount: (n.usageCount || 0) + 1,
+        lastAccessed: Date.now(),
+      });
+    } catch (err) {
+      console.warn("⚠️ usage reinforcement failed:", err);
+    }
   }
 
-  console.log("🍂 memory decay:", decayed, "| locked:", skipped);
-  return { decayed, skipped };
+  return selected;
 }
