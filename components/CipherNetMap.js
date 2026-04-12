@@ -21,10 +21,11 @@ function normalizeNode(doc) {
 
   let type = 'knowledge';
 
+
   if (rawType.includes('agent')) type = 'agent';
-  else if (rawType.includes('tool')) type = 'tool';
-  else if (rawType.includes('memory')) type = 'memory';
-  else if (rawType.includes('knowledge') || rawType.includes('memory')) type = 'knowledge';
+else if (rawType.includes('tool')) type = 'tool';
+else if (rawType.includes('memory')) type = 'memory';
+else if (rawType.includes('knowledge')) type = 'knowledge';
 
   const trust =
     typeof d.importance === 'number'
