@@ -1,57 +1,65 @@
-// cipher_os/runtime/contextPrioritizer.js
-// Phase upgrade → REAL gravity system + usage reinforcement (SAFE)
+// cipher_os/memory/memoryDecay.js
+// Memory decay system with LOCK + USAGE protection (v3)
 
-import { bumpMemoryNode } from "../memory/memoryGraph.js";
+import { loadMemoryNodes, updateMemoryNode } from "./memoryGraph.js";
 
-export function prioritizeContext(nodes = [], limit = 15) {
-  if (!Array.isArray(nodes)) return [];
+export async function runMemoryDecay(userId) {
+  const nodes = await loadMemoryNodes(userId, 500);
 
-  const scored = nodes.map((n) => {
-    let score = 0;
+  let decayed = 0;
+  let skipped = 0;
 
-    // 🧠 IMPORTANCE
-    score += (Number(n.importance) || 0) * 5;
+  const now = Date.now();
 
-    // 💪 REINFORCEMENT
-    score += (Number(n.reinforcementCount) || 0) * 2;
-
-    // 🔁 USAGE (NEW SIGNAL)
-    score += (Number(n.usageCount) || 0) * 3;
-
-    // 🛡 LOCK = GOD MODE
-    if (n.locked) score += 1000;
-
-    // ⏱ RECENCY BOOST
-    if (n.lastAccessed) {
-      const age = Date.now() - n.lastAccessed;
-      const freshness = Math.max(0, 100000000 - age) / 100000000;
-      score += freshness * 5;
+  for (const node of nodes) {
+    // 🛡 LOCK = NEVER TOUCH
+    if (node.locked) {
+      skipped++;
+      continue;
     }
 
-    return { ...n, _score: score };
-  });
+    const strength = Number(node.strength ?? node.weight ?? 0);
+    const reinf = Number(node.reinforcementCount ?? 0);
+    const usage = Number(node.usageCount ?? 0);
 
-  scored.sort((a, b) => b._score - a._score);
+    const lastUsed = node.lastAccessed || node.lastReinforcedAt || 0;
+    const age = now - lastUsed;
 
-  const selected = scored.slice(0, limit);
+    // ⏱ TIME WINDOWS (tweakable)
+    const VERY_RECENT = 1000 * 60 * 10;     // 10 min
+    const RECENT = 1000 * 60 * 60;          // 1 hour
 
-  // 🔥 REINFORCE ON USAGE (SAFE VERSION)
-  for (const n of selected) {
-    try {
-      // skip locked identity spam
-      if (n.locked && n.lockType === "identity") continue;
-
-      // 🚨 HARD SAFETY CHECK
-      if (!n.id || !n.userId) continue;
-
-      bumpMemoryNode(n.userId, n.id, {
-        usageCount: (n.usageCount || 0) + 1,
-        lastAccessed: Date.now(),
-      });
-    } catch (err) {
-      console.warn("⚠️ usage reinforcement failed:", err);
+    // 🚫 skip very recent memories completely
+    if (age < VERY_RECENT) {
+      skipped++;
+      continue;
     }
+
+    // 🧠 USAGE PROTECTION (high-value memories decay slower)
+    let decayAmount = 1;
+
+    if (usage > 20) decayAmount = 0;        // basically permanent
+    else if (usage > 10) decayAmount = 0.25;
+    else if (usage > 5) decayAmount = 0.5;
+
+    // 🧠 reinforcement also slows decay
+    if (reinf > 10) decayAmount *= 0.5;
+
+    // nothing to decay
+    if (strength <= 0 && reinf <= 0) continue;
+
+    const nextStrength = Math.max(0, strength - decayAmount);
+    const nextReinf = Math.max(0, reinf - decayAmount);
+
+    await updateMemoryNode(userId, node.id, {
+      strength: nextStrength,
+      weight: nextStrength,
+      reinforcementCount: nextReinf,
+    });
+
+    decayed++;
   }
 
-  return selected;
+  console.log("🍂 memory decay:", decayed, "| skipped:", skipped);
+  return { decayed, skipped };
 }
