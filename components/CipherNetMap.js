@@ -288,7 +288,9 @@ export default function CipherNetMap() {
 
 if (activeTab === 'memory') {
   const userId = "demo"; // 🔥 replace with real user later
-  const memNodes = await loadMemoryNodes(userId, 200);
+  const res = await fetch(`/api/memory?user=${userId}`);
+  const data = await res.json();
+  const memNodes = data.nodes || [];
 
 const importanceMap = {
   low: 0.3,
