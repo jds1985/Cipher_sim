@@ -290,12 +290,19 @@ if (activeTab === 'memory') {
   const userId = "demo"; // 🔥 replace with real user later
   const memNodes = await loadMemoryNodes(userId, 200);
 
+const importanceMap = {
+  low: 0.3,
+  medium: 0.5,
+  high: 0.8,
+  core: 1
+};
+  
   normalized = memNodes.map((n) => ({
     id: n.id,
     title: n.content?.slice(0, 40) || 'Memory',
     description: n.content,
     type: 'memory',
-    trust: typeof n.importance === 'number' ? n.importance : 0.5,
+    trust: importanceMap[n.importance] || 0.5,
     price: 0,
     locked: Boolean(n.locked),
     tags: n.tags || [],
