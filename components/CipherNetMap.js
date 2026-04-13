@@ -5,7 +5,7 @@ import { Search, Bot, Wrench, Brain, Star, Shield, Zap, X } from 'lucide-react';
 import { db } from '../lib/firebaseClient';
 import { collectionGroup, getDocs } from 'firebase/firestore';
 import NodeRunner from '../components/NodeRunner';
-import { loadMemoryNodes } from '../cipher_os/memory/memoryGraph';
+
 
 const TABS = [
   { key: 'agent', label: 'Agents', icon: Bot },
