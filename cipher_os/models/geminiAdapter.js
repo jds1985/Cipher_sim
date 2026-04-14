@@ -23,11 +23,12 @@ export async function geminiGenerate({
   const modelCandidates = forcedModel
     ? [forcedModel]
             
-        : [
-        "gemini-1.5-pro-latest",   // Force-points to the working 1.5 Pro
+            : [
         "gemini-3.1-pro-preview", 
-        "gemini-1.5-pro",
+        "gemini-3-flash-preview",
+        "gemini-2.5-pro",
       ];
+
 
 
 
