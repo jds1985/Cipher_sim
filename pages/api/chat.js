@@ -1,4 +1,6 @@
 export const runtime = "nodejs";
+export const maxDuration = 60; // This gives the debate 1 minute to finish
+
 // pages/api/chat.js
 // Cipher OS — stable core + streaming + memory visibility + tier-safe role handling
 
