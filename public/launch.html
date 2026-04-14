@@ -74,7 +74,7 @@ color:white;
 cursor:pointer;
 }
 
-/* ✅ CAROUSEL CARD STYLE */
+/* ✅ CAROUSEL */
 #carousel{
 margin-top:15px;
 max-width:320px;
@@ -86,6 +86,73 @@ border:1px solid rgba(255,255,255,0.08);
 font-size:14px;
 color:rgba(255,255,255,0.9);
 transition:opacity 0.3s ease;
+box-shadow: 0 0 20px rgba(157,123,255,0.15);
+animation: pulse 4s ease-in-out infinite;
+}
+
+@keyframes pulse{
+0%,100%{opacity:1;}
+50%{opacity:0.85;}
+}
+
+/* 🌌 BLACK HOLE */
+#blackhole{
+position:fixed;
+top:20px;
+right:20px;
+width:120px;
+height:120px;
+pointer-events:none;
+z-index:5;
+}
+
+#blackhole .core{
+position:absolute;
+width:60px;
+height:60px;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+border-radius:50%;
+background:black;
+box-shadow:
+0 0 25px rgba(157,123,255,0.6),
+inset 0 0 20px rgba(0,0,0,0.9);
+}
+
+#blackhole .ring{
+position:absolute;
+width:100%;
+height:100%;
+border-radius:50%;
+border:2px solid rgba(157,123,255,0.2);
+animation:spin 6s linear infinite;
+}
+
+@keyframes spin{
+from{transform:rotate(0deg);}
+to{transform:rotate(360deg);}
+}
+
+.particle{
+position:absolute;
+width:4px;
+height:4px;
+background:#9d7bff;
+border-radius:50%;
+opacity:0.8;
+animation:fall linear infinite;
+}
+
+@keyframes fall{
+0%{
+transform:translate(0,0) scale(1);
+opacity:1;
+}
+100%{
+transform:translate(-40px,40px) scale(0.2);
+opacity:0;
+}
 }
 
 </style>
@@ -94,13 +161,19 @@ transition:opacity 0.3s ease;
 
 <body>
 
+<!-- 🌌 BLACK HOLE -->
+<div id="blackhole">
+  <div class="ring"></div>
+  <div class="core"></div>
+</div>
+
 <h1>CIPHER OS</h1>
 
 <p>The Cognitive Operating System</p>
 
 <!-- ✅ CAROUSEL -->
 <div id="carousel">
-Cipher OS is a cognitive AI system
+Something massive is coming
 </div>
 
 <div class="countdown">
@@ -174,6 +247,7 @@ document.getElementById("email").value=""
 </script>
 
 <script>
+
 const params = new URLSearchParams(window.location.search);
 
 if(params.get("dev") === "cipher"){
@@ -205,13 +279,15 @@ Math.floor((diff%(1000*60))/1000)
 
 },1000)
 
-/* ✅ CAROUSEL LOGIC */
+/* ✅ CAROUSEL */
 const messages = [
-"Cipher OS is a cognitive AI system",
-"Choose the AI model you want to use",
-"Combines multiple models into one system",
-"Built with memory and real-time reasoning",
-"Designed to think with you, not for you"
+"Something massive is coming",
+"The world is not ready",
+"A world's first cognitive system",
+"Not an AI tool — an operating system",
+"Multiple minds. One interface.",
+"This is where AI stops being separate",
+"Cipher OS is about to change everything"
 ]
 
 let index = 0
@@ -228,6 +304,24 @@ el.style.opacity = 1
 },300)
 
 },3000)
+
+/* 🌌 BLACK HOLE PARTICLES */
+const hole = document.getElementById("blackhole")
+
+function createParticle(){
+  const p = document.createElement("div")
+  p.className = "particle"
+
+  p.style.left = Math.random()*120 + "px"
+  p.style.top = Math.random()*120 + "px"
+  p.style.animationDuration = (2 + Math.random()*2) + "s"
+
+  hole.appendChild(p)
+
+  setTimeout(()=>p.remove(),3000)
+}
+
+setInterval(createParticle, 150)
 
 /* ✅ SHARE FUNCTION */
 function shareApp(){
