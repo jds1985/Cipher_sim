@@ -339,9 +339,11 @@ if (roles && roles.mode === "ternary") {
   `;
 
   const finalTruth = await ADAPTERS.gemini.fn({
-    systemPrompt: "You are State 0: The Balanced Truth.",
-    userMessage: synthesisPrompt
-  });
+  model: "gemini-1.5-pro", 
+  systemPrompt: "You are State 0: The Balanced Truth.",
+  userMessage: synthesisPrompt
+});
+
 
   // RECORD THE "GOLD SET" (This is what you use to train the phones!)
   await logTurn(osContext.userId, {
