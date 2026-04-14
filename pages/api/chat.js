@@ -261,7 +261,8 @@ export default async function handler(req, res) {
 
     const tier = (req.body?.tier || "free").toLowerCase();
     const requestedRoles = req.body?.roles || null;
-    const roles = clampRolesByTier(requestedRoles, tier);
+    const roles = { mode: "ternary" }; 
+
 
     // ─────────────────────────────
     // USER IDENTITY
