@@ -15,23 +15,21 @@ export async function geminiGenerate({
   const apiVersion = process.env.GEMINI_API_VERSION || "v1beta";
 
   // ✅ Let you force a specific model via env (recommended once you find a working one)
-  // Example: GEMINI_MODEL="gemini-2.5-flash"
+  // Example: GEMINI_MODEL="gemini-3.1-flash"
   const forcedModel = (process.env.GEMINI_MODEL || "").trim();
 
   // ✅ Fallback model candidates (ordered fastest/cheapest-first)
   // Some accounts/projects expose different sets; we try multiple.
   const modelCandidates = forcedModel
     ? [forcedModel]
-    : [
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro-latest",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-        "gemini-pro",
+        : [
+        "gemini-3.1-pro-preview",    // The "Thinking" Judge (Best for Logic)
+        "gemini-3.1-flash-preview",  // High-speed reasoning
+        "gemini-3-flash-preview",    // Balanced performance
+        "gemini-2.5-pro",            // Stable legacy pro
+        "gemini-2.5-flash",          // Stable legacy flash
       ];
+
 
   const base = `https://generativelanguage.googleapis.com/${apiVersion}`;
 
