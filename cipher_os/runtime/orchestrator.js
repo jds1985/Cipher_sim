@@ -309,6 +309,53 @@ export async function runOrchestrator({
     };
   }
 
+
+   /* ============================================================
+   TERNARY LOGIC MODE (NEW)
+============================================================ */
+if (roles && roles.mode === "ternary") {
+  const [creative, shadow] = await Promise.all([
+    // State +1: The Excitatory Generator (OpenAI)
+    ADAPTERS.openai.fn({
+      systemPrompt: "State +1: BE THE OPTIMIST. Generate creative, fast solutions. Ignore risks.",
+      userMessage: userMessage,
+      temperature: 0.9
+    }),
+    // State -1: The Inhibitory Critic (Anthropic/Claude)
+    ADAPTERS.anthropic.fn({
+      systemPrompt: "State -1: BE THE SHADOW. Identify every security flaw, logical error, and risk.",
+      userMessage: userMessage,
+      temperature: 0.2
+    })
+  ]);
+
+  // State 0: The Judge (Gemini)
+  const synthesisPrompt = `
+    User Input: ${userMessage}
+    Creative (+1): ${extractReply(creative)}
+    Shadow (-1): ${extractReply(shadow)}
+    
+    TASK: Act as State 0 (The Truth). Merge the possibilities of +1 with the safety of -1.
+  `;
+
+  const finalTruth = await ADAPTERS.gemini.fn({
+    systemPrompt: "You are State 0: The Balanced Truth.",
+    userMessage: synthesisPrompt
+  });
+
+  // RECORD THE "GOLD SET" (This is what you use to train the phones!)
+  await logTurn(osContext.userId, {
+    type: "ternary_distillation",
+    input: userMessage,
+    pos: extractReply(creative),
+    neg: extractReply(shadow),
+    zero: extractReply(finalTruth)
+  });
+
+  return { reply: extractReply(finalTruth), modelUsed: "ternary_cluster" };
+}
+
+   
   /* ============================================================
      ORIGINAL ROUTING LOGIC (UNCHANGED)
   ============================================================ */
