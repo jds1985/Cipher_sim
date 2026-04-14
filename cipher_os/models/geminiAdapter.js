@@ -15,7 +15,7 @@ export async function geminiGenerate({
   const apiVersion = process.env.GEMINI_API_VERSION || "v1beta";
 
   // ✅ Let you force a specific model via env (recommended once you find a working one)
-  // Example: GEMINI_MODEL="gemini-1.5-pro"
+  // Example: GEMINI_MODEL="gemini-2.5-flash"
   const forcedModel = (process.env.GEMINI_MODEL || "").trim();
 
   // ✅ Fallback model candidates (ordered fastest/cheapest-first)
