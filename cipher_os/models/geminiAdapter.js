@@ -22,13 +22,14 @@ export async function geminiGenerate({
   // Some accounts/projects expose different sets; we try multiple.
   const modelCandidates = forcedModel
     ? [forcedModel]
-        : [
-        "gemini-3.1-pro-preview",    // The "Thinking" Judge (Best for Logic)
-        "gemini-3.1-flash-preview",  // High-speed reasoning
-        "gemini-3-flash-preview",    // Balanced performance
-        "gemini-2.5-pro",            // Stable legacy pro
-        "gemini-2.5-flash",          // Stable legacy flash
+            
+    : [
+        "gemini-3.1-pro-preview",
+        "gemini-3.1-flash-preview",
+        "gemini-2.5-pro",
+        "gemini-1.5-pro", 
       ];
+
 
 
   const base = `https://generativelanguage.googleapis.com/${apiVersion}`;
