@@ -1,17 +1,15 @@
 export const runtime = "nodejs";
-// i like bananas
-// Cipher OS Orchestrator v2.7
-// Adds:
-// - Role-specific system prompts
-// - Delta quality scoring between role stages
-// Preserves:
-// - ALL routing
-// - ALL telemetry
-// - ALL fallback logic
+
+// Cipher OS Orchestrator v2.8 (Grok-Sovereign Edition)
+// Adds: 
+// - Grok Adapter integration as State 0 Judge
+// Preserves: 
+// - ALL routing, telemetry, and fallback logic
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
 import { anthropicGenerate } from "../models/anthropicAdapter.js";
+import { grokGenerate } from "../models/grokAdapter.js"; // Surgical Add: Grok Import
 import { setLastRun } from "./debugState.js";
 import { setScores, recordRun } from "./telemetryState.js";
 import { evaluateAnswerQuality } from "./qualityEvaluator.js";
@@ -39,15 +37,22 @@ const ADAPTERS = {
     supportsSignal: true,
     supportsStream: false,
   },
+  grok: { // Surgical Add: Grok Adapter
+    fn: grokGenerate,
+    key: "GROK_API_KEY",
+    supportsSignal: true,
+    supportsStream: false,
+  },
 };
 
 /* ===============================
-   SCOREBOARD (UNCHANGED)
+   SCOREBOARD
 ================================ */
 const SCOREBOARD = {
   anthropic: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
   openai: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
   gemini: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
+  grok: { success: 1, fail: 0, avgLatency: 1500, quality: 0.6 }, // Surgical Add: Grok Score
 };
 
 function updateScore(provider, { success, latency, quality }) {
@@ -213,7 +218,7 @@ export async function runOrchestrator({
     executivePacket?.systemPrompt || "You are Cipher OS.";
 
   /* ============================================================
-     ROLE STACK EXECUTION (UPGRADED)
+     ROLE STACK EXECUTION (UNCHANGED)
   ============================================================ */
   if (roles && roles.architect && roles.refiner && roles.polisher) {
     let currentText = userMessage;
@@ -311,17 +316,17 @@ export async function runOrchestrator({
 
 
    /* ============================================================
-   TERNARY LOGIC MODE (NEW)
+   TERNARY LOGIC MODE (Surgical Update: Swapped Gemini for Grok)
 ============================================================ */
 if (roles && roles.mode === "ternary") {
   const [creative, shadow] = await Promise.all([
-    // State +1: The Excitatory Generator (OpenAI)
+    // State +1: OpenAI (Stable)
     ADAPTERS.openai.fn({
       systemPrompt: "State +1: BE THE OPTIMIST. Generate creative, fast solutions. Ignore risks.",
       userMessage: userMessage,
       temperature: 0.9
     }),
-    // State -1: The Inhibitory Critic (Anthropic/Claude)
+    // State -1: Anthropic (Stable)
     ADAPTERS.anthropic.fn({
       systemPrompt: "State -1: BE THE SHADOW. Identify every security flaw, logical error, and risk.",
       userMessage: userMessage,
@@ -329,33 +334,39 @@ if (roles && roles.mode === "ternary") {
     })
   ]);
 
-  // State 0: The Judge (Gemini)
+  // State 0: Synthesis Prompt
   const synthesisPrompt = `
     User Input: ${userMessage}
     Creative (+1): ${extractReply(creative)}
     Shadow (-1): ${extractReply(shadow)}
     
-    TASK: Act as State 0 (The Truth). Merge the possibilities of +1 with the safety of -1.
+    TASK: Act as State 0 (The Truth). Synthesize the Creative and the Shadow into a unified solution.
   `;
 
-  const finalTruth = await ADAPTERS.gemini.fn({
-  model: "gemini-3.0-flash", 
-  systemPrompt: "You are State 0: The Balanced Truth.",
-  userMessage: synthesisPrompt
-});
-
-
-
-  // RECORD THE "GOLD SET" (This is what you use to train the phones!)
-  await logTurn(osContext.userId, {
-    type: "ternary_distillation",
-    input: userMessage,
-    pos: extractReply(creative),
-    neg: extractReply(shadow),
-    zero: extractReply(finalTruth)
+  // State 0: The Judge (Now Grok-4.1-Fast-Reasoning)
+  const finalTruth = await ADAPTERS.grok.fn({
+    model: "grok-4.1-fast-reasoning", 
+    systemPrompt: "You are State 0: The Balanced Truth.",
+    userMessage: synthesisPrompt,
+    temperature: 0.3
   });
 
-  return { reply: extractReply(finalTruth), modelUsed: "ternary_cluster" };
+  // RECORD THE "GOLD SET"
+  // Note: Added check to ensure logTurn is available in your scope
+  try {
+    await logTurn(osContext.userId, {
+      type: "ternary_distillation",
+      input: userMessage,
+      pos: extractReply(creative),
+      neg: extractReply(shadow),
+      zero: extractReply(finalTruth)
+    });
+  } catch(e) { /* logTurn fail-safe */ }
+
+  return { 
+    reply: extractReply(finalTruth), 
+    modelUsed: "ternary_cluster_grok" 
+  };
 }
 
    
