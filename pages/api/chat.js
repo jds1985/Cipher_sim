@@ -88,7 +88,8 @@ Return only the final analysis.
     systemPrompt: (executivePacket.systemPrompt || "") + "\n\n" + agentPrompt,
   };
 
-  const out = await runOrchestrator({
+  // Renamed to match orchestrator
+  const out = await runSovereignMind({
     osContext,
     executivePacket: packet,
     roles: null,
@@ -148,7 +149,8 @@ Return ONLY the final response.
     systemPrompt: (executivePacket.systemPrompt || "") + "\n\n" + reviewPrompt,
   };
 
-  const improved = await runOrchestrator({
+  // Renamed to match orchestrator
+  const improved = await runSovereignMind({
     osContext,
     executivePacket: reviewPacket,
     roles: null,
@@ -515,7 +517,8 @@ nodeOutputs = execResults;
 
       let streamedText = "";
 
-      const out = await runOrchestrator({
+      // Renamed to match orchestrator
+      const out = await runSovereignMind({
         osContext,
         executivePacket,
         roles: null,
