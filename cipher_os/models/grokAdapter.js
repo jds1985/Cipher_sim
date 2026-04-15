@@ -2,7 +2,8 @@
 
 export async function callGrok({
   messages,
-  model = "grok-1",
+  model: "grok-4.20-reasoning", 
+
   temperature = 0.7,
   max_tokens = 1024,
 }) {
