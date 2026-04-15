@@ -8,7 +8,8 @@ import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
 
 import { buildOSContext } from "../../cipher_os/runtime/osContext.js";
-import { runOrchestrator } from "../../cipher_os/runtime/orchestrator.js";
+import { runSovereignMind } from "../../cipher_os/runtime/orchestrator";
+
 
 import {
   loadMemoryNodes,
