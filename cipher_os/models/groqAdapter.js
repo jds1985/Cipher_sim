@@ -1,9 +1,9 @@
 // cipher_os/models/groqAdapter.js
 
 /**
- * Groq Adapter — The Sovereign Judge (v1.1)
+ * Groq Adapter — The Sovereign Judge (v1.2)
  * Uses Groq's LPU hardware for near-instant ternary synthesis.
- * Added Deep Debugging to catch April 2026 API shifts.
+ * Forced Error Reporting: Sends API errors as chat replies for debugging.
  */
 export async function groqGenerate({
   systemPrompt,
@@ -12,8 +12,8 @@ export async function groqGenerate({
 }) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    console.error("ADAPTER ERROR: Missing GROQ_API_KEY in Environment Variables");
-    throw new Error("Missing GROQ_API_KEY");
+    console.error("ADAPTER ERROR: Missing GROQ_API_KEY");
+    return { reply: "⚠️ ADAPTER ERROR: Missing GROQ_API_KEY in Vercel", modelUsed: "debug_error" };
   }
 
   // Use the lightning-fast 2026 stable model
@@ -41,7 +41,6 @@ export async function groqGenerate({
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        // .trim() ensures no hidden spaces break the handshake
         "Authorization": `Bearer ${apiKey.trim()}`, 
         "Content-Type": "application/json",
       },
@@ -50,25 +49,27 @@ export async function groqGenerate({
 
     const data = await res.json();
     
-    // This will show up in your Vercel logs to tell us exactly what's wrong
+    // Log the full payload for Vercel console review
     console.log("DEBUG: Groq API Response:", JSON.stringify(data));
 
     if (!res.ok) {
-      if (res.status === 429) {
-        console.error("ADAPTER ERROR: Rate limit hit");
-        throw new Error("Groq Rate Limit reached.");
-      }
-      console.error("ADAPTER ERROR: API returned status", res.status);
-      throw new Error(`Groq API Error: ${data.error?.message || res.status}`);
+      // FORCE THE ERROR INTO THE CHAT UI
+      return { 
+        reply: `⚠️ GROQ API ERROR: ${data.error?.message || res.status}`, 
+        modelUsed: "error_debug" 
+      };
     }
 
     return {
       reply: data.choices[0].message.content.trim(),
-      modelUsed: "ternary_cluster_groq", // Hardcoded label for the UI
+      modelUsed: "ternary_cluster_groq", 
     };
   } catch (err) {
     console.error("ADAPTER CRITICAL FAILURE:", err.message);
-    // Return null so the orchestrator fallback triggers, but log the reason
-    return { reply: null, error: err.message };
+    // Force the crash reason into the chat UI
+    return { 
+      reply: `⚠️ ADAPTER CRASH: ${err.message}`, 
+      modelUsed: "critical_debug" 
+    };
   }
 }
