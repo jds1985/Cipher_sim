@@ -1,40 +1,46 @@
 // cipher_os/models/grokAdapter.js
 
-export async function callGrok({
-  messages,
-  model: "grok-4.20-reasoning", 
-
-  temperature = 0.7,
-  max_tokens = 1024,
+export async function grokGenerate({
+  systemPrompt,
+  userMessage,
+  temperature = 0.3,
 }) {
+  const apiKey = process.env.GROK_API_KEY;
+  if (!apiKey) throw new Error("Missing GROK_API_KEY");
+
+  const model = "grok-4.20-reasoning"; 
+
+  const body = {
+    model: model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ],
+    temperature: temperature,
+  };
+
   try {
     const res = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.GROK_API_KEY}`,
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature,
-        max_tokens,
-      }),
+      body: JSON.stringify(body),
     });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Grok API error: ${errText}`);
-    }
 
     const data = await res.json();
 
+    if (!res.ok) {
+      throw new Error(`Grok API Error: ${data.error?.message || res.status}`);
+    }
+
     return {
-      text: data.choices?.[0]?.message?.content || "",
-      raw: data,
+      reply: data.choices[0].message.content.trim(),
+      modelUsed: model,
     };
   } catch (err) {
-    console.error("Grok Adapter Error:", err);
+    console.error("Grok Adapter Failed:", err);
     throw err;
   }
 }
