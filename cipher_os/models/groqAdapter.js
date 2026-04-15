@@ -1,12 +1,12 @@
-// cipher_os/models/grokAdapter.js
+// cipher_os/models/groqAdapter.js
 
-export async function grokGenerate({
+export async function groqGenerate({
   systemPrompt,
   userMessage,
   temperature = 0.3,
 }) {
-  const apiKey = process.env.GROK_API_KEY;
-  if (!apiKey) throw new Error("Missing GROK_API_KEY");
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("Missing GROQ_API_KEY");
 
   const model = "grok-4.20-reasoning"; 
 
