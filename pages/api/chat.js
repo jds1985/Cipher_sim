@@ -588,7 +588,8 @@ nodeOutputs = execResults;
     // ─────────────────────────────
     // NORMAL MODE
     // ─────────────────────────────
-    const out = await runOrchestrator({
+    const out = await runSovereignMind({
+
       osContext,
       executivePacket,
       roles,
