@@ -316,57 +316,55 @@ export async function runOrchestrator({
 
 
    /* ============================================================
-   TERNARY LOGIC MODE (Surgical Update: Swapped Gemini for Grok)
+   TERNARY LOGIC MODE (Grok-Sovereign Edition)
 ============================================================ */
 if (roles && roles.mode === "ternary") {
-  const [creative, shadow] = await Promise.all([
-    // State +1: OpenAI (Stable)
-    ADAPTERS.openai.fn({
-      systemPrompt: "State +1: BE THE OPTIMIST. Generate creative, fast solutions. Ignore risks.",
-      userMessage: userMessage,
-      temperature: 0.9
-    }),
-    // State -1: Anthropic (Stable)
-    ADAPTERS.anthropic.fn({
-      systemPrompt: "State -1: BE THE SHADOW. Identify every security flaw, logical error, and risk.",
-      userMessage: userMessage,
-      temperature: 0.2
-    })
-  ]);
-
-  // State 0: Synthesis Prompt
-  const synthesisPrompt = `
-    User Input: ${userMessage}
-    Creative (+1): ${extractReply(creative)}
-    Shadow (-1): ${extractReply(shadow)}
-    
-    TASK: Act as State 0 (The Truth). Synthesize the Creative and the Shadow into a unified solution.
-  `;
-
-  // State 0: The Judge (Now Grok-4.1-Fast-Reasoning)
-  const finalTruth = await ADAPTERS.grok.fn({
-    model: "grok-4.1-fast-reasoning", 
-    systemPrompt: "You are State 0: The Balanced Truth.",
-    userMessage: synthesisPrompt,
-    temperature: 0.3
-  });
-
-  // RECORD THE "GOLD SET"
-  // Note: Added check to ensure logTurn is available in your scope
+  // Use a try-catch specifically for the Judge call
+  let finalTruth;
   try {
-    await logTurn(osContext.userId, {
-      type: "ternary_distillation",
-      input: userMessage,
-      pos: extractReply(creative),
-      neg: extractReply(shadow),
-      zero: extractReply(finalTruth)
-    });
-  } catch(e) { /* logTurn fail-safe */ }
+    const [creative, shadow] = await Promise.all([
+      ADAPTERS.openai.fn({
+        systemPrompt: "State +1: BE THE OPTIMIST.",
+        userMessage: userMessage,
+        temperature: 0.9
+      }),
+      ADAPTERS.anthropic.fn({
+        systemPrompt: "State -1: BE THE SHADOW.",
+        userMessage: userMessage,
+        temperature: 0.2
+      })
+    ]);
 
-  return { 
-    reply: extractReply(finalTruth), 
-    modelUsed: "ternary_cluster_grok" 
-  };
+    const synthesisPrompt = `
+      Input: ${userMessage}
+      +1: ${extractReply(creative)}
+      -1: ${extractReply(shadow)}
+      TASK: Merge these into State 0.
+    `;
+
+    // ADD THIS: Explicitly call Grok 4.1
+    const grokResponse = await ADAPTERS.grok.fn({
+      model: "grok-4.1-fast-reasoning", 
+      systemPrompt: "You are State 0: The Balanced Truth.",
+      userMessage: synthesisPrompt,
+      temperature: 0.3
+    });
+
+    finalTruth = extractReply(grokResponse);
+
+    // CRITICAL: If Grok returns null, FORCE a fallback 
+    // so we don't get an empty bubble.
+    if (!finalTruth) {
+       finalTruth = extractReply(creative); // Fallback to Creative
+       console.warn("Grok returned null, falling back to OpenAI.");
+    }
+
+  } catch (err) {
+    console.error("Ternary Cluster Failed:", err);
+    return { reply: "⚠️ Sovereign cluster offline. Falling back.", modelUsed: "system_error" };
+  }
+
+  return { reply: finalTruth, modelUsed: "ternary_cluster_grok" };
 }
 
    
