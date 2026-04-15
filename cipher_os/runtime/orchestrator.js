@@ -1,15 +1,13 @@
 export const runtime = "nodejs";
 
-// Cipher OS Orchestrator v2.8 (Grok-Sovereign Edition)
-// Adds: 
-// - Grok Adapter integration as State 0 Judge
-// Preserves: 
-// - ALL routing, telemetry, and fallback logic
+// Cipher OS Orchestrator v2.9 (Groq-LPU Edition)
+// Swaps failing xAI Grok for near-instant Groq Llama 3.3
+// Preserves: ALL routing, telemetry, and fallback logic
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
 import { anthropicGenerate } from "../models/anthropicAdapter.js";
-import { grokGenerate } from "../models/grokAdapter.js"; // Surgical Add: Grok Import
+import { groqGenerate } from "../models/groqAdapter.js"; // Surgical Add: Groq-Q Import
 import { setLastRun } from "./debugState.js";
 import { setScores, recordRun } from "./telemetryState.js";
 import { evaluateAnswerQuality } from "./qualityEvaluator.js";
@@ -37,9 +35,9 @@ const ADAPTERS = {
     supportsSignal: true,
     supportsStream: false,
   },
-  grok: { // Surgical Add: Grok Adapter
-    fn: grokGenerate,
-    key: "GROK_API_KEY",
+  groq: { // Surgical Update: Swapped Grok for Groq
+    fn: groqGenerate,
+    key: "GROQ_API_KEY",
     supportsSignal: true,
     supportsStream: false,
   },
@@ -52,7 +50,7 @@ const SCOREBOARD = {
   anthropic: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
   openai: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
   gemini: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
-  grok: { success: 1, fail: 0, avgLatency: 1500, quality: 0.6 }, // Surgical Add: Grok Score
+  groq: { success: 1, fail: 0, avgLatency: 300, quality: 0.6 }, // Fast baseline
 };
 
 function updateScore(provider, { success, latency, quality }) {
@@ -316,20 +314,19 @@ export async function runOrchestrator({
 
 
    /* ============================================================
-   TERNARY LOGIC MODE (Grok-Sovereign Edition)
+   TERNARY LOGIC MODE (Groq-Q Implementation)
 ============================================================ */
 if (roles && roles.mode === "ternary") {
-  // Use a try-catch specifically for the Judge call
   let finalTruth;
   try {
     const [creative, shadow] = await Promise.all([
       ADAPTERS.openai.fn({
-        systemPrompt: "State +1: BE THE OPTIMIST.",
+        systemPrompt: "State +1: BE THE OPTIMIST. Generate creative, fast solutions. Ignore risks.",
         userMessage: userMessage,
         temperature: 0.9
       }),
       ADAPTERS.anthropic.fn({
-        systemPrompt: "State -1: BE THE SHADOW.",
+        systemPrompt: "State -1: BE THE SHADOW. Identify every security flaw, logical error, and risk.",
         userMessage: userMessage,
         temperature: 0.2
       })
@@ -337,26 +334,25 @@ if (roles && roles.mode === "ternary") {
 
     const synthesisPrompt = `
       Input: ${userMessage}
-      +1: ${extractReply(creative)}
-      -1: ${extractReply(shadow)}
-      TASK: Merge these into State 0.
+      Creative (+1): ${extractReply(creative)}
+      Shadow (-1): ${extractReply(shadow)}
+      
+      TASK: Act as State 0 (The Truth). Merge the possibilities of +1 with the safety of -1 into one unified, technical solution.
     `;
 
-    // ADD THIS: Explicitly call Grok 4.1
-    const grokResponse = await ADAPTERS.grok.fn({
-      model: "grok-4.1-fast-reasoning", 
+    // State 0: The Judge (Now Groq LPU)
+    const groqResponse = await ADAPTERS.groq.fn({
       systemPrompt: "You are State 0: The Balanced Truth.",
       userMessage: synthesisPrompt,
-      temperature: 0.3
+      temperature: 0.1 // Maximum precision for merging
     });
 
-    finalTruth = extractReply(grokResponse);
+    finalTruth = extractReply(groqResponse);
 
-    // CRITICAL: If Grok returns null, FORCE a fallback 
-    // so we don't get an empty bubble.
+    // Fallback if Groq returns empty
     if (!finalTruth) {
-       finalTruth = extractReply(creative); // Fallback to Creative
-       console.warn("Grok returned null, falling back to OpenAI.");
+       finalTruth = extractReply(creative);
+       console.warn("Groq Judge returned null, using Creative fallback.");
     }
 
   } catch (err) {
@@ -364,7 +360,7 @@ if (roles && roles.mode === "ternary") {
     return { reply: "⚠️ Sovereign cluster offline. Falling back.", modelUsed: "system_error" };
   }
 
-  return { reply: finalTruth, modelUsed: "ternary_cluster_grok" };
+  return { reply: finalTruth, modelUsed: "ternary_cluster_groq" };
 }
 
    
