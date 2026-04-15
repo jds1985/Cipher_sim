@@ -183,7 +183,7 @@ const ROLE_PROMPTS = {
 /* ===============================
    MAIN
 ================================ */
-export async function runOrchestrator({
+export async function runSovereignMind({
   osContext,
   executivePacket,
   roles,
