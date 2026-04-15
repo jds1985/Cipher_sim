@@ -339,7 +339,7 @@ if (roles && roles.mode === "ternary") {
   `;
 
   const finalTruth = await ADAPTERS.gemini.fn({
-  model: "gemini-1.5-pro-002", 
+  model: "gemini-1.5-flash", 
   systemPrompt: "You are State 0: The Balanced Truth.",
   userMessage: synthesisPrompt
 });
