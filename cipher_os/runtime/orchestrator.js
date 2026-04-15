@@ -314,7 +314,7 @@ export async function runOrchestrator({
 
 
    /* ============================================================
-   TERNARY LOGIC MODE (Groq-Q Implementation)
+   TERNARY LOGIC MODE (Groq-Q Implementation - 8b Instant Fix)
 ============================================================ */
 if (roles && roles.mode === "ternary") {
   let finalTruth;
@@ -340,11 +340,12 @@ if (roles && roles.mode === "ternary") {
       TASK: Act as State 0 (The Truth). Merge the possibilities of +1 with the safety of -1 into one unified, technical solution.
     `;
 
-    // State 0: The Judge (Now Groq LPU)
+    // State 0: The Judge (Switched to 8b-instant to ensure stable output)
     const groqResponse = await ADAPTERS.groq.fn({
+      model: "llama-3.1-8b-instant", 
       systemPrompt: "You are State 0: The Balanced Truth.",
       userMessage: synthesisPrompt,
-      temperature: 0.1 // Maximum precision for merging
+      temperature: 0.1 
     });
 
     finalTruth = extractReply(groqResponse);
