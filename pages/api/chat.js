@@ -8,6 +8,7 @@ import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
 
 import { buildOSContext } from "../../cipher_os/runtime/osContext.js";
+// Handshake: Verified Import
 import { runSovereignMind } from "../../cipher_os/runtime/orchestrator";
 
 
@@ -88,7 +89,7 @@ Return only the final analysis.
     systemPrompt: (executivePacket.systemPrompt || "") + "\n\n" + agentPrompt,
   };
 
-  // Renamed to match orchestrator
+  // SURGICAL FIX: Changed runOrchestrator to runSovereignMind
   const out = await runSovereignMind({
     osContext,
     executivePacket: packet,
@@ -149,7 +150,7 @@ Return ONLY the final response.
     systemPrompt: (executivePacket.systemPrompt || "") + "\n\n" + reviewPrompt,
   };
 
-  // Renamed to match orchestrator
+  // SURGICAL FIX: Changed runOrchestrator to runSovereignMind
   const improved = await runSovereignMind({
     osContext,
     executivePacket: reviewPacket,
@@ -517,7 +518,7 @@ nodeOutputs = execResults;
 
       let streamedText = "";
 
-      // Renamed to match orchestrator
+      // SURGICAL FIX: Changed runOrchestrator to runSovereignMind
       const out = await runSovereignMind({
         osContext,
         executivePacket,
@@ -591,8 +592,8 @@ nodeOutputs = execResults;
     // ─────────────────────────────
     // NORMAL MODE
     // ─────────────────────────────
+    // SURGICAL FIX: Already renamed to runSovereignMind
     const out = await runSovereignMind({
-
       osContext,
       executivePacket,
       roles,
