@@ -361,7 +361,8 @@ if (roles && roles.mode === "ternary") {
     return { reply: "⚠️ Sovereign cluster offline. Falling back.", modelUsed: "system_error" };
   }
 
-  return { reply: finalTruth, modelUsed: "ternary_cluster_groq" };
+  // WE ARE HARDCODING THIS LABEL TO PROVE DEPLOYMENT WORKS
+  return { reply: finalTruth, modelUsed: "VERIFIED_GROQ_DEPLOYMENT" };
 }
 
    
