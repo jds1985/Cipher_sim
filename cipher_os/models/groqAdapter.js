@@ -13,7 +13,7 @@ export async function groqGenerate({
   if (!apiKey) throw new Error("Missing GROQ_API_KEY in Environment Variables");
 
   // Llama 3.3 70B is the 2026 standard for reasoning-heavy tasks on Groq
-  const model = "llama-3.3-70b-versatile";
+  const model = "llama-3.1-8b-instant";
 
   const body = {
     model: model,
