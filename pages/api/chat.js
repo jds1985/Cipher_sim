@@ -3,6 +3,7 @@ export const maxDuration = 60; // This gives the debate 1 minute to finish
 
 // pages/api/chat.js
 // Cipher OS — stable core + streaming + memory visibility + tier-safe role handling
+// VERSION: 3.2 - FULL RESTORATION + BITNET DISTILLATION
 
 import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
@@ -10,7 +11,6 @@ import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
 import { buildOSContext } from "../../cipher_os/runtime/osContext.js";
 // Handshake: Verified Import
 import { runSovereignMind } from "../../cipher_os/runtime/orchestrator";
-
 
 import {
   loadMemoryNodes,
@@ -30,6 +30,39 @@ import {
   spendTokens,
   getRemaining,
 } from "../../cipher_os/billing/tokenBank.js";
+
+// 🆕 FIREBASE ADMIN FOR BITNET TRAINING
+import { getDb } from "../../lib/firebaseAdmin.js";
+
+/* ============================================================
+   🆕 BITNET DATA DISTILLATION HOOK
+   Captures "State 0" logic for the $150 Downloadable Model
+============================================================ */
+async function logTrainingData(userId, prompt, response) {
+  try {
+    const db = getDb();
+    if (!db) return;
+
+    const trainingEntry = {
+      timestamp: new Date().toISOString(),
+      prompt: prompt,
+      completion: response,
+      label: "STATE_0_SYNTHESIS",
+      quality_score: 1.0, 
+      metadata: {
+        userId: userId || "guest",
+        arch: "ternary_bitnet_1.58b_target",
+        source: "groq_distillation_v1",
+        tier: "gold_set"
+      }
+    };
+
+    await db.collection("cipher_training_set").add(trainingEntry);
+    console.log("💾 [DISTILLATION] Synthesis banked for BitNet Cluster.");
+  } catch (err) {
+    console.error("❌ Training log failed:", err);
+  }
+}
 
 function sseWrite(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
@@ -202,7 +235,7 @@ async function synthesizeFinalAnswer({
   executivePacket,
 }) {
 
-   if (nodeOutputs && nodeOutputs.length > 0) {
+   if (nodeOutputs && nodeOutputs.length > 0 && !mergedNodeResult.roi) {
     return `
    Knowledge:
 ${nodeOutputs.map(n => "- " + (n.result?.text || n.name)).join("\n")}
@@ -466,6 +499,9 @@ nodeOutputs = execResults;
           executivePacket,
         });
 
+        // 🔥 BITNET DATA DISTILLATION
+        await logTrainingData(userId, message, finalReply);
+
         if (!isGuest) {
           await saveMemory(userId, {
             type: "interaction",
@@ -538,6 +574,9 @@ nodeOutputs = execResults;
         res.end();
         return;
       }
+
+      // 🔥 BITNET DATA DISTILLATION
+      await logTrainingData(userId, message, finalReply);
 
       if (!isGuest) {
         await saveMemory(userId, {
@@ -627,6 +666,10 @@ nodeOutputs = execResults;
         executivePacket,
       });
     }
+
+    // 🔥 BITNET DATA DISTILLATION
+    await logTrainingData(userId, message, finalReply);
+
     const model =
       out?.modelUsed?.model || out?.model || out?.engine || null;
 
