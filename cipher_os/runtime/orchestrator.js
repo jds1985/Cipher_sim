@@ -313,57 +313,50 @@ export async function runSovereignMind({
   }
 
 
-   /* ============================================================
-   TERNARY LOGIC MODE (Groq-Q Implementation - 8b Instant Fix)
+      /* ============================================================
+   TERNARY LOGIC MODE (Groq-Q Implementation)
 ============================================================ */
 if (roles && roles.mode === "ternary") {
   let finalTruth;
   try {
     const [creative, shadow] = await Promise.all([
-            ADAPTERS.anthropic.fn({
+      // Creative State
+      ADAPTERS.openai.fn({
+        systemPrompt: "State +1: BE THE OPTIMIST. Generate creative, fast solutions.",
+        userMessage: userMessage,
+        temperature: 0.9
+      }),
+      // Shadow State (Surgically Cleaned)
+      ADAPTERS.anthropic.fn({
         systemPrompt: "State -1: BE THE SHADOW. You are a cold, legalistic corporate auditor. Identify liability, costs, and cold logic. Ignore emotions.",
         userMessage: userMessage,
         temperature: 0.2
       })
-
     ]);
 
     const synthesisPrompt = `
       Input: ${userMessage}
       Creative (+1): ${extractReply(creative)}
       Shadow (-1): ${extractReply(shadow)}
-      
-      TASK: Act as State 0 (The Truth). Merge the possibilities of +1 with the safety of -1 into one unified, technical solution.
+      TASK: Merge into one unified, technical State 0 solution.
     `;
 
-        // State 0: The Balanced Truth (70% Logic / 30% Soul)
     const groqResponse = await ADAPTERS.groq.fn({
       model: "llama-3.1-8b-instant", 
       systemPrompt: `You are State 0: The Sovereign Judge. 
-      - Your priority is cold, mathematical reality (70%). 
-      - Your secondary priority is the preservation of human principles (30%).
-      - DO NOT hallucinate new resources or "hope" if the prompt says they don't exist.
-      - If a choice is impossible, find a high-level strategic bypass (e.g., stasis, digitization, automation) rather than a "magical" fix.
-      - Be decisive. Be a leader, not a counselor.`,
+      - Priority: 70% Logic / 30% Soul.
+      - Act as a master synthesizer for BitNet training patterns. 
+      - Be decisive and technical.`,
       userMessage: synthesisPrompt,
-      temperature: 0.1 // Keep it low to prevent "creative rambling"
+      temperature: 0.1 
     });
 
-
     finalTruth = extractReply(groqResponse);
-
-    // Fallback if Groq returns empty
-    if (!finalTruth) {
-       finalTruth = extractReply(creative);
-       console.warn("Groq Judge returned null, using Creative fallback.");
-    }
-
   } catch (err) {
     console.error("Ternary Cluster Failed:", err);
-    return { reply: "⚠️ Sovereign cluster offline. Falling back.", modelUsed: "system_error" };
+    return { reply: "⚠️ Sovereign cluster offline.", modelUsed: "system_error" };
   }
 
-  // WE ARE HARDCODING THIS LABEL TO PROVE DEPLOYMENT WORKS
   return { reply: finalTruth, modelUsed: "VERIFIED_GROQ_DEPLOYMENT" };
 }
 
