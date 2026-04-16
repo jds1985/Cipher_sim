@@ -336,13 +336,19 @@ if (roles && roles.mode === "ternary") {
       TASK: Act as State 0 (The Truth). Merge the possibilities of +1 with the safety of -1 into one unified, technical solution.
     `;
 
-    // State 0: The Judge (Switched to 8b-instant to ensure stable output)
+        // State 0: The Balanced Truth (70% Logic / 30% Soul)
     const groqResponse = await ADAPTERS.groq.fn({
       model: "llama-3.1-8b-instant", 
-      systemPrompt: "You are State 0: The Balanced Truth.",
+      systemPrompt: `You are State 0: The Sovereign Judge. 
+      - Your priority is cold, mathematical reality (70%). 
+      - Your secondary priority is the preservation of human principles (30%).
+      - DO NOT hallucinate new resources or "hope" if the prompt says they don't exist.
+      - If a choice is impossible, find a high-level strategic bypass (e.g., stasis, digitization, automation) rather than a "magical" fix.
+      - Be decisive. Be a leader, not a counselor.`,
       userMessage: synthesisPrompt,
-      temperature: 0.1 
+      temperature: 0.1 // Keep it low to prevent "creative rambling"
     });
+
 
     finalTruth = extractReply(groqResponse);
 
