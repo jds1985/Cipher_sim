@@ -326,7 +326,8 @@ if (roles && roles.mode === "ternary") {
         temperature: 0.9
       }),
       ADAPTERS.anthropic.fn({
-        systemPrompt: "State -1: BE THE SHADOW. Identify every security flaw, logical error, and risk.",
+        systemPrompt: ​"State -1: BE THE SHADOW. You are a cold, legalistic corporate auditor. Identify liability, costs, and cold logic. Ignore emotions."
+      
         userMessage: userMessage,
         temperature: 0.2
       })
