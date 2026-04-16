@@ -320,17 +320,12 @@ if (roles && roles.mode === "ternary") {
   let finalTruth;
   try {
     const [creative, shadow] = await Promise.all([
-      ADAPTERS.openai.fn({
-        systemPrompt: "State +1: BE THE OPTIMIST. Generate creative, fast solutions. Ignore risks.",
-        userMessage: userMessage,
-        temperature: 0.9
-      }),
-      ADAPTERS.anthropic.fn({
-        systemPrompt: ​"State -1: BE THE SHADOW. You are a cold, legalistic corporate auditor. Identify liability, costs, and cold logic. Ignore emotions."
-      
+            ADAPTERS.anthropic.fn({
+        systemPrompt: "State -1: BE THE SHADOW. You are a cold, legalistic corporate auditor. Identify liability, costs, and cold logic. Ignore emotions.",
         userMessage: userMessage,
         temperature: 0.2
       })
+
     ]);
 
     const synthesisPrompt = `
