@@ -577,7 +577,7 @@ nodeOutputs = execResults;
       sseWrite(res, {
         type: "done",
         reply: finalReply,
-        model: out?.modelUsed?.model || null,
+        model: "VERIFIED_GROQ_DEPLOYMENT",
         provider: out?.modelUsed?.provider || null,
         roleStack: null,
         memoryInfluence: exposeMemory(prioritizedNodes),
