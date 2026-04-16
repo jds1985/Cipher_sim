@@ -32,7 +32,7 @@ import {
 } from "../../cipher_os/billing/tokenBank.js";
 
 // 🆕 FIREBASE ADMIN FOR BITNET TRAINING
-import { getDb } from "../../lib/firebaseAdmin.js";
+import { getDb } from "../../firebaseAdmin.js";
 
 /* ============================================================
    🆕 BITNET DATA DISTILLATION HOOK
