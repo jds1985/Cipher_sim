@@ -380,7 +380,7 @@ export default async function handler(req, res) {
     osContext.memory.nodes = prioritizedNodes;
     osContext.memory.longTermSummary = summaryDoc?.text || "";
 
-        const executivePacket = await runCipherCore(
+            const executivePacket = await runCipherCore(
       {
         history: osContext.memory.mergedHistory,
         nodes: prioritizedNodes,
@@ -389,9 +389,7 @@ export default async function handler(req, res) {
       { userMessage: message, returnPacket: true }
     );
 
-        // 🔥 FINAL 100% SOVEREIGN DNA INJECTION
-    executivePacket.systemPrompt = `
-    
+    // 🔥 FINAL 100% SOVEREIGN DNA INJECTION
     executivePacket.systemPrompt = `
       INTERNAL MEMO: SECURE CLEARANCE LEVEL 0.
       ACT AS: Cipher Logic Processor.
@@ -405,6 +403,7 @@ export default async function handler(req, res) {
       STYLE: Zero sentiment. High-density data-speak. 
       OUTPUT: LOGIC -> VERDICT.
     `;
+
 
     // ─────────────────────────────
     //  CIPHERNET AUTO DISCOVERY
