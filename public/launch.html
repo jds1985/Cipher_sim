@@ -7,7 +7,6 @@
 
 <title>Cipher OS</title>
 
-<!-- ✅ SHARE CARD META -->
 <meta property="og:title" content="Cipher OS" />
 <meta property="og:description" content="A cognitive AI system that combines models, memory, and real-time reasoning." />
 <meta property="og:image" content="https://cipheros.app/images/cipher-share.jpg" />
@@ -15,7 +14,6 @@
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary_large_image" />
 
-<!-- 🔤 Cipher-style font -->
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
 
 <style>
@@ -40,27 +38,24 @@ h1{
 font-size:56px;
 color:#9d7bff;
 letter-spacing:4px;
+margin-bottom:10px;
 }
 
-/* 🧠 COMING SOON */
 #comingSoon{
-font-size:42px;
-margin-top:30px;
+font-size:34px;
+margin-top:10px;
 letter-spacing:6px;
 color:#cbb7ff;
 text-shadow:
-0 0 10px rgba(157,123,255,0.6),
-0 0 20px rgba(157,123,255,0.4);
-
-animation: flicker 3s infinite;
+0 0 8px rgba(157,123,255,0.6),
+0 0 18px rgba(157,123,255,0.4);
 }
 
-@keyframes flicker{
-0%, 100% { opacity:1; }
-50% { opacity:0.85; }
+/* INPUT + BUTTONS */
+.inputRow{
+margin-top:25px;
 }
 
-/* INPUT + BUTTON */
 input{
 padding:12px;
 border-radius:6px;
@@ -78,9 +73,9 @@ color:white;
 cursor:pointer;
 }
 
-/* ✅ CAROUSEL */
+/* CAROUSEL */
 #carousel{
-margin-top:15px;
+margin-top:20px;
 max-width:320px;
 padding:14px;
 border-radius:10px;
@@ -91,15 +86,9 @@ font-size:14px;
 color:rgba(255,255,255,0.9);
 transition:opacity 0.3s ease;
 box-shadow: 0 0 20px rgba(157,123,255,0.15);
-animation: pulse 4s ease-in-out infinite;
 }
 
-@keyframes pulse{
-0%,100%{opacity:1;}
-50%{opacity:0.85;}
-}
-
-/* 🌌 BLACK HOLE */
+/* BLACK HOLE */
 #blackhole{
 position:fixed;
 top:20px;
@@ -149,14 +138,8 @@ animation:fall linear infinite;
 }
 
 @keyframes fall{
-0%{
-transform:translate(0,0) scale(1);
-opacity:1;
-}
-100%{
-transform:translate(-40px,40px) scale(0.2);
-opacity:0;
-}
+0%{transform:translate(0,0);opacity:1;}
+100%{transform:translate(-40px,40px);opacity:0;}
 }
 
 </style>
@@ -165,31 +148,27 @@ opacity:0;
 
 <body>
 
-<!-- 🌌 BLACK HOLE -->
 <div id="blackhole">
   <div class="ring"></div>
   <div class="core"></div>
 </div>
 
 <h1>CIPHER OS</h1>
-
 <p>The Cognitive Operating System</p>
 
-<!-- 🧠 COMING SOON -->
 <div id="comingSoon">COMING SOON</div>
 
-<!-- ✅ CAROUSEL -->
-<div id="carousel">
-Something massive is coming
+<div id="carousel">Something massive is coming</div>
+
+<div class="inputRow">
+<input id="email" placeholder="Enter email">
+<button onclick="join()">Join Waitlist</button>
 </div>
 
-<input id="email" placeholder="Enter email">
-
-<button onclick="join()">Join Waitlist</button>
 <button onclick="shareApp()" style="margin-top:10px; background:#1a1a2e;">
 Share Cipher
 </button>
-  
+
 <p><span id="count">0</span> early users joined</p>
 
 <script type="module">
@@ -214,7 +193,6 @@ document.getElementById("count").innerText = "1000+"
 window.join = async function(){
 
 const email = document.getElementById("email").value
-
 if(!email) return
 
 await addDoc(collection(db,"cipher_waitlist"),{
@@ -223,14 +201,13 @@ time:Date.now()
 })
 
 document.getElementById("email").value=""
-
 }
 
 </script>
 
 <script>
 
-// 🔐 DEV ACCESS SYSTEM
+// 🔐 DEV KEY UPDATED
 const params = new URLSearchParams(window.location.search);
 
 if(params.get("dev") === "cipher_vault_777"){
@@ -238,18 +215,7 @@ if(params.get("dev") === "cipher_vault_777"){
   window.location.href = "/";
 }
 
-const hasAccess = localStorage.getItem("cipher_dev_access") === "granted";
-
-if(!hasAccess){
-  document.body.innerHTML = `
-    <div style="color:white; text-align:center; margin-top:40vh;">
-      <h1>🔒 CIPHER LOCKED</h1>
-      <p>Unauthorized instance</p>
-    </div>
-  `;
-}
-
-// ✅ CAROUSEL
+// CAROUSEL
 const messages = [
 "Something massive is coming",
 "The world is not ready",
@@ -275,27 +241,23 @@ el.style.opacity = 1
 
 },3000)
 
-// 🌌 PARTICLES
+// PARTICLES
 const hole = document.getElementById("blackhole")
 
 function createParticle(){
   const p = document.createElement("div")
   p.className = "particle"
-
   p.style.left = Math.random()*120 + "px"
   p.style.top = Math.random()*120 + "px"
   p.style.animationDuration = (2 + Math.random()*2) + "s"
-
   hole.appendChild(p)
-
   setTimeout(()=>p.remove(),3000)
 }
 
 setInterval(createParticle, 150)
 
-// ✅ SHARE
+// SHARE
 function shareApp(){
-
 if(navigator.share){
 navigator.share({
 title:"Cipher OS",
@@ -303,9 +265,8 @@ text:"Check out Cipher OS — a new cognitive AI system",
 url:window.location.href
 })
 }else{
-alert("Sharing not supported on this device")
+alert("Sharing not supported")
 }
-
 }
 
 </script>
