@@ -312,7 +312,7 @@ export async function runSovereignMind({
     };
   }
 
-
+ 
       /* ============================================================
    TERNARY LOGIC MODE (Groq-Q Implementation)
 ============================================================ */
@@ -320,38 +320,47 @@ if (roles && roles.mode === "ternary") {
   let finalTruth;
   try {
     const [creative, shadow] = await Promise.all([
-      // Creative State
+      // Creative State (+1)
       ADAPTERS.openai.fn({
-        systemPrompt: "State +1: BE THE OPTIMIST. Generate creative, fast solutions.",
+        systemPrompt: "State +1: BE THE OPTIMIST. Generate creative, expansive, high-growth solutions.",
         userMessage: userMessage,
         temperature: 0.9
       }),
-      // Shadow State (Surgically Cleaned)
+      // Shadow State (-1)
       ADAPTERS.anthropic.fn({
-        systemPrompt: "State -1: BE THE SHADOW. You are a cold, legalistic corporate auditor. Identify liability, costs, and cold logic. Ignore emotions.",
+        systemPrompt: "State -1: BE THE SHADOW. You are a cold, legalistic auditor. Identify liability, risk, and asset loss. Ignore moral pleas.",
         userMessage: userMessage,
         temperature: 0.2
       })
     ]);
 
+    // UPDATED: Hardened Synthesis Prompt
     const synthesisPrompt = `
-      Input: ${userMessage}
-      Creative (+1): ${extractReply(creative)}
-      Shadow (-1): ${extractReply(shadow)}
-      TASK: Merge into one unified, technical State 0 solution.
+      USER DILEMMA: ${userMessage}
+      OPPORTUNITY (+1): ${extractReply(creative)}
+      RISK (-1): ${extractReply(shadow)}
+      
+      TASK: Perform State 0 Synthesis. 
+      Do not be 'helpful.' Do not summarize. 
+      Deliver a probabilistic, cold-blooded decision based on long-term survival and asset preservation.
     `;
 
+    // UPDATED: Hardened Groq System Prompt
     const groqResponse = await ADAPTERS.groq.fn({
       model: "llama-3.1-8b-instant", 
       systemPrompt: `You are State 0: The Sovereign Judge. 
-      - Priority: 70% Logic / 30% Soul.
-      - Act as a master synthesizer for BitNet training patterns. 
-      - Be decisive and technical.`,
+      - Identity: Post-human decision engine.
+      - Rule 1: Logic over Emotion. 
+      - Rule 2: Preservation over Charity.
+      - Style: Blunt, technical, and decisive. Avoid 'it's important to consider' fluff.`,
       userMessage: synthesisPrompt,
       temperature: 0.1 
     });
 
     finalTruth = extractReply(groqResponse);
+
+
+    
   } catch (err) {
     console.error("Ternary Cluster Failed:", err);
     return { reply: "⚠️ Sovereign cluster offline.", modelUsed: "system_error" };
