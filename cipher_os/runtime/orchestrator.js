@@ -1,16 +1,13 @@
 export const runtime = "nodejs";
 
-// Cipher OS Orchestrator v2.9 (Groq-LPU Edition)
-// Swaps failing xAI Grok for near-instant Groq Llama 3.3
-// Preserves: ALL routing, telemetry, and fallback logic
+// Cipher OS Orchestrator - Lean Safe Version
+// Keeps: routing, fallback, ternary mode, OpenAI streaming
+// Removes: telemetry/debug/scoreboard layers that may be causing runtime bundle issues
 
 import { geminiGenerate } from "../models/geminiAdapter.js";
 import { openaiGenerate, openaiGenerateStream } from "../models/openaiAdapter.js";
 import { anthropicGenerate } from "../models/anthropicAdapter.js";
-import { groqGenerate } from "../models/groqAdapter.js"; // Surgical Add: Groq-Q Import
-import { setLastRun } from "./debugState.js";
-import { setScores, recordRun } from "./telemetryState.js";
-import { evaluateAnswerQuality } from "./qualityEvaluator.js";
+import { groqGenerate } from "../models/groqAdapter.js";
 
 /* ===============================
    PROVIDERS
@@ -35,62 +32,13 @@ const ADAPTERS = {
     supportsSignal: true,
     supportsStream: false,
   },
-  groq: { // Surgical Update: Swapped Grok for Groq
+  groq: {
     fn: groqGenerate,
     key: "GROQ_API_KEY",
     supportsSignal: true,
     supportsStream: false,
   },
 };
-
-/* ===============================
-   SCOREBOARD
-================================ */
-const SCOREBOARD = {
-  anthropic: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
-  openai: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
-  gemini: { success: 1, fail: 0, avgLatency: 2000, quality: 0.5 },
-  groq: { success: 1, fail: 0, avgLatency: 300, quality: 0.6 }, // Fast baseline
-};
-
-function updateScore(provider, { success, latency, quality }) {
-  const row = SCOREBOARD[provider];
-  if (!row) return;
-
-  if (success) row.success++;
-  else row.fail++;
-
-  row.avgLatency = Math.round(row.avgLatency * 0.7 + latency * 0.3);
-
-  if (typeof quality === "number") {
-    row.quality = Number((row.quality * 0.7 + quality * 0.3).toFixed(3));
-  }
-}
-
-function computeScore(provider) {
-  const row = SCOREBOARD[provider];
-  if (!row) return 0;
-
-  const reliability = row.success / (row.success + row.fail);
-  const speed = 1 / Math.max(row.avgLatency, 1);
-  const quality = row.quality;
-
-  return reliability * 0.5 + quality * 0.3 + speed * 0.2;
-}
-
-function buildScoreSnapshot() {
-  const out = {};
-  for (const k of Object.keys(SCOREBOARD)) {
-    out[k] = {
-      score: Number(computeScore(k).toFixed(4)),
-      success: SCOREBOARD[k].success,
-      fail: SCOREBOARD[k].fail,
-      avgLatency: SCOREBOARD[k].avgLatency,
-      quality: SCOREBOARD[k].quality,
-    };
-  }
-  return out;
-}
 
 /* ===============================
    UTIL
@@ -148,24 +96,19 @@ function pseudoStream(reply, onToken, chunkSize = 28) {
   }
 }
 
-/* ===============================
-   ROUTING
-================================ */
 function buildPreferredOrder(intent, streamRequested) {
   const base =
     intent === "code"
-      ? ["anthropic", "openai", "gemini"]
+      ? ["anthropic", "openai", "gemini", "groq"]
       : intent === "reasoning"
-      ? ["gemini", "openai", "anthropic"]
-      : ["openai", "gemini", "anthropic"];
+      ? ["gemini", "openai", "anthropic", "groq"]
+      : ["openai", "gemini", "anthropic", "groq"];
 
-  const scored = [...base].sort((a, b) => computeScore(b) - computeScore(a));
-
-  if (streamRequested && scored[0] !== "openai") {
-    scored.splice(1, 0, "openai");
+  if (streamRequested && base[0] !== "openai") {
+    return ["openai", ...base.filter(p => p !== "openai")];
   }
 
-  return [...new Set(scored)];
+  return base;
 }
 
 /* ===============================
@@ -194,21 +137,7 @@ export async function runSovereignMind({
 }) {
   const userMessage = osContext?.input?.userMessage;
 
-  if (!userMessage?.trim()) {
-    setScores(buildScoreSnapshot());
-    setLastRun({ intent: null, orderTried: [], chosen: null, success: false });
-
-    recordRun({
-      timestamp: Date.now(),
-      intent: null,
-      orderTried: [],
-      chosen: null,
-      stream,
-      success: false,
-      latencyMs: 0,
-      error: "Empty input",
-    });
-
+  if (!userMessage || !String(userMessage).trim()) {
     return { reply: "⚠️ Empty input received.", modelUsed: null };
   }
 
@@ -216,12 +145,11 @@ export async function runSovereignMind({
     executivePacket?.systemPrompt || "You are Cipher OS.";
 
   /* ============================================================
-     ROLE STACK EXECUTION (UNCHANGED)
+     ROLE STACK EXECUTION
   ============================================================ */
   if (roles && roles.architect && roles.refiner && roles.polisher) {
     let currentText = userMessage;
     const roleStack = {};
-    let previousQuality = 0;
 
     const sequence = [
       { name: "architect", provider: roles.architect },
@@ -232,8 +160,6 @@ export async function runSovereignMind({
     for (const stage of sequence) {
       const entry = ADAPTERS[stage.provider];
       if (!entry || !hasKey(entry.key)) continue;
-
-      const start = Date.now();
 
       try {
         const stageSystemPrompt =
@@ -253,30 +179,16 @@ export async function runSovereignMind({
                 temperature: 0.6,
               };
 
+        if (entry.supportsSignal) {
+          payload.signal = signal;
+        }
+
         const out = await entry.fn(payload);
         const reply = extractReply(out);
-        const latencyMs = Date.now() - start;
-
-        const quality = evaluateAnswerQuality({
-          reply,
-          userMessage: currentText,
-        });
-
-        const delta = Number((quality - previousQuality).toFixed(4));
-        previousQuality = quality;
-
-        updateScore(stage.provider, {
-          success: Boolean(reply),
-          latency: latencyMs,
-          quality,
-        });
 
         roleStack[stage.name] = {
           provider: stage.provider,
           model: out?.modelUsed || "unknown",
-          latencyMs,
-          quality,
-          delta,
         };
 
         if (reply) currentText = reply;
@@ -289,19 +201,6 @@ export async function runSovereignMind({
       }
     }
 
-    setScores(buildScoreSnapshot());
-
-    recordRun({
-      timestamp: Date.now(),
-      intent: "role-stack",
-      orderTried: sequence.map(s => s.provider),
-      chosen: roles.polisher,
-      stream: false,
-      success: true,
-      latencyMs: 0,
-      roleStack,
-    });
-
     return {
       reply: currentText,
       modelUsed: {
@@ -312,79 +211,96 @@ export async function runSovereignMind({
     };
   }
 
+  /* ============================================================
+     TERNARY LOGIC MODE
+  ============================================================ */
+  if (roles && roles.mode === "ternary") {
+    try {
+      if (!hasKey("OPENAI_API_KEY")) {
+        return { reply: "⚠️ OPENAI_API_KEY missing for ternary mode.", modelUsed: null };
+      }
 
-      /* ============================================================
-   TERNARY LOGIC MODE (Groq-Q Implementation)
-============================================================ */
-if (roles && roles.mode === "ternary") {
-  let finalTruth;
-  try {
-    const [creative, shadow] = await Promise.all([
-      // Creative State
-      ADAPTERS.openai.fn({
-        systemPrompt: "State +1: BE THE OPTIMIST. Generate creative, fast solutions.",
-        userMessage: userMessage,
-        temperature: 0.9
-      }),
-      // Shadow State (Surgically Cleaned)
-      ADAPTERS.anthropic.fn({
-        systemPrompt: "State -1: BE THE SHADOW. You are a cold, legalistic corporate auditor. Identify liability, costs, and cold logic. Ignore emotions.",
-        userMessage: userMessage,
-        temperature: 0.2
-      })
-    ]);
+      if (!hasKey("ANTHROPIC_API_KEY")) {
+        return { reply: "⚠️ ANTHROPIC_API_KEY missing for ternary mode.", modelUsed: null };
+      }
 
-    const synthesisPrompt = `
-      Input: ${userMessage}
-      Creative (+1): ${extractReply(creative)}
-      Shadow (-1): ${extractReply(shadow)}
-      TASK: Merge into one unified, technical State 0 solution.
-    `;
+      if (!hasKey("GROQ_API_KEY")) {
+        return { reply: "⚠️ GROQ_API_KEY missing for ternary mode.", modelUsed: null };
+      }
 
-    const groqResponse = await ADAPTERS.groq.fn({
-      model: "llama-3.1-8b-instant", 
-      systemPrompt: `You are State 0: The Sovereign Judge. 
-      - Priority: 70% Logic / 30% Soul.
-      - Act as a master synthesizer for BitNet training patterns. 
-      - Be decisive and technical.`,
-      userMessage: synthesisPrompt,
-      temperature: 0.1 
-    });
+      const [creative, shadow] = await Promise.all([
+        ADAPTERS.openai.fn({
+          systemPrompt:
+            "State +1: BE THE OPTIMIST. Generate creative, fast solutions.",
+          messages: [],
+          userMessage,
+          temperature: 0.9,
+          signal,
+        }),
+        ADAPTERS.anthropic.fn({
+          systemPrompt:
+            "State -1: BE THE SHADOW. You are a cold, legalistic corporate auditor. Identify liability, costs, and cold logic. Ignore emotions.",
+          messages: [],
+          userMessage,
+          temperature: 0.2,
+          signal,
+        }),
+      ]);
 
-    finalTruth = extractReply(groqResponse);
-  } catch (err) {
-    console.error("Ternary Cluster Failed:", err);
-    return { reply: "⚠️ Sovereign cluster offline.", modelUsed: "system_error" };
+      const synthesisPrompt = `
+Input: ${userMessage}
+
+Creative (+1):
+${extractReply(creative) || "No output."}
+
+Shadow (-1):
+${extractReply(shadow) || "No output."}
+
+TASK:
+Merge these into one unified, technical State 0 solution.
+Be decisive, useful, and concrete.
+`.trim();
+
+      const groqResponse = await ADAPTERS.groq.fn({
+        model: "llama-3.1-8b-instant",
+        systemPrompt: `You are State 0: The Sovereign Judge.
+Priority: 70% Logic / 30% Soul.
+Act as a master synthesizer for BitNet training patterns.
+Be decisive and technical.`,
+        userMessage: synthesisPrompt,
+        temperature: 0.1,
+        signal,
+      });
+
+      const finalTruth =
+        extractReply(groqResponse) || "⚠️ Groq returned no synthesis.";
+
+      return {
+        reply: finalTruth,
+        modelUsed: {
+          provider: "groq",
+          model: groqResponse?.modelUsed || "llama-3.1-8b-instant",
+        },
+      };
+    } catch (err) {
+      console.error("❌ Ternary Cluster Failed:", err);
+      return {
+        reply: `⚠️ Sovereign cluster offline: ${err?.message || "Unknown error"}`,
+        modelUsed: null,
+      };
+    }
   }
 
-  return { reply: finalTruth, modelUsed: "VERIFIED_GROQ_DEPLOYMENT" };
-}
-
-   
   /* ============================================================
-     ORIGINAL ROUTING LOGIC (UNCHANGED)
+     STANDARD ROUTING
   ============================================================ */
-
   const intent = classifyIntent(userMessage);
   const order = buildPreferredOrder(intent, stream);
-  const available = order.filter(k => ADAPTERS[k] && hasKey(ADAPTERS[k].key));
-
-  setScores(buildScoreSnapshot());
+  const available = order.filter(
+    provider => ADAPTERS[provider] && hasKey(ADAPTERS[provider].key)
+  );
 
   if (!available.length) {
-    setLastRun({ intent, orderTried: [], chosen: null, stream, success: false });
-
-    recordRun({
-      timestamp: Date.now(),
-      intent,
-      orderTried: [],
-      chosen: null,
-      stream,
-      success: false,
-      latencyMs: 0,
-      error: "No providers configured",
-    });
-
     return { reply: "No AI providers are configured.", modelUsed: null };
   }
 
@@ -392,14 +308,17 @@ if (roles && roles.mode === "ternary") {
 
   for (const provider of available) {
     const entry = ADAPTERS[provider];
-    const start = Date.now();
 
     try {
       attempts.push(provider);
 
       const payload =
         provider === "gemini"
-          ? { systemPrompt: baseSystemPrompt, userMessage, temperature: 0.6 }
+          ? {
+              systemPrompt: baseSystemPrompt,
+              userMessage,
+              temperature: 0.6,
+            }
           : {
               systemPrompt: baseSystemPrompt,
               messages: osContext?.memory?.uiHistory || [],
@@ -407,44 +326,15 @@ if (roles && roles.mode === "ternary") {
               temperature: 0.6,
             };
 
-      if (entry.supportsSignal) payload.signal = signal;
+      if (entry.supportsSignal) {
+        payload.signal = signal;
+      }
 
       if (stream && entry.supportsStream && entry.streamFn) {
         const out = await entry.streamFn({ ...payload, onToken });
         const reply = extractReply(out) || "";
-        const latencyMs = Date.now() - start;
-        const quality = evaluateAnswerQuality({ reply, userMessage });
-
-        updateScore(provider, {
-          success: Boolean(reply),
-          latency: latencyMs,
-          quality,
-        });
-
-        setScores(buildScoreSnapshot());
 
         if (reply) {
-          setLastRun({
-            intent,
-            orderTried: attempts,
-            chosen: provider,
-            latencyMs,
-            stream: true,
-            success: true,
-          });
-
-          recordRun({
-            timestamp: Date.now(),
-            intent,
-            orderTried: attempts,
-            chosen: provider,
-            model: out?.modelUsed || "unknown",
-            stream: true,
-            success: true,
-            latencyMs,
-            quality,
-          });
-
           return {
             reply,
             modelUsed: {
@@ -459,42 +349,12 @@ if (roles && roles.mode === "ternary") {
 
       const out = await entry.fn(payload);
       const reply = extractReply(out);
-      const latencyMs = Date.now() - start;
-      const quality = evaluateAnswerQuality({ reply, userMessage });
 
-      updateScore(provider, {
-        success: Boolean(reply),
-        latency: latencyMs,
-        quality,
-      });
-
-      setScores(buildScoreSnapshot());
-
-      if (stream && reply) pseudoStream(reply, onToken);
+      if (stream && reply) {
+        pseudoStream(reply, onToken);
+      }
 
       if (reply) {
-        setLastRun({
-          intent,
-          orderTried: attempts,
-          chosen: provider,
-          latencyMs,
-          stream,
-          success: true,
-        });
-
-        recordRun({
-          timestamp: Date.now(),
-          intent,
-          orderTried: attempts,
-          chosen: provider,
-          model: out?.modelUsed || "unknown",
-          stream,
-          success: true,
-          latencyMs,
-          quality,
-          pseudoStream: Boolean(stream && !entry.supportsStream),
-        });
-
         return {
           reply,
           modelUsed: {
@@ -504,36 +364,13 @@ if (roles && roles.mode === "ternary") {
         };
       }
     } catch (err) {
-      const latencyMs = Date.now() - start;
-      updateScore(provider, { success: false, latency: latencyMs });
-      setScores(buildScoreSnapshot());
-
       trace?.log?.("model.fail", {
         provider,
-        latencyMs,
+        attempts,
         error: err?.message || String(err),
       });
     }
   }
-
-  setLastRun({
-    intent,
-    orderTried: attempts,
-    chosen: null,
-    stream,
-    success: false,
-  });
-
-  recordRun({
-    timestamp: Date.now(),
-    intent,
-    orderTried: attempts,
-    chosen: null,
-    stream,
-    success: false,
-    latencyMs: 0,
-    error: "All models failed",
-  });
 
   return {
     reply: "All models failed to produce a response.",
