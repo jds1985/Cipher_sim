@@ -47,20 +47,34 @@ export default async function handler(req, res) {
       { userMessage: message, returnPacket: true }
     );
 
-    // 🤖 MAIN MODEL CALL
-    const out = await runSovereignMind({
-      osContext,
-      executivePacket,
-      roles: null, // normal mode (not ternary batch)
-    });
+    // 🤖 MAIN MODEL CALL (FORCED DEBUG MODE)
+    let out;
 
-    console.log("🧠 CHAT OUTPUT:", out);
+    try {
+      out = await runSovereignMind({
+        osContext,
+        executivePacket,
+        roles: null,
+      });
 
-    // 🛟 HARD FALLBACK (prevents silent failure forever)
+      console.log("🧠 RAW OUTPUT:", JSON.stringify(out, null, 2));
+
+    } catch (err) {
+      console.error("❌ ORCHESTRATOR CRASH:", err);
+    }
+
+    if (!out) {
+      out = {
+        reply: "⚠️ Orchestrator returned nothing.",
+      };
+    }
+
+    // 🛟 HARD FALLBACK (ABSOLUTE GUARANTEE)
     const reply =
       out?.reply ||
       out?.text ||
-      "⚠️ Cipher processed your request but returned no output.";
+      JSON.stringify(out) ||
+      "⚠️ No usable output.";
 
     // 💰 TOKEN SPEND
     spendTokens(tokenUserId, estimatedCost, tier);
