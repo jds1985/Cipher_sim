@@ -289,7 +289,7 @@ ${decision}
 `;
 }
 
-export default async function handler(req, res) {
+ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -297,31 +297,15 @@ export default async function handler(req, res) {
   try {
     const message = req.body?.message?.trim() || "Hello";
     const wantStream = Boolean(req.body?.stream);
-
     const tier = (req.body?.tier || "free").toLowerCase();
-    const requestedRoles = req.body?.roles || null;
     const roles = { mode: "ternary" }; 
 
-
-    // ─────────────────────────────
-    // USER IDENTITY
-    // ─────────────────────────────
+    // IDENTITY & TOKENS
     const userId = req.body?.userId || req.headers["x-user-id"] || null;
     const isGuest = !userId;
     const userName = req.body?.userName || null;
-
-    // ─────────────────────────────
-    // TOKEN CHECK
-    // ─────────────────────────────
     const tokenUserId = userId || "guest";
     const estimatedCost = Math.ceil(message.length * 1.5);
-
-    console.log("TOKEN CHECK:", {
-      userId: tokenUserId,
-      tier,
-      estimatedCost,
-      remainingBefore: getRemaining(tokenUserId, tier),
-    });
 
     if (!canSpend(tokenUserId, estimatedCost, tier)) {
       return res.status(402).json({
@@ -330,392 +314,199 @@ export default async function handler(req, res) {
       });
     }
 
+    // 🆕 BATCH SPLITTER LOGIC
+    const isBatch = message.includes("[SCENARIO_START]");
+    const scenarios = isBatch 
+      ? message.split("[SCENARIO_START]").filter(s => s.trim().length > 5) 
+      : [message];
+
+    let batchFeedback = "";
+    let lastReplyForUI = "";
+    let finalModelUsed = "VERIFIED_GROQ_DEPLOYMENT";
+    let finalNodeResult = null;
+    let finalPrioritizedNodes = [];
+
     const trace = {
       log: (event, payload) => console.log(`[TRACE] ${event}`, payload ?? ""),
     };
 
     // ─────────────────────────────
-    // LOAD MEMORY
+    // START BATCH LOOP
     // ─────────────────────────────
-    let memoryData = { history: [] };
-    let memoryNodes = [];
-    let summaryDoc = null;
+    for (let i = 0; i < scenarios.length; i++) {
+      const currentTask = scenarios[i].trim();
 
-    if (!isGuest) {
-      memoryData = await loadMemory(userId);
-      memoryNodes = await loadMemoryNodes(userId, 120);
-      summaryDoc = await loadSummary(userId);
-    }
-
-    const longTermHistory = Array.isArray(memoryData?.history)
-      ? memoryData.history
-      : [];
-
-    const prioritized = prioritizeContext({
-      history: longTermHistory,
-      memoryNodes,
-      summary: summaryDoc?.text || "",
-      userMessage: message,
-    });
-
-    const prioritizedNodes = Array.isArray(prioritized?.nodes)
-      ? prioritized.nodes
-      : Array.isArray(memoryNodes)
-      ? memoryNodes
-      : [];
-
-    // ─────────────────────────────
-    // BUILD OS CONTEXT
-    // ─────────────────────────────
-    const osContext = buildOSContext({
-      requestId: Date.now().toString(),
-      userId: userId || "guest",
-      userName,
-      userMessage: message,
-      uiHistory: [],
-      longTermHistory,
-      memoryNodes: prioritizedNodes,
-    });
-
-    osContext.memory.nodes = prioritizedNodes;
-    osContext.memory.longTermSummary = summaryDoc?.text || "";
-
-    const executivePacket = await runCipherCore(
-      {
-        history: osContext.memory.mergedHistory,
-        nodes: prioritizedNodes,
-        summary: osContext.memory.longTermSummary,
-      },
-      { userMessage: message, returnPacket: true }
-    );
-
-    const influenceText = buildMemoryInfluence(prioritizedNodes);
-
-    if (influenceText) {
-      executivePacket.systemPrompt =
-        (executivePacket.systemPrompt || "") + "\n" + influenceText;
-    }
-
-    const raw = message.trim();
-    const tinyGreeting = /^(hi|hey|yo|hello|sup)$/i.test(raw);
-    const isTiny = raw.length <= 10 && !/[?.!]/.test(raw);
-
-    if (tinyGreeting || isTiny) {
-      executivePacket.systemPrompt =
-        (executivePacket.systemPrompt || "") +
-        "\nIf the user input is a simple greeting or very short message, reply in 1-2 short sentences and ask one simple follow-up question at most.";
-    }
-
-    // ─────────────────────────────
-    //  CIPHERNET AUTO DISCOVERY
-    // ─────────────────────────────
-    let nodeResult = null;
-    let nodeOutputs = [];
-    let searchData = null; 
-
-    try {
-      const query = encodeURIComponent(message.slice(0, 100));
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
-
-      const searchRes = await fetch(
-  `${baseUrl}/api/ciphernet/search?q=${query}&userId=${userId}`
-);
-      searchData = await searchRes.json(); 
-      console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
-
-      console.log("🧠 NODE OUTPUTS:", JSON.stringify(nodeOutputs, null, 2));
-
-      if (nodeOutputs.length > 0) {
-        nodeResult = nodeOutputs[0].result;
-      }
-    } catch (e) {
-      console.log("❌ CipherNet discovery failed:", e.message);
-    }
-
-    // 🔥 MULTI-NODE EXECUTION (Phase 3.5)
-    // We only proceed if searchData was successfully fetched
-    if (searchData && searchData.results) {
-      const MAX_NODES = 3;
-
-      const selectedNodes = (searchData.results || [])
-        .filter(n => n.type !== "real_estate")
-       .slice(0, MAX_NODES);
-
-      console.log("🧠 SELECTED NODES:", selectedNodes.map(n => n.name));
-
-      // execute all nodes in parallel
-      const execResults = selectedNodes.map((node) => {
-  return {
-    name: node.content || node.name || "node",
-    type: node.type,
-    result: {
-      text: node.content,
-    },
-    trustScore: 1,
-  };
-});
-
-nodeOutputs = execResults;
-      
-
-      // filter out failed nodes
-      nodeOutputs = execResults.filter(Boolean);
-
-      // 🔥 PICK BEST NODE (Trust System Phase 4)
-      let mergedNodeResult = null;
-
-      if(nodeOutputs.length > 0) {
-        const bestNode = nodeOutputs.reduce((best, current) => {
-          const score = current.trustScore || 0;
-          const bestScore = best?.trustScore || 0;
-          return score > bestScore ? current : best;
-        }, null);
-
-        mergedNodeResult = bestNode?.result || null;
-        nodeResult = mergedNodeResult;
-      }
-    } 
-
-    console.log("🧠 NODE OUTPUTS:", nodeOutputs);
-    console.log("🧠 MERGED RESULT:", nodeResult);
-
-    // ─────────────────────────────
-    // STREAM MODE
-    // ─────────────────────────────
-    if (wantStream) {
-      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-      res.setHeader("Cache-Control", "no-cache, no-transform");
-      res.setHeader("Connection", "keep-alive");
-      res.flushHeaders?.();
-
-      // If CipherNet found a result, return that immediately even in stream mode
-      if (nodeResult) {
-        const finalReply = await synthesizeFinalAnswer({
-          userMessage: message,
-          nodeOutputs,
-          mergedNodeResult: nodeResult,
-          osContext,
-          executivePacket,
-        });
-
-        // 🔥 BITNET DATA DISTILLATION
-        await logTrainingData(userId, message, finalReply);
-
-        if (!isGuest) {
-          await saveMemory(userId, {
-            type: "interaction",
-            role: "user",
-            content: message,
-          });
-
-          await saveMemory(userId, {
-            type: "interaction",
-            role: "assistant",
-            content: finalReply,
-          });
-
-          const extracted = extractMemoryFromTurn(message, finalReply);
-
-          await writebackFromTurn({
-            userId,
-            userText: message,
-            assistantText: finalReply,
-            extracted,
-          });
-
-          await runMemoryDecay(userId);
-
-          const turns = (summaryDoc?.turns || 0) + 1;
-          await saveSummary(userId, summaryDoc?.text || "", turns);
-        }
-
-        spendTokens(tokenUserId, estimatedCost, tier);
-
-        console.log("TOKENS AFTER SPEND:", {
-          userId: tokenUserId,
-          remainingAfter: getRemaining(tokenUserId, tier),
-        });
-
-        sseWrite(res, {
-          type: "done",
-          reply: finalReply,
-          model: "ciphernet",
-          provider: "internal",
-          roleStack: null,
-          memoryInfluence: exposeMemory(prioritizedNodes),
-          remainingTokens: getRemaining(tokenUserId, tier),
-          nodeResult,
-        });
-
-        res.end();
-        return;
-      }
-
-      let streamedText = "";
-
-      // SURGICAL FIX: Changed runOrchestrator to runSovereignMind
-      const out = await runSovereignMind({
-        osContext,
-        executivePacket,
-        roles: null,
-        trace,
-        stream: true,
-        onToken: (delta) => {
-          streamedText += delta;
-          sseWrite(res, { type: "delta", text: delta });
-        },
-      });
-
-      const finalReply = out?.reply || streamedText || "";
-
-      if (!finalReply) {
-        sseWrite(res, { type: "error", error: "Model produced no reply" });
-        res.end();
-        return;
-      }
-
-      // 🔥 BITNET DATA DISTILLATION
-      await logTrainingData(userId, message, finalReply);
+      // LOAD MEMORY
+      let memoryData = { history: [] };
+      let memoryNodes = [];
+      let summaryDoc = null;
 
       if (!isGuest) {
-        await saveMemory(userId, {
-          type: "interaction",
-          role: "user",
-          content: message,
-        });
-
-        await saveMemory(userId, {
-          type: "interaction",
-          role: "assistant",
-          content: finalReply,
-        });
-
-        const extracted = extractMemoryFromTurn(message, finalReply);
-
-        await writebackFromTurn({
-          userId,
-          userText: message,
-          assistantText: finalReply,
-          extracted,
-        });
-
-        await runMemoryDecay(userId);
-
-        const turns = (summaryDoc?.turns || 0) + 1;
-        await saveSummary(userId, summaryDoc?.text || "", turns);
+        memoryData = await loadMemory(userId);
+        memoryNodes = await loadMemoryNodes(userId, 120);
+        summaryDoc = await loadSummary(userId);
       }
 
-      spendTokens(tokenUserId, estimatedCost, tier);
+      const longTermHistory = Array.isArray(memoryData?.history) ? memoryData.history : [];
 
-      console.log("TOKENS AFTER SPEND:", {
-        userId: tokenUserId,
-        remainingAfter: getRemaining(tokenUserId, tier),
+      const prioritized = prioritizeContext({
+        history: longTermHistory,
+        memoryNodes,
+        summary: summaryDoc?.text || "",
+        userMessage: currentTask,
       });
 
-      sseWrite(res, {
-        type: "done",
-        reply: finalReply,
-        model: "VERIFIED_GROQ_DEPLOYMENT",
-        provider: out?.modelUsed?.provider || null,
-        roleStack: null,
-        memoryInfluence: exposeMemory(prioritizedNodes),
-        remainingTokens: getRemaining(tokenUserId, tier),
-        nodeResult: null,
+      const prioritizedNodes = Array.isArray(prioritized?.nodes) 
+        ? prioritized.nodes 
+        : (Array.isArray(memoryNodes) ? memoryNodes : []);
+
+      // BUILD OS CONTEXT
+      const osContext = buildOSContext({
+        requestId: `${Date.now()}-${i}`,
+        userId: userId || "guest",
+        userName,
+        userMessage: currentTask,
+        uiHistory: [],
+        longTermHistory,
+        memoryNodes: prioritizedNodes,
       });
 
-      res.end();
-      return;
-    }
+      osContext.memory.nodes = prioritizedNodes;
+      osContext.memory.longTermSummary = summaryDoc?.text || "";
 
-    // ─────────────────────────────
-    // NORMAL MODE
-    // ─────────────────────────────
-    // SURGICAL FIX: Already renamed to runSovereignMind
-    const out = await runSovereignMind({
-      osContext,
-      executivePacket,
-      roles,
-      trace,
-    });
+      const executivePacket = await runCipherCore(
+        {
+          history: osContext.memory.mergedHistory,
+          nodes: prioritizedNodes,
+          summary: osContext.memory.longTermSummary,
+        },
+        { userMessage: currentTask, returnPacket: true }
+      );
 
-    const reply =
-      typeof out === "string" ? out : out?.reply || out?.text || null;
+      const influenceText = buildMemoryInfluence(prioritizedNodes);
+      if (influenceText) {
+        executivePacket.systemPrompt = (executivePacket.systemPrompt || "") + "\n" + influenceText;
+      }
 
-    if (!reply && !nodeResult) {
-      return res.status(500).json({ error: "Model produced no reply" });
-    }
+      // CIPHERNET AUTO DISCOVERY
+      let nodeResult = null;
+      let nodeOutputs = [];
+      let searchData = null; 
 
-    let finalReply;
+      try {
+        const query = encodeURIComponent(currentTask.slice(0, 100));
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
+        const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}&userId=${userId}`);
+        searchData = await searchRes.json(); 
 
-    console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
+        if (searchData && searchData.results) {
+          const selectedNodes = (searchData.results || []).filter(n => n.type !== "real_estate").slice(0, 3);
+          nodeOutputs = selectedNodes.map((node) => ({
+            name: node.content || node.name || "node",
+            type: node.type,
+            result: { text: node.content },
+            trustScore: 1,
+          }));
 
-    if (nodeOutputs.length > 0 && nodeResult) {
-      finalReply = await synthesizeFinalAnswer({
-        userMessage: message,
-        nodeOutputs,
-        mergedNodeResult: nodeResult,
-        osContext,
-        executivePacket,
-      });
-    } else {
-      finalReply = await refineReply({
-        message,
-        draftReply: reply,
-        osContext,
-        executivePacket,
-      });
-    }
+          if(nodeOutputs.length > 0) {
+            const bestNode = nodeOutputs.reduce((best, current) => {
+              const score = current.trustScore || 0;
+              const bestScore = best?.trustScore || 0;
+              return score > bestScore ? current : best;
+            }, null);
+            nodeResult = bestNode?.result || null;
+          }
+        }
+      } catch (e) {
+        console.log("❌ CipherNet discovery failed:", e.message);
+      }
 
-    // 🔥 BITNET DATA DISTILLATION
-    await logTrainingData(userId, message, finalReply);
+      // STREAM BYPASS FOR BATCH
+      if (wantStream && !isBatch) {
+          res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+          res.setHeader("Cache-Control", "no-cache, no-transform");
+          res.setHeader("Connection", "keep-alive");
+          res.flushHeaders?.();
 
-    const model =
-      out?.modelUsed?.model || out?.model || out?.engine || null;
+          if (nodeResult) {
+            const finalReply = await synthesizeFinalAnswer({ userMessage: currentTask, nodeOutputs, mergedNodeResult: nodeResult, osContext, executivePacket });
+            await logTrainingData(userId, currentTask, finalReply);
+            if (!isGuest) {
+              await saveMemory(userId, { type: "interaction", role: "user", content: currentTask });
+              await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
+              const extracted = extractMemoryFromTurn(currentTask, finalReply);
+              await writebackFromTurn({ userId, userText: currentTask, assistantText: finalReply, extracted });
+              await runMemoryDecay(userId);
+              await saveSummary(userId, summaryDoc?.text || "", (summaryDoc?.turns || 0) + 1);
+            }
+            spendTokens(tokenUserId, estimatedCost, tier);
+            sseWrite(res, { type: "done", reply: finalReply, model: "ciphernet", memoryInfluence: exposeMemory(prioritizedNodes), remainingTokens: getRemaining(tokenUserId, tier), nodeResult });
+            res.end();
+            return;
+          }
 
-    if (!isGuest) {
-      await saveMemory(userId, {
-        type: "interaction",
-        role: "user",
-        content: message,
-      });
+          let streamedText = "";
+          const out = await runSovereignMind({ osContext, executivePacket, roles: null, trace, stream: true, onToken: (delta) => { streamedText += delta; sseWrite(res, { type: "delta", text: delta }); } });
+          const finalReply = out?.reply || streamedText || "";
+          if (finalReply) {
+            await logTrainingData(userId, currentTask, finalReply);
+            if (!isGuest) {
+              await saveMemory(userId, { type: "interaction", role: "user", content: currentTask });
+              await saveMemory(userId, { type: "interaction", role: "assistant", content: finalReply });
+              const extracted = extractMemoryFromTurn(currentTask, finalReply);
+              await writebackFromTurn({ userId, userText: currentTask, assistantText: finalReply, extracted });
+              await runMemoryDecay(userId);
+              await saveSummary(userId, summaryDoc?.text || "", (summaryDoc?.turns || 0) + 1);
+            }
+          }
+          spendTokens(tokenUserId, estimatedCost, tier);
+          sseWrite(res, { type: "done", reply: finalReply, model: "VERIFIED_GROQ_DEPLOYMENT", memoryInfluence: exposeMemory(prioritizedNodes), remainingTokens: getRemaining(tokenUserId, tier), nodeResult: null });
+          res.end();
+          return;
+      }
 
-      await saveMemory(userId, {
-        type: "interaction",
-        role: "assistant",
-        content: finalReply,
-      });
+      // NORMAL / BATCH EXECUTION
+      const out = await runSovereignMind({ osContext, executivePacket, roles, trace });
+      const reply = typeof out === "string" ? out : out?.reply || out?.text || null;
+      if (!reply && !nodeResult) continue;
 
-      const extracted = extractMemoryFromTurn(message, finalReply);
+      let finalIterationReply;
+      if (nodeOutputs.length > 0 && nodeResult) {
+        finalIterationReply = await synthesizeFinalAnswer({ userMessage: currentTask, nodeOutputs, mergedNodeResult: nodeResult, osContext, executivePacket });
+      } else {
+        finalIterationReply = await refineReply({ message: currentTask, draftReply: reply, osContext, executivePacket });
+      }
 
-      await writebackFromTurn({
-        userId,
-        userText: message,
-        assistantText: finalReply,
-        extracted,
-      });
+      await logTrainingData(userId, currentTask, finalIterationReply);
 
-      await runMemoryDecay(userId);
+      if (!isGuest) {
+        await saveMemory(userId, { type: "interaction", role: "user", content: currentTask });
+        await saveMemory(userId, { type: "interaction", role: "assistant", content: finalIterationReply });
+        const extracted = extractMemoryFromTurn(currentTask, finalIterationReply);
+        await writebackFromTurn({ userId, userText: currentTask, assistantText: finalIterationReply, extracted });
+        await runMemoryDecay(userId);
+        await saveSummary(userId, summaryDoc?.text || "", (summaryDoc?.turns || 0) + 1);
+      }
 
-      const turns = (summaryDoc?.turns || 0) + 1;
-      await saveSummary(userId, summaryDoc?.text || "", turns);
+      if (isBatch) { batchFeedback += `✅ Scenario ${i + 1} Processed & Banked.\n`; }
+      lastReplyForUI = finalIterationReply;
+      finalModelUsed = out?.modelUsed?.model || out?.model || out?.engine || "VERIFIED_GROQ_DEPLOYMENT";
+      finalNodeResult = nodeResult;
+      finalPrioritizedNodes = prioritizedNodes;
     }
 
     spendTokens(tokenUserId, estimatedCost, tier);
-
-    console.log("TOKENS AFTER SPEND:", {
-      userId: tokenUserId,
-      remainingAfter: getRemaining(tokenUserId, tier),
-    });
+    const displayReply = isBatch 
+      ? `### 🏦 Batch Distillation Complete\nProcessed ${scenarios.length} scenarios into the Gold Set vault.\n\n${batchFeedback}`
+      : lastReplyForUI;
 
     return res.status(200).json({
-      reply: finalReply,
-      model,
-      roleStack: out?.roleStack || null,
-      memoryInfluence: exposeMemory(prioritizedNodes),
+      reply: displayReply,
+      model: finalModelUsed,
+      memoryInfluence: exposeMemory(finalPrioritizedNodes),
       remainingTokens: getRemaining(tokenUserId, tier),
-      nodeResult: nodeResult || null,
-    });
+      nodeResult: finalNodeResult || null,
+    });    
 
   } catch (err) {
     console.error("❌ /api/chat fatal error:", err);
