@@ -350,9 +350,9 @@ export default async function handler(req, res) {
         }
 
         return {
-          label: `Scenario ${index + 1}`,
-          reply,
-        };
+      label: `Scenario ${index + 1}`,
+      reply: reply || "No output generated.",
+   };
       })
     );
 
@@ -361,8 +361,13 @@ export default async function handler(req, res) {
 
     if (isBatch) {
       finalReply =
-        `### 🏦 Batch Complete\n` +
-        results.map(r => `✅ ${r.label} Banked.`).join("\n");
+  `### 🏦 Batch Distillation Complete\n\n` +
+  results
+    .map(
+      (r, i) =>
+        `--- Scenario ${i + 1} ---\n${r.reply}\n`
+    )
+    .join("\n");
     } else {
       finalReply = results[0]?.reply || "No response generated.";
     }
