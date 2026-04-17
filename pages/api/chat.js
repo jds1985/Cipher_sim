@@ -330,64 +330,38 @@ ${decision}
       log: (event, payload) => console.log(`[TRACE] ${event}`, payload ?? ""),
     };
 
-    // ─────────────────────────────
-    // START BATCH LOOP
-    // ─────────────────────────────
-    for (let i = 0; i < scenarios.length; i++) {
-      const currentTask = scenarios[i].trim();
 
-      // LOAD MEMORY
-      let memoryData = { history: [] };
-      let memoryNodes = [];
-      let summaryDoc = null;
-
-      if (!isGuest) {
-        memoryData = await loadMemory(userId);
-        memoryNodes = await loadMemoryNodes(userId, 120);
-        summaryDoc = await loadSummary(userId);
-      }
-
-      const longTermHistory = Array.isArray(memoryData?.history) ? memoryData.history : [];
-
-      const prioritized = prioritizeContext({
-        history: longTermHistory,
-        memoryNodes,
-        summary: summaryDoc?.text || "",
-        userMessage: currentTask,
-      });
-
-      const prioritizedNodes = Array.isArray(prioritized?.nodes) 
-        ? prioritized.nodes 
-        : (Array.isArray(memoryNodes) ? memoryNodes : []);
-
-      // BUILD OS CONTEXT
+        // START BATCH LOOP
+    const results = await Promise.all(scenarios.map(async (currentTask, index) => {
+      // 1. Build a quick Context
       const osContext = buildOSContext({
-        requestId: `${Date.now()}-${i}`,
-        userId: userId || "guest",
-        userName,
+        requestId: `${Date.now()}-${index}`,
+        userId: tokenUserId,
         userMessage: currentTask,
-        uiHistory: [],
-        longTermHistory,
-        memoryNodes: prioritizedNodes,
       });
-
-      osContext.memory.nodes = prioritizedNodes;
-      osContext.memory.longTermSummary = summaryDoc?.text || "";
 
       const executivePacket = await runCipherCore(
-        {
-          history: osContext.memory.mergedHistory,
-          nodes: prioritizedNodes,
-          summary: osContext.memory.longTermSummary,
-        },
+        { history: [], nodes: [], summary: "" },
         { userMessage: currentTask, returnPacket: true }
       );
 
-      const influenceText = buildMemoryInfluence(prioritizedNodes);
-      if (influenceText) {
-        executivePacket.systemPrompt = (executivePacket.systemPrompt || "") + "\n" + influenceText;
-      }
+      // 2. Run the Mind
+      const out = await runSovereignMind({ osContext, executivePacket, roles: { mode: "ternary" } });
+      const reply = out?.reply || out?.text || "";
 
+      // 3. Bank to Firebase
+      if (reply) {
+        await logTrainingData(userId, currentTask, reply);
+      }
+      
+      return `✅ Scenario ${index + 1} Banked.`;
+    }));
+
+    const finalMessage = isBatch 
+      ? `### 🏦 Batch Complete\n${results.join('\n')}`
+      : lastReplyForUI;
+
+     
       // CIPHERNET AUTO DISCOVERY
       let nodeResult = null;
       let nodeOutputs = [];
