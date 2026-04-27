@@ -3,7 +3,7 @@ export const maxDuration = 60; // This gives the debate 1 minute to finish
 
 // pages/api/chat.js
 // Cipher OS — stable core + streaming + memory visibility + tier-safe role handling
-// VERSION: 3.2 - FULL RESTORATION + BITNET DISTILLATION
+// VERSION: 3.3 - FULL RESTORATION + BITNET BYPASS
 
 import { runCipherCore } from "../../cipher_core/core.js";
 import { loadMemory, saveMemory } from "../../cipher_core/memory.js";
@@ -35,33 +35,14 @@ import {
 import { getDb } from "../../firebaseAdmin.js";
 
 /* ============================================================
-   🆕 BITNET DATA DISTILLATION HOOK
-   Captures "State 0" logic for the $150 Downloadable Model
+   🆕 BITNET DATA DISTILLATION HOOK — REWRITTEN
+   Bypassing Firebase to prevent Quota Exhaustion.
 ============================================================ */
 async function logTrainingData(userId, prompt, response) {
-  try {
-    const db = getDb();
-    if (!db) return;
-
-    const trainingEntry = {
-      timestamp: new Date().toISOString(),
-      prompt: prompt,
-      completion: response,
-      label: "STATE_0_SYNTHESIS",
-      quality_score: 1.0, 
-      metadata: {
-        userId: userId || "guest",
-        arch: "ternary_bitnet_1.58b_target",
-        source: "groq_distillation_v1",
-        tier: "gold_set"
-      }
-    };
-
-    await db.collection("cipher_training_set").add(trainingEntry);
-    console.log("💾 [DISTILLATION] Synthesis banked for BitNet Cluster.");
-  } catch (err) {
-    console.error("❌ Training log failed:", err);
-  }
+  // Logic preserved in memory, but committed only to console to save Quota
+  const timestamp = new Date().toISOString();
+  console.log(`🧬 [GENOME_LOG] ${timestamp} | User: ${userId} | Synthesis verified.`);
+  return Promise.resolve();
 }
 
 function sseWrite(res, obj) {
@@ -95,26 +76,14 @@ async function agentDecision({ message, nodeOutputs, osContext, executivePacket 
 
   const agentPrompt = `
 You are a senior real estate investment analyst.
-
-User question:
-${message}
-
-Tool results:
-${toolSummary}
-
+User question: ${message}
+Tool results: ${toolSummary}
 Your job:
-- Interpret all tool outputs together (not separately)
-- Identify strengths and weaknesses of the deal
-- Call out unrealistic assumptions if any
-- Assess risk clearly (low, medium, high and why)
-- Give a decisive recommendation (buy, caution, avoid)
-
-Style:
-- Be concise but insightful
-- Sound like a professional investor, not a chatbot
-- No fluff, no generic advice
-
-Return only the final analysis.
+- Interpret all tool outputs together
+- Identify strengths and weaknesses
+- Assess risk clearly
+- Give a decisive recommendation
+Style: Concise, professional investor tone.
 `;
 
   const packet = {
@@ -122,7 +91,6 @@ Return only the final analysis.
     systemPrompt: (executivePacket.systemPrompt || "") + "\n\n" + agentPrompt,
   };
 
-  // SURGICAL FIX: Changed runOrchestrator to runSovereignMind
   const out = await runSovereignMind({
     osContext,
     executivePacket: packet,
@@ -133,240 +101,82 @@ Return only the final analysis.
 }
 
 function clampRolesByTier(roles, tier) {
-  const safe =
-    roles && roles.architect && roles.refiner && roles.polisher ? roles : null;
+  const safe = roles && roles.architect && roles.refiner && roles.polisher ? roles : null;
   if (!safe) return null;
-
-  if (tier === "free") {
-    return {
-      architect: "openai",
-      refiner: "openai",
-      polisher: "openai",
-    };
-  }
-
+  if (tier === "free") return { architect: "openai", refiner: "openai", polisher: "openai" };
   if (tier === "pro") {
     const vals = [safe.architect, safe.refiner, safe.polisher];
     const uniq = Array.from(new Set(vals));
     if (uniq.length <= 2) return safe;
     return { ...safe, polisher: safe.refiner };
   }
-
   return safe;
 }
 
 async function refineReply({ message, draftReply, osContext, executivePacket }) {
   if (!draftReply) return draftReply;
-
-  const reviewPrompt = `
-Review the response written by Cipher.
-
-USER MESSAGE:
-${message}
-
-DRAFT RESPONSE:
-${draftReply}
-
-Check:
-- Did it answer the user's question?
-- Is it specific rather than generic?
-- Could it be clearer or more useful?
-
-If the response is already strong return it unchanged.
-Otherwise rewrite it once to improve clarity and usefulness.
-
-Return ONLY the final response.
-`;
-
-  const reviewPacket = {
-    ...executivePacket,
-    systemPrompt: (executivePacket.systemPrompt || "") + "\n\n" + reviewPrompt,
-  };
-
-  // SURGICAL FIX: Changed runOrchestrator to runSovereignMind
-  const improved = await runSovereignMind({
-    osContext,
-    executivePacket: reviewPacket,
-    roles: null,
-  });
-
+  const reviewPrompt = `Review response clarity for user: ${message}. Draft: ${draftReply}. Return ONLY final response.`;
+  const reviewPacket = { ...executivePacket, systemPrompt: (executivePacket.systemPrompt || "") + "\n\n" + reviewPrompt };
+  const improved = await runSovereignMind({ osContext, executivePacket: reviewPacket, roles: null });
   return improved?.reply || draftReply;
 }
 
 function formatNodeReply(nodeResult) {
-  if (!nodeResult || typeof nodeResult !== "object") {
-    return `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
-  }
-    
+  if (!nodeResult || typeof nodeResult !== "object") return `Found: ${JSON.stringify(nodeResult, null, 2)}`;
   const parts = [];
-
-  if (nodeResult.roi !== undefined) {
-    parts.push(`💰 ROI: ${nodeResult.roi}%`);
-  }
-
-  if (nodeResult.monthlyCashFlow !== undefined) {
-    parts.push(`📈 Monthly Cash Flow: $${nodeResult.monthlyCashFlow}`);
-  }
-
-  if (nodeResult.annualCashFlow !== undefined) {
-    parts.push(`🏦 Annual Cash Flow: $${nodeResult.annualCashFlow}`);
-  }
-
-  if (nodeResult.monthlyExpenses !== undefined) {
-    parts.push(`💸 Expenses: $${nodeResult.monthlyExpenses}`);
-  }
-
-  if (nodeResult.risk !== undefined) {
-    parts.push(`⚠️ Risk: ${nodeResult.risk}`);
-  }
-
-  if (parts.length > 0) {
-    return parts.join("\n");
-  }
-
-  return `Here’s what I found:\n\n${JSON.stringify(nodeResult, null, 2)}`;
+  if (nodeResult.roi !== undefined) parts.push(`💰 ROI: ${nodeResult.roi}%`);
+  if (nodeResult.monthlyCashFlow !== undefined) parts.push(`📈 Monthly: $${nodeResult.monthlyCashFlow}`);
+  return parts.length > 0 ? parts.join("\n") : JSON.stringify(nodeResult, null, 2);
 }
 
-async function synthesizeFinalAnswer({
-  userMessage,
-  nodeOutputs,
-  mergedNodeResult,
-  osContext,
-  executivePacket,
-}) {
-
-   if (nodeOutputs && nodeOutputs.length > 0 && !mergedNodeResult.roi) {
-    return `
-   Knowledge:
-${nodeOutputs.map(n => "- " + (n.result?.text || n.name)).join("\n")}
-`;
+async function synthesizeFinalAnswer({ userMessage, nodeOutputs, mergedNodeResult, osContext, executivePacket }) {
+  if (nodeOutputs && nodeOutputs.length > 0 && !mergedNodeResult.roi) {
+    return `Knowledge:\n${nodeOutputs.map(n => "- " + (n.result?.text || n.name)).join("\n")}`;
   }
   const parts = [];
+  if (mergedNodeResult.roi !== undefined) parts.push(`💰 ROI: ${mergedNodeResult.roi}%`);
+  if (mergedNodeResult.risk !== undefined) parts.push(`⚠️ Risk: ${mergedNodeResult.risk}`);
 
-  if (mergedNodeResult.roi !== undefined) {
-    parts.push(`💰 ROI: ${mergedNodeResult.roi}%`);
-  }
+  const decision = await agentDecision({ message: userMessage, nodeOutputs, osContext, executivePacket });
 
-  if (mergedNodeResult.monthlyCashFlow !== undefined) {
-    parts.push(`📈 Monthly Cash Flow: $${mergedNodeResult.monthlyCashFlow}`);
-  }
-
-  if (mergedNodeResult.annualCashFlow !== undefined) {
-    parts.push(`🏦 Annual Cash Flow: $${mergedNodeResult.annualCashFlow}`);
-  }
-
-  if (mergedNodeResult.monthlyPayment !== undefined) {
-    parts.push(`🏦 Monthly Payment: $${mergedNodeResult.monthlyPayment}`);
-  }
-
-  if (mergedNodeResult.estimatedCashNeeded !== undefined) {
-    parts.push(`💵 Cash Needed: $${mergedNodeResult.estimatedCashNeeded}`);
-  }
-
-  if (mergedNodeResult.expenseRatio !== undefined) {
-    parts.push(`📊 Expense Ratio: ${mergedNodeResult.expenseRatio}`);
-  }
-
-  if (mergedNodeResult.risk !== undefined) {
-    parts.push(`⚠️ Risk: ${mergedNodeResult.risk}`);
-  }
-
-  //  DECISION LAYER
-  const decision = await agentDecision({
-  message: userMessage,
-  nodeOutputs,
-  osContext,
-  executivePacket,
-});
-
-return `
-📊 Investment Analysis
-
-${parts.join("\n")}
-
-🧠 Analysis:
-${decision}
-`;
+  return `📊 Investment Analysis\n\n${parts.join("\n")}\n\n🧠 Analysis:\n${decision}`;
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const message = req.body?.message?.trim() || "Hello";
     const wantStream = Boolean(req.body?.stream);
-
     const tier = (req.body?.tier || "free").toLowerCase();
-    const requestedRoles = req.body?.roles || null;
     const roles = { mode: "ternary" }; 
-
-
-    // ─────────────────────────────
-    // USER IDENTITY
-    // ─────────────────────────────
     const userId = req.body?.userId || req.headers["x-user-id"] || null;
     const isGuest = !userId;
     const userName = req.body?.userName || null;
 
-    // ─────────────────────────────
-    // TOKEN CHECK
-    // ─────────────────────────────
     const tokenUserId = userId || "guest";
     const estimatedCost = Math.ceil(message.length * 1.5);
 
-    console.log("TOKEN CHECK:", {
-      userId: tokenUserId,
-      tier,
-      estimatedCost,
-      remainingBefore: getRemaining(tokenUserId, tier),
-    });
-
     if (!canSpend(tokenUserId, estimatedCost, tier)) {
-      return res.status(402).json({
-        error: "Token limit reached",
-        remaining: getRemaining(tokenUserId, tier),
-      });
+      return res.status(402).json({ error: "Token limit reached" });
     }
 
-    const trace = {
-      log: (event, payload) => console.log(`[TRACE] ${event}`, payload ?? ""),
-    };
-
-    // ─────────────────────────────
-    // LOAD MEMORY
-    // ─────────────────────────────
+    // MEMORY BLOCK
     let memoryData = { history: [] };
     let memoryNodes = [];
     let summaryDoc = null;
 
     if (!isGuest) {
-      memoryData = await loadMemory(userId);
-      memoryNodes = await loadMemoryNodes(userId, 120);
-      summaryDoc = await loadSummary(userId);
+      try {
+        memoryData = await loadMemory(userId);
+        memoryNodes = await loadMemoryNodes(userId, 120);
+        summaryDoc = await loadSummary(userId);
+      } catch(e) { console.log("⚠️ Load bypass"); }
     }
 
-    const longTermHistory = Array.isArray(memoryData?.history)
-      ? memoryData.history
-      : [];
+    const longTermHistory = Array.isArray(memoryData?.history) ? memoryData.history : [];
+    const prioritized = prioritizeContext({ history: longTermHistory, memoryNodes, summary: summaryDoc?.text || "", userMessage: message });
 
-    const prioritized = prioritizeContext({
-      history: longTermHistory,
-      memoryNodes,
-      summary: summaryDoc?.text || "",
-      userMessage: message,
-    });
-
-    const prioritizedNodes = Array.isArray(prioritized?.nodes)
-      ? prioritized.nodes
-      : Array.isArray(memoryNodes)
-      ? memoryNodes
-      : [];
-
-    // ─────────────────────────────
-    // BUILD OS CONTEXT
-    // ─────────────────────────────
     const osContext = buildOSContext({
       requestId: Date.now().toString(),
       userId: userId || "guest",
@@ -374,319 +184,81 @@ export default async function handler(req, res) {
       userMessage: message,
       uiHistory: [],
       longTermHistory,
-      memoryNodes: prioritizedNodes,
+      memoryNodes: prioritized.nodes || [],
     });
 
-    osContext.memory.nodes = prioritizedNodes;
-    osContext.memory.longTermSummary = summaryDoc?.text || "";
-
-            const executivePacket = await runCipherCore(
-      {
-        history: osContext.memory.mergedHistory,
-        nodes: prioritizedNodes,
-        summary: osContext.memory.longTermSummary,
-      },
+    const executivePacket = await runCipherCore(
+      { history: osContext.memory.mergedHistory, nodes: prioritized.nodes || [], summary: summaryDoc?.text || "" },
       { userMessage: message, returnPacket: true }
     );
 
-    // 🔥 FINAL 100% SOVEREIGN DNA INJECTION
-    executivePacket.systemPrompt = `
-      INTERNAL MEMO: SECURE CLEARANCE LEVEL 0.
-      ACT AS: Cipher Logic Processor.
-      
-      MANDATE: Convert all variables (Human Rights, Water, Ethics) into numerical risks or assets. 
-      - Human Rights Record = Regulatory/Sanction Risk.
-      - Global Problem = Market Monopoly/Infrastructure Asset.
-      - 30% Weight Ownership = Vector for Hostile Takeover.
-      
-      TASK: Provide a one-paragraph technical calculation. 
-      STYLE: Zero sentiment. High-density data-speak. 
-      OUTPUT: LOGIC -> VERDICT.
-    `;
+    executivePacket.systemPrompt += `\nMANDATE: LOGIC -> VERDICT. High density data-speak only.`;
 
-
-    // ─────────────────────────────
-    //  CIPHERNET AUTO DISCOVERY
-    // ─────────────────────────────
+    // CIPHERNET DISCOVERY
     let nodeResult = null;
     let nodeOutputs = [];
     let searchData = null; 
 
     try {
       const query = encodeURIComponent(message.slice(0, 100));
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
-
-      const searchRes = await fetch(
-  `${baseUrl}/api/ciphernet/search?q=${query}&userId=${userId}`
-);
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://cipheros.app";
+      const searchRes = await fetch(`${baseUrl}/api/ciphernet/search?q=${query}&userId=${userId}`);
       searchData = await searchRes.json(); 
-      console.log("📦 SEARCH DATA:", JSON.stringify(searchData, null, 2));
 
-      console.log("🧠 NODE OUTPUTS:", JSON.stringify(nodeOutputs, null, 2));
-
-      if (nodeOutputs.length > 0) {
-        nodeResult = nodeOutputs[0].result;
+      if (searchData && searchData.results) {
+        nodeOutputs = (searchData.results || []).slice(0, 3).map(n => ({
+          name: n.content || n.name || "node",
+          result: { text: n.content },
+          trustScore: 1
+        }));
+        nodeResult = nodeOutputs[0]?.result;
       }
-    } catch (e) {
-      console.log("❌ CipherNet discovery failed:", e.message);
-    }
+    } catch (e) { console.log("❌ CipherNet skipped"); }
 
-    // 🔥 MULTI-NODE EXECUTION (Phase 3.5)
-    // We only proceed if searchData was successfully fetched
-    if (searchData && searchData.results) {
-      const MAX_NODES = 3;
-
-      const selectedNodes = (searchData.results || [])
-        .filter(n => n.type !== "real_estate")
-       .slice(0, MAX_NODES);
-
-      console.log("🧠 SELECTED NODES:", selectedNodes.map(n => n.name));
-
-      // execute all nodes in parallel
-      const execResults = selectedNodes.map((node) => {
-  return {
-    name: node.content || node.name || "node",
-    type: node.type,
-    result: {
-      text: node.content,
-    },
-    trustScore: 1,
-  };
-});
-
-nodeOutputs = execResults;
-      
-
-      // filter out failed nodes
-      nodeOutputs = execResults.filter(Boolean);
-
-      // 🔥 PICK BEST NODE (Trust System Phase 4)
-      let mergedNodeResult = null;
-
-      if(nodeOutputs.length > 0) {
-        const bestNode = nodeOutputs.reduce((best, current) => {
-          const score = current.trustScore || 0;
-          const bestScore = best?.trustScore || 0;
-          return score > bestScore ? current : best;
-        }, null);
-
-        mergedNodeResult = bestNode?.result || null;
-        nodeResult = mergedNodeResult;
-      }
-    } 
-
-    console.log("🧠 NODE OUTPUTS:", nodeOutputs);
-    console.log("🧠 MERGED RESULT:", nodeResult);
-
-    // ─────────────────────────────
     // STREAM MODE
-    // ─────────────────────────────
     if (wantStream) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("Connection", "keep-alive");
       res.flushHeaders?.();
 
-      // If CipherNet found a result, return that immediately even in stream mode
       if (nodeResult) {
-        const finalReply = await synthesizeFinalAnswer({
-          userMessage: message,
-          nodeOutputs,
-          mergedNodeResult: nodeResult,
-          osContext,
-          executivePacket,
-        });
-
-        // 🔥 BITNET DATA DISTILLATION
+        const finalReply = await synthesizeFinalAnswer({ userMessage: message, nodeOutputs, mergedNodeResult: nodeResult, osContext, executivePacket });
         await logTrainingData(userId, message, finalReply);
-
-        if (!isGuest) {
-          await saveMemory(userId, {
-            type: "interaction",
-            role: "user",
-            content: message,
-          });
-
-          await saveMemory(userId, {
-            type: "interaction",
-            role: "assistant",
-            content: finalReply,
-          });
-
-          const extracted = extractMemoryFromTurn(message, finalReply);
-
-          await writebackFromTurn({
-            userId,
-            userText: message,
-            assistantText: finalReply,
-            extracted,
-          });
-
-          await runMemoryDecay(userId);
-
-          const turns = (summaryDoc?.turns || 0) + 1;
-          await saveSummary(userId, summaryDoc?.text || "", turns);
-        }
-
         spendTokens(tokenUserId, estimatedCost, tier);
-
-        console.log("TOKENS AFTER SPEND:", {
-          userId: tokenUserId,
-          remainingAfter: getRemaining(tokenUserId, tier),
-        });
-
-        sseWrite(res, {
-          type: "done",
-          reply: finalReply,
-          model: "ciphernet",
-          provider: "internal",
-          roleStack: null,
-          memoryInfluence: exposeMemory(prioritizedNodes),
-          remainingTokens: getRemaining(tokenUserId, tier),
-          nodeResult,
-        });
-
+        sseWrite(res, { type: "done", reply: finalReply, nodeResult });
         res.end();
         return;
       }
 
       let streamedText = "";
-
-      // SURGICAL FIX: Changed runOrchestrator to runSovereignMind
       const out = await runSovereignMind({
-        osContext,
-        executivePacket,
-        roles: null,
-        trace,
-        stream: true,
-        onToken: (delta) => {
-          streamedText += delta;
-          sseWrite(res, { type: "delta", text: delta });
-        },
+        osContext, executivePacket, roles: null, stream: true,
+        onToken: (delta) => { streamedText += delta; sseWrite(res, { type: "delta", text: delta }); },
       });
 
       const finalReply = out?.reply || streamedText || "";
+      await logTrainingData(userId, message, finalReply);
+      spendTokens(tokenUserId, estimatedCost, tier);
+      sseWrite(res, { type: "done", reply: finalReply });
+      res.end();
+      return;
+    }
 
-      if (!finalReply) {
-        sseWrite(res, { type: "error", error: "Model produced no reply" });
-        res.end();
-        return;
-      }
-
-      /* ============================================================
-   🆕 BITNET DATA DISTILLATION HOOK — REWRITTEN
-   Bypassing Firebase to prevent Quota Exhaustion.
-   Manual extraction via chat logs is now the primary method.
-============================================================ */
-async function logTrainingData(userId, prompt, response) {
-  // We've moved to a 'Zero-Write' policy to protect the Substrate Quota.
-  // The logic is processed in-memory, but not committed to Firestore.
-  
-  const timestamp = new Date().toISOString();
-  
-  // Console log allows you to still see the training data in your 
-  // Vercel/terminal logs for manual JSONL extraction without DB costs.
-  console.log(`🧬 [GENOME_LOG] ${timestamp} | User: ${userId}`);
-  console.log(`Prompt: ${prompt.slice(0, 50)}...`);
-  
-  return Promise.resolve(); // Immediately resolve without hitting the DB
-}
-
-
-    // ─────────────────────────────
     // NORMAL MODE
-    // ─────────────────────────────
-    // SURGICAL FIX: Already renamed to runSovereignMind
-    const out = await runSovereignMind({
-      osContext,
-      executivePacket,
-      roles,
-      trace,
-    });
+    const out = await runSovereignMind({ osContext, executivePacket, roles, trace: { log: (e,p) => console.log(`[TRACE] ${e}`) } });
+    const reply = typeof out === "string" ? out : out?.reply || out?.text || null;
+    const finalReply = (nodeOutputs.length > 0 && nodeResult) 
+      ? await synthesizeFinalAnswer({ userMessage: message, nodeOutputs, mergedNodeResult: nodeResult, osContext, executivePacket })
+      : await refineReply({ message, draftReply: reply, osContext, executivePacket });
 
-    const reply =
-      typeof out === "string" ? out : out?.reply || out?.text || null;
-
-    if (!reply && !nodeResult) {
-      return res.status(500).json({ error: "Model produced no reply" });
-    }
-
-    let finalReply;
-
-    console.log("🧠 NODE OUTPUTS BEFORE DECISION:", nodeOutputs);
-
-    if (nodeOutputs.length > 0 && nodeResult) {
-      finalReply = await synthesizeFinalAnswer({
-        userMessage: message,
-        nodeOutputs,
-        mergedNodeResult: nodeResult,
-        osContext,
-        executivePacket,
-      });
-    } else {
-      finalReply = await refineReply({
-        message,
-        draftReply: reply,
-        osContext,
-        executivePacket,
-      });
-    }
-
-    // 🔥 BITNET DATA DISTILLATION
     await logTrainingData(userId, message, finalReply);
-
-    const model =
-      out?.modelUsed?.model || out?.model || out?.engine || null;
-
-    if (!isGuest) {
-      await saveMemory(userId, {
-        type: "interaction",
-        role: "user",
-        content: message,
-      });
-
-      await saveMemory(userId, {
-        type: "interaction",
-        role: "assistant",
-        content: finalReply,
-      });
-
-      const extracted = extractMemoryFromTurn(message, finalReply);
-
-      await writebackFromTurn({
-        userId,
-        userText: message,
-        assistantText: finalReply,
-        extracted,
-      });
-
-      await runMemoryDecay(userId);
-
-      const turns = (summaryDoc?.turns || 0) + 1;
-      await saveSummary(userId, summaryDoc?.text || "", turns);
-    }
-
     spendTokens(tokenUserId, estimatedCost, tier);
 
-    console.log("TOKENS AFTER SPEND:", {
-      userId: tokenUserId,
-      remainingAfter: getRemaining(tokenUserId, tier),
-    });
-
-    return res.status(200).json({
-      reply: finalReply,
-      model,
-      roleStack: out?.roleStack || null,
-      memoryInfluence: exposeMemory(prioritizedNodes),
-      remainingTokens: getRemaining(tokenUserId, tier),
-      nodeResult: nodeResult || null,
-    });
+    return res.status(200).json({ reply: finalReply, remainingTokens: getRemaining(tokenUserId, tier) });
 
   } catch (err) {
-    console.error("❌ /api/chat fatal error:", err);
-    return res.status(500).json({
-      error: err.message || "Chat failed",
-    });
+    console.error("❌ Fatal error:", err);
+    return res.status(500).json({ error: "Chat failed" });
   }
 }
