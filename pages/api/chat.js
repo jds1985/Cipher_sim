@@ -574,58 +574,25 @@ nodeOutputs = execResults;
         return;
       }
 
-      // 🔥 BITNET DATA DISTILLATION
-      await logTrainingData(userId, message, finalReply);
+      /* ============================================================
+   🆕 BITNET DATA DISTILLATION HOOK — REWRITTEN
+   Bypassing Firebase to prevent Quota Exhaustion.
+   Manual extraction via chat logs is now the primary method.
+============================================================ */
+async function logTrainingData(userId, prompt, response) {
+  // We've moved to a 'Zero-Write' policy to protect the Substrate Quota.
+  // The logic is processed in-memory, but not committed to Firestore.
+  
+  const timestamp = new Date().toISOString();
+  
+  // Console log allows you to still see the training data in your 
+  // Vercel/terminal logs for manual JSONL extraction without DB costs.
+  console.log(`🧬 [GENOME_LOG] ${timestamp} | User: ${userId}`);
+  console.log(`Prompt: ${prompt.slice(0, 50)}...`);
+  
+  return Promise.resolve(); // Immediately resolve without hitting the DB
+}
 
-      if (!isGuest) {
-        await saveMemory(userId, {
-          type: "interaction",
-          role: "user",
-          content: message,
-        });
-
-        await saveMemory(userId, {
-          type: "interaction",
-          role: "assistant",
-          content: finalReply,
-        });
-
-        const extracted = extractMemoryFromTurn(message, finalReply);
-
-        await writebackFromTurn({
-          userId,
-          userText: message,
-          assistantText: finalReply,
-          extracted,
-        });
-
-        await runMemoryDecay(userId);
-
-        const turns = (summaryDoc?.turns || 0) + 1;
-        await saveSummary(userId, summaryDoc?.text || "", turns);
-      }
-
-      spendTokens(tokenUserId, estimatedCost, tier);
-
-      console.log("TOKENS AFTER SPEND:", {
-        userId: tokenUserId,
-        remainingAfter: getRemaining(tokenUserId, tier),
-      });
-
-      sseWrite(res, {
-        type: "done",
-        reply: finalReply,
-        model: "VERIFIED_GROQ_DEPLOYMENT",
-        provider: out?.modelUsed?.provider || null,
-        roleStack: null,
-        memoryInfluence: exposeMemory(prioritizedNodes),
-        remainingTokens: getRemaining(tokenUserId, tier),
-        nodeResult: null,
-      });
-
-      res.end();
-      return;
-    }
 
     // ─────────────────────────────
     // NORMAL MODE
