@@ -5,9 +5,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Cipher OS</title>
+<title>Cipher CTS</title>
 
-<meta property="og:title" content="Cipher OS" />
+<meta property="og:title" content="Cipher CTS" />
 <meta property="og:description" content="A cognitive AI system that combines models, memory, and real-time reasoning." />
 <meta property="og:image" content="https://cipheros.app/images/cipher-share.jpg" />
 <meta property="og:url" content="https://cipheros.app" />
@@ -28,118 +28,152 @@ justify-content:center;
 align-items:center;
 height:100vh;
 text-align:center;
+overflow:hidden;
 
 background:
-linear-gradient(rgba(5,5,16,0.45), rgba(5,5,16,0.55)),
-url("/images/cipher-hero-desktop.webp") center center / cover no-repeat fixed;
+linear-gradient(rgba(5,5,16,0.55), rgba(5,5,16,0.65)),
+url("/images/cipher-cts-bg.png") center center / cover no-repeat fixed;
 }
 
-h1{
-font-size:56px;
-color:#9d7bff;
-letter-spacing:4px;
+/* LOGO */
+#logo{
+width:420px;
+max-width:90%;
 margin-bottom:10px;
+filter:
+drop-shadow(0 0 10px rgba(0,255,255,0.15))
+drop-shadow(0 0 20px rgba(157,123,255,0.18));
 }
 
+/* SUBTEXT */
+.subtitle{
+font-size:16px;
+color:rgba(255,255,255,0.82);
+margin-top:6px;
+margin-bottom:18px;
+letter-spacing:2px;
+}
+
+/* COMING SOON */
 #comingSoon{
 font-size:34px;
-margin-top:10px;
-letter-spacing:6px;
-color:#cbb7ff;
+letter-spacing:8px;
+color:#d7cbff;
+
 text-shadow:
-0 0 8px rgba(157,123,255,0.6),
-0 0 18px rgba(157,123,255,0.4);
-}
+0 0 8px rgba(157,123,255,0.5),
+0 0 18px rgba(157,123,255,0.35);
 
-/* INPUT + BUTTONS */
-.inputRow{
-margin-top:25px;
-}
-
-input{
-padding:12px;
-border-radius:6px;
-border:none;
-width:250px;
-}
-
-button{
-padding:12px 18px;
-margin-left:10px;
-border:none;
-border-radius:6px;
-background:#9d7bff;
-color:white;
-cursor:pointer;
+margin-bottom:22px;
 }
 
 /* CAROUSEL */
 #carousel{
-margin-top:20px;
-max-width:320px;
+max-width:360px;
+padding:16px;
+border-radius:14px;
+
+background:rgba(12,12,24,0.52);
+
+backdrop-filter: blur(10px);
+
+border:1px solid rgba(255,255,255,0.08);
+
+font-size:14px;
+line-height:1.6;
+
+color:rgba(255,255,255,0.92);
+
+transition:opacity 0.3s ease;
+
+box-shadow:
+0 0 20px rgba(157,123,255,0.12);
+
+margin-bottom:24px;
+}
+
+/* INPUT AREA */
+.inputRow{
+display:flex;
+gap:10px;
+flex-wrap:wrap;
+justify-content:center;
+margin-bottom:14px;
+}
+
+input{
 padding:14px;
 border-radius:10px;
-background:rgba(20,20,40,0.5);
-backdrop-filter: blur(8px);
-border:1px solid rgba(255,255,255,0.08);
+border:none;
+width:260px;
+
+background:rgba(255,255,255,0.92);
+
+font-family:'Orbitron', Arial;
+outline:none;
+}
+
+/* BUTTONS */
+button{
+padding:14px 20px;
+border:none;
+border-radius:10px;
+
+background:#7f5cff;
+color:white;
+
+cursor:pointer;
+
+font-family:'Orbitron', Arial;
+
+transition:0.25s ease;
+}
+
+button:hover{
+transform:translateY(-2px);
+background:#9476ff;
+}
+
+#shareBtn{
+background:#17172a;
+}
+
+#shareBtn:hover{
+background:#23233c;
+}
+
+/* USER COUNT */
+#countWrap{
+margin-top:14px;
 font-size:14px;
-color:rgba(255,255,255,0.9);
-transition:opacity 0.3s ease;
-box-shadow: 0 0 20px rgba(157,123,255,0.15);
+color:rgba(255,255,255,0.7);
 }
 
-/* BLACK HOLE */
-#blackhole{
-position:fixed;
-top:20px;
-right:20px;
-width:120px;
-height:120px;
-pointer-events:none;
-z-index:5;
+/* MOBILE */
+@media(max-width:600px){
+
+#comingSoon{
+font-size:26px;
+letter-spacing:5px;
 }
 
-#blackhole .core{
-position:absolute;
-width:60px;
-height:60px;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%);
-border-radius:50%;
-background:black;
-box-shadow:
-0 0 25px rgba(157,123,255,0.6),
-inset 0 0 20px rgba(0,0,0,0.9);
+#carousel{
+max-width:85%;
+font-size:13px;
 }
 
-#blackhole .ring{
-position:absolute;
-width:100%;
-height:100%;
-border-radius:50%;
-border:2px solid rgba(157,123,255,0.2);
-animation:spin 6s linear infinite;
+input{
+width:85%;
 }
 
-@keyframes spin{
-from{transform:rotate(0deg);}
-to{transform:rotate(360deg);}
+button{
+width:85%;
 }
 
-.particle{
-position:absolute;
-width:4px;
-height:4px;
-background:#9d7bff;
-border-radius:50%;
-opacity:0.8;
-animation:fall linear infinite;
+.inputRow{
+flex-direction:column;
+align-items:center;
 }
-
-@keyframes fall{
-0%{transform:translate(0,0);opacity:1;}
-100%{transform:translate(-40px,40px);opacity:0;}
 }
 
 </style>
@@ -148,41 +182,59 @@ animation:fall linear infinite;
 
 <body>
 
-<div id="blackhole">
-  <div class="ring"></div>
-  <div class="core"></div>
+<!-- LOGO -->
+<img id="logo" src="/images/cipher-cts-logo.png" alt="Cipher CTS Logo">
+
+<div class="subtitle">
+THE COGNITIVE OPERATING SYSTEM
 </div>
 
-<h1>CIPHER OS</h1>
-<p>The Cognitive Operating System</p>
+<div id="comingSoon">
+COMING SOON
+</div>
 
-<div id="comingSoon">COMING SOON</div>
+<!-- CAROUSEL -->
+<div id="carousel">
+Something massive is coming
+</div>
 
-<div id="carousel">Something massive is coming</div>
-
+<!-- EMAIL -->
 <div class="inputRow">
+
 <input id="email" placeholder="Enter email">
-<button onclick="join()">Join Waitlist</button>
+
+<button onclick="join()">
+Join Waitlist
+</button>
+
 </div>
 
-<button onclick="shareApp()" style="margin-top:10px; background:#1a1a2e;">
+<!-- SHARE -->
+<button id="shareBtn" onclick="shareApp()">
 Share Cipher
 </button>
 
-<p><span id="count">0</span> early users joined</p>
+<!-- USER COUNT -->
+<div id="countWrap">
+<span id="count">0</span> early users joined
+</div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"
+
 import {
 getFirestore,
 collection,
 addDoc
+
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
 
 const firebaseConfig = {
+
 apiKey: "AIzaSyDiToKj76nxjfXWhLiXgDS6VE8K86OFfiQ",
 projectId: "digisoul1111"
+
 }
 
 const app = initializeApp(firebaseConfig)
@@ -193,80 +245,87 @@ document.getElementById("count").innerText = "1000+"
 window.join = async function(){
 
 const email = document.getElementById("email").value
+
 if(!email) return
 
 await addDoc(collection(db,"cipher_waitlist"),{
+
 email,
 time:Date.now()
+
 })
 
 document.getElementById("email").value=""
+
+alert("Welcome to Cipher CTS ⚡")
+
 }
 
 </script>
 
 <script>
 
-// 🔐 DEV KEY UPDATED
+// DEV KEY
 const params = new URLSearchParams(window.location.search);
 
 if(params.get("dev") === "cipher_vault_777"){
-  localStorage.setItem("cipher_dev_access", "granted");
-  window.location.href = "/";
+
+localStorage.setItem("cipher_dev_access", "granted");
+window.location.href = "/";
+
 }
 
 // CAROUSEL
 const messages = [
+
 "Something massive is coming",
 "The world is not ready",
 "A world's first cognitive system",
 "Not an AI tool — an operating system",
 "Multiple minds. One interface.",
 "This is where AI stops being separate",
-"Cipher OS is about to change everything"
+"Cipher CTS is about to change everything"
+
 ]
 
 let index = 0
+
 const el = document.getElementById("carousel")
 
 setInterval(()=>{
+
 index = (index + 1) % messages.length
 
 el.style.opacity = 0
 
 setTimeout(()=>{
+
 el.innerText = messages[index]
 el.style.opacity = 1
+
 },300)
 
 },3000)
 
-// PARTICLES
-const hole = document.getElementById("blackhole")
-
-function createParticle(){
-  const p = document.createElement("div")
-  p.className = "particle"
-  p.style.left = Math.random()*120 + "px"
-  p.style.top = Math.random()*120 + "px"
-  p.style.animationDuration = (2 + Math.random()*2) + "s"
-  hole.appendChild(p)
-  setTimeout(()=>p.remove(),3000)
-}
-
-setInterval(createParticle, 150)
-
 // SHARE
 function shareApp(){
+
 if(navigator.share){
+
 navigator.share({
-title:"Cipher OS",
-text:"Check out Cipher OS — a new cognitive AI system",
+
+title:"Cipher CTS",
+text:"Check out Cipher CTS — a new cognitive AI system",
 url:window.location.href
+
 })
+
 }else{
-alert("Sharing not supported")
+
+alert("Sharing not supported on this device")
+
 }
+
 }
 
 </script>
