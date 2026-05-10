@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cipher CTS | Founding Node</title>
-    
+    <title>Cipher CTS | Secure Your Node</title>
     <script src="https://js.stripe.com/v3/"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
 
@@ -13,187 +12,134 @@
         body {
             font-family: 'Orbitron', sans-serif;
             color: white;
-            min-height: 100vh;
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
-            flex-direction: column;
-            padding: 70px 20px 60px;
-            overflow-x: hidden;
-            background: linear-gradient(rgba(3,3,10,0.85), rgba(3,3,10,0.92)), url("/images/cipher-cts-bg.png");
-            background-size: cover;
-            background-position: center;
             background-color: #02030a;
             text-align: center;
+            overflow-x: hidden;
+            line-height: 1.6;
         }
 
-        .container { width: 100%; max-width: 500px; }
-
-        .subtitle {
-            font-size: 14px;
-            letter-spacing: 4px;
-            color: #8b66ff;
-            margin-top: 50px;
-            margin-bottom: 20px;
-            font-weight: 700;
+        /* BACKGROUND OVERLAY */
+        .bg-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(3,3,10,0.9), rgba(3,3,10,0.95)), url("/images/cipher-cts-bg.png");
+            background-size: cover;
+            background-position: center;
+            z-index: -1;
         }
 
-        #comingSoon {
-            font-size: 48px;
-            font-weight: 700;
-            letter-spacing: 4px;
-            color: #ffffff;
-            line-height: 1.1;
-            text-shadow: 0 0 15px rgba(164,130,255,0.6);
-            margin-bottom: 30px;
+        .container { width: 100%; max-width: 600px; margin: 0 auto; padding: 60px 20px; }
+
+        /* LOGO AREA */
+        .logo-wrap { margin-bottom: 40px; }
+        .logo-img { width: 220px; filter: drop-shadow(0 0 10px rgba(139, 102, 255, 0.4)); }
+
+        .subtitle { font-size: 12px; letter-spacing: 4px; color: #8b66ff; margin-bottom: 10px; font-weight: 700; }
+        h1 { font-size: 42px; letter-spacing: 2px; margin-bottom: 20px; text-shadow: 0 0 15px rgba(164,130,255,0.6); }
+
+        /* URGENCY BAR */
+        .node-counter {
+            background: rgba(255, 0, 0, 0.15);
+            border: 1px solid rgba(255, 0, 0, 0.4);
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 13px;
+            color: #ff4d4d;
+            display: inline-block;
+            margin-bottom: 40px;
+            letter-spacing: 1px;
         }
 
-        #carousel {
-            width: 100%;
-            padding: 28px 24px;
-            border-radius: 24px;
+        /* PRODUCT CARDS */
+        .info-card {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(140, 120, 255, 0.2);
             backdrop-filter: blur(15px);
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 40px;
-            min-height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .node-counter {
-            background: rgba(255, 0, 0, 0.1);
-            border: 1px solid rgba(255, 0, 0, 0.3);
-            padding: 10px 20px;
-            border-radius: 50px;
-            font-size: 12px;
-            color: #ff4d4d;
+            padding: 30px;
+            border-radius: 24px;
             margin-bottom: 30px;
-            display: inline-block;
-            text-transform: uppercase;
-            letter-spacing: 2px;
+            text-align: left;
         }
+        .info-card h3 { color: #8b66ff; margin-bottom: 15px; font-size: 18px; }
+        .info-card p { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 10px; }
+        .info-card ul { list-style: none; font-size: 13px; color: rgba(255,255,255,0.6); }
+        .info-card li { margin-bottom: 8px; padding-left: 15px; position: relative; }
+        .info-card li::before { content: '◈'; position: absolute; left: 0; color: #8b66ff; }
 
-        .inputRow { width: 100%; display: flex; flex-direction: column; gap: 15px; }
-
+        /* CALL TO ACTION */
+        .cta-section { margin-top: 40px; position: sticky; bottom: 20px; z-index: 10; }
         .preOrderBtn {
-            width: 100%;
-            padding: 22px;
-            border: none;
-            border-radius: 15px;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            background: linear-gradient(135deg, #7446ff, #4a1dff);
-            color: white;
-            box-shadow: 0 10px 30px rgba(74, 29, 255, 0.4);
-            transition: 0.3s;
+            width: 100%; padding: 24px; border: none; border-radius: 20px;
+            font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700;
+            background: linear-gradient(135deg, #7446ff, #4a1dff); color: white;
+            box-shadow: 0 10px 40px rgba(74, 29, 255, 0.5); cursor: pointer; transition: 0.3s;
         }
+        .preOrderBtn:hover { transform: translateY(-3px); filter: brightness(1.1); }
 
-        .preOrderBtn:hover { transform: scale(1.02); filter: brightness(1.1); }
+        .price-tag { font-size: 14px; color: #8b66ff; margin-top: 10px; font-weight: 700; }
+        .legal-note { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 25px; }
 
-        #shareBtn {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.1);
-            color: rgba(255,255,255,0.5);
-            margin-top: 20px;
-            font-size: 14px;
-            padding: 15px;
-            border-radius: 15px;
-            cursor: pointer;
-            width: 100%;
-        }
-
-        .legal-note {
-            font-size: 11px;
-            color: rgba(255,255,255,0.4);
-            margin-top: 20px;
-            line-height: 1.4;
+        @media(max-width: 600px) {
+            h1 { font-size: 32px; }
+            .logo-img { width: 180px; }
         }
     </style>
 </head>
-
 <body>
+    <div class="bg-overlay"></div>
+
     <div class="container">
-        <div class="subtitle">PRIVATE TERNARY SUBSTRATE</div>
-        
-        <div id="comingSoon">CIPHER CTS</div>
+        <div class="logo-wrap">
+            <img src="/images/cipher-cts-logo.png" alt="Cipher CTS" class="logo-img">
+        </div>
+
+        <div class="subtitle">THE COGNITIVE OPERATING SYSTEM</div>
+        <h1>COMING ONLINE</h1>
 
         <div class="node-counter">
             <span id="nodes-left">84</span> / 100 FOUNDING NODES REMAINING
         </div>
 
-        <div id="carousel">
-            Securing the world's first decentralized cognitive OS.
+        <div class="info-card">
+            <h3>THE ANVIL: CIPHER BOX v1</h3>
+            <p>Your private hardware gateway to the ternary mesh. No cloud. No leaks.</p>
+            <ul>
+                <li>Optimized for BitNet 1B Ternary Inference</li>
+                <li>Unhackable local-first storage (P2P Substrate)</li>
+                <li>High-tech Glass-morphic casing</li>
+                <li>Low-latency ShopStream encoding</li>
+            </ul>
         </div>
 
-        <div class="inputRow">
+        <div class="info-card">
+            <h3>FOUNDER PRIVILEGES</h3>
+            <p>Reserved strictly for the first 100 Node Operators.</p>
+            <ul>
+                <li><strong>0% Transaction Fees</strong> on ShopStream for life</li>
+                <li>Priority Network Routing for all P2P tasks</li>
+                <li>Exclusive "Founding Node" Digital Badge</li>
+                <li>Direct access to the Cipher Core troubleshooting engine</li>
+            </ul>
+        </div>
+
+        <div class="cta-section">
             <button class="preOrderBtn" onclick="preOrder()">
-                RESERVE FOUNDING NODE
+                SECURE MY FOUNDING NODE
             </button>
-            <p style="font-size: 12px; color: #8b66ff; margin-top: 5px;">$999 - One-Time Payment | 0% Fees for Life</p>
+            <div class="price-tag">$999 | One-Time Payment</div>
         </div>
-
-        <button id="shareBtn" onclick="shareApp()">
-            Deploy to Network (Share)
-        </button>
 
         <div class="legal-note">
-            Founding Nodes include the physical Cipher Box (Mini-PC) optimized for BitNet 1B. <br>
-            Estimated Shipping: July 2026. Local-first, Unhackable, Zero-Cloud.
+            Pre-order funds the final hardware production. <br>
+            Ships July 2026. Managed via unhackable P2P ledger.
         </div>
     </div>
 
     <script>
-        // STRIPE LOGIC
-        const stripe = Stripe('your_publishable_key_here'); // REPLACEME with your Stripe Key
-
-        async function preOrder() {
-            // In a real build, this hits your Next.js API route to create a session
-            // For now, we point to your Stripe Checkout URL or trigger the API
-            console.log("Redirecting to Stripe...");
-            
-            // NOTE: You will need to create a 'One-Time' product in Stripe for $999
-            // Then trigger your backend API here to get the sessionID
-            alert("Redirecting to Secure Payment Portal...");
-            
-            // window.location.href = "YOUR_STRIPE_CHECKOUT_URL";
-        }
-
-        // CAROUSEL MESSAGES
-        const messages = [
-            "0% Transaction Fees for Box Owners.",
-            "Unhackable. Local-First. No Cloud.",
-            "The Anvil for your Intelligence.",
-            "Powered by BitNet 1B Ternary Logic.",
-            "Private AI for Law, Trade, and Tech.",
-            "Own the Substrate. Own the Future."
-        ];
-
-        let index = 0;
-        const el = document.getElementById("carousel");
-
-        setInterval(() => {
-            index = (index + 1) % messages.length;
-            el.style.opacity = 0;
-            setTimeout(() => {
-                el.innerText = messages[index];
-                el.style.opacity = 1;
-            }, 300);
-        }, 4000);
-
-        function shareApp() {
-            if (navigator.share) {
-                navigator.share({
-                    title: "Cipher CTS",
-                    text: "Own your AI. Reserve a Cipher Founding Node.",
-                    url: window.location.href
-                });
-            }
+        function preOrder() {
+            // Direct link to your Stripe Checkout for the $999 product
+            alert("Redirecting to your secure payment vault...");
+            // window.location.href = "YOUR_STRIPE_URL_HERE";
         }
     </script>
 </body>
