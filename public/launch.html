@@ -158,6 +158,32 @@
     </div>
 
     <script>
+// P2P SUBSTRATE INITIALIZATION
+let cipherNode = null;
+
+async function initMesh() {
+    try {
+        // This targets the OrbitDB/IPFS logic in your package.json
+        const ipfs = await window.IpfsCore.create({ repo: 'cipher-mesh-ledger' });
+        const orbitdb = await window.OrbitDB.createInstance(ipfs);
+        
+        // Connect to the Founding Node Ledger
+        cipherNode = await orbitdb.docs('cipher-founding-100');
+        await cipherNode.load();
+        
+        console.log("Cipher Mesh Active.");
+        document.getElementById('mesh-status').innerText = "MESH ACTIVE";
+        document.getElementById('mesh-status').style.color = "#00ffcc";
+    } catch (e) {
+        console.error("Mesh Offline:", e);
+        document.getElementById('mesh-status').innerText = "MESH OFFLINE - LOCAL MODE";
+    }
+}
+
+// Initialize mesh when page loads
+window.addEventListener('DOMContentLoaded', initMesh);
+
+        
         function preOrder() {
             alert("Redirecting to secure Stripe portal for Founding Node reservation...");
             // window.location.href = "YOUR_STRIPE_CHECKOUT_URL";
