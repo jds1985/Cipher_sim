@@ -23,7 +23,7 @@ export default async function handler(req, res) {
         },
       ],
 
-      success_url: `${req.headers.origin}/success`,
+      success_url: `${req.headers.origin}/success.html`,
       cancel_url: `${req.headers.origin}`,
     });
 
