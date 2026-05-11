@@ -209,10 +209,31 @@ async function initMesh() {
 window.addEventListener('DOMContentLoaded', initMesh);
 
         
-        function preOrder() {
-            alert("Redirecting to secure Stripe portal for Founding Node reservation...");
-            // window.location.href = "YOUR_STRIPE_CHECKOUT_URL";
+        async function preOrder() {
+
+    try {
+
+        const response = await fetch('/api/create-checkout-session', {
+            method: 'POST',
+        });
+
+        const data = await response.json();
+
+        if (data.url) {
+
+            window.location.href = data.url;
+
+        } else {
+
+            console.log(data);
+            alert("Stripe session failed.");
+
         }
-    </script>
-</body>
-</html>
+
+    } catch (err) {
+
+        console.error(err);
+        alert("Checkout failed.");
+
+    }
+}
