@@ -165,10 +165,35 @@
 
     <script>
 
-function preOrder() {
-    alert("BUTTON WORKS");
-}
 
-</script>
+        async function preOrder() {
+
+    try {
+
+        const response = await fetch('/api/create-checkout-session', {
+            method: 'POST',
+        });
+
+        const data = await response.json();
+
+        if (data.url) {
+
+            window.location.href = data.url;
+
+        } else {
+
+            console.log(data);
+            alert("Stripe session failed.");
+
+        }
+
+    } catch (err) {
+
+        console.error(err);
+        alert("Checkout failed.");
+
+    }
+}
+        /script>
 </body>
 </html>
