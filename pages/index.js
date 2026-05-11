@@ -29,11 +29,14 @@ export default function Home() {
 
   if (!ready) return null;
 
-  if (!entered) {
-    return <EntryScreen onEnter={handleEnter} loading={loading} />;
-  }
-
-  return (
+  if (
+  !entered &&
+  typeof window !== "undefined" &&
+  window.location.pathname !== "/success.html"
+) {
+  return <EntryScreen onEnter={handleEnter} loading={loading} />;
+}
+return (
     <div
       style={{
         height: "100vh",
