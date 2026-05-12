@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cipher CTS | Your Sovereign AI</title>
     <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://unpkg.com/ipfs-core/dist/index.min.js"></script>
+    <script src="https://unpkg.com/orbit-db/dist/orbitdb.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
 
     <style>
@@ -104,7 +106,47 @@
         <div class="tagline">THE COGNITIVE OPERATING SYSTEM</div>
         <div style="font-size: 10px; color: #00ffcc; letter-spacing: 2px; margin-bottom: 30px; display: flex; align-items: center; justify-content: center; gap: 8px;">
     <div style="width: 6px; height: 6px; background: #00ffcc; border-radius: 50%; box-shadow: 0 0 8px #00ffcc;"></div> 
-    <span id="mesh-status">MESH INITIALIZING...</span>
+    <div 
+    id="mesh-indicator"
+    style="
+        font-size: 10px;
+        color: #00ffcc;
+        letter-spacing: 2px;
+        margin-bottom: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    "
+>
+    <div 
+        id="mesh-dot"
+        style="
+            width: 6px;
+            height: 6px;
+            background: #ffaa00;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #ffaa00;
+        "
+    ></div>
+
+    <span id="mesh-status">
+        MESH INITIALIZING...
+    </span>
+</div>
+
+<div
+    id="peer-count"
+    style="
+        font-size: 11px;
+        color: rgba(255,255,255,0.55);
+        margin-top: -18px;
+        margin-bottom: 28px;
+        letter-spacing: 1px;
+    "
+>
+    PEERS: 0
+</div>
 </div>
 
         <h1>COMING JULY 2026</h1>
@@ -165,8 +207,81 @@
 
     <script>
 
+let ipfsNode = null;
+let orbit = null;
+let meshDb = null;
 
-        async function preOrder() {
+async function initMesh() {
+
+    const meshStatus = document.getElementById("mesh-status");
+    const meshDot = document.getElementById("mesh-dot");
+    const peerCount = document.getElementById("peer-count");
+
+    try {
+
+        meshStatus.innerText = "CONNECTING TO MESH...";
+
+        ipfsNode = await window.IpfsCore.create({
+
+            repo: "cipher-cts-" + Math.random(),
+
+            config: {
+                Addresses: {
+                    Swarm: [
+                        "/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star",
+                        "/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star"
+                    ]
+                }
+            }
+        });
+
+        orbit = await window.OrbitDB.createInstance(ipfsNode);
+
+        meshDb = await orbit.log("cipher-cts-mesh");
+
+        await meshDb.load();
+
+        meshStatus.innerText = "MESH CONNECTED";
+        meshDot.style.background = "#00ffcc";
+        meshDot.style.boxShadow = "0 0 12px #00ffcc";
+
+        setInterval(async () => {
+
+            try {
+
+                const peers = await ipfsNode.swarm.peers();
+
+                peerCount.innerText = `PEERS: ${peers.length}`;
+
+                if (peers.length > 0) {
+
+                    meshStatus.innerText =
+                        `MESH ACTIVE`;
+
+                }
+
+            } catch (e) {
+                console.log(e);
+            }
+
+        }, 3000);
+
+        console.log("Cipher Mesh Online");
+
+    } catch (err) {
+
+        console.error(err);
+
+        meshStatus.innerText = "MESH OFFLINE";
+        meshDot.style.background = "#ff4444";
+        meshDot.style.boxShadow = "0 0 12px #ff4444";
+
+    }
+}
+
+window.addEventListener("DOMContentLoaded", initMesh);
+
+async function preOrder() {
 
     try {
 
@@ -194,7 +309,8 @@
 
     }
 }
-    
+
 </script>
+
 </body>
 </html>
