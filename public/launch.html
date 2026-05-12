@@ -397,9 +397,8 @@ async function initMesh() {
         const libp2p = await createLibp2p({
 
             transports: [
-                webSockets(),
-                webRTC()
-            ],
+             webSockets()
+          ],
 
             connectionEncryption: [
                 noise()
