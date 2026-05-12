@@ -24,8 +24,13 @@
     "stripe": "18.1.1",
     "three": "0.155.0",
     "react-force-graph-3d": "latest",
-    "ipfs": "0.63.5",
-    "ipfs-core": "0.17.0",
-    "orbit-db": "0.28.7"
+    "helia": "^4.2.5",
+    "@helia/unixfs": "^3.0.0",
+    "libp2p": "^2.0.0",
+    "@libp2p/websockets": "^9.0.0",
+    "@libp2p/webrtc": "^4.0.0",
+    "@chainsafe/libp2p-noise": "^15.0.0",
+    "@libp2p/mplex": "^10.0.0",
+    "@libp2p/bootstrap": "^10.0.0"
   }
 }
