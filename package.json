@@ -24,7 +24,8 @@
     "stripe": "18.1.1",
     "three": "0.155.0",
     "react-force-graph-3d": "latest",
-    "ipfs-core": "0.18.0",
-    "orbit-db": "0.29.0"
+    "ipfs": "0.63.5",
+    "ipfs-core": "0.17.0",
+    "orbit-db": "0.28.7"
   }
 }
