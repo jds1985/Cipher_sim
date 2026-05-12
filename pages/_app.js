@@ -21,7 +21,7 @@ export default function MyApp({ Component, pageProps }) {
       const hasAccess = localStorage.getItem("cipher_dev_access") === "granted";
       const allowedPages = [
   "/launch.html",
-  "/success.html"
+  "/success"
 ];
 
 const isAllowedPage =
