@@ -345,6 +345,38 @@
 
 </div>
 
+    <script>
+
+async function preOrder() {
+
+    try {
+
+        const response = await fetch('/api/stripe/create-checkout-session', {
+            method: 'POST',
+        });
+
+        const data = await response.json();
+
+        if (data.url) {
+
+            window.location.href = data.url;
+
+        } else {
+
+            console.log(data);
+            alert("Stripe session failed.");
+
+        }
+
+    } catch (err) {
+
+        console.error(err);
+        alert("Checkout failed.");
+
+    }
+}
+
+</script>
 <script type="module">
 
 import { createHelia } from 'https://esm.sh/helia'
@@ -433,28 +465,9 @@ async function initMesh() {
     }
 }
 
-window.preOrder = async function () {
 
-    try {
-
-        const response = await fetch('/api/stripe/create-checkout-session', {
-            method: 'POST',
-        });
-
-        const data = await response.json();
-
-        if (data.url) {
-
-            window.location.href = data.url;
-
-        } else {
-
-            console.log(data);
-            alert("Stripe session failed.");
-
-        }
-
-    } catch (err) {
+    
+        (err) {
 
         console.error(err);
         alert("Checkout failed.");
