@@ -205,112 +205,77 @@
         </p>
     </div>
 
-    <script>
+      <script type="module">
 
-let ipfsNode = null;
-let orbit = null;
-let meshDb = null;
+import { createHelia } from 'https://esm.sh/helia'
+import { unixfs } from 'https://esm.sh/@helia/unixfs'
+import { createLibp2p } from 'https://esm.sh/libp2p'
+import { webSockets } from 'https://esm.sh/@libp2p/websockets'
+import { webRTC } from 'https://esm.sh/@libp2p/webrtc'
+import { noise } from 'https://esm.sh/@chainsafe/libp2p-noise'
+import { mplex } from 'https://esm.sh/@libp2p/mplex'
+import { bootstrap } from 'https://esm.sh/@libp2p/bootstrap'
+
+let helia = null;
 
 async function initMesh() {
 
-    const meshStatus = document.getElementById("mesh-status");
-    const meshDot = document.getElementById("mesh-dot");
-    const peerCount = document.getElementById("peer-count");
-
     try {
 
-        meshStatus.innerText = "CONNECTING TO MESH...";
+        const libp2p = await createLibp2p({
+            transports: [
+                webSockets(),
+                webRTC()
+            ],
 
-        ipfsNode = await window.IpfsCore.create({
+            connectionEncryption: [noise()],
 
-            repo: "cipher-cts-" + Math.random(),
+            streamMuxers: [mplex()],
 
-            config: {
-                Addresses: {
-                    Swarm: [
-                        "/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star",
-                        "/dns4/wrtc-star2.sjc.dwebops.pub/tcp/443/wss/p2p-webrtc-star"
+            peerDiscovery: [
+                bootstrap({
+                    list: [
+                        '/dnsaddr/bootstrap.libp2p.io/p2p/12D3KooWJ6gL6z7uRkJrVN6a8GN28AL5soMgqd7qV3CyMfCVxYv3'
                     ]
-                }
-            }
+                })
+            ]
         });
 
-        orbit = await window.OrbitDB.createInstance(ipfsNode);
+        helia = await createHelia({
+            libp2p
+        });
 
-        meshDb = await orbit.log("cipher-cts-mesh");
+        const fs = unixfs(helia);
 
-        await meshDb.load();
+        document.getElementById('mesh-status').innerText = 'MESH ACTIVE';
+        document.getElementById('mesh-status').style.color = '#00ffcc';
 
-        meshStatus.innerText = "MESH CONNECTED";
-        meshDot.style.background = "#00ffcc";
-        meshDot.style.boxShadow = "0 0 12px #00ffcc";
+        console.log('Cipher Mesh Active');
 
-        setInterval(async () => {
+        setInterval(() => {
 
-            try {
+            const peers = helia.libp2p.getPeers();
 
-                const peers = await ipfsNode.swarm.peers();
+            document.getElementById('peer-count').innerText =
+                `PEERS: ${peers.length}`;
 
-                peerCount.innerText = `PEERS: ${peers.length}`;
-
-                if (peers.length > 0) {
-
-                    meshStatus.innerText =
-                        `MESH ACTIVE`;
-
-                }
-
-            } catch (e) {
-                console.log(e);
-            }
-
-        }, 3000);
-
-        console.log("Cipher Mesh Online");
+        }, 2000);
 
     } catch (err) {
 
         console.error(err);
 
-        meshStatus.innerText = "MESH OFFLINE";
-        meshDot.style.background = "#ff4444";
-        meshDot.style.boxShadow = "0 0 12px #ff4444";
+        document.getElementById('mesh-status').innerText =
+            'MESH OFFLINE';
 
+        document.getElementById('mesh-status').style.color =
+            '#ff4d4d';
     }
 }
 
-window.addEventListener("DOMContentLoaded", initMesh);
+window.addEventListener('DOMContentLoaded', initMesh);
 
-async function preOrder() {
-
-    try {
-
-        const response = await fetch('/api/stripe/create-checkout-session', {
-            method: 'POST',
-        });
-
-        const data = await response.json();
-
-        if (data.url) {
-
-            window.location.href = data.url;
-
-        } else {
-
-            console.log(data);
-            alert("Stripe session failed.");
-
-        }
-
-    } catch (err) {
-
-        console.error(err);
-        alert("Checkout failed.");
-
-    }
-}
-
-</script>
-
-</body>
+</script> 
+        
+        </body>
 </html>
