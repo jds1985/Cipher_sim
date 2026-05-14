@@ -97,6 +97,7 @@
         0 0 60px rgba(139, 102, 255, 0.08);
     overflow: hidden;
     display: block;
+    grid-column: span 2;   
 }
         
         .feature-grid {
@@ -184,7 +185,10 @@
 
         @media(max-width: 600px) {
             .feature-grid {
-                grid-template-columns: 1fr;
+            grid-template-columns: 1fr;
+            .section-image {
+            grid-column: span 1;
+}
             }
 
             h1 {
@@ -279,6 +283,12 @@
             <strong>Eco-Engineered</strong>
             80% less energy consumption than standard binary AI models.
         </div>
+
+         <img
+    src="/images/eco-engineered.png"
+    alt="Eco Engineered"
+    class="section-image"
+/>
 
         <div class="feature">
             <strong>Unblockable</strong>
