@@ -20,9 +20,11 @@ export default function MyApp({ Component, pageProps }) {
       // 🔐 LOCK SYSTEM
       const hasAccess = localStorage.getItem("cipher_dev_access") === "granted";
       const allowedPages = [
-  "/launch.html",
-  "/success"
+      "/launch.html",
+     "/recruit.html",
+    "/success"
 ];
+
 
 const isAllowedPage =
   allowedPages.includes(window.location.pathname);
