@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>Cipher CTS | Deployment Network</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:'Orbitron',sans-serif;
+    background:#02030a;
+    color:white;
+    overflow-x:hidden;
+}
+
+.bg{
+    position:fixed;
+    inset:0;
+    background:
+        linear-gradient(rgba(0,0,0,0.88),rgba(0,0,0,0.94)),
+        url('/images/cipher-cts-bg.png');
+    background-size:cover;
+    background-position:center;
+    z-index:-1;
+}
+
+.container{
+    width:100%;
+    max-width:700px;
+    margin:auto;
+    padding:40px 20px 80px;
+}
+
+.hero{
+    margin-bottom:35px;
+}
+
+.hero img{
+    width:100%;
+    border-radius:28px;
+    border:1px solid rgba(0,255,255,0.15);
+    box-shadow:
+        0 0 40px rgba(0,255,255,0.08),
+        0 0 100px rgba(128,0,255,0.08);
+}
+
+.title{
+    text-align:center;
+    margin-top:30px;
+    margin-bottom:10px;
+    font-size:40px;
+    letter-spacing:4px;
+}
+
+.subtitle{
+    text-align:center;
+    color:#00ffd5;
+    letter-spacing:3px;
+    font-size:13px;
+    margin-bottom:45px;
+}
+
+.card{
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:28px;
+    padding:30px;
+    margin-bottom:30px;
+    backdrop-filter:blur(12px);
+}
+
+.card h2{
+    font-size:28px;
+    margin-bottom:20px;
+}
+
+.card p{
+    color:rgba(255,255,255,0.85);
+    line-height:1.9;
+    margin-bottom:18px;
+    font-size:14px;
+}
+
+.highlight{
+    color:#00ffd5;
+}
+
+.role-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+    margin-top:25px;
+}
+
+.role-box{
+    background:rgba(0,255,213,0.05);
+    border:1px solid rgba(0,255,213,0.15);
+    border-radius:18px;
+    padding:18px;
+    text-align:center;
+    font-size:13px;
+}
+
+.role-box strong{
+    display:block;
+    margin-bottom:8px;
+    color:#00ffd5;
+}
+
+form{
+    margin-top:25px;
+}
+
+input,
+textarea{
+    width:100%;
+    margin-bottom:18px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:16px;
+    padding:18px;
+    color:white;
+    font-family:'Orbitron',sans-serif;
+    font-size:13px;
+}
+
+textarea{
+    min-height:160px;
+    resize:vertical;
+}
+
+input::placeholder,
+textarea::placeholder{
+    color:rgba(255,255,255,0.4);
+}
+
+button{
+    width:100%;
+    padding:22px;
+    border:none;
+    border-radius:18px;
+    background:linear-gradient(135deg,#00cfff,#00ffb7);
+    color:black;
+    font-family:'Orbitron',sans-serif;
+    font-size:18px;
+    font-weight:700;
+    cursor:pointer;
+    transition:0.3s;
+    box-shadow:0 0 35px rgba(0,255,213,0.25);
+}
+
+button:hover{
+    transform:translateY(-2px);
+}
+
+.footer{
+    text-align:center;
+    color:rgba(255,255,255,0.4);
+    font-size:11px;
+    margin-top:35px;
+    line-height:1.8;
+}
+
+@media(max-width:600px){
+
+    .title{
+        font-size:30px;
+    }
+
+    .role-grid{
+        grid-template-columns:1fr;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="bg"></div>
+
+<div class="container">
+
+    <div class="hero">
+        <img src="/images/deployment-network.png" alt="Deployment Network">
+    </div>
+
+    <div class="title">
+        JOIN THE DEPLOYMENT NETWORK
+    </div>
+
+    <div class="subtitle">
+        REGIONAL OPERATOR RECRUITMENT
+    </div>
+
+    <div class="card">
+
+        <h2>Summer Deployment Program</h2>
+
+        <p>
+            Cipher CTS is recruiting ambitious students, tech enthusiasts,
+            and early operators around the Knoxville region to help deploy
+            the Cipher Box and expand the Cipher CTS substrate network.
+        </p>
+
+        <p>
+            This is a <span class="highlight">commission-based opportunity</span>
+            focused on helping local businesses, hotels, campuses,
+            and organizations onboard into the Cipher CTS ecosystem.
+        </p>
+
+        <p>
+            Strong performers may be offered future permanent positions
+            within Cipher CTS as the network expands.
+        </p>
+
+        <div class="role-grid">
+
+            <div class="role-box">
+                <strong>Deployment</strong>
+                Help onboard businesses and install nodes.
+            </div>
+
+            <div class="role-box">
+                <strong>Networking</strong>
+                Build local relationships and partnerships.
+            </div>
+
+            <div class="role-box">
+                <strong>Sales</strong>
+                Earn commissions from successful deployments.
+            </div>
+
+            <div class="role-box">
+                <strong>Growth</strong>
+                Potential long-term role within Cipher CTS.
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="card">
+
+        <h2>Application Form</h2>
+
+        <form id="recruitForm">
+
+            <input
+                type="text"
+                name="name"
+                placeholder="Full Name"
+                required
+            >
+
+            <input
+                type="email"
+                name="email"
+                placeholder="Email Address"
+                required
+            >
+
+            <input
+                type="text"
+                name="location"
+                placeholder="City / Area Near Knoxville"
+                required
+            >
+
+            <input
+                type="text"
+                name="background"
+                placeholder="Tech / Sales / Student Background"
+                required
+            >
+
+            <textarea
+                name="message"
+                placeholder="Why would you be a perfect fit for Cipher CTS?"
+                required
+            ></textarea>
+
+            <button type="submit">
+                SUBMIT APPLICATION
+            </button>
+
+        </form>
+
+    </div>
+
+    <div class="footer">
+        Cipher CTS Deployment Network • Knoxville Tennessee Region
+        <br>
+        Local-first infrastructure. Real-world expansion.
+    </div>
+
+</div>
+
+<script>
+
+document
+.getElementById('recruitForm')
+.addEventListener('submit', async (e) => {
+
+    e.preventDefault();
+
+    const form = e.target;
+
+    const payload = {
+        name: form.name.value,
+        email: form.email.value,
+        location: form.location.value,
+        background: form.background.value,
+        message: form.message.value
+    };
+
+    try {
+
+        const res = await fetch('/api/recruit', {
+
+            method:'POST',
+
+            headers:{
+                'Content-Type':'application/json'
+            },
+
+            body:JSON.stringify(payload)
+
+        });
+
+        const data = await res.json();
+
+        if(data.success){
+
+            alert('Application submitted successfully.');
+
+            form.reset();
+
+        } else {
+
+            alert('Submission failed.');
+
+        }
+
+    } catch(err){
+
+        console.error(err);
+
+        alert('Server error.');
+
+    }
+
+});
+
+</script>
+
+</body>
+</html>
