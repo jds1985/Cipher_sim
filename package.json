@@ -32,5 +32,6 @@
     "@chainsafe/libp2p-noise": "^15.0.0",
     "@libp2p/mplex": "^10.0.0",
     "@libp2p/bootstrap": "^10.0.0"
+    "resend": "^4.0.0",
   }
 }
