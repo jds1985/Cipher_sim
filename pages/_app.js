@@ -18,28 +18,28 @@ export default function MyApp({ Component, pageProps }) {
     if (typeof window !== "undefined") {
 
       // 🔐 LOCK SYSTEM
+      const hasAccess = localStorage.getItem("cipher_dev_access") === "granted";
+
+      const allowedPages = [
+        "/",
+        "/launch",
+        "/launch.html",
+        "/recruit",
+        "/recruit.html",
+        "/success"
+      ];
+
       const currentPath = window.location.pathname.toLowerCase();
+
       const isAllowedPage = allowedPages.some(
-      page => currentPath === page
-   );
-    "/",
-    "/launch",
-    "/launch.html",
-    "/recruit",
-    "/recruit.html",
-    "/success"
-];
-
-
-const isAllowedPage =
-  allowedPages.includes(window.location.pathname);
-    
+        page => currentPath === page
+      );
 
       if (!hasAccess && !isAllowedPage) {
         window.location.href = "/launch.html";
         return;
       }
-
+      
       // existing logic
       const hasEntered = localStorage.getItem("cipher_entered");
       if (hasEntered) setEntered(true);
