@@ -351,15 +351,32 @@ document
 
         if(data.success){
 
-            alert('Application submitted successfully.');
+    const button = form.querySelector('button');
 
-            form.reset();
+    button.innerText = 'APPLICATION TRANSMITTED';
 
-        } else {
+    button.style.background =
+        'linear-gradient(135deg,#00ffb7,#00ffd5)';
 
-            alert('Submission failed.');
+    button.style.color = '#02120f';
 
-        }
+    button.style.boxShadow =
+        '0 0 45px rgba(0,255,183,0.45)';
+
+    button.disabled = true;
+
+    form.reset();
+
+} else {
+
+    const button = form.querySelector('button');
+
+    button.innerText = 'TRANSMISSION FAILED';
+
+    button.style.background =
+        'linear-gradient(135deg,#ff4d4d,#ff2222)';
+
+}
 
     } catch(err){
 
