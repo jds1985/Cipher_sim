@@ -25,7 +25,8 @@ export default async function handler(req, res) {
         // EMAIL TO YOU
         await resend.emails.send({
 
-            from: 'Cipher CTS Deployment <deploy@ciphercts.com>',
+            from: 'Cipher CTS <team@ciphercts.com>',
+                
 
 
             to: 'jimsaenz72@gmail.com',
