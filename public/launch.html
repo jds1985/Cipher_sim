@@ -153,6 +153,21 @@
             text-align: center;
         }
 
+        .recruit-card {
+    border: 1px solid rgba(0, 255, 200, 0.25);
+    box-shadow:
+        0 0 25px rgba(0, 255, 200, 0.08);
+}
+
+.btn-recruit {
+    background: linear-gradient(135deg, #00c2ff, #00ffcc);
+    color: #02030a;
+    border: none;
+    box-shadow:
+        0 10px 30px rgba(0, 255, 200, 0.2);
+}
+        
+
         .offer-card.premium {
             border-color: #ff4d4d;
             box-shadow: 0 0 20px rgba(255, 77, 77, 0.15);
@@ -395,8 +410,37 @@
             </span>
 
         </div>
+      </div>
 
-    </div>
+      <div class="offer-card recruit-card">
+
+    <h3>BUILD WITH US</h3>
+
+    <p style="font-size: 13px;">
+        We're recruiting developers, engineers, students,
+        designers, and early operators to help build the
+        Cipher CTS network.
+    </p>
+
+    <button
+        class="btn btn-recruit"
+        onclick="window.location.href='/recruit.html'"
+    >
+        JOIN THE NETWORK
+    </button>
+
+    <span style="
+        font-size: 11px;
+        color: rgba(255,255,255,0.45);
+        margin-top: 12px;
+        display: block;
+    ">
+        Early contributors may receive priority access,
+        founding status, and future network incentives.
+    </span>
+
+</div>
+    
 
     <p style="
         font-size: 11px;
