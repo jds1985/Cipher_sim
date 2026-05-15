@@ -22,6 +22,7 @@ export default async function handler(req, res) {
             message
         } = req.body;
 
+        // EMAIL TO YOU
         await resend.emails.send({
 
             from: 'Cipher CTS <onboarding@resend.dev>',
@@ -66,6 +67,75 @@ export default async function handler(req, res) {
                         line-height:1.8;
                     ">
                         ${message}
+                    </div>
+
+                </div>
+
+            `
+
+        });
+
+        // CONFIRMATION EMAIL TO APPLICANT
+        await resend.emails.send({
+
+            from: 'Cipher CTS <onboarding@resend.dev>',
+
+            to: email,
+
+            subject: 'Cipher CTS Deployment Network',
+
+            html: `
+
+                <div style="
+                    background:#05060a;
+                    color:white;
+                    padding:40px;
+                    font-family:Arial;
+                ">
+
+                    <h1 style="
+                        color:#00ffd5;
+                        margin-bottom:20px;
+                    ">
+                        APPLICATION RECEIVED
+                    </h1>
+
+                    <p style="
+                        line-height:1.8;
+                        color:rgba(255,255,255,0.82);
+                    ">
+                        Your Cipher CTS Deployment Network
+                        application has been successfully transmitted.
+                    </p>
+
+                    <p style="
+                        line-height:1.8;
+                        color:rgba(255,255,255,0.82);
+                    ">
+                        We are currently reviewing regional operators
+                        for Knoxville and surrounding deployment zones.
+                    </p>
+
+                    <div style="
+                        margin-top:30px;
+                        padding:20px;
+                        border:1px solid rgba(0,255,213,0.15);
+                        border-radius:16px;
+                        background:#0b1018;
+                    ">
+
+                        <strong style="color:#00ffd5;">
+                            STATUS:
+                        </strong>
+
+                        <p style="
+                            margin-top:10px;
+                            color:rgba(255,255,255,0.75);
+                            line-height:1.7;
+                        ">
+                            NODE CANDIDATE REGISTERED
+                        </p>
+
                     </div>
 
                 </div>
