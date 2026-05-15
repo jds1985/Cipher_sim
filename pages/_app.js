@@ -18,10 +18,15 @@ export default function MyApp({ Component, pageProps }) {
     if (typeof window !== "undefined") {
 
       // 🔐 LOCK SYSTEM
-      const hasAccess = localStorage.getItem("cipher_dev_access") === "granted";
-      const allowedPages = [
-      "/launch.html",
-     "/recruit.html",
+      const currentPath = window.location.pathname.toLowerCase();
+      const isAllowedPage = allowedPages.some(
+      page => currentPath === page
+   );
+    "/",
+    "/launch",
+    "/launch.html",
+    "/recruit",
+    "/recruit.html",
     "/success"
 ];
 
