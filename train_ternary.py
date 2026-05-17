@@ -2,18 +2,17 @@ import os
 import json
 import glob
 import torch
-import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from huggingface_hub import HfApi, create_repo
 
-# 1. Custom Dataset that dynamically reads all JSONL files from your folder path
+# 1. Custom Dataset reading your JSONL files from data/training_gold
 class TernaryDataset(Dataset):
     def __init__(self, data_folder, tokenizer, max_length=512):
         self.examples = []
         self.tokenizer = tokenizer
         self.max_length = max_length
 
-        # Find all .jsonl files inside the target folder
         search_path = os.path.join(data_folder, "*.jsonl")
         jsonl_files = sorted(glob.glob(search_path))
 
@@ -23,7 +22,6 @@ class TernaryDataset(Dataset):
 
         print(f"Found {len(jsonl_files)} dataset layers in targeted directory structure.")
         
-        # Parse through each file sequentially
         for file_path in jsonl_files:
             print(f"Loading data matrix from: {os.path.basename(file_path)}")
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -31,7 +29,6 @@ class TernaryDataset(Dataset):
                     if line.strip():
                         try:
                             data = json.loads(line)
-                            # Checks common keys like text or input
                             text = data.get('text', '') or data.get('input', '')
                             if text:
                                 self.examples.append(text)
@@ -57,46 +54,46 @@ class TernaryDataset(Dataset):
             "attention_mask": inputs["attention_mask"].squeeze(0)
         }
 
-# 2. Simple Ternary Weight Quantization Function (BitNet 1.58b Style)
-def quantize_ternary(weight):
-    scale = weight.abs().mean()
-    if scale == 0:
-        return weight
-    quantized = torch.round(weight / scale).clamp(-1, 1)
-    return quantized * scale
-
-# 3. Model Wrapper to enforce ternary scaling during forward pass
-class CipherTernaryLayer(nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super().__init__()
-        self.weight = nn.Parameter(torch.randn(output_dim, input_dim) * 0.02)
-        self.bias = nn.Parameter(torch.zeros(output_dim))
-
-    def forward(self, x):
-        ternary_weight = quantize_ternary(self.weight)
-        return nn.functional.linear(x, ternary_weight, self.bias)
-
-# 4. Main Training Core
+# 2. Main Training Core
 def main():
-    print("Initializing Cipher Substrate Training Pipeline...")
+    print("Initializing Cipher Substrate Gated Training Pipeline...")
     
-    # Configurations
     epochs = 3
-    batch_size = 16
-    learning_rate = 5e-4
+    batch_size = 4  # Balanced batch size for stable VRAM tracking on 8B architectures
+    learning_rate = 2e-5
     
-    # YOUR EXACT REPOSITORY FOLDER PATH
     dataset_folder = "data/training_gold"
     
-    # Initialize tokenizer (using a lightweight base tokenizer for structure)
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    # THE EXACT MODEL FROM YOUR TARGET BLUEPRINT
+    model_id = "HF1BitLLM/Llama3-8B-1.58-100B-tokens" 
+    
+    print(f"Requesting authorization to download foundation weights: {model_id}")
+    
+    try:
+        # Pulling the explicit 1.58-bit Llama-3 base and tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(model_id, use_auth_token=True)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+            
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Loading model architecture onto compute device: {device}")
+        
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id, 
+            use_auth_token=True,
+            torch_dtype=torch.float16,
+            device_map="auto" # Automatically optimizes layers across available GPU resources
+        )
+        
+    except Exception as e:
+        print("\nCRITICAL AUTHENTICATION ERROR:")
+        print("Could not access the repository. Make sure you run 'huggingface-cli login' with a WRITE token first.")
+        print(f"Error Details: {e}")
+        return
 
     # Load Data from directory structure
     if not os.path.exists(dataset_folder):
         print(f"CRITICAL ERROR: Directory path '{dataset_folder}' not found.")
-        print("Please verify the repo cloned completely and the relative folder path is correct.")
         return
         
     dataset = TernaryDataset(dataset_folder, tokenizer)
@@ -105,17 +102,9 @@ def main():
         return
         
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     
-    # Device setup (RunPod GPU optimization)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Running compute on target substrate device: {device}")
-    
-    vocab_size = len(tokenizer)
-    embedding = nn.Embedding(vocab_size, 256).to(device)
-    ternary_engine = CipherTernaryLayer(256, vocab_size).to(device)
-    
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(list(embedding.parameters()) + list(ternary_engine.parameters()), lr=learning_rate)
+    model.train()
     
     # Loop
     for epoch in range(epochs):
@@ -124,15 +113,12 @@ def main():
         
         for batch_idx, batch in enumerate(dataloader):
             input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
             
             optimizer.zero_grad()
             
-            # Forward pass
-            embedded = embedding(input_ids)
-            outputs = ternary_engine(embedded)
-            
-            # Shift targets for next-token prediction language modeling
-            loss = criterion(outputs[:, :-1, :].reshape(-1, vocab_size), input_ids[:, 1:].reshape(-1))
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids)
+            loss = outputs.loss
             
             loss.backward()
             optimizer.step()
@@ -144,10 +130,39 @@ def main():
                 
         print(f"Epoch {epoch + 1} Complete. Average Substrate Loss: {total_loss / len(dataloader):.4f}")
         
-    # Save the baked weights
-    print("\nTraining complete. Archiving ternary brain weights...")
-    torch.save(ternary_engine.state_dict(), "cipher_ternary_weights.pt")
-    print("Weights successfully saved to 'cipher_ternary_weights.pt'. Pipeline secure.")
+    # Save weights locally on the RunPod instance first
+    local_save_dir = "cipher_ternary_weights"
+    print(f"\nTraining complete. Archiving weights locally to '{local_save_dir}'...")
+    model.save_pretrained(local_save_dir)
+    tokenizer.save_pretrained(local_save_dir)
+    print("Local archival complete.")
+
+    # 3. AUTOMATIC PRIVATE HUGGING FACE REPOSITORY UPLOAD
+    print("\nInitializing automated landing pad initialization on Hugging Face...")
+    try:
+        api = HfApi()
+        # Retrieves your Hugging Face username automatically from your active session token
+        user_info = api.whoami()
+        hf_username = user_info['name']
+        
+        destination_repo = f"{hf_username}/cipher-substrate-weights"
+        print(f"Creating secure private storage destination: {destination_repo}")
+        
+        # Create the private repository if it doesn't already exist
+        create_repo(repo_id=destination_repo, repo_type="model", private=True, exist_ok=True)
+        
+        print("Uploading trained substrate payload layers (this may take a few minutes)...")
+        api.upload_folder(
+            folder_path=local_save_dir,
+            repo_id=destination_repo,
+            repo_type="model"
+        )
+        print(f"\n🚀 SUCCESS: Cipher substrate architecture is completely baked and secured at: https://huggingface.co/{destination_repo}")
+        
+    except Exception as e:
+        print("\nWARNING: Local build succeeded, but automated cloud upload failed.")
+        print("Ensure your logged-in token has explicit WRITE access permissions.")
+        print(f"Upload Error Details: {e}")
 
 if __name__ == "__main__":
     main()
