@@ -59,18 +59,18 @@ def main():
     print("Initializing Cipher Substrate Gated Training Pipeline...")
     
     epochs = 3
-    batch_size = 4  # Balanced batch size for stable VRAM tracking on 8B architectures
+    batch_size = 8  # Highly stable batch size optimized for 2B models on RunPod GPU
     learning_rate = 2e-5
     
     dataset_folder = "data/training_gold"
     
-    # THE EXACT MODEL FROM YOUR TARGET BLUEPRINT
-    model_id = "HF1BitLLM/Llama3-8B-1.58-100B-tokens" 
+    # THE EXACT REAL KING MODEL TARGET
+    model_id = "microsoft/bitnet-b1.58-2B-4T-bf16" 
     
-    print(f"Requesting authorization to download foundation weights: {model_id}")
+    print(f"Requesting authorization to download native foundation weights: {model_id}")
     
     try:
-        # Pulling the explicit 1.58-bit Llama-3 base and tokenizer
+        # Pulling the native 1.58-bit Microsoft base and tokenizer
         tokenizer = AutoTokenizer.from_pretrained(model_id, use_auth_token=True)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
@@ -78,11 +78,12 @@ def main():
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Loading model architecture onto compute device: {device}")
         
+        # Pulling the true base architecture
         model = AutoModelForCausalLM.from_pretrained(
             model_id, 
             use_auth_token=True,
-            torch_dtype=torch.float16,
-            device_map="auto" # Automatically optimizes layers across available GPU resources
+            torch_dtype=torch.bfloat16, # Optimized specifically for bf16 gradients as requested
+            device_map="auto"
         )
         
     except Exception as e:
@@ -141,7 +142,6 @@ def main():
     print("\nInitializing automated landing pad initialization on Hugging Face...")
     try:
         api = HfApi()
-        # Retrieves your Hugging Face username automatically from your active session token
         user_info = api.whoami()
         hf_username = user_info['name']
         
