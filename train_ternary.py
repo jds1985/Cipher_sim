@@ -1,25 +1,44 @@
 import os
 import json
+import glob
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 
-# 1. Custom Dataset for your JSONL files
+# 1. Custom Dataset that dynamically reads all JSONL files from your folder path
 class TernaryDataset(Dataset):
-    def __init__(self, data_path, tokenizer, max_length=512):
+    def __init__(self, data_folder, tokenizer, max_length=512):
         self.examples = []
-        with open(data_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                if line.strip():
-                    data = json.loads(line)
-                    # Adjust 'text' if your JSONL key has a different name (e.g., 'input', 'prompt')
-                    text = data.get('text', '') or data.get('input', '')
-                    if text:
-                        self.examples.append(text)
-        
         self.tokenizer = tokenizer
         self.max_length = max_length
+
+        # Find all .jsonl files inside the target folder
+        search_path = os.path.join(data_folder, "*.jsonl")
+        jsonl_files = sorted(glob.glob(search_path))
+
+        if not jsonl_files:
+            print(f"WARNING: No .jsonl files found in path: {data_folder}")
+            return
+
+        print(f"Found {len(jsonl_files)} dataset layers in targeted directory structure.")
+        
+        # Parse through each file sequentially
+        for file_path in jsonl_files:
+            print(f"Loading data matrix from: {os.path.basename(file_path)}")
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            data = json.loads(line)
+                            # Checks common keys like text or input
+                            text = data.get('text', '') or data.get('input', '')
+                            if text:
+                                self.examples.append(text)
+                        except json.JSONDecodeError:
+                            continue
+        
+        print(f"Total dataset initialization complete. Total sequences: {len(self.examples)}")
 
     def __len__(self):
         return len(self.examples)
@@ -33,7 +52,6 @@ class TernaryDataset(Dataset):
             truncation=True,
             return_tensors="pt"
         )
-        # Squeeze to remove batch dimension added by return_tensors
         return {
             "input_ids": inputs["input_ids"].squeeze(0),
             "attention_mask": inputs["attention_mask"].squeeze(0)
@@ -41,16 +59,13 @@ class TernaryDataset(Dataset):
 
 # 2. Simple Ternary Weight Quantization Function (BitNet 1.58b Style)
 def quantize_ternary(weight):
-    """Quantizes weights to -1, 0, or +1 based on scale."""
     scale = weight.abs().mean()
     if scale == 0:
         return weight
-    
-    # Scale, round to nearest integer (-1, 0, 1), and clamp
     quantized = torch.round(weight / scale).clamp(-1, 1)
     return quantized * scale
 
-# 3. Basic Model Wrapper to enforce ternary scaling during forward pass
+# 3. Model Wrapper to enforce ternary scaling during forward pass
 class CipherTernaryLayer(nn.Module):
     def __init__(self, input_dim, output_dim):
         super().__init__()
@@ -58,7 +73,6 @@ class CipherTernaryLayer(nn.Module):
         self.bias = nn.Parameter(torch.zeros(output_dim))
 
     def forward(self, x):
-        # Apply ternary quantization to weights right before multiplication
         ternary_weight = quantize_ternary(self.weight)
         return nn.functional.linear(x, ternary_weight, self.bias)
 
@@ -70,27 +84,32 @@ def main():
     epochs = 3
     batch_size = 16
     learning_rate = 5e-4
-    dataset_file = "dataset.jsonl"  # Change this to match your actual file name
+    
+    # YOUR EXACT REPOSITORY FOLDER PATH
+    dataset_folder = "data/training_gold"
     
     # Initialize tokenizer (using a lightweight base tokenizer for structure)
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     if tokenizer.pad_token is None:
         tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
-    # Load Data
-    if not os.path.exists(dataset_file):
-        print(f"CRITICAL ERROR: Dataset file '{dataset_file}' not found.")
+    # Load Data from directory structure
+    if not os.path.exists(dataset_folder):
+        print(f"CRITICAL ERROR: Directory path '{dataset_folder}' not found.")
+        print("Please verify the repo cloned completely and the relative folder path is correct.")
         return
         
-    dataset = TernaryDataset(dataset_file, tokenizer)
+    dataset = TernaryDataset(dataset_folder, tokenizer)
+    if len(dataset) == 0:
+        print("CRITICAL ERROR: Dataset matrix is empty. Halting build pipeline.")
+        return
+        
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
     # Device setup (RunPod GPU optimization)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Running compute on target substrate device: {device}")
     
-    # Dummy embedding network using our custom ternary architecture layer
-    # (In a full scale run, this connects to your wider BitNet transformer block)
     vocab_size = len(tokenizer)
     embedding = nn.Embedding(vocab_size, 256).to(device)
     ternary_engine = CipherTernaryLayer(256, vocab_size).to(device)
@@ -121,7 +140,7 @@ def main():
             total_loss += loss.item()
             
             if batch_idx % 10 == 0:
-                print(f"Batch {batch_idx} | Current Loss Target: {loss.item():.4f}")
+                print(f"Batch {batch_idx}/{len(dataloader)} | Current Loss Target: {loss.item():.4f}")
                 
         print(f"Epoch {epoch + 1} Complete. Average Substrate Loss: {total_loss / len(dataloader):.4f}")
         
