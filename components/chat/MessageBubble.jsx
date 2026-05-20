@@ -92,38 +92,25 @@ export default function MessageBubble({
   };
 
   /* ===============================
-     VOICE PLAYBACK
+     🎙️ LOCAL HARDWARE SPEECH SYNTHESIS
   ================================ */
-  const handleSpeak = async (e) => {
+  const handleSpeak = (e) => {
     e.stopPropagation();
-    if (!content) return;
+    if (!content || typeof window === "undefined") return;
 
-    try {
-      const res = await fetch("/api/voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: content,
-          voice: "alloy",
-        }),
-      });
+    // Stop any existing vocal streams
+    window.speechSynthesis.cancel();
 
-      if (!res.ok) throw new Error("Voice request failed");
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.play();
-    } catch (err) {
-      console.error("Voice playback error:", err);
-    }
+    const utterance = new SpeechSynthesisUtterance(content);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    
+    // Fallback to local device hardware audio engine
+    window.speechSynthesis.speak(utterance);
   };
 
-  const showTyping =
-    role === "assistant" && isTyping;
-
-  const shouldAnimate =
-    role === "assistant" && isTyping && content && content.trim().length > 0;
+  const showTyping = role === "assistant" && isTyping;
+  const shouldAnimate = role === "assistant" && isTyping && content && content.trim().length > 0;
 
   /* ===============================
      CONTENT RENDERER
@@ -146,7 +133,6 @@ export default function MessageBubble({
       if (shouldAnimate) {
         return <TypingText text={content || ""} />;
       }
-
       return content;
     }
 
@@ -167,7 +153,7 @@ export default function MessageBubble({
 
       {role === "assistant" && content && (
         <div className="cipher-meta">
-          {modelUsed && <span className="cipher-model">{modelUsed}</span>}
+          <span className="cipher-model">Local Engine</span>
 
           <button className="cipher-btn-speak" onClick={handleSpeak}>
             🔊 Speak
