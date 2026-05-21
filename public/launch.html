@@ -52,15 +52,15 @@
         }
 
         .hero-image {
-    width: 100%;
-    border-radius: 28px;
-    margin-bottom: 30px;
-    border: 1px solid rgba(139, 102, 255, 0.2);
-    box-shadow:
-        0 0 40px rgba(139, 102, 255, 0.15),
-        0 0 80px rgba(0, 255, 200, 0.08);
-    display: block;
-}
+            width: 100%;
+            border-radius: 28px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(139, 102, 255, 0.2);
+            box-shadow:
+                0 0 40px rgba(139, 102, 255, 0.15),
+                0 0 80px rgba(0, 255, 200, 0.08);
+            display: block;
+        }
 
         h1 {
             font-size: 38px;
@@ -98,22 +98,23 @@
             margin-bottom: 15px;
         }
 
-       .section-image {
-    width: 100%;
-    margin-top: 25px;
-    border-radius: 22px;
-    border: 1px solid rgba(139, 102, 255, 0.15);
-    box-shadow:
-        0 0 30px rgba(0, 255, 200, 0.08),
-        0 0 60px rgba(139, 102, 255, 0.08);
-    overflow: hidden;
-    display: block;
-    grid-column: span 2;  
-    .offer-card .section-image {
-    margin-top: 20px;
-    margin-bottom: 20px;
-}
-}
+        .section-image {
+            width: 100%;
+            margin-top: 25px;
+            border-radius: 22px;
+            border: 1px solid rgba(139, 102, 255, 0.15);
+            box-shadow:
+                0 0 30px rgba(0, 255, 200, 0.08),
+                0 0 60px rgba(139, 102, 255, 0.08);
+            overflow: hidden;
+            display: block;
+            grid-column: span 2;  
+        }
+
+        .offer-card .section-image {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
         
         .feature-grid {
             display: grid;
@@ -154,20 +155,17 @@
         }
 
         .recruit-card {
-    border: 1px solid rgba(0, 255, 200, 0.25);
-    box-shadow:
-        0 0 25px rgba(0, 255, 200, 0.08);
-}
+            border: 1px solid rgba(0, 255, 200, 0.25);
+            box-shadow: 0 0 25px rgba(0, 255, 200, 0.08);
+        }
 
-.btn-recruit {
-    background: linear-gradient(135deg, #00c2ff, #00ffcc);
-    color: #02030a;
-    border: none;
-    box-shadow:
-        0 10px 30px rgba(0, 255, 200, 0.2);
-}
+        .btn-recruit {
+            background: linear-gradient(135deg, #00c2ff, #00ffcc);
+            color: #02030a;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 255, 200, 0.2);
+        }
         
-
         .offer-card.premium {
             border-color: #ff4d4d;
             box-shadow: 0 0 20px rgba(255, 77, 77, 0.15);
@@ -215,12 +213,11 @@
 
         @media(max-width: 600px) {
             .feature-grid {
-            grid-template-columns: 1fr;
-            .section-image {
-            grid-column: span 1;
-}
+                grid-template-columns: 1fr;
             }
-
+            .feature-grid .section-image {
+                grid-column: span 1;
+            }
             h1 {
                 font-size: 28px;
             }
@@ -235,12 +232,11 @@
 <div class="container">
 
     <img
-    src="/images/hero-network.png"
-    alt="Cipher CTS Network"
-    class="hero-image"
-/>
+        src="/images/hero-network.png"
+        alt="Cipher CTS Network"
+        class="hero-image"
+    />
     
-
     <div class="tagline">
         THE COGNITIVE OPERATING SYSTEM
     </div>
@@ -258,7 +254,6 @@
             gap: 8px;
         "
     >
-
         <div
             id="mesh-dot"
             style="
@@ -277,10 +272,16 @@
         <span id="peer-count" style="margin-left:10px;">
             PEERS: 0
         </span>
-
     </div>
 
     <h1>COMING JULY 2026</h1>
+
+    <button 
+      onclick="localStorage.setItem('cipher_dev_access', 'granted'); localStorage.setItem('cipher_entered', 'true'); window.location.href='/';"
+      style="margin-top: 15px; margin-bottom: 25px; display: block; width: 100%; padding: 20px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; font-family: 'Orbitron', sans-serif; font-weight: bold; border: none; border-radius: 15px; cursor: pointer; box-shadow: 0 10px 25px rgba(239, 68, 68, 0.35); letter-spacing: 2px; font-size: 15px;"
+    >
+      BYPASS PERIMETER LOCK (ARCHITECT DEV)
+    </button>
 
     <div class="mission-box">
         <h2>AI Without the Extraction</h2>
@@ -297,16 +298,14 @@
             No server farms. No data harvesting. No subscriptions.
         </p>
 
-          <img
-    src="/images/ai-without-extraction.png"
-    alt="AI Without Extraction"
-    class="section-image"
-/>
-        
+        <img
+            src="/images/ai-without-extraction.png"
+            alt="AI Without Extraction"
+            class="section-image"
+        />
     </div>
 
     <div class="feature-grid">
-
         <div class="feature">
             <strong>100% Private</strong>
             Your data never leaves your hardware. Local-only inference.
@@ -317,11 +316,11 @@
             80% less energy consumption than standard binary AI models.
         </div>
 
-         <img
-    src="/images/eco-engineered.png"
-    alt="Eco Engineered"
-    class="section-image"
-/>
+        <img
+            src="/images/eco-engineered.png"
+            alt="Eco Engineered"
+            class="section-image"
+        />
 
         <div class="feature">
             <strong>Unblockable</strong>
@@ -329,10 +328,10 @@
         </div>
 
         <img
-    src="/images/unblockable-network.png"
-    alt="Unblockable Mesh Network"
-    class="section-image"
-/>
+            src="/images/unblockable-network.png"
+            alt="Unblockable Mesh Network"
+            class="section-image"
+        />
 
         <div class="feature">
             <strong>Zero Subscription</strong>
@@ -340,161 +339,97 @@
         </div>
 
         <img
-    src="/images/substrate-app.png"
-    alt="Cipher CTS Substrate App"
-    class="section-image"
-/>
-
+            src="/images/substrate-app.png"
+            alt="Cipher CTS Substrate App"
+            class="section-image"
+        />
     </div>
 
     <div class="offer-split">
-
         <div class="offer-card">
-
             <h3>THE SUBSTRATE APP</h3>
-
             <p style="font-size: 13px;">
                 Download to your PC or Phone in July.
             </p>
-
-            <button class="btn btn-free"
-                onclick="alert('Waitlist joined!')">
+            <button class="btn btn-free" onclick="alert('Waitlist joined!')">
                 GET FREE ACCESS
             </button>
-
-            <span style="
-                font-size: 10px;
-                color: rgba(255,255,255,0.4);
-                margin-top: 10px;
-                display: block;
-            ">
+            <span style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 10px; display: block;">
                 Standard transaction fees apply
             </span>
-
         </div>
 
         <div class="offer-card premium">
-        
-
             <h3>THE CIPHER BOX (FOUNDING NODE)</h3>
-
             <p style="font-size: 13px;">
                 Physical hardware for Law, Trade, and Sovereignty.
             </p>
-
             <img
-    src="/images/cipher-box-node.png"
-    alt="Cipher Box Founding Node"
-    class="section-image"
-/>
-
-            <button
-                class="btn btn-box"
-                onclick="preOrder()"
-                style="position: relative; z-index: 9999;"
-            >
+                src="/images/cipher-box-node.png"
+                alt="Cipher Box Founding Node"
+                class="section-image"
+            />
+            <button class="btn btn-box" onclick="preOrder()" style="position: relative; z-index: 9999;">
                 RESERVE FOUNDING NODE
             </button>
-
             <div class="node-counter">
                 84 / 100 NODES REMAINING
             </div>
-
-            <span style="
-                font-size: 11px;
-                color: #8b66ff;
-                margin-top: 10px;
-                display: block;
-            ">
+            <span style="font-size: 11px; color: #8b66ff; margin-top: 10px; display: block;">
                 $999 | 0% FEES FOR LIFE
             </span>
-
         </div>
-      </div>
+    </div>
 
-      <div class="offer-card recruit-card">
-
-    <h3>JOIN THE DEPLOYMENT NETWORK</h3>
-
-    <p style="font-size: 13px;">
-        We're recruiting students, tech enthusiasts,
-        and early operators to help expand the
-        Cipher CTS substrate into businesses,
-        hotels, campuses, and real-world infrastructure.
-    </p>
-
-    <button
-        class="btn btn-recruit"
-        onclick="window.location.href='/recruit.html'"
-    >
-        JOIN THE NETWORK
-    </button>
-
-    <span style="
-        font-size: 11px;
-        color: rgba(255,255,255,0.45);
-        margin-top: 12px;
-        display: block;
-    ">
-        Commission-based opportunities available
-for early deployment partners and regional operators.
-    </span>
-
-</div>
+    <div class="offer-card recruit-card">
+        <h3>JOIN THE DEPLOYMENT NETWORK</h3>
+        <p style="font-size: 13px;">
+            We're recruiting students, tech enthusiasts,
+            and early operators to help expand the
+            Cipher CTS substrate into businesses,
+            hotels, campuses, and real-world infrastructure.
+        </p>
+        <button class="btn btn-recruit" onclick="window.location.href='/recruit.html'">
+            JOIN THE NETWORK
+        </button>
+        <span style="font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 12px; display: block;">
+            Commission-based opportunities available for early deployment partners and regional operators.
+        </span>
+    </div>
     
-
-    <p style="
-        font-size: 11px;
-        color: rgba(255,255,255,0.4);
-    ">
-        Cipher CTS is a local-first cognitive system.
-        No cloud dependencies.
+    <p style="font-size: 11px; color: rgba(255,255,255,0.4);">
+        Cipher CTS is a local-first cognitive system. No cloud dependencies.
         <br>
-        Founding Nodes ship July 2026.
-        Managed via unhackable P2P substrate.
+        Founding Nodes ship July 2026. Managed via unhackable P2P substrate.
     </p>
 
 </div>
 
-    <script>
-
+<script>
 async function preOrder() {
-
     try {
-
         const response = await fetch('/api/stripe/create-checkout-session', {
             method: 'POST',
         });
-
         const data = await response.json();
-
         if (data.url) {
-
             window.location.href = data.url;
-
         } else {
-
             console.log(data);
             alert("Stripe session failed.");
-
         }
-
     } catch (err) {
-
         console.error(err);
         alert("Checkout failed.");
-
     }
 }
-
 </script>
-<script type="module">
 
+<script type="module">
 import { createHelia } from 'https://esm.sh/helia'
 import { unixfs } from 'https://esm.sh/@helia/unixfs'
 import { createLibp2p } from 'https://esm.sh/libp2p'
 import { webSockets } from 'https://esm.sh/@libp2p/websockets'
-import { webRTC } from 'https://esm.sh/@libp2p/webrtc'
 import { noise } from 'https://esm.sh/@chainsafe/libp2p-noise'
 import { mplex } from 'https://esm.sh/@libp2p/mplex'
 import { bootstrap } from 'https://esm.sh/@libp2p/bootstrap'
@@ -502,23 +437,17 @@ import { bootstrap } from 'https://esm.sh/@libp2p/bootstrap'
 let helia = null;
 
 async function initMesh() {
-
     try {
-
         const libp2p = await createLibp2p({
-
             transports: [
-             webSockets()
-          ],
-
+                webSockets()
+            ],
             connectionEncryption: [
                 noise()
             ],
-
             streamMuxers: [
                 mplex()
             ],
-
             peerDiscovery: [
                 bootstrap({
                     list: [
@@ -534,59 +463,28 @@ async function initMesh() {
 
         unixfs(helia);
 
-        document.getElementById('mesh-status').innerText =
-            'MESH ACTIVE';
-
-        document.getElementById('mesh-status').style.color =
-            '#00ffcc';
-
-        document.getElementById('mesh-dot').style.background =
-            '#00ffcc';
-
-        document.getElementById('mesh-dot').style.boxShadow =
-            '0 0 8px #00ffcc';
+        document.getElementById('mesh-status').innerText = 'MESH ACTIVE';
+        document.getElementById('mesh-status').style.color = '#00ffcc';
+        document.getElementById('mesh-dot').style.background = '#00ffcc';
+        document.getElementById('mesh-dot').style.boxShadow = '0 0 8px #00ffcc';
 
         console.log('Cipher Mesh Active');
 
         setInterval(() => {
-
             const peers = helia.libp2p.getPeers();
-
-            document.getElementById('peer-count').innerText =
-                `PEERS: ${peers.length}`;
-
+            document.getElementById('peer-count').innerText = `PEERS: ${peers.length}`;
         }, 2000);
 
     } catch (err) {
-
         console.error(err);
-
-        document.getElementById('mesh-status').innerText =
-            'MESH OFFLINE';
-
-        document.getElementById('mesh-status').style.color =
-            '#ff4d4d';
-
-        document.getElementById('mesh-dot').style.background =
-            '#ff4d4d';
-
-        document.getElementById('mesh-dot').style.boxShadow =
-            '0 0 8px #ff4d4d';
-    }
-}
-
-
-    
-        (err) {
-
-        console.error(err);
-        alert("Checkout failed.");
-
+        document.getElementById('mesh-status').innerText = 'MESH OFFLINE';
+        document.getElementById('mesh-status').style.color = '#ff4d4d';
+        document.getElementById('mesh-dot').style.background = '#ff4d4d';
+        document.getElementById('mesh-dot').style.boxShadow = '0 0 8px #ff4d4d';
     }
 }
 
 window.addEventListener('DOMContentLoaded', initMesh);
-
 </script>
 
 </body>
