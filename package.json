@@ -1,4 +1,3 @@
-```json
 {
   "name": "cipher-app",
   "version": "1.0.0",
@@ -18,9 +17,7 @@
     "lucide-react": "^0.378.0",
     "three": "0.155.0",
     "react-force-graph-3d": "latest",
-    "@huggingface/transformers": "^3.0.1",
-    "resend": "^4.0.0"
+    "resend": "^4.0.0",
+    "stripe": "^14.0.0"
   }
 }
-
-
