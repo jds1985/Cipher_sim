@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
-import { auth } from "../../lib/firebaseClient";
-import { onAuthStateChanged } from "firebase/auth";
 
 export default function HeaderMenu({ onOpenDrawer, onNewChat }) {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-
-    return () => unsub();
+    // Check local storage ground truth for access authorization instead of remote Firebase auth
+    if (typeof window !== "undefined") {
+      const hasAccess = localStorage.getItem("cipher_dev_access") === "granted";
+      if (hasAccess) {
+        setUser({ email: "Architect" }); // Simulated local profile to cleanly preserve UI layout bounds
+      }
+    }
   }, []);
 
   return (
