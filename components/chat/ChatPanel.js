@@ -57,7 +57,7 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, typing]);
 
-  /* ===============================
+    /* ===============================
      3. COLD BOOT HARDWARE ENGINE
   ================================ */
   const bootLocalEngine = async () => {
@@ -68,8 +68,11 @@ export default function ChatPanel() {
       setEngineLoaded(true);
     } catch (err) {
       console.error("Device graphics WebGPU initialization failed:", err);
+      // 🚨 Temporary diagnostic window to see the exact error code on your phone screen!
+      alert("Boot Error: " + (err.message || err.toString() || "Unknown Initialization Exception"));
     }
   };
+
 
   /* ===============================
      4. DATA PURGE / GROUND TRUTH CLEAN
