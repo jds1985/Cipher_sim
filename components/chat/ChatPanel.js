@@ -57,11 +57,17 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, typing]);
 
-    /* ===============================
+      /* ===============================
      3. COLD BOOT HARDWARE ENGINE
   ================================ */
   const bootLocalEngine = async () => {
     try {
+      // 🧼 FORCED SUBSTRATE CACHE FLUSH: Wipes the old "bitnet" config file out of the phone
+      if (typeof window !== "undefined" && window.caches) {
+        await caches.delete('transformers-cache');
+        console.log("Stale client substrate cache cleanly expunged.");
+      }
+
       await initializeCipher((progress) => {
         setDownloadProgress(progress); // Feeds streaming weight download percentage to UI
       });
@@ -72,6 +78,7 @@ export default function ChatPanel() {
       alert("Boot Error: " + (err.message || err.toString() || "Unknown Initialization Exception"));
     }
   };
+
 
 
   /* ===============================
