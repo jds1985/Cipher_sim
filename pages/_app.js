@@ -1,44 +1,40 @@
 import "../styles/globals.css";
 import "../styles/cipher-theme.css";
-import "../styles/boot.css";
 
 import Head from "next/head";
 import { useState, useEffect } from "react";
 
-import BootScreen from "../components/BootScreen";
 import EntryScreen from "../components/EntryScreen";
 
 export default function MyApp({ Component, pageProps }) {
-  const [booted, setBooted] = useState(false);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // 🔐 THE SECURITY PERIMETER LOCK
+      // 🔐 THE PERIMETER SECURITY LOCK
       const hasAccess = localStorage.getItem("cipher_dev_access") === "granted";
 
-      // Your exact whitelist of allowed public pages
+      // Whitelist matching the precise production routing format
       const allowedPages = [
         "/launch",
+        "/launch.html",
         "/recruit",
         "/success"
       ];
 
       const currentPath = window.location.pathname.toLowerCase();
 
-      // Check if the current path matches anything on your whitelist
       const isAllowedPage = allowedPages.some(
-        page => currentPath === page || currentPath === `${page}.html`
+        page => currentPath === page || currentPath.startsWith("/launch")
       );
 
-      // If they don't have access and aren't on an allowed public page, SMASH THE WALL
+      // If they are unauthorized, aggressively force them back to the fallback launch route
       if (!hasAccess && !isAllowedPage) {
-        window.location.href = "/launch"; // Securely routes to your launch page component
+        window.location.href = "/launch.html"; 
         return;
       }
       
-      // Verification logic for the inner entry sequence
       const hasEntered = localStorage.getItem("cipher_entered");
       if (hasEntered) setEntered(true);
     }
@@ -56,11 +52,7 @@ export default function MyApp({ Component, pageProps }) {
         <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=()" />
       </Head>
 
-      {!booted && (
-        <BootScreen onComplete={() => setBooted(true)} />
-      )}
-
-      {booted && !entered && (
+      {!entered && (
         <EntryScreen
           onEnter={() => {
             if (typeof window !== "undefined") {
@@ -71,7 +63,7 @@ export default function MyApp({ Component, pageProps }) {
         />
       )}
 
-      {booted && entered && (
+      {entered && (
         <Component {...pageProps} />
       )}
     </>
