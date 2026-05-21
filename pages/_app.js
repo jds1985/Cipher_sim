@@ -9,38 +9,36 @@ import BootScreen from "../components/BootScreen";
 import EntryScreen from "../components/EntryScreen";
 
 export default function MyApp({ Component, pageProps }) {
-
   const [booted, setBooted] = useState(false);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-
-      // 🔐 LOCK SYSTEM
+      // 🔐 THE SECURITY PERIMETER LOCK
       const hasAccess = localStorage.getItem("cipher_dev_access") === "granted";
 
+      // Your exact whitelist of allowed public pages
       const allowedPages = [
-    
         "/launch",
-        "/launch.html",
         "/recruit",
-        "/recruit.html",
         "/success"
       ];
 
       const currentPath = window.location.pathname.toLowerCase();
 
+      // Check if the current path matches anything on your whitelist
       const isAllowedPage = allowedPages.some(
-        page => currentPath === page
+        page => currentPath === page || currentPath === `${page}.html`
       );
 
+      // If they don't have access and aren't on an allowed public page, SMASH THE WALL
       if (!hasAccess && !isAllowedPage) {
-        window.location.href = "/launch.html";
+        window.location.href = "/launch"; // Securely routes to your launch page component
         return;
       }
       
-      // existing logic
+      // Verification logic for the inner entry sequence
       const hasEntered = localStorage.getItem("cipher_entered");
       if (hasEntered) setEntered(true);
     }
