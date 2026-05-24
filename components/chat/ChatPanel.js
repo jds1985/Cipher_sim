@@ -3,7 +3,8 @@ import HeaderMenu from "./HeaderMenu";
 import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
-import { initializeCipher, generateResponse } from "../../lib/cipherEngine";
+// Cleaned Engine Import mapping to your updated cipherEngine.js
+import { bootCipherEngine, generateCipherResponse } from "../../lib/cipherEngine";
 
 /* ===============================
    CONFIG
@@ -57,29 +58,31 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, typing]);
 
-      /* ===============================
+  /* ===============================
      3. COLD BOOT HARDWARE ENGINE
   ================================ */
   const bootLocalEngine = async () => {
     try {
-      // 🧼 FORCED SUBSTRATE CACHE FLUSH: Wipes the old "bitnet" config file out of the phone
+      // 🧼 FORCED SUBSTRATE CACHE FLUSH: Wipes old configs clean out of the client container
       if (typeof window !== "undefined" && window.caches) {
         await caches.delete('transformers-cache');
         console.log("Stale client substrate cache cleanly expunged.");
       }
 
-      await initializeCipher((progress) => {
-        setDownloadProgress(progress); // Feeds streaming weight download percentage to UI
-      });
+      // Initialize visual progress layout state
+      setDownloadProgress(15);
+
+      // Invoke your modern cloud-backed WebGPU loading anchor
+      await bootCipherEngine();
+      
+      setDownloadProgress(100);
       setEngineLoaded(true);
     } catch (err) {
       console.error("Device graphics WebGPU initialization failed:", err);
-      // 🚨 Temporary diagnostic window to see the exact error code on your phone screen!
+      // 🚨 Diagnostic window to check hardware initialization exceptions right on the phone screen
       alert("Boot Error: " + (err.message || err.toString() || "Unknown Initialization Exception"));
     }
   };
-
-
 
   /* ===============================
      4. DATA PURGE / GROUND TRUTH CLEAN
@@ -115,7 +118,6 @@ export default function ChatPanel() {
     await new Promise((resolve) => setTimeout(resolve, 150));
 
     const userMessage = { role: "user", content: text };
-    let currentHistory = [...messages, userMessage];
 
     if (!isQuickAction) {
       setInput("");
@@ -127,25 +129,21 @@ export default function ChatPanel() {
     }
 
     try {
-      let streamedReply = "";
+      // Direct local execution pipe: process input variables via browser WebGPU mechanics
+      const streamedReply = await generateCipherResponse(text);
 
-      // Trigger direct hardware tracing on device graphics via script pipeline
-      await generateResponse(text, (incomingToken) => {
-        streamedReply += incomingToken;
-
-        setMessages((m) => {
-          const next = [...m];
-          next[next.length - 1].content = streamedReply;
-          
-          // Commit stream updates instantly to localized non-volatile browser storage
-          if (typeof window !== "undefined") {
-            localStorage.setItem(MEMORY_KEY, JSON.stringify(next.slice(-MEMORY_LIMIT)));
-          }
-          return next;
-        });
+      setMessages((m) => {
+        const next = [...m];
+        next[next.length - 1].content = streamedReply;
+        
+        // Commit updates cleanly into local client storage configurations
+        if (typeof window !== "undefined") {
+          localStorage.setItem(MEMORY_KEY, JSON.stringify(next.slice(-MEMORY_LIMIT)));
+        }
+        return next;
       });
 
-      // Deduct simulated token limits based on processed content lengths for metric display
+      // Maintain simulated metric tracker variables for UI compatibility
       const wordCount = streamedReply.split(/\s+/).length;
       const estimatedTokensUsed = Math.ceil(wordCount * 1.3);
       setRemainingTokens((prev) => Math.max(0, prev - estimatedTokensUsed));
