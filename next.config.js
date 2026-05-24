@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // Force Next.js to process the package rules for modern browser modules cleanly
+  transpilePackages: ['onnxruntime-web', '@huggingface/transformers'],
+
   async headers() {
     return [
       {
@@ -36,17 +39,25 @@ const nextConfig = {
     ];
   },
 
-  webpack: (config) => {
-    // Enable Webpack experiments for assembly and modern meta assets
+  webpack: (config, { isServer }) => {
+    // 🧪 Force Webpack to support modern modules and assembly code rules
     config.experiments = {
       ...config.experiments,
       topLevelAwait: true,
       layers: true,
     };
-    
+
+    // Fix the syntax error by telling Webpack how to handle raw module files safely
+    config.module.rules.push({
+      test: /\.m?js$/,
+      type: 'javascript/auto',
+      resolve: {
+        fullySpecified: false,
+      },
+    });
+
     return config;
   },
 };
 
-// Use Node module syntax instead of ES 'export default'
 module.exports = nextConfig;
