@@ -36,8 +36,8 @@ const nextConfig = {
     ];
   },
 
-  // ADDED WEBPACK CONFIGURATION TO ALLOW 'IMPORT.META' CHUNKS
-  webpack: (config, { isServer }) => {
+  webpack: (config) => {
+    // Enable Webpack experiments for assembly and modern meta assets
     config.experiments = {
       ...config.experiments,
       topLevelAwait: true,
@@ -48,4 +48,5 @@ const nextConfig = {
   },
 };
 
+// Use Node module syntax instead of ES 'export default'
 module.exports = nextConfig;
