@@ -6,6 +6,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
+    "@huggingface/transformers": "^3.3.0",
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
