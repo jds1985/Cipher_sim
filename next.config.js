@@ -34,7 +34,18 @@ const nextConfig = {
         ]
       }
     ];
-  }
+  },
+
+  // ADDED WEBPACK CONFIGURATION TO ALLOW 'IMPORT.META' CHUNKS
+  webpack: (config, { isServer }) => {
+    config.experiments = {
+      ...config.experiments,
+      topLevelAwait: true,
+      layers: true,
+    };
+    
+    return config;
+  },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
