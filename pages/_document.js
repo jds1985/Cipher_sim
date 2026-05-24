@@ -5,6 +5,14 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        {/* ============================================================
+           🗣️ GLOBAL LOCAL AI ENGINE RUNTIME
+           Injects ONNX Runtime WebGPU directly into the browser scope
+        ============================================================ */}
+        <script 
+          src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.webgpu.min.js"
+          defer
+        />
 
         {/* PWA Manifest */}
         <link rel="manifest" href="/manifest.json" />
