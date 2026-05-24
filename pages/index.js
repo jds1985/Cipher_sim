@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
-import ChatPanel from "../components/chat/ChatPanel";
+import dynamic from "next/dynamic"; // Added to handle browser-only packages
 import EntryScreen from "../components/EntryScreen";
+
+// FORCE CHATPANEL TO LOAD CLIENT-SIDE ONLY (Bypasses Vercel's server build crash)
+const ChatPanel = dynamic(() => import("../components/chat/ChatPanel"), {
+  ssr: false,
+});
 
 export default function Home() {
   const [entered, setEntered] = useState(false);
@@ -30,13 +35,14 @@ export default function Home() {
   if (!ready) return null;
 
   if (
-  !entered &&
-  typeof window !== "undefined" &&
-  window.location.pathname !== "/success.html"
-) {
-  return <EntryScreen onEnter={handleEnter} loading={loading} />;
-}
-return (
+    !entered &&
+    typeof window !== "undefined" &&
+    window.location.pathname !== "/success.html"
+  ) {
+    return <EntryScreen onEnter={handleEnter} loading={loading} />;
+  }
+
+  return (
     <div
       style={{
         height: "100vh",
