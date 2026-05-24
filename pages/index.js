@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import dynamic from "next/dynamic"; // Added to handle browser-only packages
+import dynamic from "next/dynamic";
 import EntryScreen from "../components/EntryScreen";
 
-// FORCE CHATPANEL TO LOAD CLIENT-SIDE ONLY (Bypasses Vercel's server build crash)
+// FORCE CHATPANEL CLIENT-SIDE WITH AN INSTANT VISUAL FALLBACK
 const ChatPanel = dynamic(() => import("../components/chat/ChatPanel"), {
   ssr: false,
+  loading: () => (
+    <div style={{ height: "100vh", background: "#05050b" }} />
+  ),
 });
 
 export default function Home() {
@@ -21,15 +24,13 @@ export default function Home() {
   }, []);
 
   const handleEnter = () => {
-    // Start loading animation
     setLoading(true);
 
-    // Simulate OS boot delay
     setTimeout(() => {
       localStorage.setItem("cipherEntered", "true");
       setEntered(true);
       setLoading(false);
-    }, 1800); // 1.8 second boot sequence
+    }, 1800);
   };
 
   if (!ready) return null;
