@@ -214,25 +214,50 @@ export default function ChatPanel() {
               )}
               
               <button 
-                onClick={bootLocalEngine} 
-                disabled={downloadProgress > 0}
-                className="w-full py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 rounded-lg text-sm font-semibold transition shadow-lg shadow-cyan-950/50 text-white flex items-center justify-center gap-2"
-              >
-                {isStreaming ? (
-                  <>
-                    {/* SVG High-Performance Spinning Ring */}
-                    <svg className="animate-spin h-4 w-4 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span className="animate-pulse text-cyan-300 font-mono tracking-wider">SYNCING CHUNKS...</span>
-                  </>
-                ) : downloadProgress > 0 ? (
-                  `Compiling Substrate... ${downloadProgress}%`
-                ) : (
-                  "Cold Boot Cipher"
-                )}
-              </button>
+  onClick={bootLocalEngine} 
+  disabled={downloadProgress > 0}
+  className="w-full py-4 bg-slate-800/90 border border-slate-700/50 rounded-lg text-sm font-semibold transition text-white flex flex-col items-center justify-center gap-3 min-h-[120px]"
+>
+  {isStreaming ? (
+    <>
+      {/* Inline CSS injection forcing a continuous hardware-accelerated spinning rotation */}
+      <div style={{
+        width: '32px',
+        height: '32px',
+        border: '3px solid rgba(34, 211, 238, 0.15)',
+        borderTop: '3px solid #22d3ee',
+        borderRadius: '50%',
+        animation: 'cipher-spin 1s linear infinite'
+      }} />
+      
+      <style>{`
+        @keyframes cipher-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+
+      <div className="flex flex-col gap-1 text-center">
+        <span className="text-cyan-400 font-mono tracking-widest text-xs font-bold animate-pulse">
+          📡 DATA MATRIX CONNECTED
+        </span>
+        <span className="text-[10px] text-slate-500 font-mono">
+          Streaming 4.83 GB Substrate Chunks (0-3)...
+        </span>
+      </div>
+    </>
+  ) : downloadProgress > 0 ? (
+    <span className="text-cyan-400 font-mono animate-pulse">
+      ⚙️ COMPILING NODE ARCHITECTURE... {downloadProgress}%
+    </span>
+  ) : (
+    "Cold Boot Cipher"
+  )}
+</button>
+
+
+
+                   
             </div>
           ) : (
             /* Active Message Loop Stream */
