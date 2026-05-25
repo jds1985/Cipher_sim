@@ -3,25 +3,34 @@ import HeaderMenu from "./HeaderMenu";
 import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
+// Cleaned Engine Import mapping to your updated cipherEngine.js
 import { bootCipherEngine, generateCipherResponse } from "../../lib/cipherEngine";
 
+/* ===============================
+   CONFIG
+================================ */
 const MEMORY_KEY = "cipher_local_history";
 const MEMORY_LIMIT = 50;
 
 export default function ChatPanel() {
+  // Sovereign setup default states
   const [tier] = useState("builder");
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Engine control tracking hooks
   const [engineLoaded, setEngineLoaded] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
   const [localProcessing, setLocalProcessing] = useState(false);
 
+  // Layout UI states
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [showMemory, setShowMemory] = useState(false);
+
+  // Token metric allocations (simulated client-side for structural UI backwards compatibility)
   const [remainingTokens, setRemainingTokens] = useState(2000000);
   const [tokenLimit] = useState(2000000);
 
@@ -29,6 +38,9 @@ export default function ChatPanel() {
   const sendingRef = useRef(false);
   const fileInputRef = useRef(null);
 
+  /* ===============================
+     1. LOCAL HISTORY INITIALIZATION
+  ================================ */
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -42,20 +54,28 @@ export default function ChatPanel() {
     }
   }, []);
 
+  /* ===============================
+     2. AUTOMATED SCROLL TRACING
+  ================================ */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, typing]);
 
-  const bootLocalEngine = async (files = null) => {
+  /* ===============================
+     3. COLD BOOT HARDWARE ENGINE
+  ================================ */
+  const bootLocalEngine = async (fileList = null) => {
     try {
-      if (files && files.length > 0) {
+      // Direct ingestion of the single monolithic weights file from phone disk
+      if (fileList && fileList.length > 0) {
+        const singleFile = fileList[0]; // Isolate the single massive data block safely
         setLocalProcessing(true);
         setIsStreaming(false);
         setDownloadProgress(20);
         
-        await bootCipherEngine(files, (progressValue) => {
+        await bootCipherEngine(singleFile, (progressValue) => {
           if (progressValue === "PROCESSING_LOCAL_SHARDS") {
-            setDownloadProgress(50);
+            setDownloadProgress(60);
           } else {
             setDownloadProgress(progressValue);
           }
@@ -66,6 +86,7 @@ export default function ChatPanel() {
         return;
       }
 
+      // Fallback network loading path if no file is chosen
       if (typeof window !== "undefined" && window.caches) {
         await caches.delete('transformers-cache');
       }
@@ -92,6 +113,9 @@ export default function ChatPanel() {
     }
   };
 
+  /* ===============================
+     4. DATA PURGE / GROUND TRUTH CLEAN
+  ================================ */
   function clearChat() {
     try { localStorage.removeItem(MEMORY_KEY); } catch {}
     setMessages([]);
@@ -104,6 +128,9 @@ export default function ChatPanel() {
     setShowMemory(!!options.openMemory);
   }
 
+  /* ===============================
+     5. LOCAL INFERENCE EXECUTION LOOP
+  ================================ */
   async function sendMessage(options = {}) {
     if (sendingRef.current || !engineLoaded) return;
     const isQuickAction = Boolean(options.quickAction);
@@ -142,10 +169,12 @@ export default function ChatPanel() {
 
   return (
     <div className="cipher-wrap">
+      {/* Top Navigation Wrapper */}
       <div className="cipher-floating-header">
         <HeaderMenu onOpenDrawer={() => setDrawerOpen(true)} onNewChat={clearChat} />
       </div>
 
+      {/* Control Configuration Drawer */}
       <DrawerMenu
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -158,9 +187,11 @@ export default function ChatPanel() {
         tokenLimit={tokenLimit}
       />
 
+      {/* Main UI Chat Stage viewport */}
       <div className="cipher-main">
         <div className="cipher-chat">
           
+          {/* Hardware Boot-Prompt: Renders only when model isn't active in WebGPU memory layout */}
           {!engineLoaded ? (
             <div className="backdrop-blur-md bg-slate-900/80 border border-slate-700/50 p-6 rounded-xl text-center max-w-sm mx-auto my-16 shadow-2xl">
               <h3 className="text-xl font-bold text-cyan-400 mb-2">Initialize Sovereign Engine</h3>
@@ -180,7 +211,7 @@ export default function ChatPanel() {
               <button 
                 onClick={() => bootLocalEngine(null)} 
                 disabled={downloadProgress > 0}
-                className="w-full py-4 bg-slate-800/90 border border-slate-700/50 rounded-lg text-sm font-semibold transition text-white flex flex-col items-center justify-center gap-3"
+                className="w-full py-4 bg-slate-800/90 border border-slate-700/50 rounded-lg text-sm font-semibold transition text-white flex flex-col items-center justify-center gap-3 min-h-[120px]"
               >
                 {isStreaming ? (
                   <>
@@ -196,9 +227,10 @@ export default function ChatPanel() {
                 ) : localProcessing ? (
                   <>
                     <div style={{ width: '32px', height: '32px', border: '3px solid rgba(34, 211, 238, 0.15)', borderTop: '3px solid #e11d48', borderRadius: '50%', animation: 'cipher-spin 1s linear infinite' }} />
+                    <style>{`@keyframes cipher-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
                     <div className="flex flex-col gap-1 text-center">
-                      <span className="text-rose-400 font-mono tracking-widest text-xs font-bold animate-pulse">⚡ INGESTING STORAGE SHARDS</span>
-                      <span className="text-[10px] text-slate-500 font-mono">Reading binary data arrays off disk...</span>
+                      <span className="text-rose-400 font-mono tracking-widest text-xs font-bold animate-pulse">⚡ INGESTING STORAGE MATRIX</span>
+                      <span className="text-[10px] text-slate-500 font-mono">Reading binary data block off disk...</span>
                     </div>
                   </>
                 ) : (
@@ -212,7 +244,7 @@ export default function ChatPanel() {
                   <p className="text-[10px] text-slate-500 mb-2 font-mono tracking-wider">LOAD DIRECTLY FROM LOCAL DEVICE BACKUP</p>
                   <input 
                     type="file" 
-                    multiple 
+                    multiple={false} // Clean standalone single file toggle to protect mobile OS memory allocation
                     ref={fileInputRef}
                     onChange={(e) => bootLocalEngine(e.target.files)}
                     className="hidden" 
@@ -221,12 +253,13 @@ export default function ChatPanel() {
                     onClick={() => fileInputRef.current?.click()}
                     className="w-full py-2 bg-cyan-950/40 hover:bg-cyan-950/70 border border-cyan-800/40 rounded-lg text-xs font-mono text-cyan-400 transition"
                   >
-                    📁 Select Shard Files (Part 0-3)
+                    📁 Select Monolithic Substrate File
                   </button>
                 </div>
               )}
             </div>
           ) : (
+            /* Active Message Loop Stream */
             <MessageList
               messages={messages}
               bottomRef={bottomRef}
@@ -242,6 +275,7 @@ export default function ChatPanel() {
         </div>
       </div>
 
+      {/* Interactive Input Dashboard Strip */}
       <InputBar input={input} setInput={setInput} onSend={sendMessage} typing={typing || !engineLoaded} />
     </div>
   );
