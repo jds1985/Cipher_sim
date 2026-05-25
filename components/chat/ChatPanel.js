@@ -3,6 +3,7 @@ import HeaderMenu from "./HeaderMenu";
 import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
+// Cleaned Engine Import mapping to your updated cipherEngine.js
 import { bootCipherEngine, generateCipherResponse } from "../../lib/cipherEngine";
 
 /* ===============================
@@ -22,7 +23,7 @@ export default function ChatPanel() {
   // Engine control tracking hooks
   const [engineLoaded, setEngineLoaded] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamLabel, setStreamLabel] = useState("");
 
   // Layout UI states
   const [selectedIndex, setSelectedIndex] = useState(null);
@@ -70,26 +71,26 @@ export default function ChatPanel() {
       }
 
       // Initialize visual progress layout state
-      setIsStreaming(false);
-      setDownloadProgress(5);
+      setDownloadProgress(1);
+      setStreamLabel("Connecting to system shards...");
 
-      // Explicitly passing the progress callback inside a configuration object to the IndexedDB engine
+      // Explicitly passing the progress callback option object to the Zero-Stitch IndexedDB engine
       await bootCipherEngine({
-        onProgress: (progressValue) => {
-          if (progressValue === "STREAMING_ACTIVE") {
-            setIsStreaming(true);
-            setDownloadProgress(15);
-          } else {
-            setDownloadProgress(progressValue);
+        onProgress: (update) => {
+          if (update && typeof update.pct === 'number') {
+            setDownloadProgress(update.pct);
+            if (update.msg) setStreamLabel(update.msg);
           }
         }
       });
       
-      setIsStreaming(false);
+      setStreamLabel("");
       setEngineLoaded(true);
     } catch (err) {
-      setIsStreaming(false);
+      setDownloadProgress(0);
+      setStreamLabel("");
       console.error("Device graphics WebGPU initialization failed:", err);
+      // 🚨 Diagnostic window to check hardware initialization exceptions right on the screen
       alert("Boot Error: " + (err.message || err.toString() || "Unknown Initialization Exception"));
     }
   };
@@ -139,18 +140,21 @@ export default function ChatPanel() {
     }
 
     try {
+      // Direct local execution pipe: process input variables via browser WebGPU mechanics
       const streamedReply = await generateCipherResponse(text);
 
       setMessages((m) => {
         const next = [...m];
         next[next.length - 1].content = streamedReply;
         
+        // Commit updates cleanly into local client storage configurations
         if (typeof window !== "undefined") {
           localStorage.setItem(MEMORY_KEY, JSON.stringify(next.slice(-MEMORY_LIMIT)));
         }
         return next;
       });
 
+      // Maintain simulated metric tracker variables for UI compatibility
       const wordCount = streamedReply.split(/\s+/).length;
       const estimatedTokensUsed = Math.ceil(wordCount * 1.3);
       setRemainingTokens((prev) => Math.max(0, prev - estimatedTokensUsed));
@@ -165,6 +169,7 @@ export default function ChatPanel() {
 
   return (
     <div className="cipher-wrap">
+      {/* Top Navigation Wrapper */}
       <div className="cipher-floating-header">
         <HeaderMenu
           onOpenDrawer={() => setDrawerOpen(true)}
@@ -172,6 +177,7 @@ export default function ChatPanel() {
         />
       </div>
 
+      {/* Control Configuration Drawer */}
       <DrawerMenu
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -184,22 +190,24 @@ export default function ChatPanel() {
         tokenLimit={tokenLimit}
       />
 
+      {/* Main UI Chat Stage viewport */}
       <div className="cipher-main">
         <div className="cipher-chat">
           
+          {/* Hardware Boot-Prompt: Renders only when model isn't active in WebGPU memory layout */}
           {!engineLoaded ? (
             <div className="backdrop-blur-md bg-slate-900/80 border border-slate-700/50 p-6 rounded-xl text-center max-w-sm mx-auto my-16 shadow-2xl">
               <h3 className="text-xl font-bold text-cyan-400 mb-2">Initialize Sovereign Engine</h3>
               <p className="text-xs text-slate-400 mb-6">
-                Boot Cipher's custom ternary weights directly onto your local graphics hardware. 
+                Boot Cipher's custom weights directly onto your local graphics hardware. 
                 Once streamed, your processing engine functions completely offline.
               </p>
               
               {downloadProgress > 0 && (
                 <div className="w-full bg-slate-800 h-2 rounded-full mb-4 overflow-hidden border border-slate-700/30">
                   <div 
-                    className={`h-full transition-all duration-300 ${isStreaming ? 'bg-cyan-400 animate-pulse' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`} 
-                    style={{ width: isStreaming ? '15%' : `${downloadProgress}%` }} 
+                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-300" 
+                    style={{ width: `${downloadProgress}%` }} 
                   />
                 </div>
               )}
@@ -209,23 +217,23 @@ export default function ChatPanel() {
                 disabled={downloadProgress > 0}
                 className="w-full py-4 bg-slate-800/90 border border-slate-700/50 rounded-lg text-sm font-semibold transition text-white flex flex-col items-center justify-center gap-3 min-h-[120px]"
               >
-                {isStreaming ? (
+                {downloadProgress > 0 ? (
                   <>
+                    {/* Hardware-Accelerated CSS Loading Spinner */}
                     <div style={{ width: '32px', height: '32px', border: '3px solid rgba(34, 211, 238, 0.15)', borderTop: '3px solid #22d3ee', borderRadius: '50%', animation: 'cipher-spin 1s linear infinite' }} />
                     <style>{`@keyframes cipher-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
                     <div className="flex flex-col gap-1 text-center">
-                      <span className="text-cyan-400 font-mono tracking-widest text-xs font-bold animate-pulse">📡 NETWORK STREAM ACTIVE</span>
-                      <span className="text-[10px] text-slate-500 font-mono">Syncing 4.83 GB parameter matrix securely to local database...</span>
+                      <span className="text-cyan-400 font-mono tracking-widest text-xs font-bold animate-pulse">📡 PIPELINE ACTIVE</span>
+                      <span className="text-[11px] text-slate-300 font-mono px-2">{streamLabel || "Synchronizing substrate weights..."}</span>
                     </div>
                   </>
-                ) : downloadProgress > 0 ? (
-                  <span className="text-cyan-400 font-mono animate-pulse">⚙️ COMPILING NODE... {downloadProgress}%</span>
                 ) : (
                   "Cold Boot Cipher Engine"
                 )}
               </button>
             </div>
           ) : (
+            /* Active Message Loop Stream */
             <MessageList
               messages={messages}
               bottomRef={bottomRef}
@@ -246,6 +254,7 @@ export default function ChatPanel() {
         </div>
       </div>
 
+      {/* Interactive Input Dashboard Strip */}
       <InputBar
         input={input}
         setInput={setInput}
