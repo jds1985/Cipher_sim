@@ -3,7 +3,6 @@ import HeaderMenu from "./HeaderMenu";
 import DrawerMenu from "./DrawerMenu";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
-// Cleaned Engine Import mapping to your updated cipherEngine.js
 import { bootCipherEngine, generateCipherResponse } from "../../lib/cipherEngine";
 
 /* ===============================
@@ -91,7 +90,6 @@ export default function ChatPanel() {
     } catch (err) {
       setIsStreaming(false);
       console.error("Device graphics WebGPU initialization failed:", err);
-      // 🚨 Diagnostic window to check hardware initialization exceptions right on the phone screen
       alert("Boot Error: " + (err.message || err.toString() || "Unknown Initialization Exception"));
     }
   };
@@ -141,21 +139,18 @@ export default function ChatPanel() {
     }
 
     try {
-      // Direct local execution pipe: process input variables via browser WebGPU mechanics
       const streamedReply = await generateCipherResponse(text);
 
       setMessages((m) => {
         const next = [...m];
         next[next.length - 1].content = streamedReply;
         
-        // Commit updates cleanly into local client storage configurations
         if (typeof window !== "undefined") {
           localStorage.setItem(MEMORY_KEY, JSON.stringify(next.slice(-MEMORY_LIMIT)));
         }
         return next;
       });
 
-      // Maintain simulated metric tracker variables for UI compatibility
       const wordCount = streamedReply.split(/\s+/).length;
       const estimatedTokensUsed = Math.ceil(wordCount * 1.3);
       setRemainingTokens((prev) => Math.max(0, prev - estimatedTokensUsed));
@@ -170,7 +165,6 @@ export default function ChatPanel() {
 
   return (
     <div className="cipher-wrap">
-      {/* Top Navigation Wrapper */}
       <div className="cipher-floating-header">
         <HeaderMenu
           onOpenDrawer={() => setDrawerOpen(true)}
@@ -178,7 +172,6 @@ export default function ChatPanel() {
         />
       </div>
 
-      {/* Control Configuration Drawer */}
       <DrawerMenu
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -191,11 +184,9 @@ export default function ChatPanel() {
         tokenLimit={tokenLimit}
       />
 
-      {/* Main UI Chat Stage viewport */}
       <div className="cipher-main">
         <div className="cipher-chat">
           
-          {/* Hardware Boot-Prompt: Renders only when model isn't active in WebGPU memory layout */}
           {!engineLoaded ? (
             <div className="backdrop-blur-md bg-slate-900/80 border border-slate-700/50 p-6 rounded-xl text-center max-w-sm mx-auto my-16 shadow-2xl">
               <h3 className="text-xl font-bold text-cyan-400 mb-2">Initialize Sovereign Engine</h3>
@@ -220,7 +211,6 @@ export default function ChatPanel() {
               >
                 {isStreaming ? (
                   <>
-                    {/* Hardware-Accelerated CSS Loading Spinner */}
                     <div style={{ width: '32px', height: '32px', border: '3px solid rgba(34, 211, 238, 0.15)', borderTop: '3px solid #22d3ee', borderRadius: '50%', animation: 'cipher-spin 1s linear infinite' }} />
                     <style>{`@keyframes cipher-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
                     <div className="flex flex-col gap-1 text-center">
@@ -236,7 +226,6 @@ export default function ChatPanel() {
               </button>
             </div>
           ) : (
-            /* Active Message Loop Stream */
             <MessageList
               messages={messages}
               bottomRef={bottomRef}
@@ -257,7 +246,6 @@ export default function ChatPanel() {
         </div>
       </div>
 
-      {/* Interactive Input Dashboard Strip */}
       <InputBar
         input={input}
         setInput={setInput}
