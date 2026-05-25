@@ -199,7 +199,7 @@ export default function ChatPanel() {
             <div className="backdrop-blur-md bg-slate-900/80 border border-slate-700/50 p-6 rounded-xl text-center max-w-sm mx-auto my-16 shadow-2xl">
               <h3 className="text-xl font-bold text-cyan-400 mb-2">Initialize Sovereign Engine</h3>
               <p className="text-xs text-slate-400 mb-6">
-                Boot Cipher's custom weights directly onto your local graphics hardware. 
+                Boot Cipher's custom ternary weights directly onto your local graphics hardware. 
                 Once streamed, your processing engine functions completely offline.
               </p>
               
