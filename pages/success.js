@@ -70,35 +70,36 @@ export default function Success() {
             marginBottom: "18px",
           }}
         >
-          NODE RESERVATION COMPLETE
+          PROVISIONING COMPLETE
         </div>
 
         <h1
           style={{
-            fontSize: "46px",
+            fontSize: "44px",
             lineHeight: "1.1",
             marginBottom: "18px",
             color: "#ffffff",
             textShadow: "0 0 18px rgba(116,70,255,0.45)",
+            letterSpacing: "2px",
           }}
         >
-          FOUNDING NODE
+          NET-NODE
           <br />
-          RESERVED
+          PROVISIONED
         </h1>
 
         <p
           style={{
             color: "rgba(255,255,255,0.72)",
-            fontSize: "16px",
+            fontSize: "15px",
             lineHeight: "1.8",
-            maxWidth: "500px",
+            maxWidth: "550px",
             margin: "0 auto 35px auto",
           }}
         >
-          Welcome to the Cipher Mesh.
+          Welcome to the Cipher Mesh network.
           <br />
-          Your node has been registered inside the founding network layer.
+          Your stateless mailbox proxy is initialized. Check your email for your unique authentication tokens and instructions to connect your local client application.
         </p>
 
         <div
@@ -118,7 +119,7 @@ export default function Success() {
               marginBottom: "10px",
             }}
           >
-            STATUS
+            ROUTING STATUS
           </div>
 
           <div
@@ -141,7 +142,7 @@ export default function Success() {
               }}
             />
 
-            CONNECTED TO FOUNDING LAYER
+            STATELESS DATA RELAY INITIALIZED
           </div>
         </div>
 
