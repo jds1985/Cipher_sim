@@ -1,64 +1,7 @@
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import Script from "next/script";
 
 export default function Home() {
-  const [meshStatus, setMeshStatus] = useState("MESH INITIALIZING...");
-  const [meshColor, setMeshColor] = useState("#ffaa00");
-  const [peerCount, setPeerCount] = useState(0);
-
-  // Initialize Helia Mesh dynamically on client mount
-  useEffect(() => {
-    let intervalId = null;
-
-    async function initMesh() {
-      try {
-        const { createHelia } = await import("https://esm.sh/helia");
-        const { unixfs } = await import("https://esm.sh/@helia/unixfs");
-        const { createLibp2p } = await import("https://esm.sh/libp2p");
-        const { webSockets } = await import("https://esm.sh/@libp2p/websockets");
-        const { noise } = await import("https://esm.sh/@chainsafe/libp2p-noise");
-        const { mplex } = await import("https://esm.sh/@libp2p/mplex");
-        const { bootstrap } = await import("https://esm.sh/@libp2p/bootstrap");
-
-        const libp2p = await createLibp2p({
-          transports: [webSockets()],
-          connectionEncryption: [noise()],
-          streamMuxers: [mplex()],
-          peerDiscovery: [
-            bootstrap({
-              list: [
-                "/dnsaddr/bootstrap.libp2p.io/p2p/12D3KooWJ6gL6z7uRkJrVN6a8GN28AL5soMgqd7qV3CyMfCVxYv3",
-              ],
-            }),
-          ],
-        });
-
-        const helia = await createHelia({ libp2p });
-        unixfs(helia);
-
-        setMeshStatus("MESH ACTIVE");
-        setMeshColor("#00ffcc");
-
-        intervalId = setInterval(() => {
-          if (helia?.libp2p) {
-            const peers = helia.libp2p.getPeers();
-            setPeerCount(peers.length);
-          }
-        }, 2000);
-      } catch (err) {
-        console.error("Mesh initialization error:", err);
-        setMeshStatus("MESH OFFLINE");
-        setMeshColor("#ff4d4d");
-      }
-    }
-
-    initMesh();
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, []);
-
   const handlePreOrder = async () => {
     try {
       const response = await fetch("/api/stripe/create-checkout-session", {
@@ -78,9 +21,11 @@ export default function Home() {
   };
 
   const handleDevBypass = () => {
-    localStorage.setItem("cipher_dev_access", "granted");
-    localStorage.setItem("cipher_entered", "true");
-    window.location.href = "/";
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cipher_dev_access", "granted");
+      localStorage.setItem("cipher_entered", "true");
+      window.location.href = "/";
+    }
   };
 
   return (
@@ -94,6 +39,76 @@ export default function Home() {
         />
         <script src="https://js.stripe.com/v3/" async />
       </Head>
+
+      {/* Runs raw in the browser — completely hidden from Webpack compilation */}
+      <Script
+        id="cipher-mesh-runtime"
+        type="module"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+            import { createHelia } from 'https://esm.sh/helia';
+            import { unixfs } from 'https://esm.sh/@helia/unixfs';
+            import { createLibp2p } from 'https://esm.sh/libp2p';
+            import { webSockets } from 'https://esm.sh/@libp2p/websockets';
+            import { noise } from 'https://esm.sh/@chainsafe/libp2p-noise';
+            import { mplex } from 'https://esm.sh/@libp2p/mplex';
+            import { bootstrap } from 'https://esm.sh/@libp2p/bootstrap';
+
+            async function initMesh() {
+              const statusEl = document.getElementById('mesh-status');
+              const dotEl = document.getElementById('mesh-dot');
+              const peerEl = document.getElementById('peer-count');
+
+              try {
+                const libp2p = await createLibp2p({
+                  transports: [webSockets()],
+                  connectionEncryption: [noise()],
+                  streamMuxers: [mplex()],
+                  peerDiscovery: [
+                    bootstrap({
+                      list: [
+                        '/dnsaddr/bootstrap.libp2p.io/p2p/12D3KooWJ6gL6z7uRkJrVN6a8GN28AL5soMgqd7qV3CyMfCVxYv3'
+                      ]
+                    })
+                  ]
+                });
+
+                const helia = await createHelia({ libp2p });
+                unixfs(helia);
+
+                if (statusEl) {
+                  statusEl.innerText = 'MESH ACTIVE';
+                  statusEl.style.color = '#00ffcc';
+                }
+                if (dotEl) {
+                  dotEl.style.background = '#00ffcc';
+                  dotEl.style.boxShadow = '0 0 8px #00ffcc';
+                }
+
+                setInterval(() => {
+                  if (helia?.libp2p && peerEl) {
+                    const peers = helia.libp2p.getPeers();
+                    peerEl.innerText = 'PEERS: ' + peers.length;
+                  }
+                }, 2000);
+              } catch (err) {
+                console.error("Mesh error:", err);
+                if (statusEl) {
+                  statusEl.innerText = 'MESH OFFLINE';
+                  statusEl.style.color = '#ff4d4d';
+                }
+                if (dotEl) {
+                  dotEl.style.background = '#ff4d4d';
+                  dotEl.style.boxShadow = '0 0 8px #ff4d4d';
+                }
+              }
+            }
+
+            initMesh();
+          `,
+        }}
+      />
 
       <div className="bg-overlay" />
 
@@ -110,7 +125,7 @@ export default function Home() {
           id="mesh-indicator"
           style={{
             fontSize: "10px",
-            color: meshColor,
+            color: "#00ffcc",
             letterSpacing: "2px",
             marginBottom: "30px",
             display: "flex",
@@ -124,15 +139,17 @@ export default function Home() {
             style={{
               width: "6px",
               height: "6px",
-              background: meshColor,
+              background: "#ffaa00",
               borderRadius: "50%",
-              boxShadow: `0 0 8px ${meshColor}`,
+              boxShadow: "0 0 8px #ffaa00",
               transition: "all 0.3s ease",
             }}
           />
-          <span id="mesh-status">{meshStatus}</span>
+          <span id="mesh-status" style={{ color: "#ffaa00" }}>
+            MESH INITIALIZING...
+          </span>
           <span id="peer-count" style={{ marginLeft: "10px" }}>
-            PEERS: {peerCount}
+            PEERS: 0
           </span>
         </div>
 
