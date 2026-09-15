@@ -10,13 +10,12 @@ export default function Home() {
   });
   const [submitted, setSubmitted] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handlePilotRequest = async (e: React.FormEvent) => {
+  const handlePilotRequest = async (e) => {
     e.preventDefault();
-    // Connect to your email or lead capture endpoint
     setSubmitted(true);
   };
 
@@ -285,7 +284,6 @@ export default function Home() {
           padding: 30px 24px 80px 24px;
         }
 
-        /* Header */
         .header {
           display: flex;
           justify-content: space-between;
@@ -322,7 +320,6 @@ export default function Home() {
           color: #38bdf8;
         }
 
-        /* Hero */
         .hero-section {
           text-align: center;
           padding: 40px 0 60px 0;
@@ -424,7 +421,6 @@ export default function Home() {
           letter-spacing: 1px;
         }
 
-        /* Preview Phone Mockup */
         .preview-section {
           display: flex;
           justify-content: center;
@@ -520,7 +516,6 @@ export default function Home() {
           cursor: pointer;
         }
 
-        /* Feature Section */
         .section-block {
           margin-bottom: 80px;
         }
@@ -557,7 +552,6 @@ export default function Home() {
           line-height: 1.6;
         }
 
-        /* Pricing Card */
         .pricing-card {
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(56, 189, 248, 0.2);
@@ -608,7 +602,6 @@ export default function Home() {
           text-align: center;
         }
 
-        /* Lead Form */
         .pilot-section {
           max-width: 500px;
           margin: 0 auto 60px auto;
@@ -658,7 +651,6 @@ export default function Home() {
           font-size: 14px;
         }
 
-        /* Footer */
         .footer {
           text-align: center;
           font-size: 12px;
