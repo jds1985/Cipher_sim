@@ -50,13 +50,27 @@ export default function Home() {
         />
       </Head>
 
+      {/* Layer 1: Ambient Lighting Canvas */}
       <div className="bg-canvas" />
+
+      {/* Layer 2: Faded Logo Watermark */}
+      <div className="bg-watermark">
+        <img
+          src="/images/hero-network.png"
+          alt="Cipher CTS Watermark"
+          className="watermark-img"
+        />
+      </div>
 
       <div className="layout">
         {/* Navigation */}
         <header className="navbar glass-panel">
           <div className="brand">
-            <span className="brand-hex">◈</span>
+            <img
+              src="/images/hero-network.png"
+              alt="Cipher CTS Logo"
+              className="brand-logo"
+            />
             <span className="brand-text">CIPHER CTS</span>
           </div>
           <nav className="nav-links">
@@ -74,7 +88,7 @@ export default function Home() {
 
         {/* Hero Section */}
         <section className="hero-section">
-          <div className="pill-badge">
+          <div className="pill-badge glass-pill">
             <span className="pulse-dot" />
             Next-Gen Private Intelligence
           </div>
@@ -85,7 +99,9 @@ export default function Home() {
           </h1>
 
           <p className="hero-description">
-            Cipher CTS engineers sovereign AI architectures built from the ground up for privacy, extreme hardware efficiency, and total operational autonomy.
+            Cipher CTS engineers sovereign AI architectures built from the
+            ground up for privacy, extreme hardware efficiency, and complete
+            operational autonomy.
           </p>
 
           <div className="hero-buttons">
@@ -106,7 +122,6 @@ export default function Home() {
             <p>Purpose-built intelligence applications that respect your data boundary.</p>
           </div>
 
-          {/* Carousel Slider */}
           <div className="carousel glass-panel">
             <div className="carousel-meta">
               <span className="category">{products[activeSlide].category}</span>
@@ -123,7 +138,6 @@ export default function Home() {
                 {products[activeSlide].cta} →
               </Link>
 
-              {/* Slider Dots */}
               <div className="dots">
                 {products.map((_, index) => (
                   <button
@@ -150,7 +164,9 @@ export default function Home() {
               <div className="pillar-icon">🔒</div>
               <h4>Complete Data Sovereignty</h4>
               <p>
-                We reject the surveillance data-pipeline. Our systems run statelessly with zero cloud retention, logging, or dataset harvesting.
+                We reject the surveillance data-pipeline. Our systems run
+                statelessly with zero cloud retention, logging, or dataset
+                harvesting.
               </p>
             </div>
 
@@ -158,7 +174,8 @@ export default function Home() {
               <div className="pillar-icon">⚡</div>
               <h4>Extreme Computational Efficiency</h4>
               <p>
-                Instead of requiring bloated server clusters, our models are designed to operate within lean footprints, reducing cost and energy consumption.
+                Instead of requiring bloated server clusters, our models operate
+                within lean footprints, reducing cost and energy consumption.
               </p>
             </div>
 
@@ -166,16 +183,17 @@ export default function Home() {
               <div className="pillar-icon">📦</div>
               <h4>Zero-Friction Deployment</h4>
               <p>
-                Practical business utility delivered without invasive hardware retrofits or months of complex onboarding cycles.
+                Practical business utility delivered without invasive hardware
+                retrofits or months of complex onboarding cycles.
               </p>
             </div>
           </div>
         </section>
 
-        {/* Clean Footer */}
+        {/* Footer */}
         <footer className="footer glass-panel">
           <div className="footer-left">
-            <span className="brand-hex">◈</span> CIPHER TERNARY SYSTEMS
+            <span className="brand-symbol">◈</span> CIPHER TERNARY SYSTEMS
           </div>
           <div className="footer-right">
             <span>Knoxville, TN</span>
@@ -195,7 +213,7 @@ export default function Home() {
         body {
           font-family: "Inter", sans-serif;
           color: #e2e8f0;
-          background-color: #05070d;
+          background-color: #030408;
           line-height: 1.6;
           overflow-x: hidden;
         }
@@ -205,6 +223,7 @@ export default function Home() {
           font-weight: 700;
         }
 
+        /* Ambient Glow Backdrop */
         .bg-canvas {
           position: fixed;
           top: 0;
@@ -212,26 +231,56 @@ export default function Home() {
           width: 100%;
           height: 100%;
           background: 
-            radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.08) 0%, transparent 50%),
-            radial-gradient(circle at 10% 40%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
-            #05070d;
+            radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.12) 0%, transparent 55%),
+            radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 45%),
+            radial-gradient(circle at 15% 70%, rgba(34, 211, 238, 0.05) 0%, transparent 40%),
+            #030408;
+          z-index: -2;
+        }
+
+        /* Faded Logo Watermark */
+        .bg-watermark {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 100%;
+          max-width: 900px;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
           z-index: -1;
+          opacity: 0.07;
+          filter: blur(1px) grayscale(30%);
+        }
+
+        .watermark-img {
+          width: 85%;
+          max-width: 600px;
+          object-fit: contain;
         }
 
         .layout {
           max-width: 860px;
           margin: 0 auto;
           padding: 24px 20px 60px 20px;
+          position: relative;
+          z-index: 1;
         }
 
-        /* Glass Surface Utility */
+        /* Glassmorphism Surface */
         .glass-panel {
-          background: rgba(15, 23, 42, 0.45);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 20px;
-          box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+          background: rgba(10, 15, 29, 0.55);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          border-top: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 22px;
+          box-shadow: 
+            0 20px 40px -15px rgba(0, 0, 0, 0.7),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
 
         /* Navbar */
@@ -239,31 +288,33 @@ export default function Home() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 14px 22px;
-          margin-bottom: 50px;
+          padding: 12px 24px;
+          margin-bottom: 55px;
         }
 
         .brand {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
         }
 
-        .brand-hex {
-          color: #22d3ee;
-          font-size: 18px;
+        .brand-logo {
+          width: 28px;
+          height: 28px;
+          object-fit: contain;
+          border-radius: 6px;
         }
 
         .brand-text {
           font-size: 14px;
           letter-spacing: 2px;
-          color: #fff;
+          color: #ffffff;
         }
 
         .nav-links {
           display: flex;
           align-items: center;
-          gap: 18px;
+          gap: 20px;
         }
 
         .nav-item {
@@ -275,36 +326,40 @@ export default function Home() {
         }
 
         .nav-item:hover {
-          color: #fff;
+          color: #ffffff;
         }
 
         .nav-item.highlight {
           color: #22d3ee;
-          background: rgba(34, 211, 238, 0.08);
-          border: 1px solid rgba(34, 211, 238, 0.25);
-          padding: 5px 12px;
+          background: rgba(34, 211, 238, 0.1);
+          border: 1px solid rgba(34, 211, 238, 0.3);
+          padding: 6px 14px;
           border-radius: 12px;
         }
 
         /* Hero */
         .hero-section {
           text-align: center;
-          padding: 40px 10px 70px 10px;
+          padding: 30px 10px 75px 10px;
         }
 
         .pill-badge {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 6px 14px;
+          padding: 6px 16px;
           border-radius: 999px;
-          background: rgba(34, 211, 238, 0.06);
-          border: 1px solid rgba(34, 211, 238, 0.2);
-          color: #22d3ee;
           font-size: 11px;
-          letter-spacing: 1px;
+          letter-spacing: 1.5px;
           text-transform: uppercase;
-          margin-bottom: 20px;
+          margin-bottom: 22px;
+        }
+
+        .glass-pill {
+          background: rgba(34, 211, 238, 0.06);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(34, 211, 238, 0.25);
+          color: #22d3ee;
         }
 
         .pulse-dot {
@@ -312,29 +367,29 @@ export default function Home() {
           height: 6px;
           border-radius: 50%;
           background: #22d3ee;
-          box-shadow: 0 0 8px #22d3ee;
+          box-shadow: 0 0 10px #22d3ee;
         }
 
         .hero-title {
-          font-size: 44px;
+          font-size: 46px;
           line-height: 1.15;
           letter-spacing: -0.02em;
-          color: #fff;
-          margin-bottom: 18px;
+          color: #ffffff;
+          margin-bottom: 20px;
         }
 
         .gradient-text {
-          background: linear-gradient(135deg, #22d3ee 0%, #a5f3fc 100%);
+          background: linear-gradient(135deg, #22d3ee 0%, #a5f3fc 80%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
 
         .hero-description {
-          font-size: 16px;
+          font-size: 16.5px;
           color: #94a3b8;
-          max-width: 580px;
-          margin: 0 auto 30px auto;
-          line-height: 1.6;
+          max-width: 600px;
+          margin: 0 auto 34px auto;
+          line-height: 1.65;
         }
 
         .hero-buttons {
@@ -344,18 +399,18 @@ export default function Home() {
         }
 
         .btn {
-          padding: 12px 24px;
+          padding: 13px 26px;
           border-radius: 12px;
-          font-size: 13px;
+          font-size: 13.5px;
           text-decoration: none;
-          transition: all 0.2s;
+          transition: all 0.2s ease;
         }
 
         .btn-primary {
           background: #22d3ee;
           color: #040812;
           font-weight: 700;
-          box-shadow: 0 8px 25px -4px rgba(34, 211, 238, 0.4);
+          box-shadow: 0 10px 25px -5px rgba(34, 211, 238, 0.4);
         }
 
         .btn-primary:hover {
@@ -364,18 +419,20 @@ export default function Home() {
         }
 
         .btn-glass {
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.04);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           color: #e2e8f0;
         }
 
         .btn-glass:hover {
-          background: rgba(255, 255, 255, 0.07);
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.2);
         }
 
         /* Sections */
         .section-container {
-          margin-bottom: 70px;
+          margin-bottom: 75px;
         }
 
         .section-header {
@@ -392,7 +449,7 @@ export default function Home() {
 
         .section-header h2 {
           font-size: 26px;
-          color: #fff;
+          color: #ffffff;
           margin: 6px 0;
         }
 
@@ -401,13 +458,12 @@ export default function Home() {
           color: #64748b;
         }
 
-        /* Carousel Panel */
+        /* Carousel Glass Panel */
         .carousel {
-          padding: 34px;
+          padding: 36px;
           display: flex;
           flex-direction: column;
           gap: 20px;
-          position: relative;
         }
 
         .carousel-meta {
@@ -435,7 +491,7 @@ export default function Home() {
 
         .carousel-body h3 {
           font-size: 24px;
-          color: #fff;
+          color: #ffffff;
           margin-bottom: 10px;
         }
 
@@ -450,14 +506,14 @@ export default function Home() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding-top: 15px;
+          padding-top: 18px;
           border-top: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .btn-action {
           color: #22d3ee;
           text-decoration: none;
-          font-size: 13px;
+          font-size: 13.5px;
           font-weight: 600;
           transition: transform 0.2s;
         }
@@ -482,7 +538,7 @@ export default function Home() {
         }
 
         .dot.active {
-          width: 20px;
+          width: 22px;
           border-radius: 10px;
           background: #22d3ee;
         }
@@ -495,7 +551,7 @@ export default function Home() {
         }
 
         .pillar-card {
-          padding: 24px;
+          padding: 26px;
         }
 
         .pillar-icon {
@@ -505,7 +561,7 @@ export default function Home() {
 
         .pillar-card h4 {
           font-size: 15px;
-          color: #fff;
+          color: #ffffff;
           margin-bottom: 8px;
         }
 
@@ -520,9 +576,13 @@ export default function Home() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 20px 24px;
+          padding: 20px 26px;
           font-size: 12px;
           color: #64748b;
+        }
+
+        .brand-symbol {
+          color: #22d3ee;
         }
 
         .footer-right {
