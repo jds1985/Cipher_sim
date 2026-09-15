@@ -73,13 +73,13 @@ export default function Home() {
             />
             <span className="brand-text">CIPHER CTS</span>
           </div>
-          <nav className="nav-links">
+         <nav className="nav-links">
             <Link href="/concierge" className="nav-item highlight">
               Concierge AI
             </Link>
-            <a href="#about" className="nav-item">
+            <Link href="/mission" className="nav-item">
               Mission
-            </a>
+            </Link>
             <a href="#products" className="nav-item">
               Solutions
             </a>
