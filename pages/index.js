@@ -1,358 +1,242 @@
 import Head from "next/head";
-import Script from "next/script";
+import { useState } from "react";
 
 export default function Home() {
-  const handlePreOrder = async () => {
-    try {
-      const response = await fetch("/api/stripe/create-checkout-session", {
-        method: "POST",
-      });
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        console.error(data);
-        alert("Stripe session failed.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Checkout failed.");
-    }
+  const [formData, setFormData] = useState({
+    name: "",
+    hotelName: "",
+    roomCount: "",
+    email: "",
+  });
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleDevBypass = () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("cipher_dev_access", "granted");
-      localStorage.setItem("cipher_entered", "true");
-      window.location.href = "/";
-    }
+  const handlePilotRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Connect to your email or lead capture endpoint
+    setSubmitted(true);
   };
 
   return (
     <>
       <Head>
-        <title>Cipher CTS | Your Sovereign AI</title>
+        <title>Cipher CTS | Zero-Hardware Private AI Concierge for Hotels</title>
+        <meta
+          name="description"
+          content="Deliver private, 24/7 guest assistance directly to mobile browsers via in-room QR cards. Zero hardware, zero app downloads, 100% private."
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
-        <script src="https://js.stripe.com/v3/" async />
       </Head>
-
-      {/* Runs raw in the browser — completely hidden from Webpack compilation */}
-      <Script
-        id="cipher-mesh-runtime"
-        type="module"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{
-          __html: `
-            import { createHelia } from 'https://esm.sh/helia';
-            import { unixfs } from 'https://esm.sh/@helia/unixfs';
-            import { createLibp2p } from 'https://esm.sh/libp2p';
-            import { webSockets } from 'https://esm.sh/@libp2p/websockets';
-            import { noise } from 'https://esm.sh/@chainsafe/libp2p-noise';
-            import { mplex } from 'https://esm.sh/@libp2p/mplex';
-            import { bootstrap } from 'https://esm.sh/@libp2p/bootstrap';
-
-            async function initMesh() {
-              const statusEl = document.getElementById('mesh-status');
-              const dotEl = document.getElementById('mesh-dot');
-              const peerEl = document.getElementById('peer-count');
-
-              try {
-                const libp2p = await createLibp2p({
-                  transports: [webSockets()],
-                  connectionEncryption: [noise()],
-                  streamMuxers: [mplex()],
-                  peerDiscovery: [
-                    bootstrap({
-                      list: [
-                        '/dnsaddr/bootstrap.libp2p.io/p2p/12D3KooWJ6gL6z7uRkJrVN6a8GN28AL5soMgqd7qV3CyMfCVxYv3'
-                      ]
-                    })
-                  ]
-                });
-
-                const helia = await createHelia({ libp2p });
-                unixfs(helia);
-
-                if (statusEl) {
-                  statusEl.innerText = 'MESH ACTIVE';
-                  statusEl.style.color = '#00ffcc';
-                }
-                if (dotEl) {
-                  dotEl.style.background = '#00ffcc';
-                  dotEl.style.boxShadow = '0 0 8px #00ffcc';
-                }
-
-                setInterval(() => {
-                  if (helia?.libp2p && peerEl) {
-                    const peers = helia.libp2p.getPeers();
-                    peerEl.innerText = 'PEERS: ' + peers.length;
-                  }
-                }, 2000);
-              } catch (err) {
-                console.error("Mesh error:", err);
-                if (statusEl) {
-                  statusEl.innerText = 'MESH OFFLINE';
-                  statusEl.style.color = '#ff4d4d';
-                }
-                if (dotEl) {
-                  dotEl.style.background = '#ff4d4d';
-                  dotEl.style.boxShadow = '0 0 8px #ff4d4d';
-                }
-              }
-            }
-
-            initMesh();
-          `,
-        }}
-      />
 
       <div className="bg-overlay" />
 
-      <div className="container">
-        <img
-          src="/images/hero-network.png"
-          alt="Cipher CTS Network"
-          className="hero-image"
-        />
+      <main className="container">
+        {/* Navigation / Header */}
+        <header className="header">
+          <div className="logo-box">
+            <span className="logo-symbol">◈</span>
+            <span className="brand-name">CIPHER CTS</span>
+          </div>
+          <a href="#pilot" className="nav-link">
+            Request Pilot
+          </a>
+        </header>
 
-        <div className="tagline">THE COGNITIVE OPERATING SYSTEM</div>
+        {/* Hero Section */}
+        <section className="hero-section">
+          <div className="badge">
+            <span className="badge-pulse"></span>
+            Private Hospitality Intelligence
+          </div>
 
-        <div
-          id="mesh-indicator"
-          style={{
-            fontSize: "10px",
-            color: "#00ffcc",
-            letterSpacing: "2px",
-            marginBottom: "30px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
-          }}
-        >
-          <div
-            id="mesh-dot"
-            style={{
-              width: "6px",
-              height: "6px",
-              background: "#ffaa00",
-              borderRadius: "50%",
-              boxShadow: "0 0 8px #ffaa00",
-              transition: "all 0.3s ease",
-            }}
-          />
-          <span id="mesh-status" style={{ color: "#ffaa00" }}>
-            MESH INITIALIZING...
-          </span>
-          <span id="peer-count" style={{ marginLeft: "10px" }}>
-            PEERS: 0
-          </span>
-        </div>
+          <h1>
+            The 24/7 Digital Concierge.
+            <br />
+            <span className="gradient-text">Zero Hardware. Total Privacy.</span>
+          </h1>
 
-        <h1>COMING SUMMER 2026</h1>
-
-        <button
-          onClick={handleDevBypass}
-          style={{
-            marginTop: "15px",
-            marginBottom: "25px",
-            display: "block",
-            width: "100%",
-            padding: "20px",
-            background: "linear-gradient(135deg, #ef4444, #b91c1c)",
-            color: "white",
-            fontFamily: "'Orbitron', sans-serif",
-            fontWeight: "bold",
-            border: "none",
-            borderRadius: "15px",
-            cursor: "pointer",
-            boxShadow: "0 10px 25px rgba(239, 68, 68, 0.35)",
-            letterSpacing: "2px",
-            fontSize: "15px",
-          }}
-        >
-          INITIALIZE LOCAL SUBSTRATE (ARCHITECT DEV)
-        </button>
-
-        <div className="mission-box">
-          <h2>AI Without the Extraction</h2>
-          <p>
-            Giant AI companies use billions of gallons of water and enough electricity
-            to power small countries just to answer your questions.{" "}
-            <strong>Cipher CTS changes the physics.</strong>
+          <p className="hero-subtext">
+            Relieve front-desk staff during peak check-in and late-night shifts.
+            Guests scan a clean in-room QR card to receive instant property
+            answers on their phones—with zero data logging.
           </p>
-          <p>
-            By moving to <strong>Ternary BitNet logic</strong>, we’ve built an AI that runs locally on your device.
-            No server farms. No data harvesting. No subscriptions.
-          </p>
-          <img
-            src="/images/ai-without-extraction.png"
-            alt="AI Without Extraction"
-            className="section-image"
-          />
-        </div>
 
-        <div className="feature-grid">
-          <div className="feature">
-            <strong>100% Private</strong>
-            Your data never leaves your hardware. Local-only inference.
+          <div className="hero-actions">
+            <a href="/demo" className="btn btn-primary">
+              Launch Live Guest Demo
+            </a>
+            <a href="#pilot" className="btn btn-secondary">
+              Book 30-Day Single-Floor Pilot
+            </a>
           </div>
 
-          <div className="feature">
-            <strong>Eco-Engineered</strong>
-            80% less energy consumption than standard binary AI models.
+          <div className="trust-metrics">
+            <div>⚡ Setup in 1 Afternoon</div>
+            <div>🔒 100% Stateless RAM</div>
+            <div>📱 Zero App Installs</div>
           </div>
+        </section>
 
-          <img
-            src="/images/eco-engineered.png"
-            alt="Eco Engineered"
-            className="section-image"
-          />
-
-          <div className="feature">
-            <strong>Unblockable</strong>
-            A decentralized P2P mesh network. No &quot;off&quot; switch.
-          </div>
-
-          <img
-            src="/images/unblockable-network.png"
-            alt="Unblockable Mesh Network"
-            className="section-image"
-          />
-
-          <div className="feature">
-            <strong>Stateless Federation</strong>
-            Download the Substrate in Summer. Process locally, access on the go via cloud proxy.
-          </div>
-
-          <img
-            src="/images/substrate-app.png"
-            alt="Cipher CTS Substrate App"
-            className="section-image"
-          />
-        </div>
-
-        <div className="offer-split">
-          <div className="offer-card">
-            <h3>THE SUBSTRATE CLIENT</h3>
-            <p style={{ fontSize: "13px" }}>
-              Download to your PC or Mac in Summer. 100% local, offline-first execution.
-            </p>
-            <button
-              className="btn btn-free"
-              onClick={() => alert("Download link will be active in Summer!")}
-            >
-              GET FREE ACCESS
-            </button>
-            <span
-              style={{
-                fontSize: "10px",
-                color: "rgba(255,255,255,0.4)",
-                marginTop: "10px",
-                display: "block",
-              }}
-            >
-              Open-Source Core Engine
-            </span>
-          </div>
-
-          <div className="offer-card premium">
-            <h3>THE CIPHER NET-NODE</h3>
-            <p style={{ fontSize: "13px", marginBottom: "10px" }}>
-              Stateless Cloud Proxy Relay for Firewall Tunneling & Global Federation.
-            </p>
-            <div
-              style={{
-                textAlign: "left",
-                fontSize: "11px",
-                color: "rgba(255,255,255,0.85)",
-                background: "rgba(255,255,255,0.02)",
-                padding: "15px",
-                borderRadius: "12px",
-                border: "1px solid rgba(255,77,77,0.15)",
-              }}
-            >
-              <span style={{ color: "#ff4d4d", display: "block", marginBottom: "5px" }}>
-                ⚡ INSTANT WEBSOCKET TUNNEL
-              </span>
-              Bypass home router firewalls without exposing your private local IP address.
-              <br />
-              <br />
-              <span style={{ color: "#ff4d4d", display: "block", marginBottom: "5px" }}>
-                🌐 SOVEREIGN DIGITAL IDENTITY
-              </span>
-              Get a permanent, global handle recognized across the decentralized Fediverse.
+        {/* Interactive In-Room Preview Mockup */}
+        <section className="preview-section">
+          <div className="phone-mockup">
+            <div className="speaker-bar" />
+            <div className="phone-header">
+              <div>
+                <h4>The Oliver Hotel</h4>
+                <p>Digital Concierge • Room 304</p>
+              </div>
+              <span className="status-pill">Active</span>
             </div>
-            <button
-              className="btn btn-box"
-              onClick={handlePreOrder}
-              style={{
-                position: "relative",
-                zIndex: 9999,
-                background: "linear-gradient(135deg, #ff4d4d, #b91c1c)",
-                boxShadow: "0 10px 30px rgba(255, 77, 77, 0.35)",
-              }}
-            >
-              DEPLOY NET-NODE
-            </button>
-            <span
-              style={{
-                fontSize: "13px",
-                color: "#ff4d4d",
-                fontWeight: "bold",
-                marginTop: "15px",
-                display: "block",
-                letterSpacing: "1px",
-              }}
-            >
-              $15 / MONTH
-            </span>
+
+            <div className="chat-thread">
+              <div className="msg assistant">
+                Good evening. I am Cipher, your private assistant for Room 304.
+                How can I assist your stay tonight?
+              </div>
+              <div className="msg guest">
+                What time does breakfast end and can I get a 12 PM checkout?
+              </div>
+              <div className="msg assistant">
+                Breakfast is served downstairs in The Hearth Room until 10:00 AM.
+                <br />
+                <br />
+                Your 12:00 PM late checkout is confirmed for Room 304.
+              </div>
+            </div>
+
+            <div className="phone-footer">
+              <span>🔒 100% Private (Stateless)</span>
+              <span className="btn-clear">End Session</span>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="offer-card recruit-card">
-          <h3>JOIN THE DEPLOYMENT NETWORK</h3>
-          <p style={{ fontSize: "13px" }}>
-            We&apos;re recruiting students, tech enthusiasts, and early operators to
-            help expand the Cipher CTS substrate into businesses, hotels, campuses,
-            and real-world infrastructure.
+        {/* The GM Pain Points */}
+        <section className="section-block">
+          <h2 className="section-title">Built for Real Hotel Operations</h2>
+          <div className="feature-grid">
+            <div className="feature-card">
+              <h3>Eliminate Repetitive Night Calls</h3>
+              <p>
+                Wi-Fi passcodes, extra towels, ice machines, and dining options
+                are resolved instantly without waking night staff or tying up
+                the desk.
+              </p>
+            </div>
+            <div className="feature-card">
+              <h3>No In-Room Tablets or Hardware</h3>
+              <p>
+                Eliminate thousands in hardware replacements, stolen cords, and
+                broken displays. A single elegant acrylic QR card in each room
+                powers the entire service.
+              </p>
+            </div>
+            <div className="feature-card">
+              <h3>Zero Compliance Liability</h3>
+              <p>
+                Conversations run completely statelessly in RAM and dissolve
+                instantly upon exit. No guest data harvesting or CCPA/GDPR
+                exposure.
+              </p>
+            </div>
+            <div className="feature-card">
+              <h3>Custom-Tuned to Your Property</h3>
+              <p>
+                We inject your property’s exact policies, operating hours, and
+                handpicked local dining recommendations directly into the
+                assistant.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Transparent PRPM Pricing */}
+        <section className="section-block">
+          <h2 className="section-title">Simple Per-Room Pricing</h2>
+          <div className="pricing-card">
+            <div className="pricing-header">
+              <h3>Full Property Deployment</h3>
+              <div className="price-tag">
+                $3.50 <span>/ room / month</span>
+              </div>
+            </div>
+            <ul className="pricing-list">
+              <li>✓ Custom property knowledge base & tone calibration</li>
+              <li>✓ High-durability acrylic room cards included</li>
+              <li>✓ Zero hardware to install, maintain, or update</li>
+              <li>✓ Unlimited guest queries & multilingual support</li>
+              <li>✓ Complete RAM-only guest privacy guarantee</li>
+            </ul>
+            <p className="pricing-subtext">
+              Looking to test first? We offer a low-risk 30-day single-floor pilot.
+            </p>
+          </div>
+        </section>
+
+        {/* Pilot Lead Capture Form */}
+        <section id="pilot" className="section-block pilot-section">
+          <h2 className="section-title">Schedule a Property Walkthrough</h2>
+          <p className="section-subtext">
+            See how Cipher answers your specific hotel policies before deciding.
           </p>
-          <button
-            className="btn btn-recruit"
-            onClick={() => (window.location.href = "/recruit.html")}
-          >
-            JOIN THE NETWORK
-          </button>
-          <span
-            style={{
-              fontSize: "11px",
-              color: "rgba(255,255,255,0.45)",
-              marginTop: "12px",
-              display: "block",
-            }}
-          >
-            Commission-based opportunities available for early deployment partners and regional operators.
-          </span>
-        </div>
 
-        <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>
-          Cipher CTS is a local-first cognitive system. No cloud data dependencies.
-          <br />
-          Stateless cloud proxy network routes via open standards including ActivityPub and Webfinger.
-        </p>
-      </div>
+          {submitted ? (
+            <div className="form-success">
+              Thank you. We will reach out shortly with your property prototype.
+            </div>
+          ) : (
+            <form onSubmit={handlePilotRequest} className="lead-form">
+              <input
+                type="text"
+                name="name"
+                placeholder="Your Full Name"
+                required
+                onChange={handleInputChange}
+              />
+              <input
+                type="text"
+                name="hotelName"
+                placeholder="Hotel / Property Name"
+                required
+                onChange={handleInputChange}
+              />
+              <input
+                type="number"
+                name="roomCount"
+                placeholder="Total Room Keys (e.g. 85)"
+                required
+                onChange={handleInputChange}
+              />
+              <input
+                type="email"
+                name="email"
+                placeholder="Corporate / Work Email"
+                required
+                onChange={handleInputChange}
+              />
+              <button type="submit" className="btn btn-primary btn-submit">
+                Request Property Pilot
+              </button>
+            </form>
+          )}
+        </section>
 
-      <a
-        rel="me"
-        href="https://techhub.social/@Cipher_dev_1985"
-        style={{ display: "none" }}
-      >
-        Mastodon Verification
-      </a>
+        {/* Footer */}
+        <footer className="footer">
+          <p>
+            Cipher CTS • Zero-Hardware Private AI Infrastructure • Designed for
+            Independent & Boutique Hospitality.
+          </p>
+        </footer>
+      </main>
 
       <style jsx global>{`
         * {
@@ -362,12 +246,21 @@ export default function Home() {
         }
 
         body {
-          font-family: "Orbitron", sans-serif;
-          color: white;
-          background-color: #02030a;
-          text-align: center;
-          overflow-x: hidden;
+          font-family: "Inter", sans-serif;
+          color: #e2e8f0;
+          background-color: #07090e;
           line-height: 1.6;
+          overflow-x: hidden;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        .brand-name,
+        .btn {
+          font-family: "Plus Jakarta Sans", sans-serif;
+          font-weight: 700;
         }
 
         .bg-overlay {
@@ -376,179 +269,422 @@ export default function Home() {
           left: 0;
           width: 100%;
           height: 100%;
-          background: linear-gradient(rgba(3, 3, 10, 0.85), rgba(3, 3, 10, 0.95)),
-            url("/images/cipher-cts-bg.png");
-          background-size: cover;
-          background-position: center;
+          background: radial-gradient(
+              circle at 50% 15%,
+              rgba(14, 165, 233, 0.08) 0%,
+              transparent 65%
+            ),
+            #07090e;
           z-index: -1;
         }
 
         .container {
           width: 100%;
-          max-width: 650px;
+          max-width: 900px;
           margin: 0 auto;
-          padding: 40px 20px;
+          padding: 30px 24px 80px 24px;
         }
 
-        .hero-image {
-          width: 100%;
-          border-radius: 28px;
-          margin-bottom: 30px;
-          border: 1px solid rgba(139, 102, 255, 0.2);
-          box-shadow: 0 0 40px rgba(139, 102, 255, 0.15),
-            0 0 80px rgba(0, 255, 200, 0.08);
-          display: block;
+        /* Header */
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 40px;
+        }
+
+        .logo-box {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .logo-symbol {
+          color: #38bdf8;
+          font-size: 20px;
+        }
+
+        .brand-name {
+          font-size: 15px;
+          letter-spacing: 2px;
+          color: #ffffff;
+        }
+
+        .nav-link {
+          color: #94a3b8;
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 500;
+          transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+          color: #38bdf8;
+        }
+
+        /* Hero */
+        .hero-section {
+          text-align: center;
+          padding: 40px 0 60px 0;
+        }
+
+        .badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 14px;
+          border-radius: 9999px;
+          background: rgba(56, 189, 248, 0.08);
+          border: 1px solid rgba(56, 189, 248, 0.25);
+          color: #38bdf8;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 24px;
+        }
+
+        .badge-pulse {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #38bdf8;
+          box-shadow: 0 0 8px #38bdf8;
         }
 
         h1 {
-          font-size: 38px;
-          letter-spacing: 4px;
+          font-size: 46px;
+          line-height: 1.15;
+          letter-spacing: -0.02em;
           color: #ffffff;
-          margin-bottom: 10px;
-        }
-
-        .tagline {
-          color: #8b66ff;
-          font-size: 14px;
-          letter-spacing: 3px;
-          margin-bottom: 40px;
-        }
-
-        .mission-box {
-          background: rgba(140, 120, 255, 0.05);
-          border: 1px solid rgba(140, 120, 255, 0.2);
-          padding: 30px;
-          border-radius: 24px;
-          margin-bottom: 40px;
-          text-align: left;
-          backdrop-filter: blur(10px);
-        }
-
-        .mission-box h2 {
-          font-size: 20px;
-          margin-bottom: 15px;
-          color: #d8c7ff;
-        }
-
-        .mission-box p {
-          font-size: 14px;
-          color: rgba(255, 255, 255, 0.85);
-          margin-bottom: 15px;
-        }
-
-        .section-image {
-          width: 100%;
-          margin-top: 25px;
-          border-radius: 22px;
-          border: 1px solid rgba(139, 102, 255, 0.15);
-          box-shadow: 0 0 30px rgba(0, 255, 200, 0.08),
-            0 0 60px rgba(139, 102, 255, 0.08);
-          overflow: hidden;
-          display: block;
-          grid-column: span 2;
-        }
-
-        .offer-card .section-image {
-          margin-top: 20px;
           margin-bottom: 20px;
+        }
+
+        .gradient-text {
+          background: linear-gradient(135deg, #38bdf8 0%, #a5f3fc 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtext {
+          font-size: 17px;
+          color: #94a3b8;
+          max-width: 640px;
+          margin: 0 auto 35px auto;
+          line-height: 1.6;
+        }
+
+        .hero-actions {
+          display: flex;
+          gap: 16px;
+          justify-content: center;
+          margin-bottom: 40px;
+        }
+
+        .btn {
+          padding: 14px 26px;
+          border-radius: 12px;
+          font-size: 14px;
+          text-decoration: none;
+          transition: all 0.2s ease;
+          display: inline-block;
+          cursor: pointer;
+          border: none;
+        }
+
+        .btn-primary {
+          background: #38bdf8;
+          color: #040812;
+          font-weight: 700;
+          box-shadow: 0 10px 25px rgba(56, 189, 248, 0.25);
+        }
+
+        .btn-primary:hover {
+          background: #7dd3fc;
+          transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+          background: rgba(255, 255, 255, 0.04);
+          color: #e2e8f0;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .btn-secondary:hover {
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .trust-metrics {
+          display: flex;
+          justify-content: center;
+          gap: 30px;
+          font-size: 13px;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        /* Preview Phone Mockup */
+        .preview-section {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 80px;
+        }
+
+        .phone-mockup {
+          width: 100%;
+          max-width: 360px;
+          background: #0f141e;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 36px;
+          padding: 24px 20px;
+          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6),
+            0 0 40px rgba(56, 189, 248, 0.08);
+        }
+
+        .speaker-bar {
+          width: 50px;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 99px;
+          margin: 0 auto 20px auto;
+        }
+
+        .phone-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 15px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          margin-bottom: 18px;
+        }
+
+        .phone-header h4 {
+          font-size: 14px;
+          color: #ffffff;
+        }
+
+        .phone-header p {
+          font-size: 11px;
+          color: #38bdf8;
+        }
+
+        .status-pill {
+          background: rgba(56, 189, 248, 0.12);
+          color: #38bdf8;
+          font-size: 10px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 6px;
+        }
+
+        .chat-thread {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          font-size: 12.5px;
+          margin-bottom: 25px;
+        }
+
+        .msg {
+          padding: 12px 14px;
+          border-radius: 14px;
+          line-height: 1.5;
+        }
+
+        .msg.assistant {
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          color: #cbd5e1;
+          align-self: flex-start;
+        }
+
+        .msg.guest {
+          background: #38bdf8;
+          color: #040812;
+          font-weight: 500;
+          align-self: flex-end;
+        }
+
+        .phone-footer {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          color: #64748b;
+          padding-top: 15px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .btn-clear {
+          color: #f87171;
+          cursor: pointer;
+        }
+
+        /* Feature Section */
+        .section-block {
+          margin-bottom: 80px;
+        }
+
+        .section-title {
+          font-size: 28px;
+          text-align: center;
+          margin-bottom: 35px;
+          color: #ffffff;
         }
 
         .feature-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 15px;
-          margin-bottom: 40px;
-        }
-
-        .feature {
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          padding: 20px;
-          border-radius: 15px;
-          font-size: 12px;
-          text-align: center;
-        }
-
-        .feature strong {
-          display: block;
-          color: #8b66ff;
-          margin-bottom: 5px;
-          font-size: 14px;
-        }
-
-        .offer-split {
-          display: flex;
-          flex-direction: column;
           gap: 20px;
-          margin-bottom: 50px;
         }
 
-        .offer-card {
-          background: rgba(10, 10, 20, 0.8);
-          border: 1px solid rgba(139, 102, 255, 0.3);
-          padding: 25px;
-          border-radius: 20px;
-          text-align: center;
+        .feature-card {
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          padding: 26px;
+          border-radius: 18px;
         }
 
-        .recruit-card {
-          border: 1px solid rgba(0, 255, 200, 0.25);
-          box-shadow: 0 0 25px rgba(0, 255, 200, 0.08);
-        }
-
-        .btn-recruit {
-          background: linear-gradient(135deg, #00c2ff, #00ffcc);
-          color: #02030a;
-          border: none;
-          box-shadow: 0 10px 30px rgba(0, 255, 200, 0.2);
-        }
-
-        .offer-card.premium {
-          border-color: #ff4d4d;
-          box-shadow: 0 0 20px rgba(255, 77, 77, 0.15);
-        }
-
-        .offer-card h3 {
-          font-size: 18px;
+        .feature-card h3 {
+          font-size: 16px;
+          color: #f8fafc;
           margin-bottom: 10px;
         }
 
-        .btn {
-          display: block;
+        .feature-card p {
+          font-size: 13.5px;
+          color: #94a3b8;
+          line-height: 1.6;
+        }
+
+        /* Pricing Card */
+        .pricing-card {
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(56, 189, 248, 0.2);
+          border-radius: 24px;
+          padding: 40px;
+          max-width: 560px;
+          margin: 0 auto;
+        }
+
+        .pricing-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          padding-bottom: 20px;
+          margin-bottom: 25px;
+        }
+
+        .pricing-header h3 {
+          font-size: 18px;
+        }
+
+        .price-tag {
+          font-size: 32px;
+          font-weight: 800;
+          color: #38bdf8;
+        }
+
+        .price-tag span {
+          font-size: 13px;
+          font-weight: 400;
+          color: #64748b;
+        }
+
+        .pricing-list {
+          list-style: none;
+          font-size: 14px;
+          color: #cbd5e1;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-bottom: 25px;
+        }
+
+        .pricing-subtext {
+          font-size: 12px;
+          color: #64748b;
+          text-align: center;
+        }
+
+        /* Lead Form */
+        .pilot-section {
+          max-width: 500px;
+          margin: 0 auto 60px auto;
+          text-align: center;
+        }
+
+        .section-subtext {
+          font-size: 14px;
+          color: #94a3b8;
+          margin-top: -20px;
+          margin-bottom: 25px;
+        }
+
+        .lead-form {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .lead-form input {
           width: 100%;
+          padding: 14px 16px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          color: white;
+          font-size: 14px;
+          outline: none;
+          transition: border-color 0.2s;
+        }
+
+        .lead-form input:focus {
+          border-color: #38bdf8;
+        }
+
+        .btn-submit {
+          margin-top: 8px;
+          font-size: 15px;
+        }
+
+        .form-success {
           padding: 20px;
-          border-radius: 15px;
-          font-family: "Orbitron", sans-serif;
-          font-size: 16px;
-          font-weight: 700;
-          text-decoration: none;
-          margin-top: 15px;
-          cursor: pointer;
-          transition: 0.3s;
+          background: rgba(56, 189, 248, 0.08);
+          border: 1px solid rgba(56, 189, 248, 0.25);
+          color: #38bdf8;
+          border-radius: 12px;
+          font-size: 14px;
         }
 
-        .btn-free {
-          background: rgba(255, 255, 255, 0.1);
-          color: white;
-          border: 1px solid rgba(255, 255, 255, 0.2);
+        /* Footer */
+        .footer {
+          text-align: center;
+          font-size: 12px;
+          color: #475569;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          padding-top: 30px;
         }
 
-        .btn-box {
-          background: linear-gradient(135deg, #7446ff, #4a1dff);
-          color: white;
-          border: none;
-          box-shadow: 0 10px 30px rgba(74, 29, 255, 0.4);
-        }
-
-        @media (max-width: 600px) {
+        @media (max-width: 650px) {
+          h1 {
+            font-size: 32px;
+          }
+          .hero-actions {
+            flex-direction: column;
+          }
+          .trust-metrics {
+            flex-direction: column;
+            gap: 8px;
+          }
           .feature-grid {
             grid-template-columns: 1fr;
           }
-          .feature-grid .section-image {
-            grid-column: span 1;
-          }
-          h1 {
-            font-size: 28px;
+          .pricing-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
           }
         }
       `}</style>
