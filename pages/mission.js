@@ -42,17 +42,24 @@ export default function Mission() {
               <span className="brand-text">CIPHER CTS</span>
             </Link>
           </div>
+
           <nav className="nav-links">
             <Link href="/" className="nav-item">
-              Overview
+              Home
             </Link>
             <Link href="/mission" className="nav-item active">
               Mission
             </Link>
-            <Link href="/concierge" className="nav-item highlight">
+            <a href="/#products" className="nav-item">
+              Solutions
+            </a>
+          </nav>
+
+          <div className="nav-action">
+            <Link href="/concierge" className="btn-nav-highlight">
               Concierge AI
             </Link>
-          </nav>
+          </div>
         </header>
 
         {/* Page Hero */}
