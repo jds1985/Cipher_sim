@@ -63,27 +63,36 @@ export default function Home() {
       </div>
 
       <div className="layout">
-        {/* Navigation */}
+       {/* Navigation */}
         <header className="navbar glass-panel">
           <div className="brand">
-            <img
-              src="/images/hero-network.png"
-              alt="Cipher CTS Logo"
-              className="brand-logo"
-            />
-            <span className="brand-text">CIPHER CTS</span>
+            <Link href="/" className="brand-link">
+              <img
+                src="/images/hero-network.png"
+                alt="Cipher CTS Logo"
+                className="brand-logo"
+              />
+              <span className="brand-text">CIPHER CTS</span>
+            </Link>
           </div>
-         <nav className="nav-links">
-            <Link href="/concierge" className="nav-item highlight">
-              Concierge AI
+
+          <nav className="nav-links">
+            <Link href="/" className="nav-item active">
+              Home
             </Link>
             <Link href="/mission" className="nav-item">
               Mission
             </Link>
-            <a href="#products" className="nav-item">
+            <a href="/#products" className="nav-item">
               Solutions
             </a>
           </nav>
+
+          <div className="nav-action">
+            <Link href="/concierge" className="btn-nav-highlight">
+              Concierge AI
+            </Link>
+          </div>
         </header>
 
         {/* Hero Section */}
