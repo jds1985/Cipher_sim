@@ -17,7 +17,7 @@ export default function Mission() {
         />
       </Head>
 
-      {/* Layer 1: Master Dual-Radial Ambient Canvas */}
+      {/* Layer 1: Master Ambient Canvas */}
       <div className="bg-canvas" />
 
       {/* Layer 2: Faded Real-Logo Watermark */}
@@ -30,7 +30,7 @@ export default function Mission() {
       </div>
 
       <div className="layout">
-        {/* Navigation */}
+        {/* Navigation - Clean 3 links, no top-right button */}
         <header className="navbar glass-panel">
           <div className="brand">
             <Link href="/" className="brand-link">
@@ -50,16 +50,10 @@ export default function Mission() {
             <Link href="/mission" className="nav-item active">
               Mission
             </Link>
-            <Link href="/#products" className="nav-item">
+            <Link href="/solutions" className="nav-item">
               Solutions
             </Link>
           </nav>
-
-          <div className="nav-action">
-            <Link href="/concierge" className="btn-nav-highlight">
-              Concierge AI
-            </Link>
-          </div>
         </header>
 
         {/* Page Hero */}
@@ -85,7 +79,7 @@ export default function Mission() {
             <span className="sub-tag">01 / SOVEREIGNTY FIRST</span>
             <h2>Inference Without Surveillance</h2>
             <p>
-              When every prompt, guest interaction, and corporate query is routed through hyperscaler APIs, your business data is mined to enrich someone else&apos;s models. 
+              When every prompt, guest interaction, and corporate query is routed through hyperscaler APIs, your business data is mined to enrich someone else&apos;s models.
             </p>
             <p>
               Cipher CTS develops architectures where inference executes entirely within isolated boundaries. No persistent telemetry, no training on user interactions, and complete RAM isolation. When a session ends, the data dissolves completely.
@@ -118,9 +112,9 @@ export default function Mission() {
         {/* Bottom CTA Block */}
         <section className="cta-box glass-panel">
           <h3>Explore Our Practical Deployments</h3>
-          <p>See our private, zero-hardware digital concierge in action.</p>
-          <Link href="/concierge" className="btn btn-primary">
-            View Cipher Concierge →
+          <p>See our suite of private, zero-hardware intelligence products in action.</p>
+          <Link href="/solutions" className="btn btn-primary">
+            View All Solutions →
           </Link>
         </section>
 
@@ -152,7 +146,7 @@ export default function Mission() {
           overflow-x: hidden;
         }
 
-        h1, h2, h3, h4, .brand-text, .btn, .sub-tag, .btn-nav-highlight {
+        h1, h2, h3, h4, .brand-text, .btn, .sub-tag {
           font-family: "Plus Jakarta Sans", sans-serif;
           font-weight: 700;
         }
@@ -222,7 +216,7 @@ export default function Mission() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 12px 24px;
+          padding: 14px 28px;
           margin-bottom: 55px;
         }
 
@@ -249,13 +243,13 @@ export default function Mission() {
         .nav-links {
           display: flex;
           align-items: center;
-          gap: 24px;
+          gap: 28px;
         }
 
         .nav-item {
           color: #94a3b8;
           text-decoration: none;
-          font-size: 13.5px;
+          font-size: 14px;
           font-weight: 500;
           transition: color 0.2s;
         }
@@ -266,27 +260,8 @@ export default function Mission() {
         }
 
         .nav-item.active {
-          border-bottom: 1px solid #00ffd5;
+          border-bottom: 2px solid #00ffd5;
           padding-bottom: 2px;
-        }
-
-        .btn-nav-highlight {
-          color: #ffffff;
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 600;
-          background: linear-gradient(135deg, #5a46ff, #00ffd5);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          padding: 8px 16px;
-          border-radius: 12px;
-          box-shadow: 0 0 20px rgba(90, 70, 255, 0.4), 0 0 35px rgba(0, 255, 213, 0.2);
-          transition: all 0.2s;
-          display: inline-block;
-        }
-
-        .btn-nav-highlight:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 0 30px rgba(90, 70, 255, 0.6), 0 0 50px rgba(0, 255, 213, 0.35);
         }
 
         /* Hero */
@@ -323,7 +298,7 @@ export default function Mission() {
         }
 
         .hero-title {
-          font-size: 42px;
+          font-size: 44px;
           line-height: 1.15;
           letter-spacing: -0.02em;
           color: #ffffff;
@@ -344,7 +319,7 @@ export default function Mission() {
           line-height: 1.65;
         }
 
-        /* Manifesto Cards */
+        /* Content Manifesto Cards */
         .content-section {
           display: flex;
           flex-direction: column;
@@ -443,14 +418,10 @@ export default function Mission() {
 
         @media (max-width: 640px) {
           .nav-links {
-            gap: 14px;
+            gap: 16px;
           }
           .nav-item {
-            font-size: 12px;
-          }
-          .btn-nav-highlight {
-            padding: 6px 12px;
-            font-size: 12px;
+            font-size: 13px;
           }
           .hero-title {
             font-size: 30px;
