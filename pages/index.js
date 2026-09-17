@@ -83,14 +83,14 @@ export default function Home() {
             <Link href="/mission" className="nav-item">
               Mission
             </Link>
-            <a href="#products" className="nav-item">
-              Solutions
-            </a>
+            <Link href="/concierge" className="nav-item">
+              Concierge
+            </Link>
           </nav>
 
           <div className="nav-action">
-            <Link href="/concierge" className="btn-nav-highlight">
-              Concierge AI
+            <Link href="/concierge#pilot" className="btn-nav-highlight">
+              Request Pilot
             </Link>
           </div>
         </header>
