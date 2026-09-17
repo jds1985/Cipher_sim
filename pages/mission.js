@@ -23,19 +23,19 @@ export default function Mission() {
       {/* Layer 2: Faded Real-Logo Watermark */}
       <div className="bg-watermark">
         <img
-          src="/logo.png"
+          src="/images/cipher-cts-bg.png"
           alt="Cipher CTS Watermark"
           className="watermark-img"
         />
       </div>
 
       <div className="layout">
-        {/* Navigation - Clean 3 links, no top-right button */}
+        {/* Navigation */}
         <header className="navbar glass-panel">
           <div className="brand">
             <Link href="/" className="brand-link">
               <img
-                src="/logo.png"
+                src="/images/cipher-cts-logo.png"
                 alt="Cipher CTS Logo"
                 className="brand-logo"
               />
@@ -151,7 +151,6 @@ export default function Mission() {
           font-weight: 700;
         }
 
-        /* Master Ambient Glow Backdrop */
         .bg-canvas {
           position: fixed;
           top: 0;
@@ -166,7 +165,6 @@ export default function Mission() {
           z-index: -2;
         }
 
-        /* Faded Real-Logo Watermark */
         .bg-watermark {
           position: fixed;
           top: 50%;
@@ -198,7 +196,6 @@ export default function Mission() {
           z-index: 1;
         }
 
-        /* High-Saturation Glass Panels */
         .glass-panel {
           background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
           border: 1px solid rgba(255, 255, 255, 0.12);
@@ -211,7 +208,6 @@ export default function Mission() {
             inset 0 0 40px rgba(255, 255, 255, 0.04);
         }
 
-        /* Navbar */
         .navbar {
           display: flex;
           justify-content: space-between;
@@ -264,7 +260,6 @@ export default function Mission() {
           padding-bottom: 2px;
         }
 
-        /* Hero */
         .hero-section {
           text-align: center;
           padding: 30px 10px 60px 10px;
@@ -319,7 +314,6 @@ export default function Mission() {
           line-height: 1.65;
         }
 
-        /* Content Manifesto Cards */
         .content-section {
           display: flex;
           flex-direction: column;
@@ -356,7 +350,6 @@ export default function Mission() {
           margin-bottom: 0;
         }
 
-        /* CTA Box */
         .cta-box {
           text-align: center;
           padding: 40px 24px;
@@ -397,7 +390,6 @@ export default function Mission() {
           box-shadow: 0 0 45px rgba(90, 70, 255, 0.7), 0 0 70px rgba(0, 255, 213, 0.35);
         }
 
-        /* Footer */
         .footer {
           display: flex;
           justify-content: space-between;
