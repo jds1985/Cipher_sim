@@ -17,13 +17,13 @@ export default function Mission() {
         />
       </Head>
 
-      {/* Layer 1: Ambient Backdrop */}
+      {/* Layer 1: Master Dual-Radial Ambient Canvas */}
       <div className="bg-canvas" />
 
-      {/* Layer 2: Faded Logo Watermark */}
+      {/* Layer 2: Faded Real-Logo Watermark */}
       <div className="bg-watermark">
         <img
-          src="/images/hero-network.png"
+          src="/logo.png"
           alt="Cipher CTS Watermark"
           className="watermark-img"
         />
@@ -35,7 +35,7 @@ export default function Mission() {
           <div className="brand">
             <Link href="/" className="brand-link">
               <img
-                src="/images/hero-network.png"
+                src="/logo.png"
                 alt="Cipher CTS Logo"
                 className="brand-logo"
               />
@@ -50,9 +50,9 @@ export default function Mission() {
             <Link href="/mission" className="nav-item active">
               Mission
             </Link>
-            <a href="/#products" className="nav-item">
+            <Link href="/#products" className="nav-item">
               Solutions
-            </a>
+            </Link>
           </nav>
 
           <div className="nav-action">
@@ -71,11 +71,11 @@ export default function Mission() {
 
           <h1 className="hero-title">
             Reclaiming Intelligence <br />
-            <span className="gradient-text">From the Cloud Monopolies.</span>
+            <span className="gradient-text">From the Centralized Cloud.</span>
           </h1>
 
           <p className="hero-description">
-            Modern AI was built on a compromise: surrender your operational privacy and run on massive centralized data centers, or get left behind. We reject that trade-off.
+            Modern AI was built on a compromise: surrender your operational privacy and run on massive remote data centers, or get left behind. We reject that trade-off.
           </p>
         </section>
 
@@ -146,30 +146,33 @@ export default function Mission() {
 
         body {
           font-family: "Inter", sans-serif;
-          color: #e2e8f0;
-          background-color: #030408;
+          color: rgba(255, 255, 255, 0.94);
+          background-color: #05060a;
           line-height: 1.6;
           overflow-x: hidden;
         }
 
-        h1, h2, h3, h4, .brand-text, .btn, .sub-tag {
+        h1, h2, h3, h4, .brand-text, .btn, .sub-tag, .btn-nav-highlight {
           font-family: "Plus Jakarta Sans", sans-serif;
           font-weight: 700;
         }
 
+        /* Master Ambient Glow Backdrop */
         .bg-canvas {
           position: fixed;
           top: 0;
           left: 0;
           width: 100%;
           height: 100%;
-          background: 
-            radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.1) 0%, transparent 55%),
-            radial-gradient(circle at 85% 40%, rgba(139, 92, 246, 0.07) 0%, transparent 45%),
-            #030408;
+          background:
+            radial-gradient(circle at 15% 10%, rgba(90, 70, 255, 0.35), transparent 40%),
+            radial-gradient(circle at 85% 90%, rgba(0, 255, 200, 0.25), transparent 45%),
+            radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03), transparent 60%),
+            #05060a;
           z-index: -2;
         }
 
+        /* Faded Real-Logo Watermark */
         .bg-watermark {
           position: fixed;
           top: 50%;
@@ -183,13 +186,13 @@ export default function Mission() {
           justify-content: center;
           pointer-events: none;
           z-index: -1;
-          opacity: 0.06;
-          filter: blur(1px) grayscale(30%);
+          opacity: 0.08;
+          filter: drop-shadow(0 0 50px rgba(0, 255, 200, 0.3));
         }
 
         .watermark-img {
-          width: 85%;
-          max-width: 600px;
+          width: 75%;
+          max-width: 520px;
           object-fit: contain;
         }
 
@@ -201,17 +204,17 @@ export default function Mission() {
           z-index: 1;
         }
 
-        /* Glass Panel Styling */
+        /* High-Saturation Glass Panels */
         .glass-panel {
-          background: rgba(10, 15, 29, 0.55);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.09);
-          border-top: 1px solid rgba(255, 255, 255, 0.15);
+          background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(28px) saturate(140%);
+          -webkit-backdrop-filter: blur(28px) saturate(140%);
           border-radius: 22px;
           box-shadow: 
-            0 20px 40px -15px rgba(0, 0, 0, 0.7),
-            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            0 0 100px rgba(0, 255, 200, 0.08),
+            0 0 50px rgba(90, 70, 255, 0.15),
+            inset 0 0 40px rgba(255, 255, 255, 0.04);
         }
 
         /* Navbar */
@@ -231,10 +234,10 @@ export default function Mission() {
         }
 
         .brand-logo {
-          width: 28px;
-          height: 28px;
+          width: 32px;
+          height: 32px;
           object-fit: contain;
-          border-radius: 6px;
+          border-radius: 8px;
         }
 
         .brand-text {
@@ -246,27 +249,44 @@ export default function Mission() {
         .nav-links {
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 24px;
         }
 
         .nav-item {
           color: #94a3b8;
           text-decoration: none;
-          font-size: 13px;
+          font-size: 13.5px;
           font-weight: 500;
           transition: color 0.2s;
         }
 
-        .nav-item:hover, .nav-item.active {
+        .nav-item:hover,
+        .nav-item.active {
           color: #ffffff;
         }
 
-        .nav-item.highlight {
-          color: #22d3ee;
-          background: rgba(34, 211, 238, 0.1);
-          border: 1px solid rgba(34, 211, 238, 0.3);
-          padding: 6px 14px;
+        .nav-item.active {
+          border-bottom: 1px solid #00ffd5;
+          padding-bottom: 2px;
+        }
+
+        .btn-nav-highlight {
+          color: #ffffff;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 600;
+          background: linear-gradient(135deg, #5a46ff, #00ffd5);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          padding: 8px 16px;
           border-radius: 12px;
+          box-shadow: 0 0 20px rgba(90, 70, 255, 0.4), 0 0 35px rgba(0, 255, 213, 0.2);
+          transition: all 0.2s;
+          display: inline-block;
+        }
+
+        .btn-nav-highlight:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 0 30px rgba(90, 70, 255, 0.6), 0 0 50px rgba(0, 255, 213, 0.35);
         }
 
         /* Hero */
@@ -288,18 +308,18 @@ export default function Mission() {
         }
 
         .glass-pill {
-          background: rgba(34, 211, 238, 0.06);
+          background: rgba(0, 255, 213, 0.06);
           backdrop-filter: blur(12px);
-          border: 1px solid rgba(34, 211, 238, 0.25);
-          color: #22d3ee;
+          border: 1px solid rgba(0, 255, 213, 0.25);
+          color: #00ffd5;
         }
 
         .pulse-dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #22d3ee;
-          box-shadow: 0 0 10px #22d3ee;
+          background: #00ffd5;
+          box-shadow: 0 0 10px #00ffd5;
         }
 
         .hero-title {
@@ -311,7 +331,7 @@ export default function Mission() {
         }
 
         .gradient-text {
-          background: linear-gradient(135deg, #22d3ee 0%, #a5f3fc 80%);
+          background: linear-gradient(135deg, #00ffd5 0%, #a5f3fc 80%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
@@ -324,7 +344,7 @@ export default function Mission() {
           line-height: 1.65;
         }
 
-        /* Content Manifesto Cards */
+        /* Manifesto Cards */
         .content-section {
           display: flex;
           flex-direction: column;
@@ -339,7 +359,7 @@ export default function Mission() {
         .sub-tag {
           font-size: 11px;
           letter-spacing: 2px;
-          color: #22d3ee;
+          color: #00ffd5;
           display: block;
           margin-bottom: 8px;
         }
@@ -390,15 +410,16 @@ export default function Mission() {
         }
 
         .btn-primary {
-          background: #22d3ee;
-          color: #040812;
+          background: linear-gradient(135deg, #5a46ff, #00ffd5);
+          color: #ffffff;
           font-weight: 700;
-          box-shadow: 0 10px 25px -5px rgba(34, 211, 238, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          box-shadow: 0 0 30px rgba(90, 70, 255, 0.5), 0 0 50px rgba(0, 255, 213, 0.25);
         }
 
         .btn-primary:hover {
-          background: #67e8f9;
-          transform: translateY(-1px);
+          transform: translateY(-2px);
+          box-shadow: 0 0 45px rgba(90, 70, 255, 0.7), 0 0 70px rgba(0, 255, 213, 0.35);
         }
 
         /* Footer */
@@ -412,7 +433,7 @@ export default function Mission() {
         }
 
         .brand-symbol {
-          color: #22d3ee;
+          color: #00ffd5;
         }
 
         .footer-right {
@@ -421,6 +442,16 @@ export default function Mission() {
         }
 
         @media (max-width: 640px) {
+          .nav-links {
+            gap: 14px;
+          }
+          .nav-item {
+            font-size: 12px;
+          }
+          .btn-nav-highlight {
+            padding: 6px 12px;
+            font-size: 12px;
+          }
           .hero-title {
             font-size: 30px;
           }
