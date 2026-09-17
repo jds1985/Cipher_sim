@@ -56,7 +56,7 @@ export default function Home() {
       {/* Layer 2: Faded Real-Logo Watermark */}
       <div className="bg-watermark">
         <img
-          src="/logo.png"
+          src="/images/cipher-cts-bg.png"
           alt="Cipher CTS Watermark"
           className="watermark-img"
         />
@@ -68,7 +68,7 @@ export default function Home() {
           <div className="brand">
             <Link href="/" className="brand-link">
               <img
-                src="/logo.png"
+                src="/images/cipher-cts-logo.png"
                 alt="Cipher CTS Logo"
                 className="brand-logo"
               />
