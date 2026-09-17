@@ -63,7 +63,7 @@ export default function Home() {
       </div>
 
       <div className="layout">
-        {/* Navigation */}
+        {/* Navigation - Clean 3 links, no top-right button */}
         <header className="navbar glass-panel">
           <div className="brand">
             <Link href="/" className="brand-link">
@@ -84,15 +84,9 @@ export default function Home() {
               Mission
             </Link>
             <Link href="/concierge" className="nav-item">
-              Concierge
+              Solutions
             </Link>
           </nav>
-
-          <div className="nav-action">
-            <Link href="/concierge#pilot" className="btn-nav-highlight">
-              Request Pilot
-            </Link>
-          </div>
         </header>
 
         {/* Hero Section */}
@@ -115,11 +109,11 @@ export default function Home() {
 
           <div className="hero-buttons">
             <Link href="/concierge" className="btn btn-primary">
-              View Hospitality Concierge
+              View Solutions
             </Link>
-            <a href="#products" className="btn btn-glass">
-              Browse Solutions
-            </a>
+            <Link href="/mission" className="btn btn-glass">
+              Our Mission
+            </Link>
           </div>
         </section>
 
@@ -227,12 +221,12 @@ export default function Home() {
           overflow-x: hidden;
         }
 
-        h1, h2, h3, h4, .brand-text, .btn, .btn-action, .sub-tag, .btn-nav-highlight {
+        h1, h2, h3, h4, .brand-text, .btn, .btn-action, .sub-tag {
           font-family: "Plus Jakarta Sans", sans-serif;
           font-weight: 700;
         }
 
-        /* Master Ambient Glow Backdrop from your stylesheet */
+        /* Ambient Glow Backdrop */
         .bg-canvas {
           position: fixed;
           top: 0;
@@ -297,7 +291,7 @@ export default function Home() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 12px 24px;
+          padding: 14px 28px;
           margin-bottom: 55px;
         }
 
@@ -324,13 +318,13 @@ export default function Home() {
         .nav-links {
           display: flex;
           align-items: center;
-          gap: 24px;
+          gap: 28px;
         }
 
         .nav-item {
           color: #94a3b8;
           text-decoration: none;
-          font-size: 13.5px;
+          font-size: 14px;
           font-weight: 500;
           transition: color 0.2s;
         }
@@ -341,27 +335,8 @@ export default function Home() {
         }
 
         .nav-item.active {
-          border-bottom: 1px solid #00ffd5;
+          border-bottom: 2px solid #00ffd5;
           padding-bottom: 2px;
-        }
-
-        .btn-nav-highlight {
-          color: #ffffff;
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 600;
-          background: linear-gradient(135deg, #5a46ff, #00ffd5);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          padding: 8px 16px;
-          border-radius: 12px;
-          box-shadow: 0 0 20px rgba(90, 70, 255, 0.4), 0 0 35px rgba(0, 255, 213, 0.2);
-          transition: all 0.2s;
-          display: inline-block;
-        }
-
-        .btn-nav-highlight:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 0 30px rgba(90, 70, 255, 0.6), 0 0 50px rgba(0, 255, 213, 0.35);
         }
 
         /* Hero */
@@ -621,14 +596,10 @@ export default function Home() {
 
         @media (max-width: 640px) {
           .nav-links {
-            gap: 14px;
+            gap: 16px;
           }
           .nav-item {
-            font-size: 12px;
-          }
-          .btn-nav-highlight {
-            padding: 6px 12px;
-            font-size: 12px;
+            font-size: 13px;
           }
           .hero-title {
             font-size: 32px;
