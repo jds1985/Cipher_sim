@@ -35,7 +35,7 @@ export default function Mission() {
           <div className="brand">
             <Link href="/" className="brand-link">
               <img
-                src="/images/cipher-cts-logo.png"
+                src="/logo.svg"
                 alt="Cipher CTS Logo"
                 className="brand-logo"
               />

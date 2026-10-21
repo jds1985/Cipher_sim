@@ -1,20 +1,27 @@
 import { useId } from "react";
 
+// Hex Circuit mark. Geometry generated from the Cipher brand kit (brand/gen_brand.py, viewBox 64).
 export function LogoMark({ size = 36 }) {
   const id = useId().replace(/:/g, "");
+  const g = `url(#g${id})`;
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
       <defs>
-        <linearGradient id={`g${id}`} x1="8" y1="8" x2="60" y2="56" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#1e6bff" />
-          <stop offset=".5" stopColor="#22d3ee" />
-          <stop offset="1" stopColor="#9dff3a" />
+        <linearGradient id={`g${id}`} x1="6" y1="58" x2="58" y2="6" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#1E6BFF" />
+          <stop offset="0.5" stopColor="#22D3EE" />
+          <stop offset="1" stopColor="#9DFF3A" />
         </linearGradient>
       </defs>
-      <path d="M48 22.5 32 13 14 23.5v17L32 51l16-9.5" stroke={`url(#g${id})`} strokeWidth="7" strokeLinejoin="round" strokeLinecap="round" />
-      <path d="M48 22.5h6M48 41.5h6" stroke={`url(#g${id})`} strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx="57" cy="22.5" r="3" fill="#9dff3a" />
-      <circle cx="57" cy="41.5" r="3" fill="#9dff3a" />
+      <path d="M32.00,5.00 L55.38,18.50 L48.45,22.50 L42.39,22.50 L32.00,16.50 Z M48.45,22.50 L55.38,18.50 L55.38,22.50 Z M55.38,41.50 L55.38,45.50 L48.45,41.50 Z M48.45,41.50 L55.38,45.50 L32.00,59.00 L32.00,47.50 L42.39,41.50 Z M32.00,59.00 L8.62,45.50 L18.58,39.75 L32.00,47.50 Z M8.62,45.50 L8.62,18.50 L18.58,24.25 L18.58,39.75 Z M8.62,18.50 L32.00,5.00 L32.00,16.50 L18.58,24.25 Z" fill={g} />
+      <path d="M32.00,5.00 L55.38,18.50 L48.45,22.50 L42.39,22.50 L32.00,16.50 Z" fill="#FFFFFF" fillOpacity="0.16" />
+      <path d="M48.45,22.50 L55.38,18.50 L55.38,22.50 Z M55.38,41.50 L55.38,45.50 L48.45,41.50 Z" fill="#FFFFFF" fillOpacity="0.05" />
+      <path d="M48.45,41.50 L55.38,45.50 L32.00,59.00 L32.00,47.50 L42.39,41.50 Z" fill="#000000" fillOpacity="0.12" />
+      <path d="M32.00,59.00 L8.62,45.50 L18.58,39.75 L32.00,47.50 Z" fill="#000000" fillOpacity="0.18" />
+      <path d="M8.62,45.50 L8.62,18.50 L18.58,24.25 L18.58,39.75 Z" fill="#000000" fillOpacity="0.06" />
+      <path d="M8.62,18.50 L32.00,5.00 L32.00,16.50 L18.58,24.25 Z" fill="#FFFFFF" fillOpacity="0.1" />
+      <path d="M43.40,24.20 L51.00,24.20 L54.00,26.50 M43.40,39.80 L51.00,39.80 L54.00,37.50" stroke={g} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M57.50,27.70 A2.0,2.0 0 1,0 53.50,27.70 A2.0,2.0 0 1,0 57.50,27.70 M57.50,36.30 A2.0,2.0 0 1,0 53.50,36.30 A2.0,2.0 0 1,0 57.50,36.30" stroke={g} strokeWidth="1.6" />
     </svg>
   );
 }

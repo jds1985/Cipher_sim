@@ -53,7 +53,7 @@ export default function Solutions() {
           <div className="brand">
             <Link href="/" className="brand-link">
               <img
-                src="/images/cipher-cts-logo.png"
+                src="/logo.svg"
                 alt="Cipher CTS Logo"
                 className="brand-logo"
               />
