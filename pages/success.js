@@ -4,7 +4,7 @@ export default function Success() {
       style={{
         minHeight: "100vh",
         background:
-          "linear-gradient(rgba(3,3,10,0.88), rgba(3,3,10,0.96)), url('/images/cipher-cts-bg.png')",
+          "linear-gradient(rgba(3,3,10,0.88), rgba(3,3,10,0.96)), url('/images/cipher-cts-watermark.png')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         display: "flex",

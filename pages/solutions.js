@@ -41,7 +41,7 @@ export default function Solutions() {
       {/* Layer 2: Faded Real-Logo Watermark */}
       <div className="bg-watermark">
         <img
-          src="/images/cipher-cts-bg.png"
+          src="/images/cipher-cts-watermark.png"
           alt="Cipher CTS Watermark"
           className="watermark-img"
         />
