@@ -918,3 +918,14 @@ img {
   transform: scale(1.05);
   box-shadow: 0 0 10px rgba(157,123,255,0.5);
 }
+
+/* Redesign 2026: brand gradient text + smooth scroll */
+.grad-text {
+  background: linear-gradient(90deg, #1e6bff, #22d3ee 50%, #9dff3a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

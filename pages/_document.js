@@ -4,11 +4,12 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
-        {/* Clean, standard metadata for the public web page */}
-        <link rel="icon" href="/favicon.ico" />
-        <meta name="theme-color" content="#05060a" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="theme-color" content="#05070b" />
       </Head>
-      <body>
+      <body style={{ margin: 0, background: "#05070b" }}>
         <Main />
         <NextScript />
       </body>
