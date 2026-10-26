@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Cipher CTS
+// © 2026 Cipher CTS. All Rights Reserved.
+// Proprietary Evaluation License: see content/hlc/HLC_EVALUATION_LICENSE.txt
 /**
  * Four benchmark numbers. All measured in the retraining run (see docs/RESULTS.md in the HLC project):
  *  - Test RMSE 15.29 cycles (official 100-engine FD001 test set, true RUL uncapped).
  *  - Pearson r = 0.930 between predicted and true RUL over those 100 test engines (one end-of-run prediction each).
  *  - 19 test engines have true RUL under 25: the engine flagged 15 as CRITICAL and 4 as WARNING; 0 were left NOMINAL.
- *  - The download is 805,331 bytes = 786 KiB.
+ *  - The download is 805,871 bytes = 787 KiB.
  */
 const STATS = [
   { id: "rmse", num: "15.3", unit: "cycles", label: "Test RMSE on the NASA C-MAPSS FD001 test set", foot: "Lower is better. Average miss is about 15 cycles." },
@@ -17,7 +17,7 @@ const STATS = [
     label: "Imminent Failure Capture Rate (flagged CRITICAL or WARNING)",
     foot: "Of 19 engines within 25 cycles of failure: 15 CRITICAL, 4 WARNING, 0 missed",
   },
-  { id: "size", num: "~786", unit: "KB", label: "Self-Contained Edge Distribution Footprint", foot: "805,331 bytes, weights included." },
+  { id: "size", num: "~787", unit: "KB", label: "Self-Contained Edge Distribution Footprint", foot: "805,871 bytes, weights included." },
 ];
 
 export default function Metrics() {

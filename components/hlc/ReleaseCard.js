@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Cipher CTS
+// © 2026 Cipher CTS. All Rights Reserved.
+// Proprietary Evaluation License: see content/hlc/HLC_EVALUATION_LICENSE.txt
+import Link from "next/link";
 import { BUNDLE } from "../../lib/hlc/bundle";
 
 export default function ReleaseCard() {
@@ -7,6 +8,7 @@ export default function ReleaseCard() {
     <section className="hx-release" id="download" aria-labelledby="hx-dl-h" tabIndex={-1}>
       <div className="hx-release-in">
         <div className="hx-release-main">
+          <p className="hx-edition" data-testid="release-edition">Evaluation &amp; Benchmarking Build (Personal &amp; Non-Commercial Use Only)</p>
           <h2 className="hx-h2" id="hx-dl-h">
             Deploy the Sovereign Edge Engine
           </h2>
@@ -15,7 +17,7 @@ export default function ReleaseCard() {
             <span aria-hidden="true">⬇</span> Download HLC Edge Engine v2 (.ZIP)
           </a>
           <p className="hx-meta" data-testid="release-meta">
-            Apache 2.0 License • Offline Python/FastAPI Runner • Mac, Linux, &amp; Edge ARM/x86 compatible.
+            Proprietary Evaluation License • Offline Python/FastAPI Runner • Mac, Linux, &amp; Edge ARM/x86 compatible.
           </p>
           <p className="hx-file">
             {BUNDLE.fileName} · {BUNDLE.sizeHuman}
@@ -27,7 +29,10 @@ export default function ReleaseCard() {
             </code>
           </details>
           <p className="hx-license" data-testid="release-license">
-            © 2026 Cipher CTS. Engine code and trained weights are licensed under Apache 2.0 (LICENSE and NOTICE are in the zip). NASA C-MAPSS data is not included and has its own terms.
+            © 2026 Cipher CTS. All Rights Reserved. This free download is licensed for personal, non-commercial evaluation and benchmarking only.{" "}
+            <strong>Production, industrial fleet, or revenue-generating use requires a paid commercial license from Cipher CTS.</strong> The LICENSE, NOTICE and THIRD_PARTY_NOTICES files are in the zip.
+            NASA C-MAPSS data is not included and has its own terms.{" "}
+            <Link href="/hlc/license" data-testid="license-link-card">Read the full license</Link>.
           </p>
         </div>
         <div>

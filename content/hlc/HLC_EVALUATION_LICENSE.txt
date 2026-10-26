@@ -1,0 +1,60 @@
+CIPHER CTS PROPRIETARY EVALUATION LICENSE
+Version 1.0 — October 26, 2026
+
+© 2026 Cipher CTS. All Rights Reserved.
+
+Licensor: Cipher CTS, a sole proprietorship located in Knoxville, Tennessee, USA ("Cipher CTS", "we", "us"). Contact: team@ciphercts.com
+
+By downloading, installing, copying or using the Software you agree to this license (the "License"). If you do not agree, do not download, install or use the Software.
+
+1. Definitions
+"Software" means the HLC Edge Engine as distributed by Cipher CTS, including its source code, trained model weights, dashboard, scripts, documentation and any updates we give you under this License.
+"You" means the individual who accepts this License. "Commercial Use" means any use of the Software in production, in an industrial or fleet deployment, or in connection with anything that generates revenue or other business benefit, including use by or for a company or other organization, and offering services to others.
+
+2. Grant
+Cipher CTS grants you a limited, non-exclusive, non-transferable, revocable license to install and use the Software on your own computers, for your own personal, non-commercial evaluation, testing and benchmarking only. This is the "Evaluation & Benchmarking Build".
+
+3. Restrictions
+You may not, and may not allow anyone else to:
+(a) use the Software for Commercial Use, including production use, industrial fleet use, or any revenue-generating use;
+(b) sell, rent, lease, sublicense, publish, distribute or otherwise make the Software available to any third party, or host it or run it as a service for others;
+(c) reverse engineer, decompile, disassemble, or try to extract or copy the model weights, except to the extent that applicable law allows this despite this restriction;
+(d) use the Software, its weights, or its outputs to train, tune or improve any other machine-learning model;
+(e) remove or change any copyright, proprietary or license notice in the Software;
+(f) use the Software to break the law or the rights of others.
+
+4. Commercial licenses
+Production, industrial fleet or revenue-generating use requires a separate, paid commercial license from Cipher CTS. To obtain one, or to arrange a trial for your organization, contact team@ciphercts.com. No commercial rights are granted by this License, by downloading the Software, or by any course of dealing.
+
+5. Ownership; no implied licenses
+The Software is licensed, not sold. Cipher CTS keeps all right, title and interest in the Software, including all intellectual property rights. All rights not expressly granted in this License are reserved. No license is granted by implication, estoppel or otherwise.
+
+6. Third-party components and data
+The Software installs and uses third-party software, such as Python packages (for example PyTorch, FastAPI, uvicorn, NumPy and pandas). These are not part of the Software, are not covered by this License, and keep their own licenses. See THIRD_PARTY_NOTICES. Benchmark results refer to the NASA C-MAPSS turbofan data set (subset FD001), a public NASA data set that is not part of the Software and is not included in this package. It has its own terms and citation requirement.
+
+7. Feedback
+If you send us suggestions, bug reports or other feedback, you give Cipher CTS a perpetual, worldwide, royalty-free right to use it for any purpose without obligation to you.
+
+8. Term and termination
+This License lasts until terminated. It ends automatically, without notice, if you breach any of its terms. Cipher CTS may also end it at any time by written notice. When it ends you must stop using the Software and delete all copies. Sections 3 to 5 and 7 to 14 survive termination.
+
+9. Disclaimer of warranty
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, ACCURACY AND NON-INFRINGEMENT. Published benchmark results were measured on simulated NASA C-MAPSS FD001 data. They are not a guarantee of performance on any other data or machine. The Software is not safety-critical, is not certified for any purpose, and must not be used as the sole basis for any safety, health, environmental or financial decision.
+
+10. Limitation of liability
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, CIPHER CTS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY OR PUNITIVE DAMAGES, OR FOR LOST PROFITS, LOST DATA OR BUSINESS INTERRUPTION, ARISING OUT OF OR RELATED TO THIS LICENSE OR THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY. OUR TOTAL LIABILITY FOR ALL CLAIMS WILL NOT EXCEED ONE HUNDRED U.S. DOLLARS (US $100). Some places do not allow these limits, so they apply only as far as the law permits.
+
+11. Governing law
+This License is governed by the laws of the State of Tennessee, USA, without regard to its conflict-of-law rules. The state and federal courts located in Tennessee have exclusive jurisdiction over any dispute about it.
+
+12. Export and compliance
+You are responsible for following all export-control and other laws that apply to your use of the Software.
+
+13. General
+If any part of this License is unenforceable, the rest stays in effect. Our not enforcing a term is not a waiver of it. You may not assign this License without our written consent; we may assign it.
+
+14. Entire agreement
+This License is the entire agreement between you and Cipher CTS about the Software and replaces any earlier understanding about it. A commercial license is a separate written agreement signed by Cipher CTS and applies only to the uses it names.
+
+Questions: team@ciphercts.com
+© 2026 Cipher CTS. All Rights Reserved.
