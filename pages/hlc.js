@@ -7,6 +7,7 @@ import Logo from "../components/Logo";
 import Console from "../components/hlc/Console";
 import Metrics from "../components/hlc/Metrics";
 import ReleaseCard from "../components/hlc/ReleaseCard";
+import License from "../components/hlc/License";
 import ContactCard from "../components/hlc/ContactCard";
 import Link from "next/link";
 import Advanced from "../components/hlc/Advanced";
@@ -159,7 +160,10 @@ export default function HlcPage() {
 
           <Metrics />
 
-          <ReleaseCard />
+          <div className="hx-pair">
+            <ReleaseCard />
+            <License />
+          </div>
 
           <ContactCard />
 
@@ -172,6 +176,7 @@ export default function HlcPage() {
             <p data-testid="footer-terms">
               The free download is an Evaluation &amp; Benchmarking Build (Personal &amp; Non-Commercial Use Only) under the{" "}
               <Link href="/hlc/license" data-testid="footer-license-link">Cipher CTS Proprietary Evaluation License</Link>. Production, industrial fleet, or revenue-generating use requires a paid commercial license: <a href="mailto:team@ciphercts.com">team@ciphercts.com</a>.
+              Paid licenses are sold under the <Link href="/hlc/commercial-terms" data-testid="footer-commercial-link">Cipher CTS Commercial License Terms</Link>.
               The NASA C-MAPSS data is not included and has its own terms and citation.
             </p>
           </footer>
