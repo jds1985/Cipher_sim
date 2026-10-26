@@ -7,6 +7,7 @@ import Logo from "../components/Logo";
 import Console from "../components/hlc/Console";
 import Metrics from "../components/hlc/Metrics";
 import ReleaseCard from "../components/hlc/ReleaseCard";
+import License from "../components/hlc/License";
 import Advanced from "../components/hlc/Advanced";
 import { EngineError, fetchHealth, predict } from "../lib/hlc/engine";
 import { applyDropout, DEFAULT_DATASET, V1_DATASET, V2_DATASET, presetMatrix } from "../lib/hlc/telemetry";
@@ -157,7 +158,10 @@ export default function HlcPage() {
 
           <Metrics />
 
-          <ReleaseCard />
+          <div className="hx-pair">
+            <ReleaseCard />
+            <License />
+          </div>
 
           <Advanced busy={pred.state === "loading"} onDropout={onDropout} onCustom={onCustom} />
 

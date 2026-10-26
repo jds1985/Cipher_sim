@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "cross-env HOST=0.0.0.0 next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "next": "14.2.3",
@@ -19,6 +20,7 @@
     "three": "0.155.0",
     "react-force-graph-3d": "latest",
     "resend": "^4.0.0",
-    "stripe": "^14.0.0"
+    "stripe": "^14.0.0",
+    "@stripe/stripe-js": "^10.2.0"
   }
 }
