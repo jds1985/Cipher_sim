@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Cipher CTS
+// © 2026 Cipher CTS. All Rights Reserved.
+// Proprietary Evaluation License: see content/hlc/HLC_EVALUATION_LICENSE.txt
 import Head from "next/head";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Space_Grotesk } from "next/font/google";
@@ -8,6 +8,8 @@ import Console from "../components/hlc/Console";
 import Metrics from "../components/hlc/Metrics";
 import ReleaseCard from "../components/hlc/ReleaseCard";
 import License from "../components/hlc/License";
+import ContactCard from "../components/hlc/ContactCard";
+import Link from "next/link";
 import Advanced from "../components/hlc/Advanced";
 import { EngineError, fetchHealth, predict } from "../lib/hlc/engine";
 import { applyDropout, DEFAULT_DATASET, V1_DATASET, V2_DATASET, presetMatrix } from "../lib/hlc/telemetry";
@@ -101,7 +103,7 @@ export default function HlcPage() {
 
   const title = "HLC — Hierarchical Latent Controller | Cipher CTS";
   const desc =
-    "HLC: local predictive maintenance. Run a live simulation and download the engine that runs on your own computer. Apache-2.0, Cipher CTS.";
+    "HLC: local predictive maintenance. Run a live simulation and download the Evaluation & Benchmarking Build (Personal & Non-Commercial Use Only) that runs on your own computer. Proprietary Evaluation License; production use requires a commercial license from Cipher CTS.";
 
   return (
     <>
@@ -150,7 +152,7 @@ export default function HlcPage() {
             </p>
             <div className="hx-cta">
               <a className="hx-btn hx-btn-primary" href="#demo">▶ Run the live demo</a>
-              <a className="hx-btn hx-btn-ghost" href="#download">⬇ Get the engine</a>
+              <a className="hx-btn hx-btn-ghost" href="#download">⬇ Get the evaluation build</a>
             </div>
           </header>
 
@@ -163,18 +165,26 @@ export default function HlcPage() {
             <License />
           </div>
 
+          <ContactCard />
+
           <Advanced busy={pred.state === "loading"} onDropout={onDropout} onCustom={onCustom} />
 
           <footer className="hx-foot">
             <p data-testid="footer-license">
-              © 2026 Cipher CTS. Licensed under the <strong>Apache License 2.0</strong> (engine code, trained weights and this page). The NASA C-MAPSS data is not included and has its own terms and citation.
+              © 2026 Cipher CTS. All Rights Reserved.
+            </p>
+            <p data-testid="footer-terms">
+              The free download is an Evaluation &amp; Benchmarking Build (Personal &amp; Non-Commercial Use Only) under the{" "}
+              <Link href="/hlc/license" data-testid="footer-license-link">Cipher CTS Proprietary Evaluation License</Link>. Production, industrial fleet, or revenue-generating use requires a paid commercial license: <a href="mailto:team@ciphercts.com">team@ciphercts.com</a>.
+              Paid licenses are sold under the <Link href="/hlc/commercial-terms" data-testid="footer-commercial-link">Cipher CTS Commercial License Terms</Link>.
+              The NASA C-MAPSS data is not included and has its own terms and citation.
             </p>
           </footer>
         </main>
 
         <footer className={`${s.footer} ${s.glass} ${h.siteFoot}`}>
           <Logo size={40} />
-          <span>© 2026 Cipher CTS</span>
+          <span>© 2026 Cipher CTS. All Rights Reserved.</span>
         </footer>
       </div>
     </>

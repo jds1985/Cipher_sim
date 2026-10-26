@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Cipher CTS
+// © 2026 Cipher CTS. All Rights Reserved.
+// Proprietary and confidential. Not covered by the free evaluation license.
 // POST /api/checkout: Stripe Checkout for the HLC Commercial Production License. Logic: lib/hlc/license/checkout.js
 import { createCheckoutHandler } from "../../lib/hlc/license/checkout.js";
 

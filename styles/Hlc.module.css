@@ -1,5 +1,5 @@
-/* SPDX-License-Identifier: Apache-2.0 */
-/* Copyright 2026 Cipher CTS */
+/* © 2026 Cipher CTS. All Rights Reserved. */
+/* Proprietary Evaluation License: see content/hlc/HLC_EVALUATION_LICENSE.txt */
 /* Generated from the HLC executive console stylesheet. Rules are scoped under .hlc (the <main> wrapper). */
 .hlc.hlc {
   --hx-bg: #070b14;
@@ -166,7 +166,7 @@
 .hlc.hlc :global(.hx-pair) { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 26px; align-items: stretch; }
 .hlc.hlc :global(.hx-pair) :global(.hx-release) { height: 100%; box-sizing: border-box; }
 .hlc.hlc :global(.hx-pair) :global(.hx-release-in) { grid-template-columns: 1fr; height: 100%; box-sizing: border-box; }
-.hlc.hlc :global(.hx-lic) { border: 2px solid #8fa3bd; border-radius: 24px; padding: 34px 30px; background: linear-gradient(180deg, #0f182b, #0a101d); display: grid; gap: 18px; align-content: start; min-width: 0; }
+.hlc.hlc :global(.hx-paid) { border: 2px solid #8fa3bd; border-radius: 24px; padding: 34px 30px; background: linear-gradient(180deg, #0f182b, #0a101d); display: grid; gap: 18px; align-content: start; min-width: 0; }
 .hlc.hlc :global(.hx-price) { font-size: 24px; font-weight: 700; color: #fff; }
 .hlc.hlc :global(.hx-price-num) { font-size: clamp(44px, 6vw, 60px); font-weight: 800; line-height: 1; color: var(--hx-cyan); margin-right: 6px; }
 .hlc.hlc :global(.hx-feat) { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 19px; color: #fff; }
@@ -180,10 +180,10 @@
 .hlc.hlc :global(.hx-soon-note) { font-size: 20px; font-weight: 800; color: var(--hx-warn); }
 .hlc.hlc :global(.hx-note) { border: 2px solid var(--hx-cyan); border-radius: 12px; padding: 12px 16px; background: rgba(34,211,238,.1); color: #fff; }
 .hlc.hlc :global(.hx-note-ok) { border-color: var(--hx-ok); background: rgba(74,222,128,.12); }
-.hlc.hlc :global(.hx-lic) a { color: var(--hx-cyan); text-decoration: underline; text-underline-offset: 3px; }
+.hlc.hlc :global(.hx-paid) a { color: var(--hx-cyan); text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 1000px) {.hlc.hlc :global(.hx-pair) { grid-template-columns: 1fr; }
 }
-@media (max-width: 640px) {.hlc.hlc :global(.hx-lic) { padding: 24px 18px; }
+@media (max-width: 640px) {.hlc.hlc :global(.hx-paid) { padding: 24px 18px; }
 }
 
 
@@ -208,3 +208,18 @@
 .navBig a.navCtaSolid { background: #22d3ee; color: #04101a !important; font-size: 18px; font-weight: 700; box-shadow: none; }
 .navBig a.navCtaSolid:hover { background: #9dff3a; }
 @media (prefers-reduced-motion: reduce) { .page *, .page *::before, .page *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* ===== licensing (Proprietary Evaluation License): edition label, contact card, license page ===== */
+.hlc.hlc :global(.hx-edition) { display: inline-block; justify-self: start; font-size: 19px; font-weight: 800; color: var(--hx-ink); background: #9dff3a; padding: 8px 16px; border-radius: 10px; line-height: 1.35; }
+.hlc.hlc :global(.hx-contact) { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 18px; justify-items: start; border: 3px solid var(--hx-cyan); border-radius: 22px; padding: 30px 30px 32px; background: linear-gradient(180deg, #0f182b, #0a101d); box-shadow: 0 0 40px rgba(34,211,238,.18); }
+.hlc.hlc :global(.hx-btn-xl) { box-sizing: border-box; min-width: 0; min-height: 68px; font-size: 22px; padding: 16px 32px; max-width: 100%; white-space: normal; }
+.hlc.hlc :global(.hx-lic) { display: grid; gap: 18px; max-width: 78ch; font-size: 21px; line-height: 1.65; }
+.hlc.hlc :global(.hx-lic-ver) { font-size: 21px; color: var(--hx-muted); font-weight: 700; }
+.hlc.hlc :global(.hx-lic) h2 { font-size: 28px; line-height: 1.25; color: #fff; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hx-line); }
+.hlc.hlc :global(.hx-lic) ul { margin: 0; padding-left: 30px; display: grid; gap: 10px; }
+.hlc.hlc :global(.hx-lic) p, .hlc.hlc :global(.hx-lic) li { color: #fff; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .hlc.hlc :global(.hx-contact) { padding: 22px 16px 24px; }
+  .hlc.hlc :global(.hx-btn-xl) { width: 100%; padding: 14px 16px; font-size: 20px; }
+  .hlc.hlc :global(.hx-lic) { font-size: 20px; }
+}

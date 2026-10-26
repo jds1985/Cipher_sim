@@ -1,0 +1,39 @@
+Cipher CTS Commercial License Terms
+Version 1.0 — October 26, 2026
+© 2026 Cipher CTS. All Rights Reserved.
+These terms are a legal agreement between Cipher CTS, a sole proprietorship in Knoxville, Tennessee ("Cipher CTS", "we", "us"), and the organization that buys a license on the Cipher CTS website ("you"). By completing the purchase you agree to them. If you do not agree, do not buy.
+1. What you are buying
+"HLC Edge Engine" means the HLC predictive-maintenance engine and its trained weights, as delivered to you after purchase, plus any updates we choose to send you during your license term. "Licensed Asset" means one machine, vehicle, device or other physical asset that the engine monitors. You buy a license for the number of Licensed Assets you choose at checkout. The price is shown at checkout and is charged per Licensed Asset, per year.
+2. License grant
+For each Licensed Asset, and for as long as your license is active, Cipher CTS grants one organization a limited, non-exclusive, non-transferable, non-sublicensable license to install and run the HLC Edge Engine for production use on that Licensed Asset, including use in an industrial fleet and use that earns revenue. You may keep a reasonable number of copies for testing, backup and staging. If you need more Licensed Assets than checkout allows, a custom telemetry integration, or a different arrangement, write to team@ciphercts.com.
+3. One organization
+The license belongs to the one legal organization named on your order. Your employees and contractors may use the engine on your behalf for your Licensed Assets. Affiliates and customers are not covered unless we agree in writing.
+4. What you may not do
+(a) Copy, distribute, resell, rent, lease, lend, sublicense or share the HLC Edge Engine or its weights with anyone outside your organization.
+(b) Offer the engine, or its predictions, to others as a hosted or managed service, or inside a product you sell to others, without a separate written agreement with us.
+(c) Run the engine on more Licensed Assets than you have paid for.
+(d) Reverse engineer, decompile, or try to extract the weights or source code, except where the law does not allow this restriction.
+(e) Use the engine, its outputs or its weights to train, tune or improve another machine-learning model that competes with it.
+(f) Remove or change any copyright or license notice.
+5. Price, renewal and cancellation
+The license is an annual subscription. It renews every year at the then-current price until you cancel. Payments are handled by Stripe. You can cancel at any time by writing to team@ciphercts.com, and we will stop the renewal. Cancelling stops the next renewal. Your license then ends at the end of the period you already paid for, and you must stop using the engine for production after that date. Taxes, where they apply, are added at checkout or are your responsibility.
+6. Refunds
+Fees are non-refundable except that Cipher CTS may refund all or part of a payment at its own discretion, and we will give any refund the law requires. To ask, write to team@ciphercts.com.
+7. Support
+Support is best effort by email at team@ciphercts.com during our normal business days. We do not promise a response time or a fix date. Support covers installing and running the HLC Edge Engine as delivered.
+8. Ownership
+Cipher CTS owns the HLC Edge Engine, its weights, its documentation and all related rights. You are only licensed to use them as stated here. All rights not expressly granted are reserved, and nothing here gives you any other right by implication.
+9. Third-party components
+Some third-party open-source components run with the engine under their own licenses. They are listed in the THIRD_PARTY_NOTICES file that comes with the engine. Those licenses apply to those components only.
+10. Feedback
+If you send us suggestions or feedback, we may use them freely without paying you or crediting you.
+11. Ending the license early
+Cipher CTS may end your license by written notice if you materially break these terms and do not fix the problem within 30 days of our notice, or immediately if you break section 4. When a license ends, you must stop using the engine and delete your copies. Sections 4, 8, 12, 13 and 14 continue after the license ends.
+12. Disclaimer of warranty
+The HLC Edge Engine is provided "AS IS" and "AS AVAILABLE", without warranties of any kind, whether express or implied, including merchantability, fitness for a particular purpose and non-infringement. Its predictions are estimates. The engine is not a safety-critical system and must not be the only protection for people, property or the environment. You are responsible for your own maintenance and safety decisions and for checking results against your own equipment. Some places do not allow some of these exclusions, so they apply only as far as the law allows.
+13. Limitation of liability
+To the fullest extent the law allows, Cipher CTS is not liable for indirect, incidental, special, consequential or punitive damages, or for lost profits, lost revenue, lost data or downtime. Our total liability for all claims about the engine or these terms is limited to the fees you paid to Cipher CTS in the 12 months before the event that gave rise to the claim. This does not limit liability that the law does not allow to be limited.
+14. Governing law and entire agreement
+These terms are governed by the laws of the State of Tennessee, without regard to its conflict-of-law rules. Courts in or serving Knoxville, Tennessee are the proper place for any dispute. These terms and your order are the entire agreement about the HLC Edge Engine and replace earlier discussions. They do not change the separate Cipher CTS Proprietary Evaluation License that applies to the free evaluation build. If a part of these terms is unenforceable, the rest stays in effect. We may update these terms for future purchases and renewals by posting a new version and notifying you before a renewal. You may not assign these terms without our written consent.
+Questions: team@ciphercts.com
+© 2026 Cipher CTS. All Rights Reserved.

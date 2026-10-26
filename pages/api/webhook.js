@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Cipher CTS
+// © 2026 Cipher CTS. All Rights Reserved.
+// Proprietary and confidential. Not covered by the free evaluation license.
 // POST /api/webhook: Stripe events. Logic: lib/hlc/license/webhook.js
 import { createWebhookHandler } from "../../lib/hlc/license/webhook.js";
 

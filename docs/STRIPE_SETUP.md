@@ -42,7 +42,7 @@ Make a link-signing secret yourself: in a terminal run `openssl rand -hex 32` an
 
 Vercel > the project > **Settings > Environment Variables**. Add each name from `.env.example`:
 
-`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` (step 4), `DOWNLOAD_LINK_SECRET`, `PRODUCTION_PACKAGE_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `RESEND_API_KEY`, `FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL` (`https://ciphercts.com`).
+`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` (step 4), optionally `STRIPE_REQUIRE_TERMS_CHECKBOX` (see step 6), `DOWNLOAD_LINK_SECRET`, `PRODUCTION_PACKAGE_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `RESEND_API_KEY`, `FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL` (`https://ciphercts.com`).
 
 Then **redeploy**. `NEXT_PUBLIC_...` values are baked in at build time, so a redeploy is required for the button to switch on.
 Use test keys for Preview and real keys for Production only when you are ready.
@@ -75,16 +75,21 @@ Automatic checks that need no keys at all: `npm test`.
 
 ## Step 6. Before real money: legal and tax reminders
 
-- **Terms.** A license agreement and a terms/refund page must exist and be linked before selling. The Apache-2.0 `LICENSE` in the free zip covers the free engine only. The paid package needs its own agreement. Consider having a lawyer review it.
+- **Terms.** The page `/hlc/commercial-terms` (source: `content/hlc/HLC_COMMERCIAL_TERMS.txt`) is the **Cipher CTS Commercial License Terms**, Version 1.0, October 26, 2026. It is linked from the purchase card, shown on the Stripe Checkout page and linked in the delivery email. It is an **AI-written plain-English template, not legal advice. Have a lawyer review it before real sales** (refund wording, liability cap, Tennessee law, sales tax, and your own support promise). It is deliberately NOT inside the free evaluation zip, whose `LICENSE` is the separate Cipher CTS Proprietary Evaluation License.
+- **How Checkout shows the terms.** By default the Stripe page carries the link in `custom_text.submit` ("By completing this purchase you agree to the Cipher CTS Commercial License Terms: <link>"). This needs no dashboard setup and cannot fail. If you want Stripe's required **"I agree" checkbox** as well (`consent_collection.terms_of_service = required`), first save a *Terms of service URL* (`https://ciphercts.com/hlc/commercial-terms`) in **Stripe Dashboard > Settings > Public details**, then set `STRIPE_REQUIRE_TERMS_CHECKBOX=true` in Vercel and redeploy. Stripe refuses the checkbox until that URL is saved, so if you set the flag too early the site logs it and falls back to the link-only version instead of breaking the checkout.
 - **Tax.** Check **Stripe Dashboard > Settings > Tax** (Stripe Tax) and your state/country sales-tax or VAT duties before going live. The checkout code does not add tax by itself.
 - **Business details.** Business name on the Stripe account should match "Cipher CTS" so customers recognise the charge.
 
 ## Open item: what is in the "full production package"?
 
-The contents of the paid production package are **not defined yet**. Nothing in this repo creates it, and the page does not describe its contents beyond "production package". Decide what it contains, build it, upload it to private storage, and set `PRODUCTION_PACKAGE_URL`. Please do not sell before this is real.
+The contents of the paid production package are **not defined yet**. Nothing in this repo creates it, and the page does not describe its contents (the card lists only the license rights, the agreement and support). Decide what it contains, build it, upload it to private storage, and set `PRODUCTION_PACKAGE_URL`. Please do not sell before this is real.
 
 Features on the card marked **Coming soon** (multi-asset dashboard, custom sensor schema generator) do not exist yet. Remove the "Coming soon" tags in `components/hlc/License.js` only when they are built.
 
 ## Support commitment
 
-The card says "Priority support". There is no written response-time promise yet. Decide one (for example "reply within 2 business days") and put it in the license agreement.
+The card says "Priority support". The commercial terms promise best-effort support on business days and **no response-time number**. If you want to promise one (for example "reply within 2 business days"), add it to `content/hlc/HLC_COMMERCIAL_TERMS.txt` after a lawyer reviews it.
+
+## What the free build is (so the card stays honest)
+
+The free download is the **Evaluation & Benchmarking Build (Personal & Non-Commercial Use Only)** under the Cipher CTS Proprietary Evaluation License. Production, industrial-fleet or revenue-generating use needs the paid commercial license, which this purchase provides per asset. The card says exactly that and lists only what exists today; "Multi-asset dashboard license" and "Custom sensor schema generator" carry a visible **Coming soon** tag. Custom fleet or telemetry deals go through the separate contact card (team@ciphercts.com).

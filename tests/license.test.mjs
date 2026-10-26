@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Cipher CTS
+// © 2026 Cipher CTS. All Rights Reserved.
+// Proprietary and confidential. Not covered by the free evaluation license.
 // Unit/integration tests with mocks only: no network, no real Stripe, no real secrets.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -58,6 +58,40 @@ test("checkout: valid POST builds a $499/yr subscription session with adjustable
   assert.ok(p.success_url.startsWith("https://ciphercts.com/hlc?license=success"));
   assert.ok(p.success_url.includes("{CHECKOUT_SESSION_ID}"));
   assert.ok(p.cancel_url.startsWith("https://ciphercts.com/hlc?license=cancelled"));
+  // Robust consent: the terms link is on the Checkout page by default; no dashboard setup needed.
+  assert.match(p.custom_text.submit.message, /Cipher CTS Commercial License Terms: https:\/\/ciphercts\.com\/hlc\/commercial-terms/);
+  assert.equal(p.consent_collection, undefined);
+  assert.ok(!/apa[c]he/i.test(JSON.stringify(p)));
+});
+
+test("checkout: STRIPE_REQUIRE_TERMS_CHECKBOX=true adds required terms consent with the terms link", async () => {
+  const { handler, calls } = checkoutWith({ ...ENV, STRIPE_REQUIRE_TERMS_CHECKBOX: "true" });
+  const res = new FakeRes();
+  await handler(jsonReq({ body: {}, headers: { origin: "https://ciphercts.com" } }), res);
+  assert.equal(res.statusCode, 200);
+  const p = calls[0];
+  assert.deepEqual(p.consent_collection, { terms_of_service: "required" });
+  assert.match(p.custom_text.terms_of_service_acceptance.message, /https:\/\/ciphercts\.com\/hlc\/commercial-terms/);
+  assert.match(p.custom_text.submit.message, /commercial-terms/);
+});
+
+test("checkout: if Stripe rejects the checkbox (no Terms URL in dashboard) it retries link-only and still succeeds", async () => {
+  const calls = [];
+  const handler = createCheckoutHandler({
+    env: { ...ENV, STRIPE_REQUIRE_TERMS_CHECKBOX: "true" },
+    getStripe: () => ({ checkout: { sessions: { create: async (p) => {
+      calls.push(p);
+      if (p.consent_collection) throw new Error("You cannot collect consent to terms of service until a Terms of Service URL is set in your Dashboard.");
+      return { id: "cs_test_retry", url: "https://checkout.stripe.com/c/pay/cs_test_retry" };
+    } } } }),
+  });
+  const res = new FakeRes();
+  await handler(jsonReq({ body: {} }), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.id, "cs_test_retry");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].consent_collection, undefined);
+  assert.match(calls[1].custom_text.submit.message, /commercial-terms/);
 });
 
 test("checkout: only POST (405 + Allow)", async () => {
@@ -187,6 +221,11 @@ test("webhook: paid completed event -> exactly one Resend email with a valid sig
   assert.equal(v.payload.exp, 1_800_000_000 + 72 * 3600);
   assert.equal(store.m.get("hlc:email:cs_test_paid_1"), "sent");
   assert.ok(!JSON.stringify(body).includes("private.example.test"), "package URL never emailed");
+  assert.ok(body.text.includes("https://ciphercts.com/hlc/commercial-terms"), "terms link in text");
+  assert.ok(body.html.includes("https://ciphercts.com/hlc/commercial-terms"), "terms link in html");
+  assert.ok(body.text.includes("© 2026 Cipher CTS. All Rights Reserved."));
+  assert.ok(body.html.includes("© 2026 Cipher CTS. All Rights Reserved."));
+  assert.ok(!/apa[c]he/i.test(body.text + body.html));
 });
 
 test("webhook: duplicate event (same session, even new event id) -> no second email", async () => {

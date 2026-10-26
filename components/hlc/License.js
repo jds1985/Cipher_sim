@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Cipher CTS
+// © 2026 Cipher CTS. All Rights Reserved.
+// Proprietary and confidential. Not covered by the free evaluation license.
 // Secondary call to action next to the free download: the paid "Enterprise Fleet Deployment" licence.
 // Purchase starts a Stripe Checkout session through POST /api/checkout, then redirects to session.url.
 import { useEffect, useState } from "react";
@@ -9,8 +9,8 @@ const CONTACT = "team@ciphercts.com";
 const ONLINE = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 const FEATURES = [
-  { text: "Commercial production package, sent by a secure one-time download link" },
-  { text: "Written commercial license agreement for your fleet" },
+  { text: "Production & revenue-generating use rights per licensed asset" },
+  { text: "Commercial license agreement" },
   { text: "Priority support" },
   { text: "Multi-asset dashboard license", soon: true },
   { text: "Custom sensor schema generator", soon: true },
@@ -42,7 +42,7 @@ export default function License() {
 
   const loading = state.phase === "loading";
   return (
-    <section className="hx-lic" id="license" aria-labelledby="hx-lic-h" tabIndex={-1}>
+    <section className="hx-paid" id="license" aria-labelledby="hx-lic-h" tabIndex={-1}>
       <span className="hx-kicker">Commercial license</span>
       <h2 className="hx-h2" id="hx-lic-h">
         Enterprise Fleet Deployment
@@ -63,7 +63,7 @@ export default function License() {
       )}
 
       <p className="hx-meta" data-testid="license-honest">
-        The open evaluation engine stays free under Apache 2.0. The commercial license adds the production package below, a license agreement, and support.
+        The free evaluation build is for personal, non-commercial use only. The commercial license covers production use of the engine per asset, with a license agreement and support.
       </p>
 
       <ul className="hx-feat" aria-label="What the commercial license includes">
@@ -109,6 +109,9 @@ export default function License() {
           {state.message}
         </p>
       )}
+      <p className="hx-file">
+        Read the <a href="/hlc/commercial-terms" data-testid="commercial-terms-link">Cipher CTS Commercial License Terms</a>. You accept them when you purchase.
+      </p>
       <p className="hx-file">
         Questions, more than 50 assets, or prefer an invoice? Contact: <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
       </p>
