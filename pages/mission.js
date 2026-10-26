@@ -23,7 +23,7 @@ export default function Mission() {
       {/* Layer 2: Faded Real-Logo Watermark */}
       <div className="bg-watermark">
         <img
-          src="/images/cipher-cts-bg.png"
+          src="/images/cipher-cts-watermark.png"
           alt="Cipher CTS Watermark"
           className="watermark-img"
         />
@@ -35,7 +35,7 @@ export default function Mission() {
           <div className="brand">
             <Link href="/" className="brand-link">
               <img
-                src="/images/cipher-cts-logo.png"
+                src="/logo.svg"
                 alt="Cipher CTS Logo"
                 className="brand-logo"
               />

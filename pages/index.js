@@ -1,619 +1,174 @@
 import Head from "next/head";
-import Link from "next/link";
 import { useState } from "react";
+import { Space_Grotesk } from "next/font/google";
+import Logo from "../components/Logo";
+import s from "../styles/Home.module.css";
+
+const font = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
+
+const CONTACT = "team@ciphercts.com";
+const SITE = "https://ciphercts.com";
+
+const products = [
+  { name: "Cipher", tag: "Coming soon", icon: "◆", desc: "An on-device AI assistant. Your conversations stay on your phone, not on anyone's servers." },
+  { name: "Cipher Bot", tag: "Coming soon", icon: "⬡", desc: "A local AI agent that works for you on your own machine, with your files and data never leaving it." },
+  { name: "Cipher Forge", tag: "Coming soon", icon: "✦", desc: "Build your own private AI, step by step. Shape a model that is yours alone." },
+  { name: "Cipher Concierge", tag: "Available now", live: true, icon: "◈", href: "https://cipher-concierge.vercel.app", cta: "Visit Concierge →", desc: "Hotel guest AI delivered through an in-room QR code. Instant 24/7 guest service with no extra hardware." },
+  { name: "HLC", tag: "Try it now", live: true, wide: true, icon: "▣", href: "/hlc", internal: true, cta: "Open the HLC dashboard and download →", desc: "Hierarchical Latent Controller: local predictive maintenance. Estimates how many operating cycles of life a machine has left, on your own computer. Try the live dashboard and download the engine." },
+];
+
+const pillars = [
+  { icon: "🔒", title: "Complete Data Sovereignty", text: "We reject the surveillance data-pipeline. Our systems run statelessly with zero cloud retention, logging, or dataset harvesting." },
+  { icon: "⚡", title: "Extreme Computational Efficiency", text: "Instead of requiring bloated server clusters, our models operate within lean footprints, reducing cost and energy consumption." },
+  { icon: "📦", title: "Zero-Friction Deployment", text: "Practical business utility delivered without invasive hardware retrofits or months of complex onboarding cycles." },
+];
+
+const links = [["Products", "#products"], ["HLC", "/hlc"], ["Technology", "#technology"], ["Privacy", "#privacy"], ["About", "#about"]];
 
 export default function Home() {
-  const [activeSlide, setActiveSlide] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
 
-  const products = [
-    {
-      id: "concierge",
-      title: "Cipher Concierge",
-      category: "Hospitality & Enterprise",
-      status: "Available Now",
-      desc: "Zero-hardware, ephemeral AI guest intelligence. Delivers instant 24/7 service via in-room QR access with 100% RAM isolation.",
-      href: "/concierge",
-      cta: "Explore Concierge",
-    },
-    {
-      id: "enterprise",
-      title: "Cipher Private Core",
-      category: "Custom Intelligence",
-      status: "In Development",
-      desc: "Ultra-compact sub-watt proprietary language models deployed locally on-premise. Total sovereignty with zero third-party cloud leaks.",
-      href: "#",
-      cta: "Architecture Overview",
-    },
-    {
-      id: "edge",
-      title: "Cipher Edge Node",
-      category: "Embedded Silicon",
-      status: "Roadmap",
-      desc: "Stateless micro-appliances engineered for extreme efficiency and local inferencing without costly server racks.",
-      href: "#",
-      cta: "Learn More",
-    },
-  ];
+  const submit = (e) => {
+    e.preventDefault();
+    const subject = encodeURIComponent("Cipher CTS early access");
+    const body = encodeURIComponent(`Please add me to the Cipher CTS early access list.\n\nEmail: ${email}`);
+    window.location.href = `mailto:${CONTACT}?subject=${subject}&body=${body}`;
+  };
+
+  const title = "Cipher CTS | Private, Local-First AI";
+  const desc = "Intelligent Systems. Zero Data Extraction. Cipher CTS builds private AI that runs on your devices, not our servers.";
 
   return (
     <>
       <Head>
-        <title>Cipher CTS | Private AI Systems</title>
-        <meta
-          name="description"
-          content="Cipher CTS designs sovereign, ultra-efficient, local-first artificial intelligence systems built for total privacy and zero data extraction."
-        />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
+        <title>{title}</title>
+        <meta name="description" content={desc} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="canonical" href={SITE} />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Cipher CTS" />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={desc} />
+        <meta property="og:url" content={SITE} />
+        <meta property="og:image" content={`${SITE}/og-image.png`} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={title} />
+        <meta name="twitter:description" content={desc} />
+        <meta name="twitter:image" content={`${SITE}/og-image.png`} />
       </Head>
 
-      {/* Layer 1: Master Dual-Radial Ambient Canvas */}
-      <div className="bg-canvas" />
+      <div className={`${s.page} ${font.className}`}>
+        <div className={s.bg} aria-hidden="true"><span className={s.orbA} /><span className={s.orbB} /><span className={s.orbC} /><span className={s.orbD} /></div>
 
-      {/* Layer 2: Faded Real-Logo Watermark */}
-      <div className="bg-watermark">
-        <img
-          src="/images/cipher-cts-bg.png"
-          alt="Cipher CTS Watermark"
-          className="watermark-img"
-        />
-      </div>
-
-      <div className="layout">
-        {/* Navigation - Clean 3 links, no top-right button */}
-        <header className="navbar glass-panel">
-          <div className="brand">
-            <Link href="/" className="brand-link">
-              <img
-                src="/images/cipher-cts-logo.png"
-                alt="Cipher CTS Logo"
-                className="brand-logo"
-              />
-              <span className="brand-text">CIPHER CTS</span>
-            </Link>
-          </div>
-
-          <nav className="nav-links">
-            <Link href="/" className="nav-item active">
-              Home
-            </Link>
-            <Link href="/mission" className="nav-item">
-              Mission
-            </Link>
-            <Link href="/concierge" className="nav-item">
-              Solutions
-            </Link>
+        <header className={s.navWrap}>
+          <nav className={`${s.nav} ${s.glass}`} aria-label="Main">
+            <a href="#top" className={s.brand} aria-label="Cipher CTS home"><Logo size={34} /></a>
+            <div className={`${s.links} ${open ? s.linksOpen : ""}`}>
+              {links.map(([l, h]) => <a key={l} href={h} onClick={() => setOpen(false)}>{l}</a>)}
+              <a href="#early-access" className={`${s.btn} ${s.btnPrimary} ${s.navCta}`} onClick={() => setOpen(false)}>Get Early Access</a>
+            </div>
+            <button className={s.burger} aria-label="Toggle menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+              <span /><span /><span />
+            </button>
           </nav>
         </header>
 
-        {/* Hero Section */}
-        <section className="hero-section">
-          <div className="pill-badge glass-pill">
-            <span className="pulse-dot" />
-            Next-Gen Private Intelligence
-          </div>
-
-          <h1 className="hero-title">
-            Intelligent Systems. <br />
-            <span className="gradient-text">Zero Data Extraction.</span>
-          </h1>
-
-          <p className="hero-description">
-            Cipher CTS engineers sovereign AI architectures built from the
-            ground up for privacy, extreme hardware efficiency, and complete
-            operational autonomy.
-          </p>
-
-          <div className="hero-buttons">
-            <Link href="/concierge" className="btn btn-primary">
-              View Solutions
-            </Link>
-            <Link href="/mission" className="btn btn-glass">
-              Our Mission
-            </Link>
-          </div>
-        </section>
-
-        {/* Product Carousel / Showcase */}
-        <section id="products" className="section-container">
-          <div className="section-header">
-            <span className="sub-tag">PORTFOLIO</span>
-            <h2>Current & Developing Solutions</h2>
-            <p>Purpose-built intelligence applications that respect your data boundary.</p>
-          </div>
-
-          <div className="carousel glass-panel">
-            <div className="carousel-meta">
-              <span className="category">{products[activeSlide].category}</span>
-              <span className="status-badge">{products[activeSlide].status}</span>
-            </div>
-
-            <div className="carousel-body">
-              <h3>{products[activeSlide].title}</h3>
-              <p>{products[activeSlide].desc}</p>
-            </div>
-
-            <div className="carousel-footer">
-              <Link href={products[activeSlide].href} className="btn-action">
-                {products[activeSlide].cta} →
-              </Link>
-
-              <div className="dots">
-                {products.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setActiveSlide(index)}
-                    className={`dot ${activeSlide === index ? "active" : ""}`}
-                    aria-label={`Slide ${index + 1}`}
-                  />
-                ))}
+        <main id="top">
+          <section className={`${s.section} ${s.hero}`}>
+            <div className={s.heroText}>
+              <span className={`${s.pill} ${s.glass}`}><span className={s.dot} /> Private, local-first AI</span>
+              <h1>Intelligent Systems.<br /><span className="grad-text">Zero Data Extraction.</span></h1>
+              <p className={s.lead}>Private AI that runs on your devices, not our servers.</p>
+              <div className={s.ctas}>
+                <a href="#early-access" className={`${s.btn} ${s.btnPrimary}`}>Get Early Access</a>
+                <a href="#privacy" className={`${s.btn} ${s.btnGlass}`}>Our Privacy Promise</a>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* Company Principles */}
-        <section id="about" className="section-container">
-          <div className="section-header">
-            <span className="sub-tag">PHILOSOPHY</span>
-            <h2>Why Cipher CTS</h2>
-          </div>
-
-          <div className="grid-pillars">
-            <div className="pillar-card glass-panel">
-              <div className="pillar-icon">🔒</div>
-              <h4>Complete Data Sovereignty</h4>
-              <p>
-                We reject the surveillance data-pipeline. Our systems run
-                statelessly with zero cloud retention, logging, or dataset
-                harvesting.
-              </p>
+            <div className={s.phoneWrap} aria-hidden="true">
+              <div className={s.phone}>
+                <div className={s.notch} />
+                <div className={s.chatHead}><Logo size={22} /><span className={s.offline}>● On-device</span></div>
+                <div className={`${s.msg} ${s.me}`}>Summarize my notes from today.</div>
+                <div className={`${s.msg} ${s.ai}`}>Done. Three key points from your notes, processed right here on your phone.</div>
+                <div className={`${s.msg} ${s.me}`}>Did that go to the cloud?</div>
+                <div className={`${s.msg} ${s.ai}`}>No. Nothing left this device.</div>
+                <div className={s.inputBar}><span>Message Cipher…</span><b>↑</b></div>
+              </div>
             </div>
+          </section>
 
-            <div className="pillar-card glass-panel">
-              <div className="pillar-icon">⚡</div>
-              <h4>Extreme Computational Efficiency</h4>
-              <p>
-                Instead of requiring bloated server clusters, our models operate
-                within lean footprints, reducing cost and energy consumption.
-              </p>
+          <section id="products" className={s.section}>
+            <div className={s.head}><span className={s.kicker}>Products</span><h2>Private AI, built for you</h2></div>
+            <div className={s.grid4}>
+              {products.map((p) => {
+                const inner = (
+                  <>
+                    <div className={s.cardTop}><span className={s.icon}>{p.icon}</span><span className={`${s.tag} ${p.live ? s.tagLive : ""}`}>{p.tag}</span></div>
+                    <h3>{p.name}</h3>
+                    <p>{p.desc}</p>
+                    {p.href && <span className={s.more}>{p.cta}</span>}
+                  </>
+                );
+                return p.href
+                  ? <a key={p.name} href={p.href} {...(p.internal ? {} : { target: "_blank", rel: "noopener noreferrer" })} className={`${s.card} ${s.glass} ${s.cardLink} ${p.wide ? s.cardWide : ""}`}>{inner}</a>
+                  : <div key={p.name} className={`${s.card} ${s.glass}`}>{inner}</div>;
+              })}
             </div>
+          </section>
 
-            <div className="pillar-card glass-panel">
-              <div className="pillar-icon">📦</div>
-              <h4>Zero-Friction Deployment</h4>
-              <p>
-                Practical business utility delivered without invasive hardware
-                retrofits or months of complex onboarding cycles.
-              </p>
+          <section className={`${s.section} ${s.stats}`} aria-label="Highlights">
+            {["Runs offline", "73 MB model", "Zero cloud retention"].map((t) => (
+              <div key={t} className={`${s.stat} ${s.glass}`}><span className="grad-text">{t}</span></div>
+            ))}
+          </section>
+
+          <section id="technology" className={`${s.section} ${s.tech}`}>
+            <div>
+              <span className={s.kicker}>Technology</span>
+              <h2>Ternary weights. Tiny models.</h2>
+              <p>Our models use ternary weights: every weight is −1, 0 or +1. Instead of storing large floating-point numbers, each weight carries just enough information to do its job.</p>
+              <p>The result is models that are tiny, fast and efficient, small enough to run directly on a phone, with no server round-trip.</p>
             </div>
-          </div>
-        </section>
+            <div className={`${s.ternary} ${s.glass}`} aria-label="Ternary values: minus one, zero, plus one">
+              {["−1", "0", "+1"].map((v) => <div key={v} className={s.tval}><span>{v}</span><i /></div>)}
+            </div>
+          </section>
 
-        {/* Footer */}
-        <footer className="footer glass-panel">
-          <div className="footer-left">
-            <span className="brand-symbol">◈</span> CIPHER TERNARY SYSTEMS
-          </div>
-          <div className="footer-right">
-            <span>Knoxville, TN</span>
-            <span>•</span>
-            <span>Private AI Engineering</span>
-          </div>
+          <section id="privacy" className={s.section}>
+            <div className={s.head}><span className={s.kicker}>Our Privacy Promise</span><h2>Why Cipher CTS</h2></div>
+            <div className={s.grid3}>
+              {pillars.map((p) => (
+                <div key={p.title} className={`${s.card} ${s.glass}`}><span className={s.icon}>{p.icon}</span><h3>{p.title}</h3><p>{p.text}</p></div>
+              ))}
+            </div>
+          </section>
+
+          <section id="about" className={`${s.section} ${s.about}`}>
+            <span className={s.kicker}>About</span>
+            <h2>A private, local-first AI company</h2>
+            <p>Cipher CTS builds AI that respects a simple boundary: your data stays yours. We design compact models and products that run on the devices you already own.</p>
+          </section>
+
+          <section id="early-access" className={s.section}>
+            <div className={`${s.signup} ${s.glass}`}>
+              <h2>Get early access</h2>
+              <p>Be first to try Cipher, Cipher Bot and Cipher Forge.</p>
+              <form className={s.form} onSubmit={submit}>
+                <label htmlFor="ea-email" className={s.sr}>Email address</label>
+                <input id="ea-email" type="email" required placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <button type="submit" className={`${s.btn} ${s.btnPrimary}`}>Request access</button>
+              </form>
+              <small>Opens your email app to send a request to {CONTACT}.</small>
+            </div>
+          </section>
+        </main>
+
+        <footer className={`${s.footer} ${s.glass}`}>
+          <Logo size={28} />
+          <span>© 2026 Cipher CTS</span>
         </footer>
       </div>
-
-      <style jsx global>{`
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        body {
-          font-family: "Inter", sans-serif;
-          color: rgba(255, 255, 255, 0.94);
-          background-color: #05060a;
-          line-height: 1.6;
-          overflow-x: hidden;
-        }
-
-        h1, h2, h3, h4, .brand-text, .btn, .btn-action, .sub-tag {
-          font-family: "Plus Jakarta Sans", sans-serif;
-          font-weight: 700;
-        }
-
-        /* Ambient Glow Backdrop */
-        .bg-canvas {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background:
-            radial-gradient(circle at 15% 10%, rgba(90, 70, 255, 0.35), transparent 40%),
-            radial-gradient(circle at 85% 90%, rgba(0, 255, 200, 0.25), transparent 45%),
-            radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03), transparent 60%),
-            #05060a;
-          z-index: -2;
-        }
-
-        /* Faded Real-Logo Watermark */
-        .bg-watermark {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 100%;
-          max-width: 900px;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          pointer-events: none;
-          z-index: -1;
-          opacity: 0.08;
-          filter: drop-shadow(0 0 50px rgba(0, 255, 200, 0.3));
-        }
-
-        .watermark-img {
-          width: 75%;
-          max-width: 520px;
-          object-fit: contain;
-        }
-
-        .layout {
-          max-width: 860px;
-          margin: 0 auto;
-          padding: 24px 20px 60px 20px;
-          position: relative;
-          z-index: 1;
-        }
-
-        /* High-Saturation Glass Panels */
-        .glass-panel {
-          background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          backdrop-filter: blur(28px) saturate(140%);
-          -webkit-backdrop-filter: blur(28px) saturate(140%);
-          border-radius: 22px;
-          box-shadow: 
-            0 0 100px rgba(0, 255, 200, 0.08),
-            0 0 50px rgba(90, 70, 255, 0.15),
-            inset 0 0 40px rgba(255, 255, 255, 0.04);
-        }
-
-        /* Navbar */
-        .navbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 14px 28px;
-          margin-bottom: 55px;
-        }
-
-        .brand-link {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          text-decoration: none;
-        }
-
-        .brand-logo {
-          width: 32px;
-          height: 32px;
-          object-fit: contain;
-          border-radius: 8px;
-        }
-
-        .brand-text {
-          font-size: 14px;
-          letter-spacing: 2px;
-          color: #ffffff;
-        }
-
-        .nav-links {
-          display: flex;
-          align-items: center;
-          gap: 28px;
-        }
-
-        .nav-item {
-          color: #94a3b8;
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 500;
-          transition: color 0.2s;
-        }
-
-        .nav-item:hover,
-        .nav-item.active {
-          color: #ffffff;
-        }
-
-        .nav-item.active {
-          border-bottom: 2px solid #00ffd5;
-          padding-bottom: 2px;
-        }
-
-        /* Hero */
-        .hero-section {
-          text-align: center;
-          padding: 30px 10px 75px 10px;
-        }
-
-        .pill-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 16px;
-          border-radius: 999px;
-          font-size: 11px;
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          margin-bottom: 22px;
-        }
-
-        .glass-pill {
-          background: rgba(0, 255, 213, 0.06);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(0, 255, 213, 0.25);
-          color: #00ffd5;
-        }
-
-        .pulse-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #00ffd5;
-          box-shadow: 0 0 10px #00ffd5;
-        }
-
-        .hero-title {
-          font-size: 46px;
-          line-height: 1.15;
-          letter-spacing: -0.02em;
-          color: #ffffff;
-          margin-bottom: 20px;
-        }
-
-        .gradient-text {
-          background: linear-gradient(135deg, #00ffd5 0%, #a5f3fc 80%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .hero-description {
-          font-size: 16.5px;
-          color: #94a3b8;
-          max-width: 600px;
-          margin: 0 auto 34px auto;
-          line-height: 1.65;
-        }
-
-        .hero-buttons {
-          display: flex;
-          gap: 14px;
-          justify-content: center;
-        }
-
-        .btn {
-          padding: 13px 26px;
-          border-radius: 12px;
-          font-size: 13.5px;
-          text-decoration: none;
-          transition: all 0.2s ease;
-          display: inline-block;
-        }
-
-        .btn-primary {
-          background: linear-gradient(135deg, #5a46ff, #00ffd5);
-          color: #ffffff;
-          font-weight: 700;
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          box-shadow: 0 0 30px rgba(90, 70, 255, 0.5), 0 0 50px rgba(0, 255, 213, 0.25);
-        }
-
-        .btn-primary:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 0 45px rgba(90, 70, 255, 0.7), 0 0 70px rgba(0, 255, 213, 0.35);
-        }
-
-        .btn-glass {
-          background: rgba(255, 255, 255, 0.04);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          color: #e2e8f0;
-        }
-
-        .btn-glass:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Sections */
-        .section-container {
-          margin-bottom: 75px;
-        }
-
-        .section-header {
-          text-align: center;
-          margin-bottom: 30px;
-        }
-
-        .sub-tag {
-          font-size: 10px;
-          letter-spacing: 2px;
-          color: #00ffd5;
-          text-transform: uppercase;
-        }
-
-        .section-header h2 {
-          font-size: 26px;
-          color: #ffffff;
-          margin: 6px 0;
-        }
-
-        .section-header p {
-          font-size: 14px;
-          color: #64748b;
-        }
-
-        /* Carousel Glass Panel */
-        .carousel {
-          padding: 36px;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .carousel-meta {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .category {
-          font-size: 12px;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: #94a3b8;
-        }
-
-        .status-badge {
-          font-size: 10px;
-          font-weight: 600;
-          padding: 3px 10px;
-          border-radius: 8px;
-          background: rgba(0, 255, 213, 0.08);
-          color: #00ffd5;
-          border: 1px solid rgba(0, 255, 213, 0.2);
-        }
-
-        .carousel-body h3 {
-          font-size: 24px;
-          color: #ffffff;
-          margin-bottom: 10px;
-        }
-
-        .carousel-body p {
-          font-size: 14.5px;
-          color: #94a3b8;
-          max-width: 650px;
-          line-height: 1.6;
-        }
-
-        .carousel-footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding-top: 18px;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
-        }
-
-        .btn-action {
-          color: #00ffd5;
-          text-decoration: none;
-          font-size: 13.5px;
-          font-weight: 600;
-          transition: transform 0.2s;
-        }
-
-        .btn-action:hover {
-          transform: translateX(4px);
-        }
-
-        .dots {
-          display: flex;
-          gap: 8px;
-        }
-
-        .dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          border: none;
-          background: rgba(255, 255, 255, 0.2);
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .dot.active {
-          width: 22px;
-          border-radius: 10px;
-          background: #00ffd5;
-        }
-
-        /* Pillars Grid */
-        .grid-pillars {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          gap: 16px;
-        }
-
-        .pillar-card {
-          padding: 26px;
-        }
-
-        .pillar-icon {
-          font-size: 20px;
-          margin-bottom: 12px;
-        }
-
-        .pillar-card h4 {
-          font-size: 15px;
-          color: #ffffff;
-          margin-bottom: 8px;
-        }
-
-        .pillar-card p {
-          font-size: 13px;
-          color: #94a3b8;
-          line-height: 1.6;
-        }
-
-        /* Footer */
-        .footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 20px 26px;
-          font-size: 12px;
-          color: #64748b;
-        }
-
-        .brand-symbol {
-          color: #00ffd5;
-        }
-
-        .footer-right {
-          display: flex;
-          gap: 10px;
-        }
-
-        @media (max-width: 640px) {
-          .nav-links {
-            gap: 16px;
-          }
-          .nav-item {
-            font-size: 13px;
-          }
-          .hero-title {
-            font-size: 32px;
-          }
-          .hero-buttons {
-            flex-direction: column;
-          }
-          .footer {
-            flex-direction: column;
-            gap: 10px;
-            text-align: center;
-          }
-        }
-      `}</style>
     </>
   );
 }

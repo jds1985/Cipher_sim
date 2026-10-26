@@ -7,8 +7,8 @@ export default function MyApp({ Component, pageProps }) {
   return (
     <>
       <Head>
-        <title>Cipher Tech</title>
-        <meta name="theme-color" content="#05060a" />
+        <title>Cipher CTS</title>
+        <meta name="theme-color" content="#05070b" />
       </Head>
       <Component {...pageProps} />
     </>
