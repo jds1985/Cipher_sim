@@ -72,6 +72,7 @@
 .inputBar b { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #1e6bff, #9dff3a); color: #04101a; }
 
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.cardWide { grid-column: 1 / -1; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .card { padding: 26px; display: flex; flex-direction: column; gap: 12px; transition: transform .25s, border-color .25s, box-shadow .25s; }
 .card:hover { transform: translateY(-4px); border-color: rgba(34,211,238,.35); box-shadow: 0 0 40px rgba(34,211,238,.15); }

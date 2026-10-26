@@ -13,7 +13,8 @@ const products = [
   { name: "Cipher", tag: "Coming soon", icon: "◆", desc: "An on-device AI assistant. Your conversations stay on your phone, not on anyone's servers." },
   { name: "Cipher Bot", tag: "Coming soon", icon: "⬡", desc: "A local AI agent that works for you on your own machine, with your files and data never leaving it." },
   { name: "Cipher Forge", tag: "Coming soon", icon: "✦", desc: "Build your own private AI, step by step. Shape a model that is yours alone." },
-  { name: "Cipher Concierge", tag: "Available now", live: true, icon: "◈", href: "https://cipher-concierge.vercel.app", desc: "Hotel guest AI delivered through an in-room QR code. Instant 24/7 guest service with no extra hardware." },
+  { name: "Cipher Concierge", tag: "Available now", live: true, icon: "◈", href: "https://cipher-concierge.vercel.app", cta: "Visit Concierge →", desc: "Hotel guest AI delivered through an in-room QR code. Instant 24/7 guest service with no extra hardware." },
+  { name: "HLC", tag: "Try it now", live: true, wide: true, icon: "▣", href: "/hlc", internal: true, cta: "Open the HLC dashboard and download →", desc: "Hierarchical Latent Controller: local predictive maintenance. Estimates how many operating cycles of life a machine has left, on your own computer. Try the live dashboard and download the engine." },
 ];
 
 const pillars = [
@@ -22,7 +23,7 @@ const pillars = [
   { icon: "📦", title: "Zero-Friction Deployment", text: "Practical business utility delivered without invasive hardware retrofits or months of complex onboarding cycles." },
 ];
 
-const links = [["Products", "#products"], ["Technology", "#technology"], ["Privacy", "#privacy"], ["About", "#about"]];
+const links = [["Products", "#products"], ["HLC", "/hlc"], ["Technology", "#technology"], ["Privacy", "#privacy"], ["About", "#about"]];
 
 export default function Home() {
   const [open, setOpen] = useState(false);
@@ -106,11 +107,11 @@ export default function Home() {
                     <div className={s.cardTop}><span className={s.icon}>{p.icon}</span><span className={`${s.tag} ${p.live ? s.tagLive : ""}`}>{p.tag}</span></div>
                     <h3>{p.name}</h3>
                     <p>{p.desc}</p>
-                    {p.href && <span className={s.more}>Visit Concierge →</span>}
+                    {p.href && <span className={s.more}>{p.cta}</span>}
                   </>
                 );
                 return p.href
-                  ? <a key={p.name} href={p.href} target="_blank" rel="noopener noreferrer" className={`${s.card} ${s.glass} ${s.cardLink}`}>{inner}</a>
+                  ? <a key={p.name} href={p.href} {...(p.internal ? {} : { target: "_blank", rel: "noopener noreferrer" })} className={`${s.card} ${s.glass} ${s.cardLink} ${p.wide ? s.cardWide : ""}`}>{inner}</a>
                   : <div key={p.name} className={`${s.card} ${s.glass}`}>{inner}</div>;
               })}
             </div>
