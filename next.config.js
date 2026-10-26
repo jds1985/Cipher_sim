@@ -7,6 +7,13 @@ const nextConfig = {
     return [
       { source: "/mission", destination: "/", permanent: true },
       { source: "/solutions", destination: "/", permanent: true },
+      // Removed old-site pages and files (permanent redirects to the home page).
+      { source: "/shopstream", destination: "/", permanent: true },
+      { source: "/shopstream/:path*", destination: "/", permanent: true },
+      { source: "/success", destination: "/", permanent: true },
+      { source: "/success.html", destination: "/", permanent: true },
+      { source: "/launch.html", destination: "/", permanent: true },
+      { source: "/terms.html", destination: "/", permanent: true },
       // The old name of Cipher Studio: keep any old links working (permanent).
       { source: "/forge", destination: "/cipher-studio", permanent: true },
       { source: "/forge/:path*", destination: "/cipher-studio", permanent: true },

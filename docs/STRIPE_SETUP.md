@@ -31,7 +31,7 @@ Do all of steps 1 to 6 in test mode first. Use the fake card `4242 4242 4242 424
 | Need | Free option | Where the value goes |
 |---|---|---|
 | Remember "link already used" and "email already sent" | **Upstash Redis** (Vercel Marketplace > Upstash, or https://upstash.com). Create a database and copy the **REST URL** and **REST token**. | `KV_REST_API_URL`, `KV_REST_API_TOKEN` |
-| Send the email | **Resend** (https://resend.com). The site already uses it for the recruit form. Verify the domain `ciphercts.com`, create an API key. | `RESEND_API_KEY`, `FROM_EMAIL` (for example `licensing@ciphercts.com`) |
+| Send the email | **Resend** (https://resend.com). Verify the domain `ciphercts.com`, create an API key. | `RESEND_API_KEY`, `FROM_EMAIL` (for example `licensing@ciphercts.com`) |
 | Store the private package | Any **private** storage: a private bucket (Vercel Blob private, S3, Cloudflare R2) with a long-lived signed URL, or a file on a server you control. **Never** put it in `public/`. | `PRODUCTION_PACKAGE_URL` |
 
 Make a link-signing secret yourself: in a terminal run `openssl rand -hex 32` and use the result as `DOWNLOAD_LINK_SECRET`.
