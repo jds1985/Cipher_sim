@@ -2,6 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // Old-design pages were removed; keep their URLs working (permanent redirects to the home page).
+  async redirects() {
+    return [
+      { source: "/mission", destination: "/", permanent: true },
+      { source: "/solutions", destination: "/", permanent: true },
+    ];
+  },
+
   // Standard security headers without COOP/COEP isolation,
   // ensuring Stripe checkout, external scripts, and embeds load smoothly.
   async headers() {
