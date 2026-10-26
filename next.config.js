@@ -7,6 +7,12 @@ const nextConfig = {
     return [
       { source: "/mission", destination: "/", permanent: true },
       { source: "/solutions", destination: "/", permanent: true },
+      // The old name of Cipher Studio: keep any old links working (permanent).
+      { source: "/forge", destination: "/cipher-studio", permanent: true },
+      { source: "/forge/:path*", destination: "/cipher-studio", permanent: true },
+      { source: "/cipher-forge", destination: "/cipher-studio", permanent: true },
+      { source: "/cipher-forge/:path*", destination: "/cipher-studio", permanent: true },
+      { source: "/cipherforge", destination: "/cipher-studio", permanent: true },
     ];
   },
 

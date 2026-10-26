@@ -2,20 +2,14 @@ import Head from "next/head";
 import { useState } from "react";
 import { Space_Grotesk } from "next/font/google";
 import Logo from "../components/Logo";
+import ProductIcon from "../components/ProductIcon";
+import { products, productHref } from "../lib/products";
 import s from "../styles/Home.module.css";
 
 const font = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
 
-const CONTACT = "team@ciphercts.com";
-const SITE = "https://ciphercts.com";
+import { CONTACT, SITE } from "../lib/products";
 
-const products = [
-  { name: "Cipher", tag: "Coming soon", icon: "◆", desc: "An on-device AI assistant. Your conversations stay on your phone, not on anyone's servers." },
-  { name: "Cipher Bot", tag: "Coming soon", icon: "⬡", desc: "A local AI agent that works for you on your own machine, with your files and data never leaving it." },
-  { name: "Cipher Forge", tag: "Coming soon", icon: "✦", desc: "Build your own private AI, step by step. Shape a model that is yours alone." },
-  { name: "Cipher Concierge", tag: "Available now", live: true, icon: "◈", href: "https://cipher-concierge.vercel.app", cta: "Visit Concierge →", desc: "Hotel guest AI delivered through an in-room QR code. Instant 24/7 guest service with no extra hardware." },
-  { name: "HLC", tag: "Try it now", live: true, wide: true, icon: "▣", href: "/hlc", internal: true, cta: "Open the HLC dashboard and download →", desc: "Hierarchical Latent Controller: local predictive maintenance. Estimates how many operating cycles of life a machine has left, on your own computer. Try the live dashboard and download the engine." },
-];
 
 const pillars = [
   { icon: "🔒", title: "Complete Data Sovereignty", text: "We reject the surveillance data-pipeline. Our systems run statelessly with zero cloud retention, logging, or dataset harvesting." },
@@ -104,15 +98,13 @@ export default function Home() {
               {products.map((p) => {
                 const inner = (
                   <>
-                    <div className={s.cardTop}><span className={s.icon}>{p.icon}</span><span className={`${s.tag} ${p.live ? s.tagLive : ""}`}>{p.tag}</span></div>
+                    <div className={s.cardTop}><span className={s.icon}><ProductIcon slug={p.slug} size={64} /></span><span className={`${s.tag} ${p.live ? s.tagLive : ""}`}>{p.cardTag}</span></div>
                     <h3>{p.name}</h3>
-                    <p>{p.desc}</p>
-                    {p.href && <span className={s.more}>{p.cta}</span>}
+                    <p>{p.cardDesc}</p>
+                    <span className={s.more}>{p.cardCta || `Learn more about ${p.name} →`}</span>
                   </>
                 );
-                return p.href
-                  ? <a key={p.name} href={p.href} {...(p.internal ? {} : { target: "_blank", rel: "noopener noreferrer" })} className={`${s.card} ${s.glass} ${s.cardLink} ${p.wide ? s.cardWide : ""}`}>{inner}</a>
-                  : <div key={p.name} className={`${s.card} ${s.glass}`}>{inner}</div>;
+                return <a key={p.slug} href={productHref(p)} data-testid={`card-${p.slug}`} className={`${s.card} ${s.glass} ${s.cardLink} ${p.wide ? s.cardWide : ""}`}>{inner}</a>;
               })}
             </div>
           </section>
@@ -153,7 +145,7 @@ export default function Home() {
           <section id="early-access" className={s.section}>
             <div className={`${s.signup} ${s.glass}`}>
               <h2>Get early access</h2>
-              <p>Be first to try Cipher, Cipher Bot and Cipher Forge.</p>
+              <p>Be first to try Cipher, Cipher Bot and Cipher Studio.</p>
               <form className={s.form} onSubmit={submit}>
                 <label htmlFor="ea-email" className={s.sr}>Email address</label>
                 <input id="ea-email" type="email" required placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />

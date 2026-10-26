@@ -1,0 +1,62 @@
+/* © 2026 Cipher CTS. All Rights Reserved. Product pages: large type, >= 7:1 contrast, 4px focus rings. */
+.page { min-height: 100vh; color: #f4f7fb; font-size: 19px; line-height: 1.6; background: #05060a; display: flex; flex-direction: column; }
+.page a { color: #7fe9ff; text-underline-offset: 4px; }
+.page :focus-visible { outline: 4px solid #ffd54a; outline-offset: 3px; border-radius: 6px; }
+.skip { position: absolute; left: 12px; top: -80px; background: #ffd54a; color: #000 !important; padding: 12px 18px; font-weight: 700; border-radius: 8px; z-index: 50; }
+.skip:focus { top: 12px; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.header { border-bottom: 1px solid #243044; background: #080a10; }
+.nav { max-width: 980px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { text-decoration: none; display: inline-flex; color: #fff !important; }
+.navLinks { list-style: none; display: flex; gap: 8px; margin: 0; padding: 0; flex-wrap: wrap; }
+.navLinks a { display: inline-block; padding: 10px 14px; font-weight: 600; font-size: 19px; min-height: 44px; }
+
+.main { max-width: 980px; width: 100%; margin: 0 auto; padding: 20px 20px 48px; flex: 1; outline: none; }
+.crumbs { margin: 4px 0 18px; font-size: 19px; }
+.crumbs a { display: inline-block; padding: 8px 0; min-height: 44px; }
+
+.hero { background: #0c1019; border: 1px solid #2a3850; border-radius: 22px; padding: 28px 24px; }
+.heroHead { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.heroIcon { flex: none; }
+.hero h1 { margin: 0 0 8px; font-size: clamp(34px, 8vw, 52px); line-height: 1.1; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.badge { display: inline-flex; align-items: center; gap: 10px; margin: 0; font-weight: 700; font-size: 19px; padding: 6px 16px; border-radius: 999px; border: 2px solid currentColor; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: currentColor; display: inline-block; }
+.badge_available { color: #9dff3a; background: #0d1a05; }
+.badge_development { color: #ffd54a; background: #1c1604; }
+.badge_soon { color: #d7e0ee; background: #131a26; }
+.lead { font-size: 22px; line-height: 1.5; margin: 22px 0 8px; color: #f4f7fb; }
+.tagline { margin: 0 0 22px; color: #c7d2e4; font-weight: 600; }
+.ctas { display: flex; flex-wrap: wrap; gap: 14px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; padding: 12px 24px; border-radius: 14px; font-weight: 700; font-size: 20px; text-decoration: none; text-align: center; }
+.page a.btnPrimary { background: #7fe9ff; color: #001018; border: 3px solid #7fe9ff; }
+.page a.btnGhost { background: transparent; color: #f4f7fb; border: 3px solid #8aa0bf; }
+.btn:hover { filter: brightness(1.12); }
+
+.block { margin-top: 36px; }
+.block h2, .note h2 { font-size: 30px; margin: 0 0 12px; line-height: 1.2; }
+.body { margin: 0 0 14px; max-width: 46em; color: #e6ecf5; }
+.points { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.point { background: #0c1019; border: 1px solid #2a3850; border-radius: 16px; padding: 20px; }
+.point h3 { margin: 0 0 8px; font-size: 22px; line-height: 1.25; }
+.point p { margin: 0; color: #e0e8f3; }
+.note { margin-top: 36px; background: #101624; border: 2px solid #3b4c6a; border-radius: 16px; padding: 20px 22px; }
+.note p { margin: 0; max-width: 46em; }
+.slot { margin-top: 36px; }
+.others { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+.otherLink { display: inline-flex; align-items: center; gap: 12px; padding: 10px 18px 10px 12px; min-height: 56px; border-radius: 14px; border: 2px solid #3b4c6a; background: #0c1019; color: #f4f7fb !important; font-weight: 700; font-size: 20px; text-decoration: none; }
+.otherLink:hover { border-color: #7fe9ff; }
+
+.footer { border-top: 1px solid #243044; background: #080a10; padding: 22px 20px 30px; text-align: center; color: #d7e0ee; }
+.footer p { margin: 4px 0; }
+
+@media (max-width: 700px) {
+  .points { grid-template-columns: minmax(0, 1fr); }
+  .hero { padding: 22px 18px; }
+  .btn { width: 100%; }
+  .lead { font-size: 21px; }
+}
+@media (prefers-reduced-motion: reduce) { .page *, .page *::before, .page *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* Logo word "CTS" is gradient text (4.6:1 at its darkest stop). On product pages use a solid high-contrast cyan so it passes 7:1. */
+.brand :global(.grad-text) { background: none !important; -webkit-background-clip: border-box !important; background-clip: border-box !important; -webkit-text-fill-color: #7fe9ff !important; color: #7fe9ff !important; }
