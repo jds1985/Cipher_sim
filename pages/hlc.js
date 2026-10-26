@@ -4,24 +4,12 @@ import Head from "next/head";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Space_Grotesk } from "next/font/google";
 import Logo from "../components/Logo";
-import ConnectionBar from "../components/hlc/ConnectionBar";
-import ScenarioPanel from "../components/hlc/ScenarioPanel";
-import TelemetryPreview from "../components/hlc/TelemetryPreview";
-import ResultCards from "../components/hlc/ResultCards";
-import LatencyRow from "../components/hlc/LatencyRow";
-import DownloadCard from "../components/hlc/DownloadCard";
-import DatasetPicker from "../components/hlc/DatasetPicker";
-import AboutSection from "../components/hlc/AboutSection";
-import { EngineError, ENGINE_URL, fetchHealth, predict } from "../lib/hlc/engine";
-import {
-  applyDropout,
-  DEFAULT_DATASET,
-  V1_DATASET,
-  V2_DATASET,
-  DROPOUT_PLAN,
-  PRESET_SETS,
-  presetMatrix,
-} from "../lib/hlc/telemetry";
+import Console from "../components/hlc/Console";
+import Metrics from "../components/hlc/Metrics";
+import ReleaseCard from "../components/hlc/ReleaseCard";
+import Advanced from "../components/hlc/Advanced";
+import { EngineError, fetchHealth, predict } from "../lib/hlc/engine";
+import { applyDropout, DEFAULT_DATASET, V1_DATASET, V2_DATASET, presetMatrix } from "../lib/hlc/telemetry";
 import s from "../styles/Home.module.css";
 import h from "../styles/Hlc.module.css";
 
@@ -33,40 +21,26 @@ const POLL_MS = 10_000;
 // Same links as the home page, but as absolute paths because we are not on "/".
 const links = [["Products", "/#products"], ["Technology", "/#technology"], ["Privacy", "/#privacy"], ["About", "/#about"]];
 
-const KIND_LABEL = {
-  nominal: "Nominal telemetry (unit 1, first 30 cycles)",
-  stress: "Degrading telemetry (unit 1, last 30 cycles)",
-  dropout: "Sensor dropout simulation",
-  custom: "Your own custom JSON",
-};
-
-function labelFor(kind, ds) {
-  if (kind === "custom" || !ds) return KIND_LABEL[kind];
-  return `${KIND_LABEL[kind]} — ${PRESET_SETS[ds].synthetic ? "SYNTHETIC" : "NASA FD001"}${PRESET_SETS[ds].forEngine === "v2" ? " (v2 scaling)" : ""}`;
-}
-
 export default function HlcPage() {
   const [open, setOpen] = useState(false);
   const [health, setHealth] = useState({ state: "checking", lastChecked: null });
-  const [loaded, setLoaded] = useState(null);
-  // The last non-dropout scenario, used as the base for "Simulate Sensor Dropout".
-  const baseRef = useRef(null);
-  const [dataset, setDataset] = useState(DEFAULT_DATASET);
-  const userPickedDataset = useRef(false); // once the visitor picks a data set by hand we stop auto-selecting
+  const [selected, setSelected] = useState(null); // "nominal" | "stress" | "dropout" | "custom" | null
+  const baseRef = useRef(null); // last preset matrix, used by the dropout test
+  const dataset = useRef(DEFAULT_DATASET); // preset scaling that matches the connected engine (v2 unless a v1 engine answers)
   const [pred, setPred] = useState({ state: "idle" });
-  const [latency, setLatency] = useState(null);
+  const [latency, setLatency] = useState(null); // real measured round trip in ms, or null
   const reqId = useRef(0);
 
   // ---- health polling (browser only: runs in useEffect, never on the server) ----
   const checkHealth = useCallback(async () => {
     try {
       const data = await fetchHealth();
-      // match the connected engine's scaling unless the visitor picked a data set by hand
-      if (!userPickedDataset.current) setDataset(data.weights === "nasa_v2" ? V2_DATASET : V1_DATASET);
+      dataset.current = data.weights === "nasa_v2" ? V2_DATASET : V1_DATASET;
       setHealth({ state: "online", data, lastChecked: new Date() });
     } catch (e) {
       const msg = e instanceof EngineError ? e.message : String(e);
       setHealth({ state: "offline", error: msg, lastChecked: new Date() });
+      setLatency(null);
     }
   }, []);
 
@@ -95,39 +69,36 @@ export default function HlcPage() {
       setLatency(r.latencyMs);
     } catch (e) {
       if (id !== reqId.current) return;
+      setLatency(null);
       setPred({ state: "error", message: e instanceof Error ? e.message : String(e) });
     }
   }, []);
 
-  const onLoad = useCallback(
-    (kind, custom) => {
-      let next;
-      if (kind === "nominal" || kind === "stress") {
-        const matrix = presetMatrix(dataset, kind);
-        baseRef.current = { kind, dataset, matrix };
-        next = { kind, dataset, matrix, dropped: [] };
-      } else if (kind === "custom" && custom) {
-        baseRef.current = { kind, dataset: null, matrix: custom };
-        next = { kind, dataset: null, matrix: custom, dropped: [] };
-      } else {
-        const base = baseRef.current ?? { kind: "nominal", dataset, matrix: presetMatrix(dataset, "nominal") };
-        next = {
-          kind: "dropout",
-          dataset: base.dataset,
-          matrix: applyDropout(base.matrix),
-          dropped: DROPOUT_PLAN.map((d) => ({ channel: d.channel, kind: d.kind })),
-          note: `Applied to: ${labelFor(base.kind, base.dataset)}`,
-        };
-      }
-      setLoaded(next);
-      void runPredict(next.matrix);
+  const onRun = useCallback(
+    (kind) => {
+      const matrix = presetMatrix(dataset.current, kind);
+      baseRef.current = matrix;
+      setSelected(kind);
+      void runPredict(matrix);
     },
-    [runPredict, dataset],
+    [runPredict],
+  );
+  const onDropout = useCallback(() => {
+    const base = baseRef.current ?? presetMatrix(dataset.current, "nominal");
+    setSelected("dropout");
+    void runPredict(applyDropout(base));
+  }, [runPredict]);
+  const onCustom = useCallback(
+    (m) => {
+      setSelected("custom");
+      void runPredict(m);
+    },
+    [runPredict],
   );
 
   const title = "HLC — Hierarchical Latent Controller | Cipher CTS";
   const desc =
-    "HLC: local predictive maintenance. Try the live dashboard and download the engine that runs on your own computer. Apache-2.0, Cipher CTS.";
+    "HLC: local predictive maintenance. Run a live simulation and download the engine that runs on your own computer. Apache-2.0, Cipher CTS.";
 
   return (
     <>
@@ -151,7 +122,7 @@ export default function HlcPage() {
       <div className={`${s.page} ${font.className} ${h.solidBrand}`}>
         <div className={`${s.bg} ${h.bgDim}`} aria-hidden="true"><span className={s.orbA} /><span className={s.orbB} /><span className={s.orbC} /><span className={s.orbD} /></div>
 
-        <a className={h.skip} href="#dashboard">Skip to the dashboard</a>
+        <a className={h.skip} href="#demo">Skip to the live demo</a>
 
         <header className={`${s.navWrap} ${h.navBig}`}>
           <nav className={`${s.nav} ${s.glass}`} aria-label="Main">
@@ -167,61 +138,30 @@ export default function HlcPage() {
           </nav>
         </header>
 
-        <main className={`${h.hlc} ${h.dash}`}>
-          <header className={h.heroHead}>
-            <span className={`${s.kicker} ${h.kickerBig}`}>HLC · Cipher CTS</span>
-            <h1 className={h.title}>HLC — Hierarchical Latent Controller: local predictive maintenance</h1>
-            <p className={h.lead}>
-              A 7-Tier Hierarchical Latent Controller that estimates how many operating cycles of life a machine has left
-              from 30 time steps of 21 sensor channels. It runs on <strong>your own computer</strong>: no cloud, no
-              account, and nothing you test here leaves your machine.
+        <main className={`${h.hlc} hx`} id="top">
+          <header className="hx-hero">
+            <span className="hx-kicker">HLC · Cipher CTS</span>
+            <h1 className="hx-title">HLC — Hierarchical Latent Controller: local predictive maintenance</h1>
+            <p className="hx-lead">
+              Know how many operating cycles of life a machine has left. HLC runs on <strong>your own hardware</strong>: no cloud, no account, nothing leaves your machine.
             </p>
-            <div className="btn-row">
-              <a className="btn" href="#dashboard">▶ Try the live dashboard</a>
-              <a className="btn secondary" href="#download">⬇ Download the engine</a>
-              <a className="btn secondary" href="#about">ℹ How accurate is it?</a>
+            <div className="hx-cta">
+              <a className="hx-btn hx-btn-primary" href="#demo">▶ Run the live demo</a>
+              <a className="hx-btn hx-btn-ghost" href="#download">⬇ Get the engine</a>
             </div>
           </header>
 
-          <ConnectionBar health={health} onRecheck={checkHealth} />
+          <Console health={health} pred={pred} latencyMs={latency} selected={selected} onRun={onRun} onRecheck={checkHealth} />
 
-          <section className="card" id="dashboard" aria-labelledby="scen-h" tabIndex={-1}>
-            <h2 id="scen-h">Try a scenario</h2>
-            <DatasetPicker
-              value={dataset}
-              onChange={(v) => {
-                userPickedDataset.current = true;
-                setDataset(v);
-              }}
-              engineWeights={health.state === "online" ? (health.data.weights ?? "v1") : null}
-            />
-            <ScenarioPanel selected={loaded?.kind ?? null} onLoad={onLoad} busy={pred.state === "loading"} />
-          </section>
+          <Metrics />
 
-          {loaded && (
-            <section className="card" aria-labelledby="prev-h">
-              <h2 id="prev-h">Telemetry preview — {labelFor(loaded.kind, loaded.dataset)}</h2>
-              {loaded.note && <p className="muted">{loaded.note}</p>}
-              <TelemetryPreview matrix={loaded.matrix} dropped={loaded.dropped} />
-            </section>
-          )}
+          <ReleaseCard />
 
-          <ResultCards p={pred} onRetry={() => loaded && runPredict(loaded.matrix)} />
+          <Advanced busy={pred.state === "loading"} onDropout={onDropout} onCustom={onCustom} />
 
-          <LatencyRow latencyMs={latency} />
-
-          <DownloadCard />
-
-          <div id="about"><AboutSection /></div>
-
-          <footer className={h.pageFoot}>
-            <p className="small-print">
-              This dashboard talks only to <code>{ENGINE_URL}</code> on your own computer (plus this website for the
-              download). The predictions are only as good as the engine behind them.
-            </p>
-            <p className="small-print" data-testid="footer-license">
-              © 2026 Cipher CTS. Licensed under the <strong>Apache License 2.0</strong> (engine code, trained weights and
-              this dashboard). The NASA C-MAPSS data is not included and has its own terms and citation.
+          <footer className="hx-foot">
+            <p data-testid="footer-license">
+              © 2026 Cipher CTS. Licensed under the <strong>Apache License 2.0</strong> (engine code, trained weights and this page). The NASA C-MAPSS data is not included and has its own terms and citation.
             </p>
           </footer>
         </main>
