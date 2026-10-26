@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Cipher CTS
+// © 2026 Cipher CTS. All Rights Reserved.
+// Proprietary Evaluation License: see content/hlc/HLC_EVALUATION_LICENSE.txt
 import { useRef, useState } from "react";
 import { parseMatrixText } from "../../lib/hlc/telemetry";
 
