@@ -124,7 +124,7 @@
 .hlc.hlc :global(.hx-stat-unit) { font-size: 22px; font-weight: 700; color: var(--hx-cyan); margin-left: 8px; text-shadow: none; }
 .hlc.hlc :global(.hx-stat-label) { font-size: 19px; font-weight: 700; color: #fff; line-height: 1.35; }
 .hlc.hlc :global(.hx-stat-foot) { font-size: 18px; color: var(--hx-muted); line-height: 1.4; }
-.hlc.hlc :global(.hx-bench-foot) { font-size: 18px; color: var(--hx-muted); margin-top: 14px; }
+.hlc.hlc :global(.hx-bench-foot) { font-size: 18px; color: var(--hx-muted); margin-top: 20px; }
 .hlc.hlc :global(.hx-release) { position: relative; border-radius: 24px; padding: 2px; background: linear-gradient(135deg, #22d3ee, #1e6bff 45%, #9dff3a); box-shadow: 0 0 60px rgba(34,211,238,.2); }
 .hlc.hlc :global(.hx-release-in) { background: linear-gradient(180deg, #0f182b, #0a101d); border-radius: 22px; padding: 34px 30px; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 34px; }
 .hlc.hlc :global(.hx-release-main) { display: grid; gap: 18px; align-content: start; }

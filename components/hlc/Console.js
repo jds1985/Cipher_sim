@@ -32,7 +32,7 @@ function EngineChip({ health }) {
   );
 }
 
-export default function Console({ health, pred, latencyMs, selected, onRun, onRecheck }) {
+export default function Console({ health, pred, latencyMs, selected, onRun, onRecheck, onRetry }) {
   const [copied, setCopied] = useState(false);
   const busy = pred.state === "loading";
 
@@ -135,7 +135,7 @@ export default function Console({ health, pred, latencyMs, selected, onRun, onRe
             <strong>✖ Could not get a result.</strong> {pred.message}
           </p>
           <div className="hx-note-row">
-            <button type="button" className="hx-copy" onClick={() => selected && onRun(selected)} disabled={!selected}>
+            <button type="button" className="hx-copy" onClick={onRetry}>
               ↻ Try again
             </button>
           </div>

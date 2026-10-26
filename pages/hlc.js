@@ -26,6 +26,7 @@ export default function HlcPage() {
   const [health, setHealth] = useState({ state: "checking", lastChecked: null });
   const [selected, setSelected] = useState(null); // "nominal" | "stress" | "dropout" | "custom" | null
   const baseRef = useRef(null); // last preset matrix, used by the dropout test
+  const lastRef = useRef(null); // last matrix sent to the engine, used by "Try again"
   const dataset = useRef(DEFAULT_DATASET); // preset scaling that matches the connected engine (v2 unless a v1 engine answers)
   const [pred, setPred] = useState({ state: "idle" });
   const [latency, setLatency] = useState(null); // real measured round trip in ms, or null
@@ -61,6 +62,7 @@ export default function HlcPage() {
   // ---- prediction ----
   const runPredict = useCallback(async (m) => {
     const id = ++reqId.current;
+    lastRef.current = m;
     setPred({ state: "loading" });
     try {
       const r = await predict(m);
@@ -151,7 +153,7 @@ export default function HlcPage() {
             </div>
           </header>
 
-          <Console health={health} pred={pred} latencyMs={latency} selected={selected} onRun={onRun} onRecheck={checkHealth} />
+          <Console health={health} pred={pred} latencyMs={latency} selected={selected} onRun={onRun} onRecheck={checkHealth} onRetry={() => lastRef.current && runPredict(lastRef.current)} />
 
           <Metrics />
 
