@@ -240,7 +240,7 @@ test("webhook: duplicate event (same session, even new event id) -> no second em
 
 test("webhook: unpaid session and other products are ignored (200, no email)", async () => {
   const { handler, sent } = webhookWith();
-  for (const s of [paidSession({ payment_status: "unpaid" }), paidSession({ id: "cs_2", metadata: { product: "shopstream" } }), paidSession({ id: "cs_3", metadata: {} })]) {
+  for (const s of [paidSession({ payment_status: "unpaid" }), paidSession({ id: "cs_2", metadata: { product: "some-other-product" } }), paidSession({ id: "cs_3", metadata: {} })]) {
     const res = new FakeRes();
     await handler(signedReq(eventFor("checkout.session.completed", s)), res);
     assert.equal(res.statusCode, 200);
