@@ -79,7 +79,7 @@
 .card h3 { font-size: 22px; }
 .card p { color: #d7e0ee; font-size: 18px; line-height: 1.5; }
 .cardTop { display: flex; justify-content: space-between; align-items: center; }
-.icon { font-size: 22px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: rgba(30,107,255,.14); border: 1px solid rgba(34,211,238,.25); color: #22d3ee; }
+.icon { width: 64px; height: 64px; display: grid; place-items: center; line-height: 0; }
 .tag { font-size: 18px; font-weight: 600; padding: 4px 12px; border-radius: 999px; border: 2px solid rgba(255,255,255,.4); color: #e3eaf5; white-space: nowrap; }
 .tagLive { color: #9dff3a; border-color: rgba(157,255,58,.7); background: rgba(157,255,58,.08); }
 .more { margin-top: auto; color: #9dff3a; font-weight: 700; font-size: 18px; }

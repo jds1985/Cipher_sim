@@ -98,7 +98,7 @@ export default function Home() {
               {products.map((p) => {
                 const inner = (
                   <>
-                    <div className={s.cardTop}><span className={s.icon}><ProductIcon slug={p.slug} size={36} /></span><span className={`${s.tag} ${p.live ? s.tagLive : ""}`}>{p.cardTag}</span></div>
+                    <div className={s.cardTop}><span className={s.icon}><ProductIcon slug={p.slug} size={64} /></span><span className={`${s.tag} ${p.live ? s.tagLive : ""}`}>{p.cardTag}</span></div>
                     <h3>{p.name}</h3>
                     <p>{p.cardDesc}</p>
                     <span className={s.more}>{p.cardCta || `Learn more about ${p.name} →`}</span>
