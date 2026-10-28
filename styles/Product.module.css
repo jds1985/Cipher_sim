@@ -60,3 +60,21 @@
 
 /* Logo word "CTS" is gradient text (4.6:1 at its darkest stop). On product pages use a solid high-contrast cyan so it passes 7:1. */
 .brand :global(.grad-text) { background: none !important; -webkit-background-clip: border-box !important; background-clip: border-box !important; -webkit-text-fill-color: #7fe9ff !important; color: #7fe9ff !important; }
+
+/* ===== purchase card (components/ProductPurchase.js): large type, high contrast, same pattern as the HLC card ===== */
+.buy { background: #0c1019; border: 2px solid #8aa0bf; border-radius: 22px; padding: 26px 24px; display: grid; gap: 16px; outline: none; }
+.buyH { margin: 0; font-size: 30px; line-height: 1.2; }
+.buyPrice { margin: 0; font-size: 28px; font-weight: 800; color: #fff; }
+.live:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.closed { margin: 0; font-size: 24px; font-weight: 700; color: #fff; background: #000; border: 2px solid #8aa0bf; border-radius: 12px; padding: 14px 18px; }
+.page a.buyBtn, .buyBtn { background: #fff; color: #04101a; border: 3px solid #fff; cursor: pointer; font-family: inherit; }
+.buyBtn[aria-disabled="true"] { background: #101a2e; color: #fff; border: 3px dashed #8aa0bf; cursor: not-allowed; }
+.buyHelp { margin: 0; color: #e6ecf5; font-size: 19px; }
+.err { margin: 0; font-size: 20px; font-weight: 700; color: #ffb3b3; border: 2px solid #ff8585; border-radius: 12px; padding: 12px 16px; }
+.ret { border: 3px solid #7fe9ff; border-radius: 16px; padding: 20px 22px; display: grid; gap: 10px; color: #fff; font-size: 20px; line-height: 1.5; }
+.ret p { margin: 0; }
+.retOk { background: #04210f; border-color: #4ade80; }
+.retCancel { background: #0a1a2e; border-color: #7fe9ff; }
+.retTitle { font-size: clamp(26px, 4vw, 34px); font-weight: 800; line-height: 1.2; }
+.retOk .retTitle { color: #4ade80; }
+.ret a { color: #fff !important; font-weight: 700; }

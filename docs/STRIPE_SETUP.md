@@ -93,3 +93,31 @@ The card says "Priority support". The commercial terms promise best-effort suppo
 ## What the free build is (so the card stays honest)
 
 The free download is the **Evaluation & Benchmarking Build (Personal & Non-Commercial Use Only)** under the Cipher CTS Proprietary Evaluation License. Production, industrial-fleet or revenue-generating use needs the paid commercial license, which this purchase provides per asset. The card says exactly that and lists only what exists today; "Multi-asset dashboard license" and "Custom sensor schema generator" carry a visible **Coming soon** tag. Custom fleet or telemetry deals go through the separate contact card (team@ciphercts.com).
+
+## Other products: the same paid flow, set up ahead and switched OFF
+
+Cipher, Cipher Bot and Cipher Studio use the **same** flow as HLC: Stripe Checkout, the same `/api/webhook`, an emailed one-time link (valid 72 hours), and the same success / cancelled messages on their own page. None of them can be bought until you turn it on. These products are **not released yet**, so turn a product on only after its package exists.
+The shared list lives in `lib/products.js` (`sellable: true`). Cipher Concierge is a hosted hotel service reached by QR code, not a download, so it is **not** in the list.
+
+**What is OFF by default:** every `<ID>_PURCHASE_ENABLED` flag. While off, each product page shows only a card that says "Opens soon" (no price, no button), and `/api/checkout` answers 503 and never calls Stripe.
+
+**Names only. Put the values in Vercel yourself.** The same Stripe keys, webhook, `DOWNLOAD_LINK_SECRET`, KV store and Resend settings from steps 1 to 4 are shared by all products. The one webhook endpoint (`/api/webhook`) already covers them. Each product adds only these:
+
+| Product (page) | Turn on, server | Turn on, page (set both, then redeploy) | Stripe price (create it in Stripe) | Private package location | Optional price text on the page |
+|---|---|---|---|---|---|
+| HLC (`/hlc`) | `HLC_PURCHASE_ENABLED` | `NEXT_PUBLIC_HLC_PURCHASE_ENABLED` | fixed in code ($499 / asset / year) | `PRODUCTION_PACKAGE_URL` | fixed in the card |
+| Cipher (`/cipher`) | `CIPHER_PURCHASE_ENABLED` | `NEXT_PUBLIC_CIPHER_PURCHASE_ENABLED` | `STRIPE_PRICE_ID_CIPHER` | `PRODUCTION_PACKAGE_URL_CIPHER` | `NEXT_PUBLIC_PRICE_LABEL_CIPHER` |
+| Cipher Bot (`/cipher-bot`) | `CIPHER_BOT_PURCHASE_ENABLED` | `NEXT_PUBLIC_CIPHER_BOT_PURCHASE_ENABLED` | `STRIPE_PRICE_ID_CIPHER_BOT` | `PRODUCTION_PACKAGE_URL_CIPHER_BOT` | `NEXT_PUBLIC_PRICE_LABEL_CIPHER_BOT` |
+| Cipher Studio (`/cipher-studio`) | `CIPHER_STUDIO_PURCHASE_ENABLED` | `NEXT_PUBLIC_CIPHER_STUDIO_PURCHASE_ENABLED` | `STRIPE_PRICE_ID_CIPHER_STUDIO` | `PRODUCTION_PACKAGE_URL_CIPHER_STUDIO` | `NEXT_PUBLIC_PRICE_LABEL_CIPHER_STUDIO` |
+
+To turn one product on (for example Cipher Bot):
+1. In Stripe create the Product and its **Price** (one-time or yearly, your choice). Copy the price id (`price_...`) into `STRIPE_PRICE_ID_CIPHER_BOT`. The code never contains a price. If the id is missing, checkout stays closed even with the flag on. One-time prices use Checkout mode "payment"; recurring prices use "subscription". The quantity is always 1.
+2. Build the package, upload it to private storage, and set `PRODUCTION_PACKAGE_URL_CIPHER_BOT`.
+3. Optional: set `NEXT_PUBLIC_PRICE_LABEL_CIPHER_BOT` to the text you want shown (for example the price and period). It is display text only; the amount charged is the Stripe price. Leave it empty and the page shows no price.
+4. Set `CIPHER_BOT_PURCHASE_ENABLED=true` **and** `NEXT_PUBLIC_CIPHER_BOT_PURCHASE_ENABLED=true`, then redeploy. The Stripe publishable key must also be set for the button to appear.
+5. Test with a Stripe test-mode card first (step 5). The webhook reads `metadata.product` on the Stripe session and emails **that product's** package link only.
+
+**Before turning a product on (not done in code):**
+- These products have **no commercial terms page yet**. Checkout for them shows no terms text, and the email makes no terms claim. Write and have a lawyer review terms for the product first.
+- The product page must still say only what is true. The purchase card contains no feature list on purpose.
+- Success / cancelled messages are the same as HLC's ("Payment received. Thank you." ... one-time link, 72 hours, check spam, write to team@ciphercts.com after 15 minutes).
