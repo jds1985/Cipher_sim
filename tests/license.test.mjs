@@ -18,6 +18,7 @@ import { FakeRes, jsonReq, rawReq, memoryStore } from "./helpers.mjs";
 const SECRET = "whsec_test_secret_for_unit_tests_only";
 const DL_SECRET = "unit-test-download-secret";
 const ENV = {
+  HLC_PURCHASE_ENABLED: "true",
   STRIPE_SECRET_KEY: "sk_test_dummy",
   STRIPE_WEBHOOK_SECRET: SECRET,
   DOWNLOAD_LINK_SECRET: DL_SECRET,

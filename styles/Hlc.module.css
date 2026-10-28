@@ -178,6 +178,8 @@
 .hlc.hlc :global(.hx-btn-off) { background: var(--hx-panel2); color: #fff; border: 2px dashed #8fa3bd; cursor: not-allowed; }
 .hlc.hlc :global(.hx-btn)[aria-disabled="true"] { opacity: 1; cursor: not-allowed; }
 .hlc.hlc :global(.hx-soon-note) { font-size: 20px; font-weight: 800; color: var(--hx-warn); }
+.hlc.hlc :global(.hx-closed) { font-size: 24px; font-weight: 800; line-height: 1.4; color: #fff; background: #000; border: 3px solid #fff; border-radius: 10px; padding: 16px 18px; margin: 16px 0; }
+.hlc.hlc :global(.hx-closed a) { color: #ffe066; text-decoration: underline; }
 .hlc.hlc :global(.hx-note) { border: 2px solid var(--hx-cyan); border-radius: 12px; padding: 12px 16px; background: rgba(34,211,238,.1); color: #fff; }
 .hlc.hlc :global(.hx-note-ok) { border-color: var(--hx-ok); background: rgba(74,222,128,.12); }
 .hlc.hlc :global(.hx-live):empty { margin-top: -18px; }

@@ -6,7 +6,11 @@ import { useEffect, useRef, useState } from "react";
 import { LICENSE_BANNER_COPY, SUPPORT_EMAIL, licenseBannerFromSearch } from "../../lib/hlc/license/banner";
 
 const CONTACT = SUPPORT_EMAIL;
-// Inlined at build time. Without a publishable key the purchase button stays off and says so.
+// Both are inlined at build time.
+// ENABLED is the master switch: unless NEXT_PUBLIC_HLC_PURCHASE_ENABLED is exactly "true" the Purchase button is not shown at all.
+// (The server enforces the same switch with HLC_PURCHASE_ENABLED in /api/checkout.)
+const ENABLED = process.env.NEXT_PUBLIC_HLC_PURCHASE_ENABLED === "true";
+// Without a publishable key the purchase button stays off and says so.
 const ONLINE = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 const FEATURES = [
@@ -33,7 +37,7 @@ export default function License() {
   }, []);
 
   async function purchase() {
-    if (!ONLINE || state.phase === "loading") return;
+    if (!ENABLED || !ONLINE || state.phase === "loading") return;
     setState({ phase: "loading", message: "" });
     try {
       const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -104,23 +108,30 @@ export default function License() {
         ))}
       </ul>
 
-      <button
-        type="button"
-        className={`hx-btn ${ONLINE ? "hx-btn-buy" : "hx-btn-off"}`}
-        onClick={purchase}
-        aria-disabled={!ONLINE || loading ? "true" : undefined}
-        aria-describedby={ONLINE ? "hx-lic-help" : "hx-lic-soon"}
-        data-testid="purchase-btn"
-      >
-        {loading ? "Opening secure checkout…" : "Purchase Commercial Production License"}
-      </button>
+      {!ENABLED && (
+        <p className="hx-closed" data-testid="purchase-closed">
+          Commercial licenses open soon. Questions: <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
+        </p>
+      )}
+      {ENABLED && (
+        <button
+          type="button"
+          className={`hx-btn ${ONLINE ? "hx-btn-buy" : "hx-btn-off"}`}
+          onClick={purchase}
+          aria-disabled={!ONLINE || loading ? "true" : undefined}
+          aria-describedby={ONLINE ? "hx-lic-help" : "hx-lic-soon"}
+          data-testid="purchase-btn"
+        >
+          {loading ? "Opening secure checkout…" : "Purchase Commercial Production License"}
+        </button>
+      )}
 
-      {!ONLINE && (
+      {ENABLED && !ONLINE && (
         <p className="hx-soon-note" id="hx-lic-soon" data-testid="purchase-soon">
           Online purchase opens soon
         </p>
       )}
-      {ONLINE && (
+      {ENABLED && ONLINE && (
         <p className="hx-file" id="hx-lic-help">
           You choose how many assets (1 to 50) on the secure Stripe page. Payments are handled by Stripe.
         </p>
@@ -131,7 +142,7 @@ export default function License() {
         </p>
       )}
       <p className="hx-file">
-        Read the <a href="/hlc/commercial-terms" data-testid="commercial-terms-link">Cipher CTS Commercial License Terms</a>. You accept them when you purchase.
+        Read the <a href="/hlc/commercial-terms" data-testid="commercial-terms-link">Cipher CTS Commercial License Terms</a>.{ENABLED ? " You accept them when you purchase." : ""}
       </p>
       <p className="hx-file">
         Questions, more than 50 assets, or prefer an invoice? Contact: <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
