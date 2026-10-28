@@ -6,7 +6,7 @@
  *  - Test RMSE 13.58 (shown as 13.6) = mean of 5 training runs, std 0.35. The zip holds ONE of those runs (seed 0): 14.13.
  *  - Latency: 0.79 ms mean for one 30x21 window, one CPU thread, torch CPU on a server CPU (Intel Xeon).
  *  - The 7 test engines with true RUL under 10: all 7 flagged at 25 cycles or less in all 5 runs; mean absolute error 1.44 cycles.
- *  - The zip is 228,191 bytes.
+ *  - The zip is 228,990 bytes.
  */
 const STATS = [
   {
@@ -30,7 +30,7 @@ const STATS = [
     label: "Imminent Failure Capture: 7 of 7 test engines",
     foot: "Critical engines (under 10 cycles remaining) all flagged at 25 cycles or less. Average error about 1.4 cycles. Only 7 engines, a small sample.",
   },
-  { id: "size", num: "~228", unit: "KB", label: "Self-Contained Edge Distribution Footprint", foot: "228,191 bytes, weights included." },
+  { id: "size", num: "~229", unit: "KB", label: "Self-Contained Edge Distribution Footprint", foot: "228,990 bytes, weights included." },
 ];
 
 export default function Metrics() {

@@ -18,7 +18,7 @@ test("bundle.js size and SHA-256 match the zip in public/downloads", () => {
 
 test("/hlc page copy: v3 numbers present, stale v2 numbers absent", () => {
   const copy = ["components/hlc/Metrics.js", "components/hlc/ReleaseCard.js", "lib/hlc/bundle.js", "pages/hlc.js"].map(read).join("\n");
-  for (const must of ["13.6", "~228", "7 of 7", "0.8 ms", "228,191"]) assert.ok(copy.includes(must), `missing ${must}`);
+  for (const must of ["13.6", "~229", "7 of 7", "0.8 ms", "228,990"]) assert.ok(copy.includes(must), `missing ${must}`);
   for (const stale of ["15.29", "15.3", "805,871", "14.2 ms", "9.02", "~787", "hlc_edge_engine_v2", "Apache", "THIRD_PARTY_NOTICES", "Pearson"]) {
     assert.ok(!copy.includes(stale), `stale text still present: ${stale}`);
   }
