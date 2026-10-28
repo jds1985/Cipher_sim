@@ -24,7 +24,7 @@ Support is best effort by email at team@ciphercts.com during our normal business
 8. Ownership
 Cipher CTS owns the HLC Edge Engine, its weights, its documentation and all related rights. You are only licensed to use them as stated here. All rights not expressly granted are reserved, and nothing here gives you any other right by implication.
 9. Third-party components
-Some third-party open-source components run with the engine under their own licenses. They are listed in the THIRD_PARTY_NOTICES file that comes with the engine. Those licenses apply to those components only.
+Some third-party open-source components run with the engine under their own licenses. They are listed in the NOTICE file that comes with the engine. Those licenses apply to those components only.
 10. Feedback
 If you send us suggestions or feedback, we may use them freely without paying you or crediting you.
 11. Ending the license early
