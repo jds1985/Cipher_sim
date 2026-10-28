@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { BUNDLE } from "../lib/hlc/bundle.js";
 
 const file = new URL(`../public/downloads/${BUNDLE.fileName}`, import.meta.url);
@@ -21,5 +21,16 @@ test("/hlc page copy: v3 numbers present, stale v2 numbers absent", () => {
   for (const must of ["13.6", "~228", "7 of 7", "0.8 ms", "228,191"]) assert.ok(copy.includes(must), `missing ${must}`);
   for (const stale of ["15.29", "15.3", "805,871", "14.2 ms", "9.02", "~787", "hlc_edge_engine_v2", "Apache", "THIRD_PARTY_NOTICES", "Pearson"]) {
     assert.ok(!copy.includes(stale), `stale text still present: ${stale}`);
+  }
+});
+
+test("public/downloads holds only the current HLC zip (no old versions left to link to)", () => {
+  const files = readdirSync(new URL("../public/downloads/", import.meta.url));
+  assert.deepEqual(files, [BUNDLE.fileName]);
+});
+
+test("license texts point at the NOTICE file the free zip ships, not THIRD_PARTY_NOTICES", () => {
+  for (const f of ["content/hlc/HLC_EVALUATION_LICENSE.txt", "content/hlc/HLC_COMMERCIAL_TERMS.txt"]) {
+    assert.ok(!read(f).includes("THIRD_PARTY_NOTICES"), `${f} still names THIRD_PARTY_NOTICES`);
   }
 });

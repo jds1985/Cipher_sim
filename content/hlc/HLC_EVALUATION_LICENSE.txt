@@ -30,7 +30,7 @@ Production, industrial fleet or revenue-generating use requires a separate, paid
 The Software is licensed, not sold. Cipher CTS keeps all right, title and interest in the Software, including all intellectual property rights. All rights not expressly granted in this License are reserved. No license is granted by implication, estoppel or otherwise.
 
 6. Third-party components and data
-The Software installs and uses third-party software, such as Python packages (for example PyTorch, FastAPI, uvicorn, NumPy and pandas). These are not part of the Software, are not covered by this License, and keep their own licenses. See THIRD_PARTY_NOTICES. Benchmark results refer to the NASA C-MAPSS turbofan data set (subset FD001), a public NASA data set that is not part of the Software and is not included in this package. It has its own terms and citation requirement.
+The Software installs and uses third-party software, such as Python packages (for example PyTorch, FastAPI, uvicorn, NumPy and pandas). These are not part of the Software, are not covered by this License, and keep their own licenses. See NOTICE. Benchmark results refer to the NASA C-MAPSS turbofan data set (subset FD001), a public NASA data set that is not part of the Software and is not included in this package. It has its own terms and citation requirement.
 
 7. Feedback
 If you send us suggestions, bug reports or other feedback, you give Cipher CTS a perpetual, worldwide, royalty-free right to use it for any purpose without obligation to you.
