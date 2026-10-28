@@ -67,7 +67,7 @@ test("License component: live region, no session_id use, no direct download, car
 
 test("banner: stays in step with the Stripe return URLs", async () => {
   const handler = createCheckoutHandler({
-    env: { STRIPE_SECRET_KEY: "sk_test_dummy", NEXT_PUBLIC_SITE_URL: "https://ciphercts.com" },
+    env: { HLC_PURCHASE_ENABLED: "true", STRIPE_SECRET_KEY: "sk_test_dummy", NEXT_PUBLIC_SITE_URL: "https://ciphercts.com" },
     getStripe: () => ({ checkout: { sessions: { create: async (p) => ((globalThis.__p = p), { id: "cs_test_1", url: "https://checkout.stripe.com/x" }) } } }),
   });
   await handler(jsonReq({ body: {}, headers: { origin: "https://ciphercts.com" } }), new FakeRes());
