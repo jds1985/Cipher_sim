@@ -10,7 +10,7 @@ import { isPurchaseEnabled } from "../lib/hlc/license/config.js";
 import { createCheckoutHandler } from "../lib/hlc/license/checkout.js";
 import { createWebhookHandler } from "../lib/hlc/license/webhook.js";
 import { createDownloadHandler } from "../lib/hlc/license/download.js";
-import { buildEmail } from "../lib/hlc/license/email.js";
+import { buildEmail, BUTTON_COLORS } from "../lib/hlc/license/email.js";
 import { signToken, verifyToken } from "../lib/hlc/license/token.js";
 import { licenseBannerFromSearch } from "../lib/hlc/license/banner.js";
 import { FakeRes, jsonReq, rawReq, memoryStore } from "./helpers.mjs";
@@ -367,6 +367,31 @@ test("email: HLC email is the same as before; other products get no HLC wording"
   const other = buildEmail({ link: "https://ciphercts.com/api/download?token=t", expiresAt: 1_800_000_000, product: "cipher-bot" });
   assert.equal(other.subject, "Your Cipher Bot purchase: secure download link");
   assert.doesNotMatch(other.text + other.html, /HLC|engine|commercial/i);
+});
+
+const lum = (h) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+
+test("email: the download button is a large, high-contrast, bulletproof button in every product's email", () => {
+  const args = { link: "https://ciphercts.com/api/download?token=t&x=1", expiresAt: 1_800_000_000 };
+  for (const product of ["hlc", ...IDS]) {
+    const { html } = buildEmail({ ...args, product });
+    assert.match(html, /<meta name="color-scheme" content="light dark">/, product);
+    const btn = html.match(/<table[^>]*>(?:(?!<\/table>).)*Open my secure download page<\/a><\/td><\/tr><\/table>/s)?.[0];
+    assert.ok(btn, `${product}: button table`);
+    assert.equal(html.split("Open my secure download page").length, 2, `${product}: exactly one button`);
+    assert.match(btn, /<td [^>]*bgcolor="#3DC8C0"/, product);
+    assert.match(btn, /background-color:#3DC8C0;background-image:linear-gradient\(135deg,#2BB5F0,#58E59F\)/, product);
+    assert.match(btn, /border:2px solid #0A4F66/, product);
+    assert.match(btn, /padding:18px 32px/, product);
+    assert.match(btn, /font-size:24px;[^"]*font-weight:bold;color:#000000/, product);
+    assert.match(btn, /href="https:\/\/ciphercts\.com\/api\/download\?token=t&amp;x=1"/, product);
+    assert.doesNotMatch(btn, /rgba|opacity|transparent|#ffffff|background:#000000/i, product);
+    assert.match(html, /<a href="https:[^"]*" style="color:#0000cc;font-size:22px;font-weight:bold;text-decoration:underline;word-break:break-all;">https:/, `${product}: fallback link`);
+  }
+  // WCAG AAA (7:1) for the text on the solid fallback and on both ends of the gradient.
+  for (const bg of [BUTTON_COLORS.solid, BUTTON_COLORS.from, BUTTON_COLORS.to]) assert.ok(contrast(BUTTON_COLORS.text, bg) >= 7, bg);
+  assert.ok(contrast("#0000cc", "#ffffff") >= 7);
 });
 
 // ---------------------------------------------------------------- pages
