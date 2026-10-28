@@ -2,9 +2,10 @@
 // Proprietary and confidential. Not covered by the free evaluation license.
 // Secondary call to action next to the free download: the paid "Enterprise Fleet Deployment" licence.
 // Purchase starts a Stripe Checkout session through POST /api/checkout, then redirects to session.url.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { LICENSE_BANNER_COPY, SUPPORT_EMAIL, licenseBannerFromSearch } from "../../lib/hlc/license/banner";
 
-const CONTACT = "team@ciphercts.com";
+const CONTACT = SUPPORT_EMAIL;
 // Inlined at build time. Without a publishable key the purchase button stays off and says so.
 const ONLINE = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
@@ -19,10 +20,16 @@ const FEATURES = [
 export default function License() {
   const [state, setState] = useState({ phase: "idle", message: "" }); // idle | loading | error
   const [banner, setBanner] = useState(null); // "success" | "cancelled" | null
+  const sectionRef = useRef(null);
 
   useEffect(() => {
-    const v = new URLSearchParams(window.location.search).get("license");
-    if (v === "success" || v === "cancelled") setBanner(v);
+    // Read after hydration (browser only). The session_id in the same URL is deliberately ignored.
+    const v = licenseBannerFromSearch(window.location.search);
+    if (v) {
+      setBanner(v);
+      // The banner appears after the page has already jumped to #license, so bring the card back into view.
+      sectionRef.current?.scrollIntoView({ block: "start" });
+    }
   }, []);
 
   async function purchase() {
@@ -42,7 +49,7 @@ export default function License() {
 
   const loading = state.phase === "loading";
   return (
-    <section className="hx-paid" id="license" aria-labelledby="hx-lic-h" tabIndex={-1}>
+    <section className="hx-paid" id="license" ref={sectionRef} aria-labelledby="hx-lic-h" tabIndex={-1}>
       <span className="hx-kicker">Commercial license</span>
       <h2 className="hx-h2" id="hx-lic-h">
         Enterprise Fleet Deployment
@@ -51,16 +58,30 @@ export default function License() {
         <span className="hx-price-num">$499</span> / asset / year
       </p>
 
-      {banner === "success" && (
-        <p className="hx-note hx-note-ok" role="status" data-testid="license-success">
-          Thank you. Your payment was received. Please check your email for the secure download link. It can take a few minutes to arrive.
-        </p>
-      )}
-      {banner === "cancelled" && (
-        <p className="hx-note" role="status" data-testid="license-cancelled">
-          Checkout was cancelled. Nothing was charged.
-        </p>
-      )}
+      {/* The live region is always in the page so screen readers announce the text when it is filled in. */}
+      <div className="hx-live" role="status" aria-live="polite" aria-atomic="true" data-testid="license-live">
+        {banner && (
+          <div
+            className={`hx-return ${banner === "success" ? "hx-return-ok" : "hx-return-cancel"}`}
+            data-testid={banner === "success" ? "license-success" : "license-cancelled"}
+          >
+            <p className="hx-return-title">{LICENSE_BANNER_COPY[banner].title}</p>
+            {LICENSE_BANNER_COPY[banner].lines.map((line) => (
+              <p className="hx-return-line" key={line}>
+                {line.includes(SUPPORT_EMAIL) ? (
+                  <>
+                    {line.split(SUPPORT_EMAIL)[0]}
+                    <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+                    {line.split(SUPPORT_EMAIL)[1]}
+                  </>
+                ) : (
+                  line
+                )}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
 
       <p className="hx-meta" data-testid="license-honest">
         The free evaluation build is for personal, non-commercial use only. The commercial license covers production use of the engine per asset, with a license agreement and support.
