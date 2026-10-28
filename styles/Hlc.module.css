@@ -180,6 +180,15 @@
 .hlc.hlc :global(.hx-soon-note) { font-size: 20px; font-weight: 800; color: var(--hx-warn); }
 .hlc.hlc :global(.hx-note) { border: 2px solid var(--hx-cyan); border-radius: 12px; padding: 12px 16px; background: rgba(34,211,238,.1); color: #fff; }
 .hlc.hlc :global(.hx-note-ok) { border-color: var(--hx-ok); background: rgba(74,222,128,.12); }
+.hlc.hlc :global(.hx-live):empty { margin-top: -18px; }
+.hlc.hlc :global(.hx-return) { border: 3px solid var(--hx-cyan); border-radius: 16px; padding: 20px 22px; display: grid; gap: 10px; color: #fff; font-size: 20px; line-height: 1.5; }
+.hlc.hlc :global(.hx-return) p { margin: 0; }
+.hlc.hlc :global(.hx-return-ok) { background: #04210f; border-color: var(--hx-ok); }
+.hlc.hlc :global(.hx-return-cancel) { background: #0a1a2e; border-color: var(--hx-cyan); }
+.hlc.hlc :global(.hx-return-title) { font-size: clamp(26px, 4vw, 34px); font-weight: 800; line-height: 1.2; }
+.hlc.hlc :global(.hx-return-ok) :global(.hx-return-title) { color: var(--hx-ok); }
+.hlc.hlc :global(.hx-return-cancel) :global(.hx-return-title) { color: #fff; }
+.hlc.hlc :global(.hx-return) a { color: #fff; font-weight: 700; }
 .hlc.hlc :global(.hx-paid) a { color: var(--hx-cyan); text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 1000px) {.hlc.hlc :global(.hx-pair) { grid-template-columns: 1fr; }
 }
