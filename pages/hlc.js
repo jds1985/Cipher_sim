@@ -12,7 +12,7 @@ import ContactCard from "../components/hlc/ContactCard";
 import Link from "next/link";
 import Advanced from "../components/hlc/Advanced";
 import { EngineError, fetchHealth, predict } from "../lib/hlc/engine";
-import { applyDropout, DEFAULT_DATASET, V1_DATASET, V2_DATASET, presetMatrix } from "../lib/hlc/telemetry";
+import { applyDropout, DEFAULT_DATASET, datasetForHealth, presetMatrix } from "../lib/hlc/telemetry";
 import s from "../styles/Home.module.css";
 import h from "../styles/Hlc.module.css";
 
@@ -30,7 +30,7 @@ export default function HlcPage() {
   const [selected, setSelected] = useState(null); // "nominal" | "stress" | "dropout" | "custom" | null
   const baseRef = useRef(null); // last preset matrix, used by the dropout test
   const lastRef = useRef(null); // last matrix sent to the engine, used by "Try again"
-  const dataset = useRef(DEFAULT_DATASET); // preset scaling that matches the connected engine (v2 unless a v1 engine answers)
+  const dataset = useRef(DEFAULT_DATASET); // preset scaling that matches the connected engine (v3 unless an older engine answers)
   const [pred, setPred] = useState({ state: "idle" });
   const [latency, setLatency] = useState(null); // real measured round trip in ms, or null
   const reqId = useRef(0);
@@ -39,7 +39,7 @@ export default function HlcPage() {
   const checkHealth = useCallback(async () => {
     try {
       const data = await fetchHealth();
-      dataset.current = data.weights === "nasa_v2" ? V2_DATASET : V1_DATASET;
+      dataset.current = datasetForHealth(data);
       setHealth({ state: "online", data, lastChecked: new Date() });
     } catch (e) {
       const msg = e instanceof EngineError ? e.message : String(e);
