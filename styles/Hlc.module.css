@@ -234,3 +234,5 @@
   .hlc.hlc :global(.hx-btn-xl) { width: 100%; padding: 14px 16px; font-size: 20px; }
   .hlc.hlc :global(.hx-lic) { font-size: 20px; }
 }
+
+.heroLogo { width: min(280px, 64vw); height: auto; margin: 0 0 14px; }

@@ -4,7 +4,7 @@
 import Head from "next/head";
 import { Space_Grotesk } from "next/font/google";
 import Logo from "./Logo";
-import ProductIcon from "./ProductIcon";
+import ProductIcon, { ProductLogo } from "./ProductIcon";
 import { CONTACT, SITE, STATUS, products, productHref } from "../lib/products";
 import p from "../styles/Product.module.css";
 
@@ -53,8 +53,8 @@ export default function ProductPage({ product, purchase = null, download = null 
           </nav>
 
           <section className={p.hero} aria-labelledby="product-title">
+            <ProductLogo slug={product.slug} name={product.name} className={p.heroLogo} />
             <div className={p.heroHead}>
-              <ProductIcon slug={product.slug} size={72} className={p.heroIcon} />
               <div>
                 <h1 id="product-title" data-testid="product-title">{product.name}</h1>
                 <p className={`${p.badge} ${p[`badge_${product.status}`]}`} data-testid="status-badge">
@@ -112,7 +112,7 @@ export default function ProductPage({ product, purchase = null, download = null 
               {others.map((o) => (
                 <li key={o.slug}>
                   <a href={productHref(o)} className={p.otherLink}>
-                    <ProductIcon slug={o.slug} size={36} />
+                    <ProductIcon slug={o.slug} size={48} />
                     <span>{o.name}</span>
                   </a>
                 </li>

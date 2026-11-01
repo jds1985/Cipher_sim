@@ -4,6 +4,7 @@ import Head from "next/head";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Space_Grotesk } from "next/font/google";
 import Logo from "../components/Logo";
+import { ProductLogo } from "../components/ProductIcon";
 import Console from "../components/hlc/Console";
 import Metrics from "../components/hlc/Metrics";
 import ReleaseCard from "../components/hlc/ReleaseCard";
@@ -145,6 +146,7 @@ export default function HlcPage() {
 
         <main className={`${h.hlc} hx`} id="top">
           <header className="hx-hero">
+            <ProductLogo slug="hlc" name="HLC" className={h.heroLogo} />
             <span className="hx-kicker">HLC · Cipher CTS</span>
             <h1 className="hx-title">HLC — Hierarchical Latent Controller: local predictive maintenance</h1>
             <p className="hx-lead">
