@@ -4,12 +4,12 @@ import fs from "fs";
 import path from "path";
 import Head from "next/head";
 import { useState } from "react";
-import { Space_Grotesk } from "next/font/google";
+import { spaceGrotesk } from "../../lib/fonts/spaceGrotesk";
 import Logo from "../../components/Logo";
 import s from "../../styles/Home.module.css";
 import h from "../../styles/Hlc.module.css";
 
-const font = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
+const font = spaceGrotesk;
 const SITE = "https://ciphercts.com";
 const EMAIL = "team@ciphercts.com";
 const links = [["Products", "/#products"], ["Technology", "/#technology"], ["Privacy", "/#privacy"], ["About", "/#about"]];
@@ -79,7 +79,7 @@ export default function HlcCommercialTerms({ title, version, blocks }) {
             <p className="hx-lic-ver" data-testid="terms-version">{version}</p>
             <p className="hx-lead">
               These are the terms for the paid <strong>HLC Commercial Production License</strong>: a per-asset, annual license for production, industrial fleet and revenue-generating use.
-              The free download is a separate <a href="/hlc/license">Evaluation &amp; Benchmarking Build (Personal &amp; Non-Commercial Use Only)</a>.
+              The free download is a separate <a href="/hlc/license">Evaluation & Benchmarking Build (Personal & Non-Commercial Use Only)</a>.
             </p>
             <div className="hx-cta">
               <a className="hx-btn hx-btn-ghost" href="/hlc#license">← Back to the HLC page</a>
