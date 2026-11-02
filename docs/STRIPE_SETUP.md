@@ -36,6 +36,8 @@ Do all of steps 1 to 6 in test mode first. Use the fake card `4242 4242 4242 424
 
 Make a link-signing secret yourself: in a terminal run `openssl rand -hex 32` and use the result as `DOWNLOAD_LINK_SECRET`.
 
+**Recommended (no refresh needed):** keep the zip in a private Vercel Blob store and set `PRODUCTION_PACKAGE_URL=blob:packages/<file>.zip`. Connect the Blob store to Production so `BLOB_READ_WRITE_TOKEN` exists there. At each download the server signs a new link that lives 5 minutes. Hand-made presigned links last at most 7 days and must be refreshed every week.
+
 **Important:** if `PRODUCTION_PACKAGE_URL` is a web address, anyone who learns it can download the file. Use a signed URL that expires, or rotate it after launch. The one-time link protects the *email link*, and the storage protects the *file*.
 
 ## Step 3. Put the values in Vercel

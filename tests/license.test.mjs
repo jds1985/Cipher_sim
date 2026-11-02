@@ -444,3 +444,31 @@ test("store: null without env; REST commands built correctly", async () => {
   const s3 = createStore({ KV_REST_API_URL: "https://kv.example.test", KV_REST_API_TOKEN: "t" }, async () => ({ ok: false, status: 500, json: async () => ({}) }));
   await assert.rejects(() => s3.get("k"));
 });
+
+// ---------------------------------------------------------------- download from a private Vercel Blob (signed per buyer)
+test("download: blob:<pathname> signs a fresh short link per download", async () => {
+  const calls = [];
+  const env = { ...ENV, PRODUCTION_PACKAGE_URL: "blob:packages/hlc.zip", BLOB_READ_WRITE_TOKEN: "rw" };
+  const presign = async (p) => (calls.push(p), `https://store.private.blob.example/${p}?n=${calls.length}`);
+  const handler = createDownloadHandler({ env, store: memoryStore(), now: () => 1_800_000_000, presign });
+  const res = new FakeRes();
+  await handler(post(tok()), res);
+  assert.equal(res.statusCode, 302);
+  assert.deepEqual(calls, ["packages/hlc.zip"]);
+  assert.match(res.redirectTo, /packages\/hlc\.zip\?n=1$/);
+});
+
+test("download: blob signing failure -> 503 and the one-time link is given back", async () => {
+  const env = { ...ENV, PRODUCTION_PACKAGE_URL: "blob:packages/hlc.zip" };
+  let fails = true;
+  const presign = async () => { if (fails) throw new Error("no token"); return "https://ok.example/x"; };
+  const handler = createDownloadHandler({ env, store: memoryStore(), now: () => 1_800_000_000, presign });
+  const t = tok();
+  let res = new FakeRes();
+  await handler(post(t), res);
+  assert.equal(res.statusCode, 503);
+  fails = false;
+  res = new FakeRes();
+  await handler(post(t), res);
+  assert.equal(res.statusCode, 302);
+});
