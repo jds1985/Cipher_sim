@@ -6,8 +6,8 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "dev": "cross-env HOST=0.0.0.0 next dev",
-    "build": "next build",
+    "dev": "node scripts/fonts.mjs && cross-env HOST=0.0.0.0 next dev",
+    "build": "node scripts/fonts.mjs && next build",
     "start": "next start",
     "test": "node --test tests/*.test.mjs"
   },

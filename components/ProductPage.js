@@ -2,13 +2,13 @@
 // Reusable product page layout. Every product on the homepage gets its own page built from this, the same way /hlc was.
 // Props: product (from lib/products.js); optional slots: `purchase` (a pricing / Stripe card) and `download` (a download card).
 import Head from "next/head";
-import { Space_Grotesk } from "next/font/google";
+import { spaceGrotesk } from "../lib/fonts/spaceGrotesk";
 import Logo from "./Logo";
 import ProductIcon, { ProductLogo } from "./ProductIcon";
 import { CONTACT, SITE, STATUS, products, productHref } from "../lib/products";
 import p from "../styles/Product.module.css";
 
-const font = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
+const font = spaceGrotesk;
 
 export default function ProductPage({ product, purchase = null, download = null }) {
   const status = STATUS[product.status];

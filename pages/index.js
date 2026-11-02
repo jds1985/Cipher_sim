@@ -1,12 +1,12 @@
 import Head from "next/head";
 import { useState } from "react";
-import { Space_Grotesk } from "next/font/google";
+import { spaceGrotesk } from "../lib/fonts/spaceGrotesk";
 import Logo from "../components/Logo";
 import ProductIcon from "../components/ProductIcon";
 import { products, productHref } from "../lib/products";
 import s from "../styles/Home.module.css";
 
-const font = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
+const font = spaceGrotesk;
 
 import { CONTACT, SITE } from "../lib/products";
 
