@@ -4,12 +4,12 @@ import fs from "fs";
 import path from "path";
 import Head from "next/head";
 import { useState } from "react";
-import { Space_Grotesk } from "next/font/google";
+import { spaceGrotesk } from "../../lib/fonts/spaceGrotesk";
 import Logo from "../../components/Logo";
 import s from "../../styles/Home.module.css";
 import h from "../../styles/Hlc.module.css";
 
-const font = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
+const font = spaceGrotesk;
 const SITE = "https://ciphercts.com";
 const EMAIL = "team@ciphercts.com";
 const links = [["Products", "/#products"], ["Technology", "/#technology"], ["Privacy", "/#privacy"], ["About", "/#about"]];
@@ -78,7 +78,7 @@ export default function HlcLicense({ title, version, blocks }) {
             <h1 className="hx-title" data-testid="license-title">{title}</h1>
             <p className="hx-lic-ver" data-testid="license-version">{version}</p>
             <p className="hx-lead">
-              This is the license for the free <strong>Evaluation &amp; Benchmarking Build (Personal &amp; Non-Commercial Use Only)</strong> of the HLC Edge Engine.
+              This is the license for the free <strong>Evaluation & Benchmarking Build (Personal & Non-Commercial Use Only)</strong> of the HLC Edge Engine.
               Production, industrial fleet, or revenue-generating use requires a paid commercial license.
             </p>
             <div className="hx-cta">
