@@ -18,3 +18,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+lib/fonts/SpaceGrotesk-latin.woff2
