@@ -2,7 +2,7 @@
 // Proprietary Evaluation License: see content/hlc/HLC_EVALUATION_LICENSE.txt
 import Head from "next/head";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Space_Grotesk } from "next/font/google";
+import { spaceGrotesk } from "../lib/fonts/spaceGrotesk";
 import Logo from "../components/Logo";
 import { ProductLogo } from "../components/ProductIcon";
 import Console from "../components/hlc/Console";
@@ -17,7 +17,7 @@ import { applyDropout, DEFAULT_DATASET, datasetForHealth, presetMatrix } from ".
 import s from "../styles/Home.module.css";
 import h from "../styles/Hlc.module.css";
 
-const font = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
+const font = spaceGrotesk;
 
 const SITE = "https://ciphercts.com";
 const POLL_MS = 10_000;
@@ -176,7 +176,7 @@ export default function HlcPage() {
               © 2026 Cipher CTS. All Rights Reserved.
             </p>
             <p data-testid="footer-terms">
-              The free download is an Evaluation &amp; Benchmarking Build (Personal &amp; Non-Commercial Use Only) under the{" "}
+              The free download is an Evaluation & Benchmarking Build (Personal & Non-Commercial Use Only) under the{" "}
               <Link href="/hlc/license" data-testid="footer-license-link">Cipher CTS Proprietary Evaluation License</Link>. Production, industrial fleet, or revenue-generating use requires a paid commercial license: <a href="mailto:team@ciphercts.com">team@ciphercts.com</a>.
               Paid licenses are sold under the <Link href="/hlc/commercial-terms" data-testid="footer-commercial-link">Cipher CTS Commercial License Terms</Link>.
               The NASA C-MAPSS data is not included and has its own terms and citation.
