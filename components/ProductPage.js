@@ -10,7 +10,7 @@ import p from "../styles/Product.module.css";
 
 const font = spaceGrotesk;
 
-export default function ProductPage({ product, purchase = null, download = null }) {
+export default function ProductPage({ product, purchase = null, download = null, pricing = null }) {
   const status = STATUS[product.status];
   const url = `${SITE}/${product.slug}`;
   const title = `${product.name} | Cipher CTS`;
@@ -102,6 +102,8 @@ export default function ProductPage({ product, purchase = null, download = null 
               <p>{product.statusNote}</p>
             </section>
           )}
+
+          {pricing}
 
           {purchase && <section className={p.slot} aria-label="Purchase" data-testid="slot-purchase">{purchase}</section>}
           {download && <section className={p.slot} aria-label="Download" data-testid="slot-download">{download}</section>}
