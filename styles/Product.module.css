@@ -79,3 +79,15 @@
 .retTitle { font-size: clamp(26px, 4vw, 34px); font-weight: 800; line-height: 1.2; }
 .retOk .retTitle { color: #4ade80; }
 .ret a { color: #fff !important; font-weight: 700; }
+
+/* Pricing section (Cipher Concierge). Large, high contrast. */
+.pricing { margin-top: 36px; background: #0c1019; border: 3px solid #7fe9ff; border-radius: 22px; padding: 26px 24px; }
+.pricing h2 { font-size: 30px; margin: 0 0 16px; line-height: 1.2; }
+.priceMain { margin: 0 0 6px; font-size: clamp(30px, 6vw, 40px); font-weight: 800; color: #fff; line-height: 1.2; }
+.priceSub { margin: 0 0 18px; font-size: 24px; font-weight: 700; color: #fff; }
+.priceList { margin: 0 0 20px; padding-left: 1.2em; font-size: 21px; color: #f4f7fb; }
+.priceList li { margin: 0 0 10px; }
+.founding { background: #1c1604; border: 3px solid #ffd54a; border-radius: 16px; padding: 20px 22px; margin: 0 0 22px; }
+.founding h3 { margin: 0 0 8px; font-size: 26px; color: #ffd54a; line-height: 1.25; }
+.founding p { margin: 0 0 8px; font-size: 21px; color: #fff; }
+.founding p:last-child { margin: 0; }
