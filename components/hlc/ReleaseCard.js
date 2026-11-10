@@ -17,13 +17,13 @@ export default function ReleaseCard() {
             <span aria-hidden="true">⬇</span> Download HLC Edge Engine v3 (.ZIP)
           </a>
           <p className="hx-meta" data-testid="release-meta">
-            Proprietary Evaluation License • Offline Python/FastAPI Runner • Mac, Linux, &amp; Edge ARM/x86 compatible.
+            Proprietary Evaluation License • Offline Python/FastAPI Runner • Runs on Linux with Python 3.9 or newer. Other systems are untested.
           </p>
           <p className="hx-file">
             {BUNDLE.fileName} · {BUNDLE.sizeHuman}
           </p>
           <p className="hx-file" data-testid="release-note">
-            Version 3.0. The weights are one training run on the 100 FD001 training engines (14.1 test RMSE; the 5-run mean is 13.6). The README in the zip has the method, per-run numbers and limits.
+            Version 3.0. The weights in this download are one training run: about 14.1 cycles test RMSE on NASA C-MAPSS FD001. The README in the zip has the method, per-run numbers and limits.
           </p>
           <details className="hx-verify" open>
             <summary>Verify your download (SHA-256)</summary>

@@ -16,7 +16,7 @@ const ONLINE = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 const FEATURES = [
   { text: "Production & revenue-generating use rights per licensed asset" },
   { text: "Commercial license agreement" },
-  { text: "Priority support" },
+  { text: "Email support on business days (best effort)." },
   { text: "Multi-asset dashboard license", soon: true },
   { text: "Custom sensor schema generator", soon: true },
 ];

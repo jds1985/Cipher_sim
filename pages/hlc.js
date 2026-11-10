@@ -150,7 +150,7 @@ export default function HlcPage() {
             <span className="hx-kicker">HLC · Cipher CTS</span>
             <h1 className="hx-title">HLC — Hierarchical Latent Controller: local predictive maintenance</h1>
             <p className="hx-lead">
-              Know how many operating cycles of life a machine has left. HLC runs on <strong>your own hardware</strong>: no cloud, no account, nothing leaves your machine.
+              Estimates remaining useful life, in operating cycles, on the kind of engine data it was trained on. HLC runs on <strong>your own hardware</strong>: no cloud, no account, nothing leaves your machine.
             </p>
             <div className="hx-cta">
               <a className="hx-btn hx-btn-primary" href="#demo">▶ Run the live demo</a>
