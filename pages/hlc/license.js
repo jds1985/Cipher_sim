@@ -14,7 +14,8 @@ const SITE = "https://ciphercts.com";
 const EMAIL = "team@ciphercts.com";
 const links = [["Products", "/#products"], ["Technology", "/#technology"], ["Privacy", "/#privacy"], ["About", "/#about"]];
 
-// The license text lives in one plain-text file (the same file ships in the zip as LICENSE).
+// The license text shown on this page lives in content/hlc/HLC_EVALUATION_LICENSE.txt.
+// The downloadable zip ships its own LICENSE. Do not rebuild the zip from this file.
 // One line = one paragraph. "N. Title" starts a section, "(a) ..." lines are list items.
 export async function getStaticProps() {
   const raw = fs.readFileSync(path.join(process.cwd(), "content", "hlc", "HLC_EVALUATION_LICENSE.txt"), "utf8");

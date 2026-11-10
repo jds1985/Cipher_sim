@@ -90,7 +90,7 @@ Features on the card marked **Coming soon** (multi-asset dashboard, custom senso
 
 ## Support commitment
 
-The card says "Priority support". The commercial terms promise best-effort support on business days and **no response-time number**. If you want to promise one (for example "reply within 2 business days"), add it to `content/hlc/HLC_COMMERCIAL_TERMS.txt` after a lawyer reviews it.
+The card says "Email support on business days (best effort)." That matches commercial terms section 7: best-effort email on business days, and **no response-time number**. If you want to promise one (for example "reply within 2 business days"), add it to `content/hlc/HLC_COMMERCIAL_TERMS.txt` after a lawyer reviews it.
 
 ## What the free build is (so the card stays honest)
 

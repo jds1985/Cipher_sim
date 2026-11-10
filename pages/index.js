@@ -110,7 +110,7 @@ export default function Home() {
           </section>
 
           <section className={`${s.section} ${s.stats}`} aria-label="Highlights">
-            {["Runs offline", "73 MB model", "Zero cloud retention"].map((t) => (
+            {["Runs offline", "73 MB Cipher model", "Zero cloud retention"].map((t) => (
               <div key={t} className={`${s.stat} ${s.glass}`}><span className="grad-text">{t}</span></div>
             ))}
           </section>
