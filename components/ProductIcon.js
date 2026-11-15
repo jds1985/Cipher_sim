@@ -2,7 +2,7 @@
 // Product icon family: "Hex Colony" logos. Source art: /workspace/brand/product_logos_colony/*_dark.jpg
 // Icon-only crops (wordmark removed, background made transparent) live in /public/logos.
 // Decorative only: always render the product name as text beside it.
-export const ICON_SLUGS = ["cipher", "cipher-bot", "cipher-studio", "cipher-concierge", "hlc"];
+export const ICON_SLUGS = ["cipher", "cipher-bot", "cipher-studio", "cipher-concierge", "cipher-dispatch", "hlc"];
 
 export default function ProductIcon({ slug, size = 40, className = "" }) {
   if (!ICON_SLUGS.includes(slug)) return null;
