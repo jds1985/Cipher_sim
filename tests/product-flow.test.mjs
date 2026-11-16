@@ -39,6 +39,7 @@ const ON = { HLC_PURCHASE_ENABLED: "true", CIPHER_PURCHASE_ENABLED: "true", CIPH
 test("registry: sellable products are HLC + the three downloadable ones; Concierge (a hosted service) is not", () => {
   assert.deepEqual(purchaseProducts().map((x) => x.id), ["cipher", "cipher-bot", "cipher-studio", "hlc"]);
   assert.equal(purchaseOf("cipher-concierge"), null);
+  assert.equal(purchaseOf("cipher-dispatch"), null);
   assert.equal(purchaseOf("nope"), null);
   assert.equal(purchaseOf(undefined), null);
   assert.equal(products.filter((p) => p.sellable).length, 4);
@@ -127,7 +128,7 @@ test("checkout: every other product is closed by default (503, Stripe never call
 
 test("checkout: unknown product, Concierge and non-string product -> 400, Stripe never called", async () => {
   const { handler, created } = checkout({ ...ENV, ...ON });
-  for (const product of ["nope", "cipher-concierge", "HLC", "", 5, null, {}, ["cipher"]]) {
+  for (const product of ["nope", "cipher-concierge", "cipher-dispatch", "HLC", "", 5, null, {}, ["cipher"]]) {
     const res = await ask(handler, { product });
     assert.equal(res.statusCode, 400, JSON.stringify(product));
   }
@@ -280,7 +281,7 @@ test("webhook: HLC is unchanged: hlc-commercial session -> HLC email, token with
 
 test("webhook: unknown / missing product markers and Concierge are ignored", async () => {
   const { handler, sent } = hook();
-  for (const m of [{ product: "cipher-concierge" }, { product: "hlc" }, { product: "nope" }, {}]) {
+  for (const m of [{ product: "cipher-concierge" }, { product: "cipher-dispatch" }, { product: "hlc" }, { product: "nope" }, {}]) {
     const res = new FakeRes();
     await handler(signedReq(eventFor("checkout.session.completed", paid("x", { id: `cs_${JSON.stringify(m)}`, metadata: m }))), res);
     assert.equal(res.statusCode, 200);
@@ -401,7 +402,23 @@ test("pages: each sellable product page mounts the purchase card; Concierge and 
     assert.match(src, new RegExp(`purchase=\\{<ProductPurchase id="${id}" />\\}`), id);
   }
   assert.doesNotMatch(read("pages/cipher-concierge.js"), /ProductPurchase/);
+  assert.doesNotMatch(read("pages/cipher-dispatch.js"), /ProductPurchase/);
   assert.doesNotMatch(read("pages/hlc.js"), /ProductPurchase/);
+});
+
+test("pages: Cipher Dispatch is listed as Coming soon, is not sellable, and shows no price", () => {
+  const product = products.find((p) => p.slug === "cipher-dispatch");
+  assert.ok(product);
+  assert.equal(product.name, "Cipher Dispatch");
+  assert.equal(product.status, "soon");
+  assert.equal(product.cardTag, "Coming soon");
+  assert.equal(product.sellable, undefined);
+  assert.equal(purchaseOf("cipher-dispatch"), null);
+  assert.doesNotMatch(JSON.stringify(product), /\$\s?\d/);
+  const page = read("pages/cipher-dispatch.js");
+  assert.match(page, /getProduct\("cipher-dispatch"\)/);
+  assert.match(page, /Pricing coming soon/);
+  assert.doesNotMatch(page, /ProductPurchase|\/api\/checkout|\$\s?\d/);
 });
 
 test("card: literal NEXT_PUBLIC names for every product (so Next inlines them), default OFF, 'Opens soon', no price text of its own", () => {
